@@ -46,6 +46,73 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'last_login_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Check if user is an admin
+     *
+     * @return bool
+     */
+    public function isAdmin(): bool
+    {
+        return $this->user_role === 'admin';
+    }
+
+    /**
+     * Check if user is a regular user
+     *
+     * @return bool
+     */
+    public function isUser(): bool
+    {
+        return $this->user_role === 'user';
+    }
+
+    /**
+     * Get user role display name
+     *
+     * @return string
+     */
+    public function getRoleDisplayName(): string
+    {
+        return match($this->user_role) {
+            'admin' => 'Administrator',
+            'user' => 'User',
+            default => 'Unknown'
+        };
+    }
+
+    /**
+     * Scope to get only admin users
+     */
+    public function scopeAdmins($query)
+    {
+        return $query->where('user_role', 'admin');
+    }
+
+    /**
+     * Scope to get only regular users
+     */
+    public function scopeRegularUsers($query)
+    {
+        return $query->where('user_role', 'user');
+    }
+
+    /**
+     * Get formatted created at date
+     */
+    public function getFormattedCreatedAtAttribute(): string
+    {
+        return $this->created_at ? $this->created_at->format('M d, Y') : '';
+    }
+
+    /**
+     * Get formatted last login date
+     */
+    public function getFormattedLastLoginAttribute(): string
+    {
+        return $this->last_login_at ? $this->last_login_at->format('M d, Y g:i A') : 'Never';
     }
 }
