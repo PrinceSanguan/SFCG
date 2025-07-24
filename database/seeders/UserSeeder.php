@@ -14,7 +14,7 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
-        // Create additional sample users (different from AdminSeeder)
+        // Create additional sample users with explicit data (no faker)
         $additionalUsers = [
             [
                 'name' => 'Prof. Michael Thompson',
@@ -41,9 +41,84 @@ class UserSeeder extends Seeder
                 'email' => 'alex.johnson@school.edu',
                 'role' => 'user',
             ],
+            [
+                'name' => 'Jennifer Lee',
+                'email' => 'jennifer.lee@school.edu',
+                'role' => 'user',
+            ],
+            [
+                'name' => 'Robert Brown',
+                'email' => 'robert.brown@school.edu',
+                'role' => 'user',
+            ],
+            [
+                'name' => 'Amanda White',
+                'email' => 'amanda.white@school.edu',
+                'role' => 'user',
+            ],
+            [
+                'name' => 'Christopher Davis',
+                'email' => 'christopher.davis@school.edu',
+                'role' => 'user',
+            ],
+            [
+                'name' => 'Michelle Taylor',
+                'email' => 'michelle.taylor@school.edu',
+                'role' => 'user',
+            ],
+            [
+                'name' => 'James Wilson',
+                'email' => 'james.wilson@school.edu',
+                'role' => 'user',
+            ],
+            [
+                'name' => 'Patricia Moore',
+                'email' => 'patricia.moore@school.edu',
+                'role' => 'user',
+            ],
+            [
+                'name' => 'Daniel Clark',
+                'email' => 'daniel.clark@school.edu',
+                'role' => 'user',
+            ],
+            [
+                'name' => 'Barbara Lewis',
+                'email' => 'barbara.lewis@school.edu',
+                'role' => 'user',
+            ],
+            [
+                'name' => 'Matthew Hall',
+                'email' => 'matthew.hall@school.edu',
+                'role' => 'user',
+            ],
+            [
+                'name' => 'Susan Allen',
+                'email' => 'susan.allen@school.edu',
+                'role' => 'user',
+            ],
+            [
+                'name' => 'Joseph Young',
+                'email' => 'joseph.young@school.edu',
+                'role' => 'user',
+            ],
+            [
+                'name' => 'Nancy King',
+                'email' => 'nancy.king@school.edu',
+                'role' => 'user',
+            ],
+            [
+                'name' => 'Anthony Wright',
+                'email' => 'anthony.wright@school.edu',
+                'role' => 'user',
+            ],
+            [
+                'name' => 'Helen Scott',
+                'email' => 'helen.scott@school.edu',
+                'role' => 'user',
+            ],
         ];
 
-        // Create the additional users using firstOrCreate to avoid duplicates
+        // Create all users using explicit data (no faker)
         foreach ($additionalUsers as $userData) {
             User::firstOrCreate(
                 ['email' => $userData['email']],
@@ -57,17 +132,7 @@ class UserSeeder extends Seeder
             );
         }
 
-        // Create random sample users (only if they don't exist)
-        $existingEmails = User::pluck('email')->toArray();
-        $usersToCreate = max(0, 25 - count($existingEmails)); // Ensure we have at least 25 total users
-
-        if ($usersToCreate > 0) {
-            User::factory($usersToCreate)->create([
-                'user_role' => 'user',
-                'email_verified_at' => now(),
-            ]);
-        }
-
         $this->command->info('Additional sample users created successfully!');
+        $this->command->info('All users created with explicit data (no faker used)');
     }
 }

@@ -49,7 +49,7 @@ class AdminSeeder extends Seeder
             ]
         );
 
-        // Create sample faculty and staff users
+        // Create sample faculty and staff users with explicit data
         $sampleUsers = [
             [
                 'name' => 'Dr. Sarah Johnson',
