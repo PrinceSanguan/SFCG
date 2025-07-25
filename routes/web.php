@@ -133,3 +133,19 @@ Route::middleware([ClassAdviserMiddleware::class])->group(function () {
   // Dashboard
   Route::get('class-adviser/dashboard', [ClassAdviserController::class, 'index'])->name('class-adviser.dashboard');
 });
+
+/*
+|--------------------------------------------------------------------------
+| This controller handles All Parent Logic
+|--------------------------------------------------------------------------
+*/
+
+use App\Http\Controllers\ParentController;
+use App\Http\Middleware\ParentMiddleware;
+
+
+Route::middleware([ParentMiddleware::class])->group(function () {
+
+  // Dashboard
+  Route::get('parent/dashboard', [ParentController::class, 'index'])->name('parent.dashboard');
+});

@@ -47,6 +47,8 @@ class LoginController extends Controller
                 return redirect()->route('chairperson.dashboard');
             } elseif (Auth::user()->user_role === 'class_adviser') {
                 return redirect()->route('class-adviser.dashboard');
+            } elseif (Auth::user()->user_role === 'parent') {
+                return redirect()->route('parent.dashboard');
             }
         }
 
