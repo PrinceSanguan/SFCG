@@ -156,3 +156,67 @@ Route::middleware([ChairpersonMiddleware::class])->group(function () {
   // Dashboard
   Route::get('chairperson/dashboard', [ChairpersonController::class, 'index'])->name('chairperson.dashboard');
 });
+
+/*
+|--------------------------------------------------------------------------
+| This controller handles All Class Adviser Logic
+|--------------------------------------------------------------------------
+*/
+
+use App\Http\Controllers\ClassAdviserController;
+use App\Http\Middleware\ClassAdviserMiddleware;
+
+
+Route::middleware([ClassAdviserMiddleware::class])->group(function () {
+
+  // Dashboard
+  Route::get('class-adviser/dashboard', [ClassAdviserController::class, 'index'])->name('class-adviser.dashboard');
+});
+
+/*
+|--------------------------------------------------------------------------
+| This controller handles All Parent Logic
+|--------------------------------------------------------------------------
+*/
+
+use App\Http\Controllers\ParentController;
+use App\Http\Middleware\ParentMiddleware;
+
+
+Route::middleware([ParentMiddleware::class])->group(function () {
+
+  // Dashboard
+  Route::get('parent/dashboard', [ParentController::class, 'index'])->name('parent.dashboard');
+});
+
+/*
+|--------------------------------------------------------------------------
+| This controller handles All Principal Logic
+|--------------------------------------------------------------------------
+*/
+
+use App\Http\Controllers\PrincipalController;
+use App\Http\Middleware\PrincipalMiddleware;
+
+
+Route::middleware([PrincipalMiddleware::class])->group(function () {
+
+  // Dashboard
+  Route::get('principal/dashboard', [PrincipalController::class, 'index'])->name('principal.dashboard');
+});
+
+/*
+|--------------------------------------------------------------------------
+| This controller handles All Registrar Logic
+|--------------------------------------------------------------------------
+*/
+
+use App\Http\Controllers\RegistrarController;
+use App\Http\Middleware\RegistrarMiddleware;
+
+
+Route::middleware([RegistrarMiddleware::class])->group(function () {
+
+  // Dashboard
+  Route::get('registrar/dashboard', [RegistrarController::class, 'index'])->name('registrar.dashboard');
+});
