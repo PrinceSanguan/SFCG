@@ -100,3 +100,20 @@ Route::middleware([InstructorMiddleware::class])->group(function () {
   // Dashboard
   Route::get('instructor/dashboard', [InstructorController::class, 'index'])->name('instructor.dashboard');
 });
+
+
+/*
+|--------------------------------------------------------------------------
+| This controller handles All Chairperson Logic
+|--------------------------------------------------------------------------
+*/
+
+use App\Http\Controllers\ChairpersonController;
+use App\Http\Middleware\ChairpersonMiddleware;
+
+
+Route::middleware([ChairpersonMiddleware::class])->group(function () {
+
+  // Dashboard
+  Route::get('chairperson/dashboard', [ChairpersonController::class, 'index'])->name('chairperson.dashboard');
+});
