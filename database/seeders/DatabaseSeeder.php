@@ -11,10 +11,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Run admin seeder first to create admin users
-        $this->call(AdminSeeder::class);
-        
-        // Run user seeder for additional sample data
-        $this->call(UserSeeder::class);
+        // Run Account Seeder to create initial user accounts
+        $this->call(AccountSeeder::class);
     }
 }

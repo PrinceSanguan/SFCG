@@ -39,6 +39,10 @@ class LoginController extends Controller
             // Check user role and redirect accordingly
             if (Auth::user()->user_role === 'admin') {
                 return redirect()->route('admin.dashboard');
+            } elseif (Auth::user()->user_role === 'student') {
+                return redirect()->route('student.dashboard');
+            } elseif (Auth::user()->user_role === 'instructor') {
+                return redirect()->route('instructor.dashboard');
             } else {
                 return redirect()->route('user.dashboard');
             }

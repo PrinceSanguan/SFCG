@@ -72,21 +72,31 @@ Route::middleware([AdminMiddleware::class])->group(function () {
 
 /*
 |--------------------------------------------------------------------------
-| This controller handles All User Logic
+| This controller handles All Student Logic
 |--------------------------------------------------------------------------
 */
 
-use App\Http\Controllers\User\UserDashboardController;
-use App\Http\Controllers\User\UserSettingsController;
-use App\Http\Middleware\UserMiddleware;
 
-Route::middleware([UserMiddleware::class])->group(function () {
+use App\Http\Controllers\StudentController;
+use App\Http\Middleware\StudentMiddleware;
+
+Route::middleware([StudentMiddleware::class])->group(function () {
 
   // Dashboard
-  Route::get('dashboard', [UserDashboardController::class, 'index'])->name('user.dashboard');
+  Route::get('student/dashboard', [StudentController::class, 'index'])->name('student.dashboard');
+});
 
-  // Settings
-  Route::get('user/settings', [UserSettingsController::class, 'index'])->name('user.settings');
-  Route::put('user/settings/profile', [UserSettingsController::class, 'updateProfile'])->name('user.settings.updateProfile');
-  Route::put('user/settings/password', [UserSettingsController::class, 'updatePassword'])->name('user.settings.updatePassword');
+/*
+|--------------------------------------------------------------------------
+| This controller handles All Instructor Logic
+|--------------------------------------------------------------------------
+*/
+
+use App\Http\Controllers\InstructorController;
+use App\Http\Middleware\InstructorMiddleware;
+
+Route::middleware([InstructorMiddleware::class])->group(function () {
+
+  // Dashboard
+  Route::get('instructor/dashboard', [InstructorController::class, 'index'])->name('instructor.dashboard');
 });
