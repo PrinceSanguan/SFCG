@@ -117,3 +117,19 @@ Route::middleware([ChairpersonMiddleware::class])->group(function () {
   // Dashboard
   Route::get('chairperson/dashboard', [ChairpersonController::class, 'index'])->name('chairperson.dashboard');
 });
+
+/*
+|--------------------------------------------------------------------------
+| This controller handles All Class Adviser Logic
+|--------------------------------------------------------------------------
+*/
+
+use App\Http\Controllers\ClassAdviserController;
+use App\Http\Middleware\ClassAdviserMiddleware;
+
+
+Route::middleware([ClassAdviserMiddleware::class])->group(function () {
+
+  // Dashboard
+  Route::get('class-adviser/dashboard', [ClassAdviserController::class, 'index'])->name('class-adviser.dashboard');
+});
