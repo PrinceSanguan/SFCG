@@ -165,3 +165,19 @@ Route::middleware([PrincipalMiddleware::class])->group(function () {
   // Dashboard
   Route::get('principal/dashboard', [PrincipalController::class, 'index'])->name('principal.dashboard');
 });
+
+/*
+|--------------------------------------------------------------------------
+| This controller handles All Registrar Logic
+|--------------------------------------------------------------------------
+*/
+
+use App\Http\Controllers\RegistrarController;
+use App\Http\Middleware\RegistrarMiddleware;
+
+
+Route::middleware([RegistrarMiddleware::class])->group(function () {
+
+  // Dashboard
+  Route::get('registrar/dashboard', [RegistrarController::class, 'index'])->name('registrar.dashboard');
+});
