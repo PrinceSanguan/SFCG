@@ -149,3 +149,19 @@ Route::middleware([ParentMiddleware::class])->group(function () {
   // Dashboard
   Route::get('parent/dashboard', [ParentController::class, 'index'])->name('parent.dashboard');
 });
+
+/*
+|--------------------------------------------------------------------------
+| This controller handles All Principal Logic
+|--------------------------------------------------------------------------
+*/
+
+use App\Http\Controllers\PrincipalController;
+use App\Http\Middleware\PrincipalMiddleware;
+
+
+Route::middleware([PrincipalMiddleware::class])->group(function () {
+
+  // Dashboard
+  Route::get('principal/dashboard', [PrincipalController::class, 'index'])->name('principal.dashboard');
+});
