@@ -2,24 +2,36 @@ import Header from '@/pages/Admin/Header';
 import Sidebar from '@/pages/Admin/Sidebar';
 import React from 'react';
 
-const AdminDashboard: React.FC = () => {
-    // Mock data for the requested features
-    const stats = {
-        totalUsers: 1247,
-        activeStudents: 856,
-        instructors: 45,
-        subjects: 28,
-        pendingGrades: 23
-    };
+interface DashboardStats {
+    totalUsers: number;
+    activeStudents: number;
+    instructors: number;
+    subjects: number;
+    pendingGrades: number;
+}
 
-    const recentActivities = [
-        { id: 1, action: 'New student enrolled', user: 'John Doe', time: '2 hours ago', type: 'user' },
-        { id: 2, action: 'CSV upload completed', user: 'Admin', time: '4 hours ago', type: 'upload' },
-        { id: 3, action: 'Grade submitted', user: 'Prof. Smith', time: '6 hours ago', type: 'grade' },
-        { id: 4, action: 'Honor roll updated', user: 'Admin', time: '1 day ago', type: 'honor' },
-        { id: 5, action: 'Gmail notification sent', user: 'System', time: '2 days ago', type: 'notification' }
-    ];
+interface ActivityLog {
+    id: number;
+    action: string;
+    user: string;
+    time: string;
+    type: string;
+}
 
+interface DashboardData {
+    honorRollCount: number;
+    certificatesGenerated: number;
+    activePeriods: number;
+    pendingApprovals: number;
+}
+
+interface Props {
+    stats: DashboardStats;
+    recentActivities: ActivityLog[];
+    dashboardData: DashboardData;
+}
+
+const AdminDashboard: React.FC<Props> = ({ stats, recentActivities, dashboardData }) => {
     const quickActions = [
         { name: 'Upload CSV', icon: '📤', href: '/admin/users/upload', color: 'bg-blue-500' },
         { name: 'Send Gmail', icon: '📧', href: '/admin/notifications', color: 'bg-green-500' },
@@ -36,6 +48,10 @@ const AdminDashboard: React.FC = () => {
             case 'grade': return '📊';
             case 'honor': return '🏆';
             case 'notification': return '📧';
+            case 'academiclevel': return '🏫';
+            case 'academicstrand': return '🎯';
+            case 'subject': return '📚';
+            case 'academicperiod': return '📅';
             default: return '📋';
         }
     };
@@ -47,6 +63,10 @@ const AdminDashboard: React.FC = () => {
             case 'grade': return 'text-purple-600 bg-purple-50';
             case 'honor': return 'text-yellow-600 bg-yellow-50';
             case 'notification': return 'text-indigo-600 bg-indigo-50';
+            case 'academiclevel': return 'text-orange-600 bg-orange-50';
+            case 'academicstrand': return 'text-pink-600 bg-pink-50';
+            case 'subject': return 'text-teal-600 bg-teal-50';
+            case 'academicperiod': return 'text-cyan-600 bg-cyan-50';
             default: return 'text-gray-600 bg-gray-50';
         }
     };
@@ -136,6 +156,65 @@ const AdminDashboard: React.FC = () => {
                         </div>
                     </div>
 
+                    {/* Additional Statistics Row */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                            <div className="flex items-center">
+                                <div className="flex-shrink-0">
+                                    <div className="flex items-center justify-center w-8 h-8 bg-indigo-500 rounded-md">
+                                        <span className="text-white text-sm">🏆</span>
+                                    </div>
+                                </div>
+                                <div className="ml-4">
+                                    <dt className="text-sm font-medium text-gray-500">Honor Roll</dt>
+                                    <dd className="text-2xl font-bold text-gray-900">{dashboardData.honorRollCount}</dd>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                            <div className="flex items-center">
+                                <div className="flex-shrink-0">
+                                    <div className="flex items-center justify-center w-8 h-8 bg-teal-500 rounded-md">
+                                        <span className="text-white text-sm">📜</span>
+                                    </div>
+                                </div>
+                                <div className="ml-4">
+                                    <dt className="text-sm font-medium text-gray-500">Certificates</dt>
+                                    <dd className="text-2xl font-bold text-gray-900">{dashboardData.certificatesGenerated}</dd>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                            <div className="flex items-center">
+                                <div className="flex-shrink-0">
+                                    <div className="flex items-center justify-center w-8 h-8 bg-cyan-500 rounded-md">
+                                        <span className="text-white text-sm">📅</span>
+                                    </div>
+                                </div>
+                                <div className="ml-4">
+                                    <dt className="text-sm font-medium text-gray-500">Active Periods</dt>
+                                    <dd className="text-2xl font-bold text-gray-900">{dashboardData.activePeriods}</dd>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                            <div className="flex items-center">
+                                <div className="flex-shrink-0">
+                                    <div className="flex items-center justify-center w-8 h-8 bg-red-500 rounded-md">
+                                        <span className="text-white text-sm">⏳</span>
+                                    </div>
+                                </div>
+                                <div className="ml-4">
+                                    <dt className="text-sm font-medium text-gray-500">Pending Approvals</dt>
+                                    <dd className="text-2xl font-bold text-gray-900">{dashboardData.pendingApprovals}</dd>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Quick Actions */}
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                         <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
@@ -164,17 +243,21 @@ const AdminDashboard: React.FC = () => {
                                 <a href="/admin/system/logs" className="text-sm text-blue-600 hover:text-blue-800">View all logs</a>
                             </div>
                             <div className="space-y-3">
-                                {recentActivities.map((activity) => (
-                                    <div key={activity.id} className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50">
-                                        <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${getActivityColor(activity.type)}`}>
-                                            <span className="text-sm">{getActivityIcon(activity.type)}</span>
+                                {recentActivities.length === 0 ? (
+                                    <p className="text-gray-500 text-center py-4">No recent activities</p>
+                                ) : (
+                                    recentActivities.map((activity) => (
+                                        <div key={activity.id} className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50">
+                                            <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${getActivityColor(activity.type)}`}>
+                                                <span className="text-sm">{getActivityIcon(activity.type)}</span>
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-gray-900">{activity.action}</p>
+                                                <p className="text-sm text-gray-500">by {activity.user} • {activity.time}</p>
+                                            </div>
                                         </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-medium text-gray-900">{activity.action}</p>
-                                            <p className="text-sm text-gray-500">by {activity.user} • {activity.time}</p>
-                                        </div>
-                                    </div>
-                                ))}
+                                    ))
+                                )}
                             </div>
                         </div>
 
@@ -187,14 +270,14 @@ const AdminDashboard: React.FC = () => {
                                         <span className="text-xl mr-3">👥</span>
                                         <span className="text-sm font-medium text-gray-900">User Management</span>
                                     </div>
-                                    <a href="/admin/users" className="text-sm text-blue-600 hover:text-blue-800">Manage →</a>
+                                    <a href="/admin/users/students" className="text-sm text-blue-600 hover:text-blue-800">Manage →</a>
                                 </div>
                                 <div className="flex items-center justify-between p-3 rounded-lg border border-gray-100">
                                     <div className="flex items-center">
                                         <span className="text-xl mr-3">🏫</span>
                                         <span className="text-sm font-medium text-gray-900">Academic Setup</span>
                                     </div>
-                                    <a href="/admin/academic" className="text-sm text-blue-600 hover:text-blue-800">Configure →</a>
+                                    <a href="/admin/academic/levels" className="text-sm text-blue-600 hover:text-blue-800">Configure →</a>
                                 </div>
                                 <div className="flex items-center justify-between p-3 rounded-lg border border-gray-100">
                                     <div className="flex items-center">

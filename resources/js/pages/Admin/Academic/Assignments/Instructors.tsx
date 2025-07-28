@@ -3,6 +3,13 @@ import { router, useForm } from '@inertiajs/react';
 import Header from '@/pages/Admin/Header';
 import Sidebar from '@/pages/Admin/Sidebar';
 
+interface User {
+    id: number;
+    name: string;
+    email: string;
+    user_role: string;
+}
+
 interface AcademicLevel {
     id: number;
     name: string;
@@ -13,43 +20,61 @@ interface AcademicStrand {
     id: number;
     name: string;
     code: string;
-    description: string;
-    academic_level_id: number;
-    is_active: boolean;
-    created_at: string;
+}
+
+interface Subject {
+    id: number;
+    name: string;
+    code: string;
     academic_level: AcademicLevel;
-    subjects_count?: number;
+    academic_strand?: AcademicStrand;
+}
+
+interface AcademicPeriod {
+    id: number;
+    name: string;
+    school_year: string;
+}
+
+interface InstructorAssignment {
+    id: number;
+    instructor: User;
+    subject: Subject;
+    academic_period: AcademicPeriod;
+    section?: string;
+    created_at: string;
 }
 
 interface Props {
-    strands: AcademicStrand[];
-    levels: AcademicLevel[];
+    assignments: InstructorAssignment[];
+    instructors: User[];
+    subjects: Subject[];
+    periods: AcademicPeriod[];
 }
 
-const Strands: React.FC<Props> = ({ strands, levels }) => {
+const Instructors: React.FC<Props> = ({ assignments, instructors, subjects, periods }) => {
     const [showCreateModal, setShowCreateModal] = useState(false);
-    const [editingStrand, setEditingStrand] = useState<AcademicStrand | null>(null);
+    const [editingAssignment, setEditingAssignment] = useState<InstructorAssignment | null>(null);
 
     const { data, setData, post, put, processing, errors, reset } = useForm({
-        name: '',
-        code: '',
-        description: '',
-        academic_level_id: '',
-        is_active: true as boolean,
+        instructor_id: '',
+        subject_id: '',
+        academic_period_id: '',
+        section: '',
     });
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         
-        if (editingStrand) {
-            put(`/admin/academic/strands/${editingStrand.id}`, {
+        if (editingAssignment) {
+            put(`/admin/assignments/instructors/${editingAssignment.id}`, {
                 onSuccess: () => {
-                    setEditingStrand(null);
+                    setEditingAssignment(null);
                     reset();
                 }
             });
         } else {
-            post('/admin/academic/strands', {
+            post('/admin/assignments/instructors', {
                 onSuccess: () => {
                     setShowCreateModal(false);
                     reset();
@@ -58,24 +83,23 @@ const Strands: React.FC<Props> = ({ strands, levels }) => {
         }
     };
 
-    const handleEdit = (strand: AcademicStrand) => {
-        setData('name', strand.name);
-        setData('code', strand.code);
-        setData('description', strand.description);
-        setData('academic_level_id', strand.academic_level_id.toString());
-        setData('is_active', strand.is_active);
-        setEditingStrand(strand);
+    const handleEdit = (assignment: InstructorAssignment) => {
+        setData('instructor_id', assignment.instructor.id.toString());
+        setData('subject_id', assignment.subject.id.toString());
+        setData('academic_period_id', assignment.academic_period.id.toString());
+        setData('section', assignment.section || '');
+        setEditingAssignment(assignment);
     };
 
-    const handleDelete = (strand: AcademicStrand) => {
-        if (confirm(`Are you sure you want to delete ${strand.name}? This action cannot be undone.`)) {
-            router.delete(`/admin/academic/strands/${strand.id}`);
+    const handleDelete = (assignment: InstructorAssignment) => {
+        if (confirm(`Are you sure you want to delete this assignment? This action cannot be undone.`)) {
+            router.delete(`/admin/assignments/instructors/${assignment.id}`);
         }
     };
 
     const closeModal = () => {
         setShowCreateModal(false);
-        setEditingStrand(null);
+        setEditingAssignment(null);
         reset();
     };
 
@@ -86,8 +110,8 @@ const Strands: React.FC<Props> = ({ strands, levels }) => {
                 <Header />
                 <main className="flex-1 p-6">
                     <div className="mb-8">
-                        <h1 className="text-2xl font-bold text-gray-900">Academic Strands</h1>
-                        <p className="text-gray-600">Configure academic strands and specializations</p>
+                        <h1 className="text-2xl font-bold text-gray-900">Instructor Assignments</h1>
+                        <p className="text-gray-600">Assign instructors to subjects for specific periods</p>
                     </div>
 
                     {/* Create Button */}
@@ -97,74 +121,67 @@ const Strands: React.FC<Props> = ({ strands, levels }) => {
                             className="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700 focus:bg-blue-700 active:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150"
                         >
                             <span className="mr-2">➕</span>
-                            Add Academic Strand
+                            Assign Instructor
                         </button>
                     </div>
 
-                    {/* Strands List */}
+                    {/* Assignments List */}
                     <div className="bg-white shadow-sm rounded-lg border border-gray-200">
                         <div className="px-6 py-4 border-b border-gray-200">
-                            <h2 className="text-lg font-semibold text-gray-900">Academic Strands List</h2>
+                            <h2 className="text-lg font-semibold text-gray-900">Instructor Assignments</h2>
                         </div>
                         
-                        {strands.length === 0 ? (
+                        {assignments.length === 0 ? (
                             <div className="p-6 text-center text-gray-500">
-                                No academic strands found. Create your first academic strand to get started.
+                                No instructor assignments found. Create your first assignment to get started.
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="min-w-full divide-y divide-gray-200">
                                     <thead className="bg-gray-50">
                                         <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Strand</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Academic Level</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subjects</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Instructor</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level/Strand</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Period</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Section</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
-                                        {strands.map((strand) => (
-                                            <tr key={strand.id} className="hover:bg-gray-50">
+                                        {assignments.map((assignment) => (
+                                            <tr key={assignment.id} className="hover:bg-gray-50">
                                                 <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="text-sm font-medium text-gray-900">{strand.name}</div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                        {strand.code}
-                                                    </span>
+                                                    <div className="text-sm font-medium text-gray-900">{assignment.instructor.name}</div>
+                                                    <div className="text-sm text-gray-500">{assignment.instructor.email}</div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="text-sm text-gray-900">{strand.academic_level.name}</div>
-                                                    <div className="text-xs text-gray-500">{strand.academic_level.code}</div>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="text-sm text-gray-900">{strand.description || 'No description'}</div>
+                                                    <div className="text-sm font-medium text-gray-900">{assignment.subject.name}</div>
+                                                    <div className="text-sm text-gray-500">{assignment.subject.code}</div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
-                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                                        strand.is_active 
-                                                            ? 'bg-green-100 text-green-800' 
-                                                            : 'bg-red-100 text-red-800'
-                                                    }`}>
-                                                        {strand.is_active ? 'Active' : 'Inactive'}
-                                                    </span>
+                                                    <div className="text-sm text-gray-900">{assignment.subject.academic_level.name}</div>
+                                                    {assignment.subject.academic_strand && (
+                                                        <div className="text-sm text-gray-500">{assignment.subject.academic_strand.name}</div>
+                                                    )}
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                    {strand.subjects_count || 0} subjects
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="text-sm text-gray-900">{assignment.academic_period.name}</div>
+                                                    <div className="text-sm text-gray-500">{assignment.academic_period.school_year}</div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="text-sm text-gray-900">{assignment.section || 'All Sections'}</div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                     <div className="flex space-x-2">
                                                         <button
-                                                            onClick={() => handleEdit(strand)}
+                                                            onClick={() => handleEdit(assignment)}
                                                             className="text-indigo-600 hover:text-indigo-900"
                                                         >
                                                             Edit
                                                         </button>
                                                         <button
-                                                            onClick={() => handleDelete(strand)}
+                                                            onClick={() => handleDelete(assignment)}
                                                             className="text-red-600 hover:text-red-900"
                                                         >
                                                             Delete
@@ -180,94 +197,90 @@ const Strands: React.FC<Props> = ({ strands, levels }) => {
                     </div>
 
                     {/* Create/Edit Modal */}
-                    {(showCreateModal || editingStrand) && (
+                    {(showCreateModal || editingAssignment) && (
                         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
                             <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
                                 <div className="mt-3">
                                     <h3 className="text-lg font-medium text-gray-900 mb-4">
-                                        {editingStrand ? 'Edit Academic Strand' : 'Create Academic Strand'}
+                                        {editingAssignment ? 'Edit Assignment' : 'Create Assignment'}
                                     </h3>
                                     
                                     <form onSubmit={handleSubmit} className="space-y-4">
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Academic Level
+                                                Instructor
                                             </label>
                                             <select
-                                                value={data.academic_level_id}
-                                                onChange={(e) => setData('academic_level_id', e.target.value)}
+                                                value={data.instructor_id}
+                                                onChange={(e) => setData('instructor_id', e.target.value)}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                                 required
                                             >
-                                                <option value="">Select Academic Level</option>
-                                                {levels.map((level) => (
-                                                    <option key={level.id} value={level.id}>
-                                                        {level.name} ({level.code})
+                                                <option value="">Select Instructor</option>
+                                                {instructors.map((instructor) => (
+                                                    <option key={instructor.id} value={instructor.id}>
+                                                        {instructor.name} ({instructor.user_role})
                                                     </option>
                                                 ))}
                                             </select>
-                                            {errors.academic_level_id && <p className="text-red-500 text-xs mt-1">{errors.academic_level_id}</p>}
+                                            {errors.instructor_id && <p className="text-red-500 text-xs mt-1">{errors.instructor_id}</p>}
                                         </div>
 
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Strand Name
+                                                Subject
+                                            </label>
+                                            <select
+                                                value={data.subject_id}
+                                                onChange={(e) => setData('subject_id', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                required
+                                            >
+                                                <option value="">Select Subject</option>
+                                                {subjects.map((subject) => (
+                                                    <option key={subject.id} value={subject.id}>
+                                                        {subject.name} ({subject.code}) - {subject.academic_level.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            {errors.subject_id && <p className="text-red-500 text-xs mt-1">{errors.subject_id}</p>}
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Academic Period
+                                            </label>
+                                            <select
+                                                value={data.academic_period_id}
+                                                onChange={(e) => setData('academic_period_id', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                required
+                                            >
+                                                <option value="">Select Period</option>
+                                                {periods.map((period) => (
+                                                    <option key={period.id} value={period.id}>
+                                                        {period.name} ({period.school_year})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            {errors.academic_period_id && <p className="text-red-500 text-xs mt-1">{errors.academic_period_id}</p>}
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Section (Optional)
                                             </label>
                                             <input
                                                 type="text"
-                                                value={data.name}
-                                                onChange={(e) => setData('name', e.target.value)}
+                                                value={data.section}
+                                                onChange={(e) => setData('section', e.target.value)}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                placeholder="e.g., Science, Technology, Engineering and Mathematics"
-                                                required
+                                                placeholder="e.g., A, B, 1, 2"
+                                                maxLength={50}
                                             />
-                                            {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+                                            {errors.section && <p className="text-red-500 text-xs mt-1">{errors.section}</p>}
+                                            <p className="text-xs text-gray-500 mt-1">Leave empty if instructor handles all sections</p>
                                         </div>
-
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Code
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={data.code}
-                                                onChange={(e) => setData('code', e.target.value.toUpperCase())}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                placeholder="e.g., STEM, HUMSS, ABM"
-                                                maxLength={10}
-                                                required
-                                            />
-                                            {errors.code && <p className="text-red-500 text-xs mt-1">{errors.code}</p>}
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Description
-                                            </label>
-                                            <textarea
-                                                value={data.description}
-                                                onChange={(e) => setData('description', e.target.value)}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                rows={3}
-                                                placeholder="Brief description of this academic strand"
-                                            />
-                                            {errors.description && <p className="text-red-500 text-xs mt-1">{errors.description}</p>}
-                                        </div>
-
-                                        {editingStrand && (
-                                            <div className="flex items-center">
-                                                <input
-                                                    type="checkbox"
-                                                    id="is_active"
-                                                    checked={data.is_active}
-                                                    onChange={(e) => setData('is_active', e.target.checked)}
-                                                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                                />
-                                                <label htmlFor="is_active" className="ml-2 block text-sm text-gray-900">
-                                                    Active
-                                                </label>
-                                            </div>
-                                        )}
 
                                         <div className="flex justify-end space-x-3 pt-4">
                                             <button
@@ -282,7 +295,7 @@ const Strands: React.FC<Props> = ({ strands, levels }) => {
                                                 disabled={processing}
                                                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
                                             >
-                                                {processing ? 'Saving...' : (editingStrand ? 'Update' : 'Create')}
+                                                {processing ? 'Saving...' : (editingAssignment ? 'Update' : 'Assign')}
                                             </button>
                                         </div>
                                     </form>
@@ -296,4 +309,4 @@ const Strands: React.FC<Props> = ({ strands, levels }) => {
     );
 };
 
-export default Strands; 
+export default Instructors; 
