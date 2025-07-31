@@ -14,6 +14,8 @@ class Grade extends Model
         'subject_id',
         'instructor_id',
         'academic_period_id',
+        'section',
+        'quarterly_grades',
         'prelim_grade',
         'midterm_grade',
         'final_grade',
@@ -27,6 +29,7 @@ class Grade extends Model
     ];
 
     protected $casts = [
+        'quarterly_grades' => 'array',
         'prelim_grade' => 'decimal:2',
         'midterm_grade' => 'decimal:2',
         'final_grade' => 'decimal:2',

@@ -49,8 +49,9 @@ const Sidebar: React.FC = () => {
                 { title: 'Academic Levels', href: '/admin/academic/levels', icon: '📊' },
                 { title: 'Academic Periods', href: '/admin/academic/periods', icon: '📅' },
                 { title: 'Academic Strands', href: '/admin/academic/strands', icon: '🎯' },
-                { title: 'College Courses', href: '/admin/academic/college-courses', icon: '🎓' },
-                { title: 'Subjects', href: '/admin/academic/subjects', icon: '📚' }
+                { title: 'Course Programs', href: '/admin/academic/college-courses', icon: '🎓' },
+                { title: 'Higher Education Subjects', href: '/admin/academic/college-subjects', icon: '📖' },
+                { title: 'All Subjects', href: '/admin/academic/subjects', icon: '📚' }
             ]
         },
         {
@@ -105,7 +106,7 @@ const Sidebar: React.FC = () => {
     ];
 
     return (
-        <aside className="w-64 bg-white shadow-sm border-r border-gray-200 min-h-screen">
+        <aside className="w-64 bg-white shadow-sm border-r border-gray-200 min-h-screen z-40 flex-shrink-0">
             <div className="flex items-center justify-center h-16 border-b border-gray-200">
                 <div className="flex items-center space-x-3">
                     <div className="flex items-center justify-center w-8 h-8 bg-blue-600 text-white rounded-lg font-bold text-sm">

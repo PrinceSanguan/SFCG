@@ -20,12 +20,20 @@ class GeneratedCertificate extends Model
         'generated_by',
         'generated_at',
         'is_digitally_signed',
+        'printed_at',
+        'print_count',
+        'issued_at',
+        'issued_to',
+        'issued_by',
     ];
 
     protected $casts = [
         'certificate_data' => 'array',
         'generated_at' => 'datetime',
+        'printed_at' => 'datetime',
+        'issued_at' => 'datetime',
         'is_digitally_signed' => 'boolean',
+        'print_count' => 'integer',
     ];
 
     // Relationships

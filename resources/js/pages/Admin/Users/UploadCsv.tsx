@@ -103,7 +103,7 @@ const UploadCsv: React.FC = () => {
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         {/* Upload Form */}
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                             <h2 className="text-lg font-semibold text-gray-900 mb-4">Upload CSV File</h2>
                             
                             <form onSubmit={handleSubmit} className="space-y-6">
@@ -213,8 +213,8 @@ const UploadCsv: React.FC = () => {
                                         className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         {processing ? 'Uploading...' : 'Upload CSV'}
-                                    </button>
-                                </div>
+                                </button>
+                            </div>
                             </form>
                         </div>
 
@@ -236,7 +236,7 @@ const UploadCsv: React.FC = () => {
 
                                     <div className="space-y-2">
                                         <h4 className="font-medium text-gray-900">Field Descriptions:</h4>
-                                        <ul className="text-sm text-gray-600 space-y-1">
+                            <ul className="text-sm text-gray-600 space-y-1">
                                             <li><strong>name:</strong> Full name of the user</li>
                                             <li><strong>email:</strong> Unique email address</li>
                                             <li><strong>password:</strong> Password (optional, defaults to 'password123')</li>
@@ -297,7 +297,7 @@ const UploadCsv: React.FC = () => {
                                     <li>• For students, profiles will be automatically created</li>
                                     <li>• <strong>K-12 Students:</strong> Use academic_level and academic_strand fields, leave college_course empty</li>
                                     <li>• <strong>College Students:</strong> Use college_course field, academic_level and academic_strand will be ignored</li>
-                                </ul>
+                            </ul>
                             </div>
                         </div>
                     </div>

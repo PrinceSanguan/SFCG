@@ -1,0 +1,552 @@
+import React, { useState } from 'react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
+import Header from '@/pages/Admin/Header';
+import Sidebar from '@/pages/Admin/Sidebar';
+
+interface CertificateTemplate {
+    id: number;
+    name: string;
+    type: string;
+    template_content: string;
+    variables?: string;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
+}
+
+interface Props {
+    templates: {
+        data: CertificateTemplate[];
+        current_page: number;
+        last_page: number;
+        per_page: number;
+        total: number;
+    };
+}
+
+const TemplatesIndex: React.FC<Props> = ({ templates }) => {
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [editingTemplate, setEditingTemplate] = useState<CertificateTemplate | null>(null);
+    const [previewData, setPreviewData] = useState<{ template: CertificateTemplate; preview: string } | null>(null);
+    const [filterType, setFilterType] = useState<string>('');
+    const [searchTerm, setSearchTerm] = useState<string>('');
+
+    const { data, setData, post, put, processing, errors, reset } = useForm({
+        name: '',
+        type: 'honor_roll',
+        template_content: '',
+        variables: '',
+        is_active: true as boolean,
+    });
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        
+        if (editingTemplate) {
+            put(`/admin/certificates/templates/${editingTemplate.id}`, {
+                onSuccess: () => {
+                    setEditingTemplate(null);
+                    setShowCreateModal(false);
+                    reset();
+                }
+            });
+        } else {
+            post('/admin/certificates/templates', {
+                onSuccess: () => {
+                    setShowCreateModal(false);
+                    reset();
+                }
+            });
+        }
+    };
+
+    const handleEdit = (template: CertificateTemplate) => {
+        setData('name', template.name);
+        setData('type', template.type);
+        setData('template_content', template.template_content);
+        setData('variables', template.variables || '');
+        setData('is_active', template.is_active);
+        setEditingTemplate(template);
+        setShowCreateModal(true);
+    };
+
+    const handleDelete = (template: CertificateTemplate) => {
+        if (confirm(`Are you sure you want to delete the template "${template.name}"? This action cannot be undone.`)) {
+            router.delete(`/admin/certificates/templates/${template.id}`);
+        }
+    };
+
+    const handleDuplicate = (template: CertificateTemplate) => {
+        setData('name', `${template.name} (Copy)`);
+        setData('type', template.type);
+        setData('template_content', template.template_content);
+        setData('variables', template.variables || '');
+        setData('is_active', template.is_active);
+        setEditingTemplate(null); // Clear editing state to create new
+        setShowCreateModal(true);
+    };
+
+    const handlePreview = (template: CertificateTemplate) => {
+        // Create sample data for preview
+        const sampleData = {
+            student_name: 'John Doe',
+            student_id: '2024-001',
+            honor_type: 'Magna Cum Laude',
+            gpa: '3.95',
+            academic_period: '2023-2024',
+            academic_level: 'Senior High School',
+            section: 'STEM-A',
+            date: new Date().toLocaleDateString(),
+        };
+        
+        // Replace variables in template content
+        let previewContent = template.template_content;
+        Object.entries(sampleData).forEach(([key, value]) => {
+            previewContent = previewContent.replace(new RegExp(`{{${key}}}`, 'g'), value);
+        });
+        
+        setPreviewData({ template, preview: previewContent });
+    };
+
+    const closeModal = () => {
+        setShowCreateModal(false);
+        setEditingTemplate(null);
+        setPreviewData(null);
+        reset();
+    };
+
+    const getTypeColor = (type: string) => {
+        switch (type) {
+            case 'honor_roll':
+                return 'bg-blue-100 text-blue-800';
+            case 'graduation':
+                return 'bg-green-100 text-green-800';
+            case 'achievement':
+                return 'bg-purple-100 text-purple-800';
+            default:
+                return 'bg-gray-100 text-gray-800';
+        }
+    };
+
+    const getTypeDisplayName = (type: string) => {
+        switch (type) {
+            case 'honor_roll':
+                return 'Honor Roll';
+            case 'graduation':
+                return 'Graduation';
+            case 'achievement':
+                return 'Achievement';
+            default:
+                return type;
+        }
+    };
+
+    return (
+        <>
+            <Head title="Certificate Templates" />
+            <div className="flex min-h-screen bg-gray-50">
+                <Sidebar />
+                <div className="flex flex-1 flex-col">
+                    <Header />
+                    <main className="flex-1 p-6">
+                        {/* Header */}
+                        <div className="mb-8">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h1 className="text-3xl font-bold text-gray-900">Certificate Templates</h1>
+                                    <p className="text-gray-600 mt-2">Manage certificate templates for different types of certificates</p>
+                                </div>
+                                <div className="flex items-center space-x-4">
+                                    <Link
+                                        href="/admin/certificates"
+                                        className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                    >
+                                        ← Back to Certificates
+                                    </Link>
+                                    <button
+                                        onClick={() => setShowCreateModal(true)}
+                                        className="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700 focus:bg-blue-700 active:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150"
+                                    >
+                                        <span className="mr-2">➕</span>
+                                        Add Template
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Statistics */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                                <div className="flex items-center">
+                                    <div className="flex-shrink-0">
+                                        <div className="flex items-center justify-center w-8 h-8 bg-blue-500 rounded-md">
+                                            <span className="text-white text-sm">📄</span>
+                                        </div>
+                                    </div>
+                                    <div className="ml-4">
+                                        <dt className="text-sm font-medium text-gray-500">Total Templates</dt>
+                                        <dd className="text-2xl font-bold text-gray-900">{templates.total}</dd>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                                <div className="flex items-center">
+                                    <div className="flex-shrink-0">
+                                        <div className="flex items-center justify-center w-8 h-8 bg-green-500 rounded-md">
+                                            <span className="text-white text-sm">🏆</span>
+                                        </div>
+                                    </div>
+                                    <div className="ml-4">
+                                        <dt className="text-sm font-medium text-gray-500">Honor Roll</dt>
+                                        <dd className="text-2xl font-bold text-gray-900">
+                                            {templates.data.filter(t => t.type === 'honor_roll').length}
+                                        </dd>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                                <div className="flex items-center">
+                                    <div className="flex-shrink-0">
+                                        <div className="flex items-center justify-center w-8 h-8 bg-purple-500 rounded-md">
+                                            <span className="text-white text-sm">🎓</span>
+                                        </div>
+                                    </div>
+                                    <div className="ml-4">
+                                        <dt className="text-sm font-medium text-gray-500">Graduation</dt>
+                                        <dd className="text-2xl font-bold text-gray-900">
+                                            {templates.data.filter(t => t.type === 'graduation').length}
+                                        </dd>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                                <div className="flex items-center">
+                                    <div className="flex-shrink-0">
+                                        <div className="flex items-center justify-center w-8 h-8 bg-yellow-500 rounded-md">
+                                            <span className="text-white text-sm">🏅</span>
+                                        </div>
+                                    </div>
+                                    <div className="ml-4">
+                                        <dt className="text-sm font-medium text-gray-500">Achievement</dt>
+                                        <dd className="text-2xl font-bold text-gray-900">
+                                            {templates.data.filter(t => t.type === 'achievement').length}
+                                        </dd>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Filters */}
+                        <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-6 mb-6">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Filters</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Search Templates
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        placeholder="Search by template name..."
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Filter by Type
+                                    </label>
+                                    <select
+                                        value={filterType}
+                                        onChange={(e) => setFilterType(e.target.value)}
+                                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                    >
+                                        <option value="">All Types</option>
+                                        <option value="honor_roll">Honor Roll</option>
+                                        <option value="graduation">Graduation</option>
+                                        <option value="achievement">Achievement</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Templates List */}
+                        <div className="bg-white shadow-sm rounded-lg border border-gray-200">
+                            <div className="px-6 py-4 border-b border-gray-200">
+                                <h2 className="text-lg font-semibold text-gray-900">Certificate Templates</h2>
+                            </div>
+                            
+                            {(() => {
+                                const filteredTemplates = templates.data.filter(template => {
+                                    const matchesSearch = !searchTerm || 
+                                        template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                        template.template_content.toLowerCase().includes(searchTerm.toLowerCase());
+                                    const matchesType = !filterType || template.type === filterType;
+                                    return matchesSearch && matchesType;
+                                });
+
+                                if (filteredTemplates.length === 0) {
+                                    return (
+                                        <div className="p-6 text-center text-gray-500">
+                                            <div className="text-lg">No templates match your filters</div>
+                                            <p className="text-gray-400 mt-2">Try adjusting your search or filter criteria</p>
+                                        </div>
+                                    );
+                                }
+
+                                return (
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-gray-50">
+                                            <tr>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Template</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Updated</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200">
+                                            {filteredTemplates.map((template) => (
+                                                <tr key={template.id} className="hover:bg-gray-50">
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <div className="text-sm font-medium text-gray-900">{template.name}</div>
+                                                        <div className="text-sm text-gray-500">
+                                                            {template.template_content.length > 100 
+                                                                ? template.template_content.substring(0, 100) + '...'
+                                                                : template.template_content
+                                                            }
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeColor(template.type)}`}>
+                                                            {getTypeDisplayName(template.type)}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                                            template.is_active 
+                                                                ? 'bg-green-100 text-green-800' 
+                                                                : 'bg-red-100 text-red-800'
+                                                        }`}>
+                                                            {template.is_active ? 'Active' : 'Inactive'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                        {new Date(template.updated_at).toLocaleDateString()}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                        <div className="flex space-x-2">
+                                                            <button
+                                                                onClick={() => handlePreview(template)}
+                                                                className="text-blue-600 hover:text-blue-900"
+                                                            >
+                                                                Preview
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleEdit(template)}
+                                                                className="text-indigo-600 hover:text-indigo-900"
+                                                            >
+                                                                Edit
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDuplicate(template)}
+                                                                className="text-green-600 hover:text-green-900"
+                                                            >
+                                                                Duplicate
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDelete(template)}
+                                                                className="text-red-600 hover:text-red-900"
+                                                            >
+                                                                Delete
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            );
+                        })()}
+                        </div>
+
+                        {/* Create/Edit Modal */}
+                        {showCreateModal && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                                <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                                        {editingTemplate ? 'Edit Certificate Template' : 'Create Certificate Template'}
+                                    </h3>
+                                    
+                                    <form onSubmit={handleSubmit} className="space-y-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Template Name
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={data.name}
+                                                    onChange={(e) => setData('name', e.target.value)}
+                                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                    placeholder="e.g., Honor Roll Certificate 2024"
+                                                    required
+                                                />
+                                                {errors.name && (
+                                                    <p className="text-red-600 text-sm mt-1">{errors.name}</p>
+                                                )}
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Certificate Type
+                                                </label>
+                                                <select
+                                                    value={data.type}
+                                                    onChange={(e) => setData('type', e.target.value)}
+                                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                    required
+                                                >
+                                                    <option value="honor_roll">Honor Roll</option>
+                                                    <option value="graduation">Graduation</option>
+                                                    <option value="achievement">Achievement</option>
+                                                </select>
+                                                {errors.type && (
+                                                    <p className="text-red-600 text-sm mt-1">{errors.type}</p>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Template Content (HTML)
+                                            </label>
+                                            <textarea
+                                                value={data.template_content}
+                                                onChange={(e) => setData('template_content', e.target.value)}
+                                                rows={12}
+                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 font-mono text-sm"
+                                                placeholder={`<div style='text-align: center; padding: 40px; font-family: Arial, sans-serif;'>
+    <h1>🏆 HONOR ROLL CERTIFICATE 🏆</h1>
+    <p>This is to certify that</p>
+    <h2>{{student_name}}</h2>
+    <p>Student ID: {{student_id}}</p>
+    <p>has achieved <strong>{{honor_type}}</strong> status</p>
+    <p>with a Grade Point Average of <strong>{{gpa}}</strong></p>
+    <p>for the Academic Year {{academic_period}}</p>
+    <p>Awarded on {{date}}</p>
+</div>`}
+                                                required
+                                            />
+                                            <div className="mt-2 p-3 bg-blue-50 rounded-md">
+                                                <p className="text-xs text-blue-800 font-medium mb-1">Available Variables:</p>
+                                                <div className="grid grid-cols-2 gap-1 text-xs text-blue-700">
+                                                    <span>• {'{{student_name}}'} - Student's full name</span>
+                                                    <span>• {'{{student_id}}'} - Student ID number</span>
+                                                    <span>• {'{{gpa}}'} - Grade Point Average</span>
+                                                    <span>• {'{{honor_type}}'} - Honor type (e.g., Magna Cum Laude)</span>
+                                                    <span>• {'{{academic_period}}'} - Academic year/period</span>
+                                                    <span>• {'{{academic_level}}'} - Academic level (e.g., Senior High School)</span>
+                                                    <span>• {'{{section}}'} - Student's section</span>
+                                                    <span>• {'{{date}}'} - Current date</span>
+                                                </div>
+                                            </div>
+                                            {errors.template_content && (
+                                                <p className="text-red-600 text-sm mt-1">{errors.template_content}</p>
+                                            )}
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Variables (JSON) <span className="text-gray-400">(Optional)</span>
+                                            </label>
+                                            <textarea
+                                                value={data.variables}
+                                                onChange={(e) => setData('variables', e.target.value)}
+                                                rows={3}
+                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 font-mono text-sm"
+                                                placeholder='{"custom_field": "value"}'
+                                            />
+                                            {errors.variables && (
+                                                <p className="text-red-600 text-sm mt-1">{errors.variables}</p>
+                                            )}
+                                        </div>
+
+                                        <div className="flex items-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={data.is_active}
+                                                onChange={(e) => setData('is_active', e.target.checked)}
+                                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                            />
+                                            <label className="ml-2 text-sm text-gray-700">Active</label>
+                                        </div>
+
+                                        <div className="flex justify-end space-x-3">
+                                            <button
+                                                type="button"
+                                                onClick={closeModal}
+                                                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                disabled={processing}
+                                                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                                            >
+                                                {processing ? 'Saving...' : (editingTemplate ? 'Update' : 'Create')}
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Preview Modal */}
+                        {previewData && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                                <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-lg font-semibold text-gray-900">
+                                            Template Preview: {previewData.template.name}
+                                        </h3>
+                                        <button
+                                            onClick={() => setPreviewData(null)}
+                                            className="text-gray-400 hover:text-gray-600"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                    
+                                    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                                        <div 
+                                            className="prose max-w-none"
+                                            dangerouslySetInnerHTML={{ __html: previewData.preview }}
+                                        />
+                                    </div>
+                                    
+                                    <div className="mt-4 flex justify-end">
+                                        <button
+                                            onClick={() => setPreviewData(null)}
+                                            className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                                        >
+                                            Close
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </main>
+                </div>
+            </div>
+        </>
+    );
+};
+
+export default TemplatesIndex; 

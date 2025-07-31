@@ -97,8 +97,8 @@ const CollegeCourses: React.FC<Props> = ({ courses, degreeTypes }) => {
                 <Header />
                 <main className="flex-1 p-6">
                     <div className="mb-8">
-                        <h1 className="text-2xl font-bold text-gray-900">College Courses</h1>
-                        <p className="text-gray-600">Manage college courses and degree programs</p>
+                        <h1 className="text-2xl font-bold text-gray-900">Course Programs</h1>
+                        <p className="text-gray-600">Manage course programs and degree offerings</p>
                     </div>
 
                     {/* Create Button */}

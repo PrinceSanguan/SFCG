@@ -14,6 +14,7 @@ class ActivityLog extends Model
         'user_id',
         'action',
         'model',
+        'model_type',
         'model_id',
         'old_values',
         'new_values',
@@ -41,15 +42,24 @@ class ActivityLog extends Model
         ?array $oldValues = null,
         ?array $newValues = null
     ): self {
+        // For system activities, create a system user if none exists
+        $userId = $user?->id;
+        if (!$userId && in_array($action, ['automated_backup_success', 'automated_backup_failed', 'created_backup', 'backup_failed'])) {
+            // Use the first admin user for system activities, or create a system record
+            $systemUser = User::where('user_role', 'admin')->first();
+            $userId = $systemUser?->id ?? 1; // Fallback to user ID 1
+        }
+
         return self::create([
-            'user_id' => $user?->id,
+            'user_id' => $userId,
             'action' => $action,
             'model' => $model,
-            'model_id' => $modelId,
+            'model_type' => strtolower($model), // Auto-populate model_type
+            'model_id' => $modelId ?? 0, // Default to 0 for system activities
             'old_values' => $oldValues,
             'new_values' => $newValues,
-            'ip_address' => request()->ip(),
-            'user_agent' => request()->userAgent(),
+            'ip_address' => request()->ip() ?? '127.0.0.1',
+            'user_agent' => request()->userAgent() ?? 'System',
         ]);
     }
 

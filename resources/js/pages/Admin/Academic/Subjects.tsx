@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { router, useForm } from '@inertiajs/react';
+import { Head, router, useForm } from '@inertiajs/react';
 import Header from '@/pages/Admin/Header';
 import Sidebar from '@/pages/Admin/Sidebar';
 
@@ -205,14 +205,16 @@ const Subjects: React.FC<Props> = ({ subjects, levels, strands, collegeCourses, 
     };
 
     return (
-        <div className="flex min-h-screen bg-gray-50">
-            <Sidebar />
-            <div className="flex flex-1 flex-col">
-                <Header />
-                <main className="flex-1 p-6">
+        <>
+            <Head title="All Subjects" />
+            <div className="flex min-h-screen bg-gray-50">
+                <Sidebar />
+                <div className="flex flex-1 flex-col min-w-0">
+                    <Header />
+                    <main className="flex-1 p-6 min-w-0">
                     <div className="mb-8">
-                        <h1 className="text-2xl font-bold text-gray-900">Subjects</h1>
-                        <p className="text-gray-600">Configure academic subjects for K-12 and college programs</p>
+                        <h1 className="text-2xl font-bold text-gray-900">All Subjects</h1>
+                        <p className="text-gray-600">Configure academic subjects for all educational programs</p>
                     </div>
 
                     {/* Create Button */}
@@ -245,7 +247,7 @@ const Subjects: React.FC<Props> = ({ subjects, levels, strands, collegeCourses, 
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Units</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level/Course</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Program/Level</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -266,7 +268,7 @@ const Subjects: React.FC<Props> = ({ subjects, levels, strands, collegeCourses, 
                                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                                                         subject.college_course_id ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'
                                                     }`}>
-                                                        {subject.college_course_id ? 'College' : 'K-12'}
+                                                        {subject.college_course_id ? 'Higher Education' : 'Basic Education'}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
@@ -328,8 +330,8 @@ const Subjects: React.FC<Props> = ({ subjects, levels, strands, collegeCourses, 
 
                     {/* Create/Edit Modal */}
                     {(showCreateModal || editingSubject) && (
-                        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-                            <div className="relative top-10 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
+                        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+                            <div className="relative mx-auto p-5 border w-96 shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
                                 <div className="mt-3">
                                     <h3 className="text-lg font-medium text-gray-900 mb-4">
                                         {editingSubject ? 'Edit Subject' : 'Create Subject'}
@@ -360,7 +362,7 @@ const Subjects: React.FC<Props> = ({ subjects, levels, strands, collegeCourses, 
                                                         onChange={(e) => handleSubjectTypeChange(e.target.value as 'k12' | 'college')}
                                                         className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                                                     />
-                                                    <span className="ml-2 text-sm text-gray-900">College</span>
+                                                    <span className="ml-2 text-sm text-gray-900">Higher Education</span>
                                                 </label>
                                             </div>
                                         </div>
@@ -410,12 +412,12 @@ const Subjects: React.FC<Props> = ({ subjects, levels, strands, collegeCourses, 
                                             </>
                                         )}
 
-                                        {/* College Fields */}
+                                        {/* Higher Education Fields */}
                                         {subjectType === 'college' && (
                                             <>
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                        College Course
+                                                        Course Program
                                                     </label>
                                                     <select
                                                         value={data.college_course_id}
@@ -423,7 +425,7 @@ const Subjects: React.FC<Props> = ({ subjects, levels, strands, collegeCourses, 
                                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                                         required
                                                     >
-                                                        <option value="">Select College Course</option>
+                                                        <option value="">Select Course Program</option>
                                                         {collegeCourses.map((course) => (
                                                             <option key={course.id} value={course.id}>
                                                                 {course.name} ({course.code})
@@ -576,6 +578,7 @@ const Subjects: React.FC<Props> = ({ subjects, levels, strands, collegeCourses, 
                 </main>
             </div>
         </div>
+        </>
     );
 };
 

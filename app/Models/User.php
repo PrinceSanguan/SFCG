@@ -238,7 +238,7 @@ class User extends Authenticatable
      */
     public function subjectAssignments(): HasMany
     {
-        return $this->hasMany(InstructorSubjectAssignment::class, 'instructor_id');
+        return $this->hasMany(InstructorSubjectAssignment::class, 'instructor_id')->where('is_active', true);
     }
 
     /**

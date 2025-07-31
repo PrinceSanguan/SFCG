@@ -17,11 +17,13 @@ class StudentHonor extends Model
         'is_approved',
         'approved_by',
         'approved_at',
+        'is_active',
     ];
 
     protected $casts = [
         'gpa' => 'decimal:2',
         'is_approved' => 'boolean',
+        'is_active' => 'boolean',
         'approved_at' => 'datetime',
     ];
 
@@ -39,6 +41,11 @@ class StudentHonor extends Model
     public function approvedBy()
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function honorCriterion()
+    {
+        return $this->belongsTo(HonorCriterion::class, 'honor_type', 'type');
     }
 
     // Scopes

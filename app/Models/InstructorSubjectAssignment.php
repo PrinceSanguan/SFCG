@@ -14,6 +14,11 @@ class InstructorSubjectAssignment extends Model
         'subject_id',
         'academic_period_id',
         'section',
+        'is_active',
+    ];
+
+    protected $casts = [
+        'is_active' => 'boolean',
     ];
 
     // Relationships
@@ -51,6 +56,11 @@ class InstructorSubjectAssignment extends Model
     public function scopeForSection($query, $section)
     {
         return $query->where('section', $section);
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
     }
 
     // Helper methods

@@ -121,6 +121,17 @@ class StudentProfile extends Model
     }
 
     // Helper methods
+    public function getFullNameAttribute(): string
+    {
+        $parts = array_filter([
+            $this->first_name,
+            $this->middle_name,
+            $this->last_name
+        ]);
+        
+        return implode(' ', $parts) ?: $this->user->name ?? '';
+    }
+
     public function getFullStudentIdAttribute(): string
     {
         return $this->student_id ?: 'STU-' . str_pad($this->user_id, 6, '0', STR_PAD_LEFT);

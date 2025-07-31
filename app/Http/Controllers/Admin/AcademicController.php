@@ -392,6 +392,128 @@ class AcademicController extends Controller
         return redirect()->back()->with('success', 'College course deleted successfully.');
     }
 
+    // ==================== COLLEGE SUBJECTS ====================
+    
+    public function collegeSubjects()
+    {
+        $subjects = Subject::with(['collegeCourse'])
+            ->whereNotNull('college_course_id')
+            ->orderBy('name')
+            ->get();
+
+        $collegeCourses = CollegeCourse::active()->orderBy('name')->get();
+        
+        return Inertia::render('Admin/Academic/CollegeSubjects', [
+            'subjects' => $subjects,
+            'collegeCourses' => $collegeCourses,
+        ]);
+    }
+
+    public function storeCollegeSubjects(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'code' => 'required|string|max:20|unique:subjects,code',
+            'description' => 'nullable|string',
+            'units' => 'required|integer|min:1|max:10',
+            'college_course_id' => 'required|exists:college_courses,id',
+            'year_level' => 'required|integer|min:1|max:6',
+            'semester' => 'required|in:1st,2nd,summer',
+            'is_active' => 'boolean',
+        ]);
+
+        $subject = Subject::create([
+            'name' => $request->name,
+            'code' => strtoupper($request->code),
+            'description' => $request->description,
+            'units' => $request->units,
+            'college_course_id' => $request->college_course_id,
+            'year_level' => $request->year_level,
+            'semester' => $request->semester,
+            'is_active' => $request->boolean('is_active', true),
+        ]);
+
+        ActivityLog::logActivity(
+            Auth::user(),
+            'created',
+            'Subject',
+            $subject->id,
+            null,
+            $subject->toArray()
+        );
+
+        return redirect()->back()->with('success', 'College subject created successfully.');
+    }
+
+    public function updateCollegeSubjects(Request $request, Subject $subject)
+    {
+        // Ensure this is a college subject
+        if (!$subject->isCollegeSubject()) {
+            return redirect()->back()->with('error', 'This subject is not a college subject.');
+        }
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'code' => 'required|string|max:20|unique:subjects,code,' . $subject->id,
+            'description' => 'nullable|string',
+            'units' => 'required|integer|min:1|max:10',
+            'college_course_id' => 'required|exists:college_courses,id',
+            'year_level' => 'required|integer|min:1|max:6',
+            'semester' => 'required|in:1st,2nd,summer',
+            'is_active' => 'boolean',
+        ]);
+
+        $oldValues = $subject->toArray();
+
+        $subject->update([
+            'name' => $request->name,
+            'code' => strtoupper($request->code),
+            'description' => $request->description,
+            'units' => $request->units,
+            'college_course_id' => $request->college_course_id,
+            'year_level' => $request->year_level,
+            'semester' => $request->semester,
+            'is_active' => $request->boolean('is_active', true),
+        ]);
+
+        ActivityLog::logActivity(
+            Auth::user(),
+            'updated',
+            'Subject',
+            $subject->id,
+            $oldValues,
+            $subject->toArray()
+        );
+
+        return redirect()->back()->with('success', 'College subject updated successfully.');
+    }
+
+    public function destroyCollegeSubjects(Subject $subject)
+    {
+        // Ensure this is a college subject
+        if (!$subject->isCollegeSubject()) {
+            return redirect()->back()->with('error', 'This subject is not a college subject.');
+        }
+
+        // Check if subject has associated data
+        if ($subject->grades()->count() > 0 || $subject->instructorAssignments()->count() > 0) {
+            return redirect()->back()->with('error', 'Cannot delete college subject with associated grades or instructor assignments.');
+        }
+
+        ActivityLog::logActivity(
+            Auth::user(),
+            'deleted',
+            'Subject',
+            $subject->id,
+            $subject->toArray(),
+            null
+        );
+
+        $subject->delete();
+
+        return redirect()->back()->with('success', 'College subject deleted successfully.');
+    }
+
     // ==================== SUBJECTS ====================
     
     public function subjects()
@@ -560,7 +682,7 @@ class AcademicController extends Controller
             'subject.academicStrand',
             'subject.collegeCourse',
             'academicPeriod'
-        ])->get();
+        ])->where('is_active', true)->get();
 
         $instructors = User::whereIn('user_role', ['instructor', 'teacher'])->get();
         $subjects = Subject::active()->with(['academicLevel', 'academicStrand', 'collegeCourse'])->get();
@@ -595,7 +717,7 @@ class AcademicController extends Controller
             return redirect()->back()->with('error', 'This assignment already exists.');
         }
 
-        $assignment = InstructorSubjectAssignment::create($request->all());
+        $assignment = InstructorSubjectAssignment::create(array_merge($request->all(), ['is_active' => true]));
 
         ActivityLog::logActivity(
             Auth::user(),
@@ -635,27 +757,38 @@ class AcademicController extends Controller
 
     public function destroyInstructorAssignments(InstructorSubjectAssignment $assignment)
     {
+        $oldValues = $assignment->toArray();
+        $assignment->update(['is_active' => false]);
+
         ActivityLog::logActivity(
             Auth::user(),
             'deleted',
             'InstructorSubjectAssignment',
             $assignment->id,
-            $assignment->toArray(),
-            null
+            $oldValues,
+            $assignment->toArray()
         );
 
-        $assignment->delete();
-
-        return redirect()->back()->with('success', 'Instructor assignment deleted successfully.');
+        return redirect()->back()->with('success', 'Instructor assignment deactivated successfully.');
     }
 
     // ==================== CLASS ADVISER ASSIGNMENTS ====================
     
     public function adviserAssignments()
     {
+        // Get advisers with their advised students (as User objects)
         $advisers = User::byRole('class_adviser')
-            ->with(['advisedStudents.academicLevel', 'advisedStudents.academicStrand', 'advisedStudents.collegeCourse'])
-            ->get();
+            ->with(['advisedStudents.user.studentProfile.academicLevel', 'advisedStudents.user.studentProfile.academicStrand', 'advisedStudents.user.studentProfile.collegeCourse'])
+            ->get()
+            ->map(function ($adviser) {
+                // Transform advisedStudents from StudentProfile to User objects
+                $adviser->advised_students = $adviser->advisedStudents->map(function ($studentProfile) {
+                    $user = $studentProfile->user;
+                    $user->student_profile = $studentProfile;
+                    return $user;
+                });
+                return $adviser;
+            });
 
         $students = User::students()
             ->with(['studentProfile.academicLevel', 'studentProfile.academicStrand', 'studentProfile.collegeCourse', 'studentProfile.classAdviser'])

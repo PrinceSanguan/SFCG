@@ -853,6 +853,143 @@ class UserController extends Controller
         return redirect()->back()->with('success', 'Parent deleted successfully.');
     }
 
+    // ==================== SEARCH FUNCTIONS ====================
+    
+    public function searchUsers(Request $request)
+    {
+        $query = $request->get('q', '');
+        $role = $request->get('role', '');
+        $limit = $request->get('limit', 10);
+
+        $users = User::query()
+            ->when($query, function ($q) use ($query) {
+                $q->where('name', 'like', "%{$query}%")
+                  ->orWhere('email', 'like', "%{$query}%");
+            })
+            ->when($role, function ($q) use ($role) {
+                $q->where('user_role', $role);
+            })
+            ->where('user_role', '!=', 'student') // Exclude students from general user search
+            ->where('user_role', '!=', 'parent')  // Exclude parents from general user search
+            ->with(['subjectAssignments.subject', 'subjectAssignments.academicPeriod'])
+            ->orderBy('name')
+            ->limit($limit)
+            ->get()
+            ->map(function ($user) {
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'user_role' => $user->user_role,
+                    'created_at' => $user->created_at,
+                    'subject_assignments' => $user->subjectAssignments ?? [],
+                ];
+            });
+
+        return response()->json([
+            'users' => $users,
+            'total' => $users->count(),
+        ]);
+    }
+
+    public function searchStudents(Request $request)
+    {
+        $query = $request->get('q', '');
+        $academicLevelId = $request->get('academic_level_id', '');
+        $enrollmentStatus = $request->get('enrollment_status', 'active');
+        $limit = $request->get('limit', 20);
+
+        $students = User::where('user_role', 'student')
+            ->when($query, function ($q) use ($query) {
+                $q->where('name', 'like', "%{$query}%")
+                  ->orWhere('email', 'like', "%{$query}%")
+                  ->orWhereHas('studentProfile', function ($sq) use ($query) {
+                      $sq->where('student_id', 'like', "%{$query}%")
+                        ->orWhere('first_name', 'like', "%{$query}%")
+                        ->orWhere('last_name', 'like', "%{$query}%");
+                  });
+            })
+            ->with(['studentProfile.academicLevel', 'studentProfile.academicStrand', 'studentProfile.collegeCourse'])
+            ->whereHas('studentProfile', function ($q) use ($academicLevelId, $enrollmentStatus) {
+                $q->where('enrollment_status', $enrollmentStatus);
+                if ($academicLevelId) {
+                    $q->where('academic_level_id', $academicLevelId);
+                }
+            })
+            ->orderBy('name')
+            ->limit($limit)
+            ->get()
+            ->map(function ($student) {
+                $profile = $student->studentProfile;
+                return [
+                    'id' => $student->id,
+                    'name' => $student->name,
+                    'email' => $student->email,
+                    'student_id' => $profile->student_id ?? '',
+                    'full_name' => $profile ? "{$profile->first_name} {$profile->middle_name} {$profile->last_name}" : $student->name,
+                    'grade_level' => $profile->grade_level ?? '',
+                    'section' => $profile->section ?? '',
+                    'academic_level' => $profile->academicLevel->name ?? '',
+                    'academic_strand' => $profile->academicStrand->name ?? '',
+                    'college_course' => $profile->collegeCourse->name ?? '',
+                    'enrollment_status' => $profile->enrollment_status ?? '',
+                    'created_at' => $student->created_at,
+                ];
+            });
+
+        return response()->json([
+            'students' => $students,
+            'total' => $students->count(),
+        ]);
+    }
+
+    public function searchParents(Request $request)
+    {
+        $query = $request->get('q', '');
+        $hasLinkedStudents = $request->get('has_linked_students', '');
+        $limit = $request->get('limit', 10);
+
+        $parents = User::where('user_role', 'parent')
+            ->when($query, function ($q) use ($query) {
+                $q->where('name', 'like', "%{$query}%")
+                  ->orWhere('email', 'like', "%{$query}%");
+            })
+            ->when($hasLinkedStudents !== '', function ($q) use ($hasLinkedStudents) {
+                if ($hasLinkedStudents === '1' || $hasLinkedStudents === 'true') {
+                    $q->whereHas('linkedStudents');
+                } else {
+                    $q->whereDoesntHave('linkedStudents');
+                }
+            })
+            ->with(['linkedStudents.studentProfile'])
+            ->orderBy('name')
+            ->limit($limit)
+            ->get()
+            ->map(function ($parent) {
+                return [
+                    'id' => $parent->id,
+                    'name' => $parent->name,
+                    'email' => $parent->email,
+                    'linked_students_count' => $parent->linkedStudents->count(),
+                    'linked_students' => $parent->linkedStudents->map(function ($student) {
+                        $profile = $student->studentProfile;
+                        return [
+                            'id' => $student->id,
+                            'name' => $student->name,
+                            'student_id' => $profile->student_id ?? '',
+                            'grade_level' => $profile->grade_level ?? '',
+                        ];
+                    }),
+                    'created_at' => $parent->created_at,
+                ];
+            });
+
+        return response()->json([
+            'parents' => $parents,
+            'total' => $parents->count(),
+        ]);
+    }
+
     // ==================== CSV UPLOAD ====================
     
     public function uploadCsv()
@@ -1002,5 +1139,89 @@ class UserController extends Controller
         }
 
         $profileData['college_course_id'] = null;
+    }
+
+    // 1.1.3.4. Change user password (Dedicated method)
+    public function changeUserPassword(Request $request, User $user)
+    {
+        $request->validate([
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        // Ensure user is not student or parent (use dedicated methods for those)
+        if (in_array($user->user_role, ['student', 'parent'])) {
+            return back()->withErrors(['error' => 'Use dedicated methods for student/parent passwords']);
+        }
+
+        $user->update([
+            'password' => Hash::make($request->password),
+        ]);
+
+        ActivityLog::logActivity(
+            Auth::user(),
+            'updated',
+            'User',
+            $user->id,
+            null,
+            ['action' => 'password_changed_by_admin']
+        );
+
+        return back()->with('success', 'Password updated successfully for ' . $user->name);
+    }
+
+    // 1.1.4.5. Change student password (Dedicated method)
+    public function changeStudentPassword(Request $request, User $student)
+    {
+        $request->validate([
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        // Ensure user is a student
+        if ($student->user_role !== 'student') {
+            return back()->withErrors(['error' => 'User is not a student']);
+        }
+
+        $student->update([
+            'password' => Hash::make($request->password),
+        ]);
+
+        ActivityLog::logActivity(
+            Auth::user(),
+            'updated',
+            'User',
+            $student->id,
+            null,
+            ['action' => 'student_password_changed_by_admin']
+        );
+
+        return back()->with('success', 'Password updated successfully for student ' . $student->name);
+    }
+
+    // 1.1.5.5. Change parent password (Dedicated method)
+    public function changeParentPassword(Request $request, User $parent)
+    {
+        $request->validate([
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        // Ensure user is a parent
+        if ($parent->user_role !== 'parent') {
+            return back()->withErrors(['error' => 'User is not a parent']);
+        }
+
+        $parent->update([
+            'password' => Hash::make($request->password),
+        ]);
+
+        ActivityLog::logActivity(
+            Auth::user(),
+            'updated',
+            'User',
+            $parent->id,
+            null,
+            ['action' => 'parent_password_changed_by_admin']
+        );
+
+        return back()->with('success', 'Password updated successfully for parent ' . $parent->name);
     }
 } 

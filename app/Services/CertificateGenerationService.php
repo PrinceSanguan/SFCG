@@ -13,6 +13,7 @@ use App\Mail\CertificateGeneratedEmail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Auth;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class CertificateGenerationService
@@ -373,7 +374,7 @@ class CertificateGenerationService
     /**
      * Get certificate statistics
      */
-    public function getCertificateStatistics(AcademicPeriod $period = null, $academicLevelId = null)
+    public function getCertificateStatistics(?AcademicPeriod $period = null, $academicLevelId = null)
     {
         $query = GeneratedCertificate::query();
 
@@ -396,6 +397,263 @@ class CertificateGenerationService
             'achievement_certificates' => $certificates->where('certificate_type', 'achievement')->count(),
             'digitally_signed' => $certificates->where('is_digitally_signed', true)->count(),
             'pending_signature' => $certificates->where('is_digitally_signed', false)->count(),
+        ];
+    }
+
+    /**
+     * Generate certificate for a student (general method)
+     */
+    public function generateCertificate(User $student, CertificateTemplate $template, string $certificateType, $academicPeriodId = null)
+    {
+        try {
+            // Find or create honor record if it's a honor certificate
+            if ($certificateType === 'honor_roll') {
+                $honor = StudentHonor::where('student_id', $student->id)
+                    ->where('academic_period_id', $academicPeriodId)
+                    ->where('is_approved', true)
+                    ->first();
+
+                if (!$honor) {
+                    throw new \Exception('No approved honor record found for this student and period');
+                }
+
+                return $this->generateHonorCertificate($honor, $template, Auth::user() ?? User::first());
+            }
+
+            // For non-honor certificates, prepare generic data
+            $certificateData = $this->prepareGenericCertificateData($student, $certificateType, $academicPeriodId);
+            
+            // Render template with data
+            $renderedContent = $template->renderTemplate($certificateData);
+            
+            // Generate PDF
+            $pdfPath = $this->generatePDF($renderedContent, $student, $certificateType);
+            
+            // Create certificate record
+            $certificate = GeneratedCertificate::create([
+                'student_id' => $student->id,
+                'certificate_template_id' => $template->id,
+                'academic_period_id' => $academicPeriodId,
+                'certificate_type' => $certificateType,
+                'certificate_data' => $certificateData,
+                'file_path' => $pdfPath,
+                'generated_by' => Auth::id() ?? 1,
+                'generated_at' => now(),
+                'is_digitally_signed' => false,
+            ]);
+
+            // Log activity
+            ActivityLog::logActivity(
+                Auth::user() ?? User::first(),
+                'created',
+                'GeneratedCertificate',
+                $certificate->id,
+                null,
+                $certificate->toArray()
+            );
+
+            // Send notification
+            $this->sendCertificateNotification($certificate);
+
+            return $certificate;
+
+        } catch (\Exception $e) {
+            Log::error('Certificate generation failed', [
+                'student_id' => $student->id,
+                'template_id' => $template->id,
+                'certificate_type' => $certificateType,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Generate preview HTML for template testing
+     */
+    public function generatePreview(User $student, CertificateTemplate $template)
+    {
+        // Use sample data for preview
+        $certificateData = $this->prepareSampleCertificateData($student, $template->type);
+        
+        // Render template with sample data
+        $renderedContent = $template->renderTemplate($certificateData);
+        
+        return $renderedContent;
+    }
+
+    /**
+     * Generate printable HTML for a certificate
+     */
+    public function generatePrintableHtml(GeneratedCertificate $certificate)
+    {
+        $template = $certificate->certificateTemplate;
+        $certificateData = $certificate->certificate_data;
+
+        // Add print-specific styling
+        $printableContent = $template->renderTemplate($certificateData);
+        
+        // Wrap with print-friendly CSS
+        $printableHtml = "
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Certificate - {$certificate->certificate_number}</title>
+            <style>
+                @media print {
+                    body { margin: 0; }
+                    @page { size: A4 landscape; margin: 0; }
+                }
+                body { 
+                    font-family: 'Times New Roman', serif; 
+                    margin: 0; 
+                    padding: 20px;
+                    background: white;
+                }
+                .certificate-container {
+                    width: 100%;
+                    height: 100vh;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .no-print {
+                    display: none !important;
+                }
+            </style>
+            <script>
+                window.onload = function() {
+                    window.print();
+                }
+            </script>
+        </head>
+        <body>
+            <div class='certificate-container'>
+                {$printableContent}
+            </div>
+        </body>
+        </html>";
+
+        return $printableHtml;
+    }
+
+    /**
+     * Generate bulk printable HTML for multiple certificates
+     */
+    public function generateBulkPrintableHtml($certificates)
+    {
+        $allContent = '';
+        
+        foreach ($certificates as $certificate) {
+            $template = $certificate->certificateTemplate;
+            $certificateData = $certificate->certificate_data;
+            $renderedContent = $template->renderTemplate($certificateData);
+            
+            $allContent .= "
+            <div class='certificate-page' style='page-break-after: always; width: 100%; height: 100vh; display: flex; align-items: center; justify-content: center;'>
+                {$renderedContent}
+            </div>";
+        }
+
+        // Wrap with print-friendly CSS
+        $bulkPrintHtml = "
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Bulk Certificates</title>
+            <style>
+                @media print {
+                    body { margin: 0; }
+                    @page { size: A4 landscape; margin: 0; }
+                    .certificate-page { page-break-after: always; }
+                }
+                body { 
+                    font-family: 'Times New Roman', serif; 
+                    margin: 0; 
+                    padding: 0;
+                    background: white;
+                }
+                .certificate-page:last-child {
+                    page-break-after: avoid;
+                }
+            </style>
+            <script>
+                window.onload = function() {
+                    window.print();
+                }
+            </script>
+        </head>
+        <body>
+            {$allContent}
+        </body>
+        </html>";
+
+        return $bulkPrintHtml;
+    }
+
+    /**
+     * Prepare generic certificate data for non-honor certificates
+     */
+    private function prepareGenericCertificateData(User $student, string $certificateType, $academicPeriodId = null)
+    {
+        $studentProfile = $student->studentProfile;
+        $period = $academicPeriodId ? AcademicPeriod::find($academicPeriodId) : null;
+
+        $data = [
+            'student_name' => $studentProfile ? $studentProfile->full_name : $student->name,
+            'student_id' => $studentProfile ? $studentProfile->student_id : $student->id,
+            'certificate_type' => $certificateType,
+            'date' => now()->format('F j, Y'),
+            'academic_level' => $studentProfile ? $studentProfile->academicLevel->name : '',
+            'section' => $studentProfile ? $studentProfile->section : '',
+            'certificate_number' => '', // Will be auto-generated
+            'generated_date' => now()->format('F j, Y'),
+        ];
+
+        if ($period) {
+            $data['school_year'] = $period->school_year;
+            $data['period_name'] = $period->name;
+        }
+
+        // Add specific data based on certificate type
+        switch ($certificateType) {
+            case 'graduation':
+                $data['graduation_date'] = now()->format('F j, Y');
+                $data['degree'] = $studentProfile ? $studentProfile->academicLevel->name : '';
+                break;
+            case 'achievement':
+                $data['achievement_title'] = 'Academic Excellence';
+                $data['achievement_description'] = 'For outstanding academic performance';
+                break;
+        }
+
+        return $data;
+    }
+
+    /**
+     * Prepare sample certificate data for previews
+     */
+    private function prepareSampleCertificateData(User $student, string $certificateType)
+    {
+        $studentProfile = $student->studentProfile;
+        
+        return [
+            'student_name' => $studentProfile ? $studentProfile->full_name : $student->name,
+            'student_id' => $studentProfile ? $studentProfile->student_id : 'STU-123456',
+            'honor_type' => 'High Honor',
+            'gpa' => '3.75',
+            'school_year' => '2023-2024',
+            'period_name' => 'First Semester',
+            'date' => now()->format('F j, Y'),
+            'academic_level' => $studentProfile ? $studentProfile->academicLevel->name : 'Grade 12',
+            'section' => $studentProfile ? $studentProfile->section : 'Section A',
+            'certificate_number' => 'CERT-PREVIEW-001',
+            'generated_date' => now()->format('F j, Y'),
+            'certificate_type' => $certificateType,
+            'graduation_date' => now()->format('F j, Y'),
+            'degree' => 'Senior High School',
+            'achievement_title' => 'Academic Excellence',
+            'achievement_description' => 'For outstanding academic performance',
         ];
     }
 } 
