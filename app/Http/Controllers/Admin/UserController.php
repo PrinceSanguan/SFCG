@@ -533,9 +533,12 @@ class UserController extends Controller
 
         if ($request->student_type === 'college') {
             $rules['college_course_id'] = 'required|exists:college_courses,id';
+            $rules['year_level'] = 'required|integer|min:1|max:10';
+            $rules['semester'] = 'required|in:1st,2nd,summer';
         } else {
             $rules['academic_level_id'] = 'required|exists:academic_levels,id';
             $rules['academic_strand_id'] = 'nullable|exists:academic_strands,id';
+            $rules['year_level'] = 'required|integer|min:1|max:12';
         }
 
         $request->validate($rules);
@@ -570,11 +573,15 @@ class UserController extends Controller
                 $profileData['college_course_id'] = $request->college_course_id;
                 $profileData['academic_level_id'] = $collegeLevel ? $collegeLevel->id : null;
                 $profileData['academic_strand_id'] = null; // College students don't have strands
+                $profileData['year_level'] = $request->year_level;
+                $profileData['semester'] = $request->semester;
             } else {
                 // For K-12 students: use academic level and strand, no college course
                 $profileData['academic_level_id'] = $request->academic_level_id;
                 $profileData['academic_strand_id'] = $request->academic_strand_id ?: null;
                 $profileData['college_course_id'] = null; // K-12 students don't have college courses
+                $profileData['year_level'] = $request->year_level;
+                $profileData['semester'] = null; // K-12 students don't have semesters
             }
 
             StudentProfile::create($profileData);
@@ -615,9 +622,12 @@ class UserController extends Controller
 
         if ($request->student_type === 'college') {
             $rules['college_course_id'] = 'required|exists:college_courses,id';
+            $rules['year_level'] = 'required|integer|min:1|max:10';
+            $rules['semester'] = 'required|in:1st,2nd,summer';
         } else {
             $rules['academic_level_id'] = 'required|exists:academic_levels,id';
             $rules['academic_strand_id'] = 'nullable|exists:academic_strands,id';
+            $rules['year_level'] = 'required|integer|min:1|max:12';
         }
 
         $request->validate($rules);
@@ -657,11 +667,15 @@ class UserController extends Controller
                 $profileData['college_course_id'] = $request->college_course_id;
                 $profileData['academic_level_id'] = $collegeLevel ? $collegeLevel->id : null;
                 $profileData['academic_strand_id'] = null; // College students don't have strands
+                $profileData['year_level'] = $request->year_level;
+                $profileData['semester'] = $request->semester;
             } else {
                 // For K-12 students: use academic level and strand, no college course
                 $profileData['academic_level_id'] = $request->academic_level_id;
                 $profileData['academic_strand_id'] = $request->academic_strand_id ?: null;
                 $profileData['college_course_id'] = null; // K-12 students don't have college courses
+                $profileData['year_level'] = $request->year_level;
+                $profileData['semester'] = null; // K-12 students don't have semesters
             }
 
             if ($student->studentProfile) {

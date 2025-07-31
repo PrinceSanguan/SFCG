@@ -258,6 +258,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Alias for receivedGrades - grades for this student
+     */
+    public function grades(): HasMany
+    {
+        return $this->receivedGrades();
+    }
+
+    /**
      * Honors received by this student
      */
     public function honors(): HasMany

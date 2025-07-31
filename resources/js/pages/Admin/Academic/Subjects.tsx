@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Head, router, useForm } from '@inertiajs/react';
-import Header from '@/pages/Admin/Header';
-import Sidebar from '@/pages/Admin/Sidebar';
+import AdminLayout from '@/pages/Admin/AdminLayout';
 
 interface AcademicLevel {
     id: number;
@@ -207,11 +206,7 @@ const Subjects: React.FC<Props> = ({ subjects, levels, strands, collegeCourses, 
     return (
         <>
             <Head title="All Subjects" />
-            <div className="flex min-h-screen bg-gray-50">
-                <Sidebar />
-                <div className="flex flex-1 flex-col min-w-0">
-                    <Header />
-                    <main className="flex-1 p-6 min-w-0">
+            <AdminLayout>
                     <div className="mb-8">
                         <h1 className="text-2xl font-bold text-gray-900">All Subjects</h1>
                         <p className="text-gray-600">Configure academic subjects for all educational programs</p>
@@ -575,9 +570,7 @@ const Subjects: React.FC<Props> = ({ subjects, levels, strands, collegeCourses, 
                             </div>
                         </div>
                     )}
-                </main>
-            </div>
-        </div>
+                </AdminLayout>
         </>
     );
 };

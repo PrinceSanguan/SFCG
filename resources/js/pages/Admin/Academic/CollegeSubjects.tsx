@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { Head, Link, useForm } from '@inertiajs/react';
-import Header from '@/pages/Admin/Header';
-import Sidebar from '@/pages/Admin/Sidebar';
+import { Head, router, useForm } from '@inertiajs/react';
+import AdminLayout from '@/pages/Admin/AdminLayout';
 
 interface CollegeCourse {
     id: number;
@@ -41,7 +40,7 @@ const CollegeSubjects: React.FC<Props> = ({ subjects, collegeCourses }) => {
         college_course_id: '',
         year_level: 1,
         semester: '1st',
-        is_active: true,
+        is_active: true as boolean,
     });
 
     const handleCreate = () => {
@@ -92,8 +91,7 @@ const CollegeSubjects: React.FC<Props> = ({ subjects, collegeCourses }) => {
 
     const confirmDelete = () => {
         if (showDeleteModal) {
-            put(`/admin/academic/college-subjects/${showDeleteModal.id}`, {
-                data: { _method: 'DELETE' },
+            router.delete(`/admin/academic/college-subjects/${showDeleteModal.id}`, {
                 onSuccess: () => {
                     setShowDeleteModal(null);
                 },
@@ -125,11 +123,7 @@ const CollegeSubjects: React.FC<Props> = ({ subjects, collegeCourses }) => {
     return (
         <>
             <Head title="Higher Education Subjects" />
-            <div className="flex min-h-screen bg-gray-50">
-                <Sidebar />
-                <div className="flex flex-1 flex-col">
-                    <Header />
-                    <main className="flex-1 p-6">
+            <AdminLayout>
                         {/* Header */}
                         <div className="mb-8">
                             <div className="flex items-center justify-between">
@@ -310,11 +304,9 @@ const CollegeSubjects: React.FC<Props> = ({ subjects, collegeCourses }) => {
                                         )}
                                     </tbody>
                                 </table>
-                            </div>
-                        </div>
-                    </main>
-                </div>
-            </div>
+                                                    </div>
+                    </div>
+                </AdminLayout>
 
             {/* Create/Edit Modal */}
             {showCreateModal && (

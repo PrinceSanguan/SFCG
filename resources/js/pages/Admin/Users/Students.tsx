@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { router, useForm } from '@inertiajs/react';
-import Header from '@/pages/Admin/Header';
-import Sidebar from '@/pages/Admin/Sidebar';
+import AdminLayout from '@/pages/Admin/AdminLayout';
 
 interface AcademicLevel {
     id: number;
@@ -40,6 +39,8 @@ interface StudentProfile {
     grade_level: string;
     section?: string;
     enrollment_status: string;
+    year_level?: number;
+    semester?: string;
     academic_level?: AcademicLevel;
     academic_strand?: AcademicStrand;
     college_course?: CollegeCourse;
@@ -88,6 +89,8 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
         academic_level_id: '',
         academic_strand_id: '',
         college_course_id: '',
+        year_level: '',
+        semester: '',
     });
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -140,9 +143,12 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
         
         if (isCollege) {
             setData('college_course_id', profile.college_course?.id?.toString() || '');
+            setData('year_level', profile.year_level?.toString() || '');
+            setData('semester', profile.semester || '');
         } else {
             setData('academic_level_id', profile.academic_level?.id?.toString() || '');
             setData('academic_strand_id', profile.academic_strand?.id?.toString() || '');
+            setData('year_level', profile.year_level?.toString() || '');
             
             // Set filtered strands
             if (profile.academic_level) {
@@ -215,11 +221,7 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
     };
 
     return (
-        <div className="flex min-h-screen bg-gray-50">
-            <Sidebar />
-            <div className="flex flex-1 flex-col">
-                <Header />
-                <main className="flex-1 p-6">
+        <AdminLayout>
                     <div className="mb-8">
                         <h1 className="text-2xl font-bold text-gray-900">Students</h1>
                         <p className="text-gray-600">Manage K-12 and college students</p>
@@ -515,24 +517,63 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
 
                                         {/* Academic Fields */}
                                         {studentType === 'college' ? (
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                    College Course
-                                                </label>
-                                                <select
-                                                    value={data.college_course_id}
-                                                    onChange={(e) => setData('college_course_id', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                    required
-                                                >
-                                                    <option value="">Select College Course</option>
-                                                    {collegeCourses.map((course) => (
-                                                        <option key={course.id} value={course.id}>
-                                                            {course.name} ({course.code})
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                                {errors.college_course_id && <p className="text-red-500 text-xs mt-1">{errors.college_course_id}</p>}
+                                            <div className="grid grid-cols-3 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        College Course
+                                                    </label>
+                                                    <select
+                                                        value={data.college_course_id}
+                                                        onChange={(e) => setData('college_course_id', e.target.value)}
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                        required
+                                                    >
+                                                        <option value="">Select College Course</option>
+                                                        {collegeCourses.map((course) => (
+                                                            <option key={course.id} value={course.id}>
+                                                                {course.name} ({course.code})
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    {errors.college_course_id && <p className="text-red-500 text-xs mt-1">{errors.college_course_id}</p>}
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        Year Level
+                                                    </label>
+                                                    <select
+                                                        value={data.year_level}
+                                                        onChange={(e) => setData('year_level', e.target.value)}
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                        required
+                                                    >
+                                                        <option value="">Select Year Level</option>
+                                                        <option value="1">1st Year</option>
+                                                        <option value="2">2nd Year</option>
+                                                        <option value="3">3rd Year</option>
+                                                        <option value="4">4th Year</option>
+                                                    </select>
+                                                    {errors.year_level && <p className="text-red-500 text-xs mt-1">{errors.year_level}</p>}
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        Semester
+                                                    </label>
+                                                    <select
+                                                        value={data.semester}
+                                                        onChange={(e) => setData('semester', e.target.value)}
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                        required
+                                                    >
+                                                        <option value="">Select Semester</option>
+                                                        <option value="1st">1st Semester</option>
+                                                        <option value="2nd">2nd Semester</option>
+                                                        <option value="summer">Summer</option>
+                                                    </select>
+                                                    {errors.semester && <p className="text-red-500 text-xs mt-1">{errors.semester}</p>}
+                                                </div>
                                             </div>
                                         ) : (
                                             <div className="grid grid-cols-2 gap-4">
@@ -698,9 +739,7 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
                             </div>
                         </div>
                     )}
-                </main>
-            </div>
-        </div>
+                </AdminLayout>
     );
 };
 

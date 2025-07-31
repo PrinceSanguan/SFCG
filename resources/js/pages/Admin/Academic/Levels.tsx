@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { router, useForm } from '@inertiajs/react';
-import Header from '@/pages/Admin/Header';
-import Sidebar from '@/pages/Admin/Sidebar';
+import AdminLayout from '@/pages/Admin/AdminLayout';
 
 interface AcademicLevel {
     id: number;
@@ -70,11 +69,7 @@ const Levels: React.FC<Props> = ({ levels }) => {
     };
 
     return (
-        <div className="flex min-h-screen bg-gray-50">
-            <Sidebar />
-            <div className="flex flex-1 flex-col">
-                <Header />
-                <main className="flex-1 p-6">
+        <AdminLayout>
                     <div className="mb-8">
                         <h1 className="text-2xl font-bold text-gray-900">Academic Levels</h1>
                         <p className="text-gray-600">Configure grade levels and academic structure</p>
@@ -256,9 +251,7 @@ const Levels: React.FC<Props> = ({ levels }) => {
                             </div>
                         </div>
                     )}
-                </main>
-            </div>
-        </div>
+                </AdminLayout>
     );
 };
 

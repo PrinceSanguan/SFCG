@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { router, useForm } from '@inertiajs/react';
-import Header from '@/pages/Admin/Header';
-import Sidebar from '@/pages/Admin/Sidebar';
+import AdminLayout from '@/pages/Admin/AdminLayout';
 
 interface AcademicPeriod {
     id: number;
@@ -83,11 +82,7 @@ const Periods: React.FC<Props> = ({ periods }) => {
     };
 
     return (
-        <div className="flex min-h-screen bg-gray-50">
-            <Sidebar />
-            <div className="flex flex-1 flex-col">
-                <Header />
-                <main className="flex-1 p-6">
+        <AdminLayout>
                     <div className="mb-8">
                         <h1 className="text-2xl font-bold text-gray-900">Academic Periods</h1>
                         <p className="text-gray-600">Configure academic periods, semesters, and quarters</p>
@@ -306,9 +301,7 @@ const Periods: React.FC<Props> = ({ periods }) => {
                             </div>
                         </div>
                     )}
-                </main>
-            </div>
-        </div>
+                </AdminLayout>
     );
 };
 

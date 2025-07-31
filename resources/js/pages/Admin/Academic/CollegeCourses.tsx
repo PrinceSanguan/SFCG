@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { router, useForm } from '@inertiajs/react';
-import Header from '@/pages/Admin/Header';
-import Sidebar from '@/pages/Admin/Sidebar';
+import AdminLayout from '@/pages/Admin/AdminLayout';
 
 interface CollegeCourse {
     id: number;
@@ -91,11 +90,7 @@ const CollegeCourses: React.FC<Props> = ({ courses, degreeTypes }) => {
     };
 
     return (
-        <div className="flex min-h-screen bg-gray-50">
-            <Sidebar />
-            <div className="flex flex-1 flex-col">
-                <Header />
-                <main className="flex-1 p-6">
+        <AdminLayout>
                     <div className="mb-8">
                         <h1 className="text-2xl font-bold text-gray-900">Course Programs</h1>
                         <p className="text-gray-600">Manage course programs and degree offerings</p>
@@ -337,9 +332,7 @@ const CollegeCourses: React.FC<Props> = ({ courses, degreeTypes }) => {
                             </div>
                         </div>
                     )}
-                </main>
-            </div>
-        </div>
+                </AdminLayout>
     );
 };
 

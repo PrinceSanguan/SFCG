@@ -13,11 +13,13 @@ class StudentHonor extends Model
         'student_id',
         'academic_period_id',
         'honor_type',
+        'honor_criterion_id',
         'gpa',
         'is_approved',
         'approved_by',
         'approved_at',
         'is_active',
+        'awarded_date',
     ];
 
     protected $casts = [
@@ -45,7 +47,7 @@ class StudentHonor extends Model
 
     public function honorCriterion()
     {
-        return $this->belongsTo(HonorCriterion::class, 'honor_type', 'type');
+        return $this->belongsTo(HonorCriterion::class, 'honor_criterion_id');
     }
 
     // Scopes

@@ -196,7 +196,9 @@ class AcademicController extends Controller
     
     public function strands()
     {
-        $strands = AcademicStrand::with(['academicLevel', 'subjects'])->get();
+        $strands = AcademicStrand::with(['academicLevel', 'subjects'])
+            ->withCount('subjects')
+            ->get();
         $levels = AcademicLevel::active()->get();
         
         return Inertia::render('Admin/Academic/Strands', [
@@ -554,6 +556,7 @@ class AcademicController extends Controller
         } else {
             $rules['academic_level_id'] = 'required|exists:academic_levels,id';
             $rules['academic_strand_id'] = 'nullable|exists:academic_strands,id';
+            $rules['year_level'] = 'required|integer|min:1|max:12'; // Add grade level for K-12
         }
 
         $request->validate($rules);
@@ -573,6 +576,7 @@ class AcademicController extends Controller
         } else {
             $subjectData['academic_level_id'] = $request->academic_level_id;
             $subjectData['academic_strand_id'] = $request->academic_strand_id;
+            $subjectData['year_level'] = $request->year_level; // Add grade level for K-12
         }
 
         $subject = Subject::create($subjectData);
@@ -607,6 +611,7 @@ class AcademicController extends Controller
         } else {
             $rules['academic_level_id'] = 'required|exists:academic_levels,id';
             $rules['academic_strand_id'] = 'nullable|exists:academic_strands,id';
+            $rules['year_level'] = 'required|integer|min:1|max:12'; // Add grade level for K-12
         }
 
         $request->validate($rules);
@@ -631,9 +636,9 @@ class AcademicController extends Controller
         } else {
             $subjectData['academic_level_id'] = $request->academic_level_id;
             $subjectData['academic_strand_id'] = $request->academic_strand_id;
+            $subjectData['year_level'] = $request->year_level; // Add grade level for K-12
             // Clear college fields
             $subjectData['college_course_id'] = null;
-            $subjectData['year_level'] = null;
             $subjectData['semester'] = null;
         }
 

@@ -17,10 +17,10 @@ class HonorCalculationService
     {
         try {
             DB::transaction(function () use ($studentId, $academicPeriodId) {
-                // Get all approved grades for this student in this period
+                // Get all grades for this student in this period (submitted, approved, or finalized)
                 $grades = Grade::where('student_id', $studentId)
                               ->where('academic_period_id', $academicPeriodId)
-                              ->where('status', 'approved')
+                              ->whereIn('status', ['submitted', 'approved', 'finalized'])
                               ->get();
 
                 if ($grades->isEmpty()) {
@@ -54,14 +54,24 @@ class HonorCalculationService
 
                 // Award new honor if applicable
                 if ($applicableHonor) {
+                    Log::info("Creating honor for student", [
+                        'student_id' => $studentId,
+                        'honor_criterion_id' => $applicableHonor->id,
+                        'academic_period_id' => $academicPeriodId,
+                        'gpa' => $gpa
+                    ]);
+                    
                     $studentHonor = StudentHonor::create([
                         'student_id' => $studentId,
                         'honor_criterion_id' => $applicableHonor->id,
+                        'honor_type' => $applicableHonor->honor_type,
                         'academic_period_id' => $academicPeriodId,
                         'gpa' => $gpa,
                         'awarded_date' => now(),
                         'is_active' => true,
                     ]);
+                    
+                    Log::info("Honor created successfully", ['honor_id' => $studentHonor->id]);
 
                     // Create notification for student
                     $this->createHonorNotification($studentId, $applicableHonor, $gpa);
@@ -85,9 +95,9 @@ class HonorCalculationService
     public function calculateAllStudentHonors($academicPeriodId)
     {
         $students = User::where('user_role', 'student')
-                       ->whereHas('grades', function ($query) use ($academicPeriodId) {
+                       ->whereHas('receivedGrades', function ($query) use ($academicPeriodId) {
                            $query->where('academic_period_id', $academicPeriodId)
-                                 ->where('status', 'approved');
+                                 ->whereIn('status', ['submitted', 'approved', 'finalized']);
                        })
                        ->get();
 
@@ -165,7 +175,7 @@ class HonorCalculationService
             ]);
 
             // Also notify parents if they exist
-            if ($student->studentProfile) {
+            if ($student->studentProfile && $student->studentProfile->parents) {
                 $parents = $student->studentProfile->parents;
                 foreach ($parents as $parent) {
                     Notification::create([

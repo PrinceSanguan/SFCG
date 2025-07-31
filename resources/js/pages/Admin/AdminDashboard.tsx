@@ -1,6 +1,5 @@
-import Header from '@/pages/Admin/Header';
-import Sidebar from '@/pages/Admin/Sidebar';
 import React from 'react';
+import AdminLayout from '@/pages/Admin/AdminLayout';
 
 interface DashboardStats {
     totalUsers: number;
@@ -72,11 +71,8 @@ const AdminDashboard: React.FC<Props> = ({ stats, recentActivities, dashboardDat
     };
 
     return (
-        <div className="flex min-h-screen bg-gray-50">
-            <Sidebar />
-            <div className="flex flex-1 flex-col">
-                <Header />
-                <main className="flex-1 p-6 space-y-6">
+        <AdminLayout>
+            <div className="space-y-6">
                     {/* Dashboard Header */}
                     <div className="mb-8">
                         <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
@@ -310,9 +306,8 @@ const AdminDashboard: React.FC<Props> = ({ stats, recentActivities, dashboardDat
                             </div>
                         </div>
                     </div>
-                </main>
             </div>
-        </div>
+        </AdminLayout>
     );
 };
 

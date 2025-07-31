@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import Header from '@/pages/Admin/Header';
-import Sidebar from '@/pages/Admin/Sidebar';
+import AdminLayout from '@/pages/Admin/AdminLayout';
 
 interface Grade {
     id: number;
@@ -72,7 +71,6 @@ const GradingIndex: React.FC<Props> = ({
     academicPeriods, 
     subjects, 
     instructors, 
-    sections, 
     stats, 
     filters 
 }) => {
@@ -85,10 +83,11 @@ const GradingIndex: React.FC<Props> = ({
         instructor_id: filters.instructor_id || '',
         section: filters.section || '',
         status: filters.status || '',
+        grade_ids: [] as number[],
     });
 
     const handleFilter = () => {
-        router.get('/admin/grading', data, { preserveState: true });
+        router.get('/admin/grading', data);
     };
 
     const handleSelectGrade = (gradeId: number) => {
@@ -112,12 +111,8 @@ const GradingIndex: React.FC<Props> = ({
     };
 
     const handleBulkApprove = () => {
-        post('/admin/grading/bulk-approve', { grade_ids: selectedGrades }, {
-            onSuccess: () => {
-                setSelectedGrades([]);
-                setShowBulkActions(false);
-            }
-        });
+        setData('grade_ids', selectedGrades);
+        post('/admin/grading/bulk-approve');
     };
 
     const getStatusBadge = (status: string) => {
@@ -138,13 +133,9 @@ const GradingIndex: React.FC<Props> = ({
     };
 
     return (
-        <>
+        <AdminLayout>
             <Head title="Grading Management" />
-            <div className="flex min-h-screen bg-gray-50">
-                <Sidebar />
-                <div className="flex flex-1 flex-col">
-                    <Header />
-                    <main className="flex-1 p-6">
+            <div className="space-y-6">
                         {/* Header */}
                         <div className="mb-8">
                             <div className="flex items-center justify-between">
@@ -488,10 +479,8 @@ const GradingIndex: React.FC<Props> = ({
                                 }
                             }}
                         />
-                    </main>
-                </div>
             </div>
-        </>
+        </AdminLayout>
     );
 };
 

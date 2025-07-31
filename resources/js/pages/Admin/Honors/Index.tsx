@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import Header from '@/pages/Admin/Header';
-import Sidebar from '@/pages/Admin/Sidebar';
+import AdminLayout from '@/pages/Admin/AdminLayout';
 
 interface HonorCriterion {
     id: number;
@@ -122,13 +121,9 @@ const HonorsIndex: React.FC<Props> = ({ honorCriteria, recentHonors, stats, acad
     };
 
     return (
-        <>
+        <AdminLayout>
             <Head title="Honors Management" />
-            <div className="flex min-h-screen bg-gray-50">
-                <Sidebar />
-                <div className="flex flex-1 flex-col">
-                    <Header />
-                    <main className="flex-1 p-6">
+            <div className="space-y-6">
                         {/* Header */}
                         <div className="mb-8">
                             <div className="flex items-center justify-between">
@@ -471,10 +466,8 @@ const HonorsIndex: React.FC<Props> = ({ honorCriteria, recentHonors, stats, acad
                                 </div>
                             </div>
                         )}
-                    </main>
-                </div>
             </div>
-        </>
+        </AdminLayout>
     );
 };
 
