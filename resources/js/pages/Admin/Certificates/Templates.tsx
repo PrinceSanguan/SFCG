@@ -8,10 +8,19 @@ interface CertificateTemplate {
     name: string;
     type: string;
     template_content: string;
+    template_image_path?: string;
+    image_description?: string;
+    education_level?: string;
+    template_type: 'code' | 'image';
+    created_by?: number;
+    image_uploaded_at?: string;
     variables?: string;
     is_active: boolean;
     created_at: string;
     updated_at: string;
+    createdBy?: {
+        name: string;
+    };
 }
 
 interface Props {
@@ -31,19 +40,32 @@ const TemplatesIndex: React.FC<Props> = ({ templates }) => {
     const [filterType, setFilterType] = useState<string>('');
     const [searchTerm, setSearchTerm] = useState<string>('');
 
-    const { data, setData, post, put, processing, errors, reset } = useForm({
+    const { data, setData, processing, errors, reset } = useForm({
         name: '',
         type: 'honor_roll',
-        template_content: '',
-        variables: '',
+        template_image: null as File | null,
+        image_description: '',
+        education_level: '',
         is_active: true as boolean,
     });
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         
+        const formData = new FormData();
+        formData.append('name', data.name);
+        formData.append('type', data.type);
+        formData.append('template_type', 'image');
+        formData.append('is_active', data.is_active.toString());
+        
+        if (data.template_image) {
+            formData.append('template_image', data.template_image);
+        }
+        formData.append('image_description', data.image_description);
+        formData.append('education_level', data.education_level);
+        
         if (editingTemplate) {
-            put(`/admin/certificates/templates/${editingTemplate.id}`, {
+            router.put(`/admin/certificates/templates/${editingTemplate.id}`, formData, {
                 onSuccess: () => {
                     setEditingTemplate(null);
                     setShowCreateModal(false);
@@ -51,7 +73,7 @@ const TemplatesIndex: React.FC<Props> = ({ templates }) => {
                 }
             });
         } else {
-            post('/admin/certificates/templates', {
+            router.post('/admin/certificates/templates', formData, {
                 onSuccess: () => {
                     setShowCreateModal(false);
                     reset();
@@ -63,8 +85,8 @@ const TemplatesIndex: React.FC<Props> = ({ templates }) => {
     const handleEdit = (template: CertificateTemplate) => {
         setData('name', template.name);
         setData('type', template.type);
-        setData('template_content', template.template_content);
-        setData('variables', template.variables || '');
+        setData('image_description', template.image_description || '');
+        setData('education_level', template.education_level || '');
         setData('is_active', template.is_active);
         setEditingTemplate(template);
         setShowCreateModal(true);
@@ -79,8 +101,8 @@ const TemplatesIndex: React.FC<Props> = ({ templates }) => {
     const handleDuplicate = (template: CertificateTemplate) => {
         setData('name', `${template.name} (Copy)`);
         setData('type', template.type);
-        setData('template_content', template.template_content);
-        setData('variables', template.variables || '');
+        setData('image_description', template.image_description || '');
+        setData('education_level', template.education_level || '');
         setData('is_active', template.is_active);
         setEditingTemplate(null); // Clear editing state to create new
         setShowCreateModal(true);
@@ -112,7 +134,14 @@ const TemplatesIndex: React.FC<Props> = ({ templates }) => {
         setShowCreateModal(false);
         setEditingTemplate(null);
         setPreviewData(null);
-        reset();
+        setData({
+            name: '',
+            type: 'honor_roll',
+            template_image: null,
+            image_description: '',
+            education_level: '',
+            is_active: true,
+        });
     };
 
     const getTypeColor = (type: string) => {
@@ -304,6 +333,7 @@ const TemplatesIndex: React.FC<Props> = ({ templates }) => {
                                             <tr>
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Template</th>
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Education Level</th>
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Updated</th>
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -315,15 +345,28 @@ const TemplatesIndex: React.FC<Props> = ({ templates }) => {
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <div className="text-sm font-medium text-gray-900">{template.name}</div>
                                                         <div className="text-sm text-gray-500">
-                                                            {template.template_content.length > 100 
-                                                                ? template.template_content.substring(0, 100) + '...'
-                                                                : template.template_content
-                                                            }
+                                                            {template.image_description || 'Image-based template'}
                                                         </div>
+                                                        {template.template_image_path && (
+                                                            <button
+                                                                onClick={() => window.open(`/admin/certificates/templates/${template.id}/image`, '_blank')}
+                                                                className="text-xs text-blue-600 hover:text-blue-900 mt-1"
+                                                            >
+                                                                View Image
+                                                            </button>
+                                                        )}
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeColor(template.type)}`}>
                                                             {getTypeDisplayName(template.type)}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                            {template.education_level ? 
+                                                                template.education_level.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 
+                                                                'All Levels'
+                                                            }
                                                         </span>
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
@@ -422,60 +465,70 @@ const TemplatesIndex: React.FC<Props> = ({ templates }) => {
                                             </div>
                                         </div>
 
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Template Content (HTML)
-                                            </label>
-                                            <textarea
-                                                value={data.template_content}
-                                                onChange={(e) => setData('template_content', e.target.value)}
-                                                rows={12}
-                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 font-mono text-sm"
-                                                placeholder={`<div style='text-align: center; padding: 40px; font-family: Arial, sans-serif;'>
-    <h1>🏆 HONOR ROLL CERTIFICATE 🏆</h1>
-    <p>This is to certify that</p>
-    <h2>{{student_name}}</h2>
-    <p>Student ID: {{student_id}}</p>
-    <p>has achieved <strong>{{honor_type}}</strong> status</p>
-    <p>with a Grade Point Average of <strong>{{gpa}}</strong></p>
-    <p>for the Academic Year {{academic_period}}</p>
-    <p>Awarded on {{date}}</p>
-</div>`}
-                                                required
-                                            />
-                                            <div className="mt-2 p-3 bg-blue-50 rounded-md">
-                                                <p className="text-xs text-blue-800 font-medium mb-1">Available Variables:</p>
-                                                <div className="grid grid-cols-2 gap-1 text-xs text-blue-700">
-                                                    <span>• {'{{student_name}}'} - Student's full name</span>
-                                                    <span>• {'{{student_id}}'} - Student ID number</span>
-                                                    <span>• {'{{gpa}}'} - Grade Point Average</span>
-                                                    <span>• {'{{honor_type}}'} - Honor type (e.g., Magna Cum Laude)</span>
-                                                    <span>• {'{{academic_period}}'} - Academic year/period</span>
-                                                    <span>• {'{{academic_level}}'} - Academic level (e.g., Senior High School)</span>
-                                                    <span>• {'{{section}}'} - Student's section</span>
-                                                    <span>• {'{{date}}'} - Current date</span>
-                                                </div>
+
+
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Template Image
+                                                </label>
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={(e) => setData('template_image', e.target.files?.[0] || null)}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    required
+                                                />
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    Accepted formats: JPEG, PNG, JPG, GIF (Max: 10MB)
+                                                </p>
+                                                {errors.template_image && (
+                                                    <p className="text-red-600 text-sm mt-1">{errors.template_image}</p>
+                                                )}
                                             </div>
-                                            {errors.template_content && (
-                                                <p className="text-red-600 text-sm mt-1">{errors.template_content}</p>
-                                            )}
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Image Description
+                                                </label>
+                                                <textarea
+                                                    value={data.image_description}
+                                                    onChange={(e) => setData('image_description', e.target.value)}
+                                                    rows={3}
+                                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                    placeholder="Describe the template image and its intended use..."
+                                                />
+                                                {errors.image_description && (
+                                                    <p className="text-red-600 text-sm mt-1">{errors.image_description}</p>
+                                                )}
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Education Level
+                                                </label>
+                                                <select
+                                                    value={data.education_level}
+                                                    onChange={(e) => setData('education_level', e.target.value)}
+                                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                    required
+                                                >
+                                                    <option value="">Select Education Level</option>
+                                                    <option value="elementary">Elementary</option>
+                                                    <option value="junior_high">Junior High School</option>
+                                                    <option value="senior_high">Senior High School</option>
+                                                    <option value="college">College</option>
+                                                </select>
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    This template will be available for students at this education level
+                                                </p>
+                                                {errors.education_level && (
+                                                    <p className="text-red-600 text-sm mt-1">{errors.education_level}</p>
+                                                )}
+                                            </div>
                                         </div>
 
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Variables (JSON) <span className="text-gray-400">(Optional)</span>
-                                            </label>
-                                            <textarea
-                                                value={data.variables}
-                                                onChange={(e) => setData('variables', e.target.value)}
-                                                rows={3}
-                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 font-mono text-sm"
-                                                placeholder='{"custom_field": "value"}'
-                                            />
-                                            {errors.variables && (
-                                                <p className="text-red-600 text-sm mt-1">{errors.variables}</p>
-                                            )}
-                                        </div>
+
 
                                         <div className="flex items-center">
                                             <input

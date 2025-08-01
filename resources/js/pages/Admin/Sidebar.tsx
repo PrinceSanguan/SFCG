@@ -88,7 +88,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
             key: 'honors',
             submenu: [
                 { title: 'Honors Management', href: '/admin/honors', icon: '🏆' },
-                { title: 'Certificates', href: '/admin/certificates', icon: '📜' }
+                { title: 'Certificates', href: '/admin/certificates', icon: '📜' },
+                { title: 'Certificate Uploads', href: '/certificate-images', icon: '📤' }
             ]
         },
         {

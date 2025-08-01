@@ -84,7 +84,7 @@ class GradingController extends Controller
     public function create()
     {
         $students = User::where('user_role', 'student')
-                       ->with('studentProfile')
+                       ->with(['studentProfile.academicLevel', 'studentProfile.collegeCourse'])
                        ->orderBy('name')
                        ->get();
 

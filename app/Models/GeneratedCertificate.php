@@ -16,6 +16,15 @@ class GeneratedCertificate extends Model
         'certificate_type',
         'certificate_data',
         'file_path',
+        'certificate_image_path',
+        'upload_status',
+        'upload_notes',
+        'uploaded_at',
+        'uploaded_by',
+        'approved_by',
+        'approved_at',
+        'usage_type',
+        'usage_notes',
         'certificate_number',
         'generated_by',
         'generated_at',
@@ -32,6 +41,8 @@ class GeneratedCertificate extends Model
         'generated_at' => 'datetime',
         'printed_at' => 'datetime',
         'issued_at' => 'datetime',
+        'uploaded_at' => 'datetime',
+        'approved_at' => 'datetime',
         'is_digitally_signed' => 'boolean',
         'print_count' => 'integer',
     ];
@@ -55,6 +66,16 @@ class GeneratedCertificate extends Model
     public function generatedBy()
     {
         return $this->belongsTo(User::class, 'generated_by');
+    }
+
+    public function uploadedBy()
+    {
+        return $this->belongsTo(User::class, 'uploaded_by');
+    }
+
+    public function approvedBy()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
     }
 
     // Scopes
@@ -94,9 +115,34 @@ class GeneratedCertificate extends Model
         return !empty($this->file_path) && file_exists(storage_path('app/' . $this->file_path));
     }
 
+    public function hasImage()
+    {
+        return !empty($this->certificate_image_path) && file_exists(storage_path('app/' . $this->certificate_image_path));
+    }
+
     public function getDownloadUrl()
     {
         return $this->hasFile() ? route('certificates.download', $this->id) : null;
+    }
+
+    public function getImageUrl()
+    {
+        return $this->hasImage() ? route('certificates.image', $this->id) : null;
+    }
+
+    public function canBeUploaded()
+    {
+        return $this->upload_status === 'pending' || $this->upload_status === 'rejected';
+    }
+
+    public function canBeApproved()
+    {
+        return $this->upload_status === 'uploaded';
+    }
+
+    public function isApproved()
+    {
+        return $this->upload_status === 'approved';
     }
 
     protected static function boot()

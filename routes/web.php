@@ -62,6 +62,7 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\GradingController;
 use App\Http\Controllers\Admin\HonorController;
 use App\Http\Controllers\Admin\CertificateController;
+use App\Http\Controllers\CertificateImageController;
 use App\Http\Controllers\Admin\NotificationController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\SystemController;
@@ -214,20 +215,35 @@ Route::middleware([AdminMiddleware::class])->group(function () {
   Route::post('admin/honors/export', [HonorController::class, 'exportHonorRoll'])->name('admin.honors.export');
 
   // Certificates
-  Route::get('admin/certificates', [CertificateController::class, 'index'])->name('admin.certificates.index');
-  Route::post('admin/certificates/generate', [CertificateController::class, 'generate'])->name('admin.certificates.generate');
-  Route::post('admin/certificates/bulk-generate', [CertificateController::class, 'bulkGenerate'])->name('admin.certificates.bulk-generate');
-  Route::get('admin/certificates/{certificate}/download', [CertificateController::class, 'download'])->name('admin.certificates.download');
-  Route::get('admin/certificates/{certificate}/print', [CertificateController::class, 'print'])->name('admin.certificates.print');
-  Route::post('admin/certificates/bulk-print', [CertificateController::class, 'bulkPrint'])->name('admin.certificates.bulk-print');
-  Route::delete('admin/certificates/{certificate}', [CertificateController::class, 'destroy'])->name('admin.certificates.destroy');
+Route::get('admin/certificates', [CertificateController::class, 'index'])->name('admin.certificates.index');
+Route::post('admin/certificates/generate', [CertificateController::class, 'generate'])->name('admin.certificates.generate');
+Route::post('admin/certificates/bulk-generate', [CertificateController::class, 'bulkGenerate'])->name('admin.certificates.bulk-generate');
+Route::get('admin/certificates/{certificate}/download', [CertificateController::class, 'download'])->name('admin.certificates.download');
+Route::get('admin/certificates/{certificate}/print', [CertificateController::class, 'print'])->name('admin.certificates.print');
+Route::post('admin/certificates/bulk-print', [CertificateController::class, 'bulkPrint'])->name('admin.certificates.bulk-print');
+Route::delete('admin/certificates/{certificate}', [CertificateController::class, 'destroy'])->name('admin.certificates.destroy');
+
+// Certificate Image Uploads (Protected routes)
+Route::middleware(['auth'])->group(function () {
+    Route::get('certificate-images', [CertificateImageController::class, 'index'])->name('certificate-images.index');
+    Route::post('certificate-images/{certificate}/upload', [CertificateImageController::class, 'upload'])->name('certificate-images.upload');
+    Route::post('certificate-images/{certificate}/approve', [CertificateImageController::class, 'approve'])->name('certificate-images.approve');
+    Route::post('certificate-images/{certificate}/reject', [CertificateImageController::class, 'reject'])->name('certificate-images.reject');
+    Route::get('certificate-images/{certificate}/image', [CertificateImageController::class, 'showImage'])->name('certificate-images.image');
+    Route::get('certificate-images/{certificate}/download', [CertificateImageController::class, 'downloadImage'])->name('certificate-images.download');
+    Route::delete('certificate-images/{certificate}', [CertificateImageController::class, 'deleteImage'])->name('certificate-images.delete');
+    Route::post('certificate-images/bulk-approve', [CertificateImageController::class, 'bulkApprove'])->name('certificate-images.bulk-approve');
+    Route::post('certificate-images/bulk-reject', [CertificateImageController::class, 'bulkReject'])->name('certificate-images.bulk-reject');
+});
 
   // Certificate Templates
   Route::get('admin/certificates/templates', [CertificateController::class, 'templates'])->name('admin.certificates.templates');
-  Route::post('admin/certificates/templates', [CertificateController::class, 'storeTemplate'])->name('admin.certificates.templates.store');
-  Route::put('admin/certificates/templates/{template}', [CertificateController::class, 'updateTemplate'])->name('admin.certificates.templates.update');
-  Route::delete('admin/certificates/templates/{template}', [CertificateController::class, 'destroyTemplate'])->name('admin.certificates.templates.destroy');
-  Route::post('admin/certificates/templates/{template}/preview', [CertificateController::class, 'preview'])->name('admin.certificates.templates.preview');
+Route::post('admin/certificates/templates', [CertificateController::class, 'storeTemplate'])->name('admin.certificates.templates.store');
+Route::put('admin/certificates/templates/{template}', [CertificateController::class, 'updateTemplate'])->name('admin.certificates.templates.update');
+Route::delete('admin/certificates/templates/{template}', [CertificateController::class, 'destroyTemplate'])->name('admin.certificates.templates.destroy');
+Route::post('admin/certificates/templates/{template}/preview', [CertificateController::class, 'preview'])->name('admin.certificates.templates.preview');
+Route::get('admin/certificates/templates/{template}/image', [CertificateController::class, 'showTemplateImage'])->name('certificate-templates.image');
+Route::get('certificate-templates/by-education-level', [CertificateController::class, 'getTemplatesByEducationLevel'])->name('certificate-templates.by-education-level');
 
   // Certificate Tracking & Issuance
   Route::get('admin/certificates/tracking', [CertificateController::class, 'trackIssuance'])->name('admin.certificates.tracking');
@@ -298,8 +314,9 @@ Route::middleware([StudentMiddleware::class])->group(function () {
   Route::get('student/honors', [StudentController::class, 'honors'])->name('student.honors');
 
   // 8.4. View certificates (read-only)
-  Route::get('student/certificates', [StudentController::class, 'certificates'])->name('student.certificates');
-  Route::get('student/certificates/{certificate}/download', [StudentController::class, 'downloadCertificate'])->name('student.certificates.download');
+Route::get('student/certificates', [StudentController::class, 'certificates'])->name('student.certificates');
+Route::get('student/certificates/{certificate}/download', [StudentController::class, 'downloadCertificate'])->name('student.certificates.download');
+Route::get('student/certificate-selection', [StudentController::class, 'certificateSelection'])->name('student.certificate-selection');
 
   // 8.5. Notifications
   Route::get('student/notifications', [StudentController::class, 'notifications'])->name('student.notifications');

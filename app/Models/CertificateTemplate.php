@@ -13,6 +13,12 @@ class CertificateTemplate extends Model
         'name',
         'type',
         'template_content',
+        'template_image_path',
+        'image_description',
+        'education_level',
+        'template_type',
+        'created_by',
+        'image_uploaded_at',
         'variables',
         'is_active',
     ];
@@ -20,12 +26,18 @@ class CertificateTemplate extends Model
     protected $casts = [
         'variables' => 'array',
         'is_active' => 'boolean',
+        'image_uploaded_at' => 'datetime',
     ];
 
     // Relationships
     public function generatedCertificates()
     {
         return $this->hasMany(GeneratedCertificate::class);
+    }
+
+    public function createdBy()
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     // Scopes
@@ -50,6 +62,17 @@ class CertificateTemplate extends Model
         };
     }
 
+    public function getEducationLevelDisplayName()
+    {
+        return match($this->education_level) {
+            'elementary' => 'Elementary',
+            'junior_high' => 'Junior High School',
+            'senior_high' => 'Senior High School',
+            'college' => 'College',
+            default => 'All Levels'
+        };
+    }
+
     public function getAvailableVariables()
     {
         return $this->variables ?? [
@@ -66,12 +89,22 @@ class CertificateTemplate extends Model
 
     public function renderTemplate($data)
     {
-        $content = $this->template_content;
-        
-        foreach ($data as $key => $value) {
-            $content = str_replace('{{' . $key . '}}', $value, $content);
-        }
-        
-        return $content;
+        // For image templates, we return the image path and data
+        return [
+            'image_path' => $this->template_image_path,
+            'data' => $data,
+        ];
     }
+
+    public function hasImage()
+    {
+        return !empty($this->template_image_path) && file_exists(storage_path('app/public/' . $this->template_image_path));
+    }
+
+    public function getImageUrl()
+    {
+        return $this->hasImage() ? route('certificate-templates.image', $this->id) : null;
+    }
+
+
 } 

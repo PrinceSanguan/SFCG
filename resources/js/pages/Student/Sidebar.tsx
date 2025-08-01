@@ -6,7 +6,11 @@ const Sidebar: React.FC = () => {
         router.visit(route('auth.logout'));
     };
 
-    const menuItems = [{ name: 'Dashboard', href: '/student/dashboard', icon: '📊' }];
+    const menuItems = [
+        { name: 'Dashboard', href: '/student/dashboard', icon: '📊' },
+        { name: 'Certificate Selection', href: '/student/certificate-selection', icon: '🏆' },
+        { name: 'Certificate Uploads', href: '/certificate-images', icon: '📤' }
+    ];
 
     return (
         <div className="flex w-64 flex-col border-r border-gray-200 bg-white shadow-sm">

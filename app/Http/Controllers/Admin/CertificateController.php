@@ -214,11 +214,29 @@ class CertificateController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'type' => 'required|in:honor_roll,graduation,achievement',
-            'template_content' => 'required|string',
-            'variables' => 'nullable|json',
+            'template_image' => 'required|image|mimes:jpeg,png,jpg,gif|max:10240',
+            'image_description' => 'nullable|string|max:1000',
+            'education_level' => 'required|in:elementary,junior_high,senior_high,college',
         ]);
 
-        CertificateTemplate::create($request->all());
+        $data = [
+            'name' => $request->name,
+            'type' => $request->type,
+            'image_description' => $request->image_description,
+            'education_level' => $request->education_level,
+            'is_active' => $request->boolean('is_active', true),
+            'created_by' => Auth::user()->id,
+            'template_type' => 'image',
+            'template_content' => null, // Explicitly set to null for image templates
+        ];
+
+        if ($request->hasFile('template_image')) {
+            $imagePath = $request->file('template_image')->store('certificate-templates', 'public');
+            $data['template_image_path'] = $imagePath;
+            $data['image_uploaded_at'] = now();
+        }
+
+        CertificateTemplate::create($data);
 
         return back()->with('success', 'Certificate template created successfully');
     }
@@ -228,17 +246,44 @@ class CertificateController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'type' => 'required|in:honor_roll,graduation,achievement',
-            'template_content' => 'required|string',
-            'variables' => 'nullable|json',
+            'template_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:10240',
+            'image_description' => 'nullable|string|max:1000',
+            'education_level' => 'required|in:elementary,junior_high,senior_high,college',
         ]);
 
-        $template->update($request->all());
+        $data = [
+            'name' => $request->name,
+            'type' => $request->type,
+            'image_description' => $request->image_description,
+            'education_level' => $request->education_level,
+            'is_active' => $request->boolean('is_active', true),
+            'template_type' => 'image',
+            'template_content' => null, // Explicitly set to null for image templates
+        ];
+
+        if ($request->hasFile('template_image')) {
+            // Delete old image if exists
+            if ($template->template_image_path && Storage::disk('public')->exists($template->template_image_path)) {
+                Storage::disk('public')->delete($template->template_image_path);
+            }
+            
+            $imagePath = $request->file('template_image')->store('certificate-templates', 'public');
+            $data['template_image_path'] = $imagePath;
+            $data['image_uploaded_at'] = now();
+        }
+
+        $template->update($data);
 
         return back()->with('success', 'Certificate template updated successfully');
     }
 
     public function destroyTemplate(CertificateTemplate $template)
     {
+        // Delete the template image if exists
+        if ($template->template_image_path && Storage::disk('public')->exists($template->template_image_path)) {
+            Storage::disk('public')->delete($template->template_image_path);
+        }
+
         $template->delete();
 
         return back()->with('success', 'Certificate template deleted successfully');
@@ -369,5 +414,29 @@ class CertificateController extends Controller
             ]);
 
         return back()->with('success', 'Certificates marked as issued successfully');
+    }
+
+    public function showTemplateImage(CertificateTemplate $template)
+    {
+        if (!$template->hasImage()) {
+            abort(404, 'Template image not found.');
+        }
+
+        return response()->file(storage_path('app/public/' . $template->template_image_path));
+    }
+
+    public function getTemplatesByEducationLevel(Request $request)
+    {
+        $request->validate([
+            'education_level' => 'required|in:elementary,junior_high,senior_high,college',
+            'certificate_type' => 'required|in:honor_roll,graduation,achievement',
+        ]);
+
+        $templates = CertificateTemplate::where('education_level', $request->education_level)
+            ->where('type', $request->certificate_type)
+            ->where('is_active', true)
+            ->get();
+
+        return response()->json($templates);
     }
 }

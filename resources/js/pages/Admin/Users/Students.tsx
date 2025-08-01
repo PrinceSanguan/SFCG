@@ -145,10 +145,13 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
             setData('college_course_id', profile.college_course?.id?.toString() || '');
             setData('year_level', profile.year_level?.toString() || '');
             setData('semester', profile.semester || '');
+            // Clear class adviser for college students
+            setData('class_adviser_id', '');
         } else {
             setData('academic_level_id', profile.academic_level?.id?.toString() || '');
             setData('academic_strand_id', profile.academic_strand?.id?.toString() || '');
             setData('year_level', profile.year_level?.toString() || '');
+            setData('class_adviser_id', profile.class_adviser?.id?.toString() || '');
             
             // Set filtered strands
             if (profile.academic_level) {
@@ -198,6 +201,11 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
         setData('academic_level_id', '');
         setData('academic_strand_id', '');
         setData('college_course_id', '');
+        
+        // Clear class adviser for college students
+        if (type === 'college') {
+            setData('class_adviser_id', '');
+        }
         
         setFilteredStrands([]);
     };
@@ -680,24 +688,26 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
                                                 {errors.contact_number && <p className="text-red-500 text-xs mt-1">{errors.contact_number}</p>}
                                             </div>
 
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                    Class Adviser
-                                                </label>
-                                                <select
-                                                    value={data.class_adviser_id}
-                                                    onChange={(e) => setData('class_adviser_id', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                >
-                                                    <option value="">No adviser assigned</option>
-                                                    {classAdvisers.map((adviser) => (
-                                                        <option key={adviser.id} value={adviser.id}>
-                                                            {adviser.name}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                                {errors.class_adviser_id && <p className="text-red-500 text-xs mt-1">{errors.class_adviser_id}</p>}
-                                            </div>
+                                            {studentType === 'k12' && (
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        Class Adviser
+                                                    </label>
+                                                    <select
+                                                        value={data.class_adviser_id}
+                                                        onChange={(e) => setData('class_adviser_id', e.target.value)}
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    >
+                                                        <option value="">No adviser assigned</option>
+                                                        {classAdvisers.map((adviser) => (
+                                                            <option key={adviser.id} value={adviser.id}>
+                                                                {adviser.name}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    {errors.class_adviser_id && <p className="text-red-500 text-xs mt-1">{errors.class_adviser_id}</p>}
+                                                </div>
+                                            )}
                                         </div>
 
                                         <div>

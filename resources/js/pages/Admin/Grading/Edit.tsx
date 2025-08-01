@@ -11,6 +11,16 @@ interface Student {
         student_id: string;
         grade_level: string;
         section: string;
+        academic_level?: {
+            id: number;
+            name: string;
+            code: string;
+        };
+        college_course?: {
+            id: number;
+            name: string;
+            code: string;
+        };
     };
 }
 
@@ -37,9 +47,24 @@ interface Grade {
     academic_period: AcademicPeriod;
     instructor: Instructor;
     section: string;
-    quarterly_grades: Array<{
+    quarterly_grades?: Array<{
         quarter: number;
         grade: number;
+        weight: number;
+    }>;
+    semester_grades?: Array<{
+        semester: number;
+        first_grading?: number;
+        second_grading?: number;
+        third_grading?: number;
+        fourth_grading?: number;
+        weight: number;
+    }>;
+    college_grades?: Array<{
+        semester: number;
+        midterm: number;
+        pre_final: number;
+        final: number;
         weight: number;
     }>;
     final_grade: number;
@@ -47,6 +72,38 @@ interface Grade {
     remarks: string;
     submitted_at: string;
     approved_at?: string;
+}
+
+interface FormData {
+    student_id: string;
+    subject_id: string;
+    academic_period_id: string;
+    instructor_id: string;
+    section: string;
+    quarterly_grades?: Array<{
+        quarter: number;
+        grade: number;
+        weight: number;
+    }>;
+    semester_grades?: Array<{
+        semester: number;
+        first_grading?: number;
+        second_grading?: number;
+        third_grading?: number;
+        fourth_grading?: number;
+        weight: number;
+    }>;
+    college_grades?: Array<{
+        semester: number;
+        midterm: number;
+        pre_final: number;
+        final: number;
+        weight: number;
+    }>;
+    final_grade: string;
+    remarks: string;
+    status: string;
+    [key: string]: unknown;
 }
 
 interface Props {
@@ -64,17 +121,76 @@ const GradingEdit: React.FC<Props> = ({
     academicPeriods = [], 
     instructors = [] 
 }) => {
-    const { data, setData, put, processing, errors } = useForm({
-        student_id: grade.student.id.toString(),
-        subject_id: grade.subject.id.toString(),
-        academic_period_id: grade.academic_period.id.toString(),
-        instructor_id: grade.instructor.id.toString(),
-        section: grade.section,
-        quarterly_grades: grade.quarterly_grades,
-        final_grade: grade.final_grade.toString(),
-        remarks: grade.remarks || '',
-        status: grade.status
-    });
+    // Determine student type based on the grade data
+    const determineStudentType = (grade: Grade): 'elementary' | 'junior_high' | 'senior_high' | 'college' => {
+        if (grade.student.student_profile?.college_course) {
+            return 'college';
+        }
+        
+        const academicLevel = grade.student.student_profile?.academic_level;
+        if (!academicLevel) return 'elementary';
+        
+        const levelCode = academicLevel.code.toUpperCase();
+        
+        if (levelCode.includes('ELEM') || levelCode.includes('ELEMENTARY')) {
+            return 'elementary';
+        } else if (levelCode.includes('JHS') || levelCode.includes('JUNIOR')) {
+            return 'junior_high';
+        } else if (levelCode.includes('SHS') || levelCode.includes('SENIOR')) {
+            return 'senior_high';
+        }
+        
+        return 'elementary'; // default
+    };
+
+    const studentType = determineStudentType(grade);
+
+    // Initialize form data based on student type
+    const getInitialFormData = () => {
+        const baseData = {
+            student_id: grade.student.id.toString(),
+            subject_id: grade.subject.id.toString(),
+            academic_period_id: grade.academic_period.id.toString(),
+            instructor_id: grade.instructor.id.toString(),
+            section: grade.section,
+            final_grade: grade.final_grade.toString(),
+            remarks: grade.remarks || '',
+            status: grade.status
+        };
+
+        // Add grade structure based on student type
+        if (studentType === 'elementary' || studentType === 'junior_high') {
+            return {
+                ...baseData,
+                quarterly_grades: grade.quarterly_grades || [
+                    { quarter: 1, grade: 0, weight: 25 },
+                    { quarter: 2, grade: 0, weight: 25 },
+                    { quarter: 3, grade: 0, weight: 25 },
+                    { quarter: 4, grade: 0, weight: 25 }
+                ]
+            };
+        } else if (studentType === 'senior_high') {
+            return {
+                ...baseData,
+                semester_grades: grade.semester_grades || [
+                    { semester: 1, first_grading: 0, second_grading: 0, weight: 50 },
+                    { semester: 2, third_grading: 0, fourth_grading: 0, weight: 50 }
+                ]
+            };
+        } else if (studentType === 'college') {
+            return {
+                ...baseData,
+                college_grades: grade.college_grades || [
+                    { semester: 1, midterm: 0, pre_final: 0, final: 0, weight: 50 },
+                    { semester: 2, midterm: 0, pre_final: 0, final: 0, weight: 50 }
+                ]
+            };
+        }
+
+        return baseData;
+    };
+
+    const { data, setData, put, processing, errors } = useForm<FormData>(getInitialFormData());
 
     const [selectedStudent, setSelectedStudent] = useState<Student>(grade.student);
     const [searchTerm, setSearchTerm] = useState<string>('');
@@ -83,7 +199,7 @@ const GradingEdit: React.FC<Props> = ({
     const [showStudentModal, setShowStudentModal] = useState<boolean>(false);
 
     const handleQuarterlyGradeChange = (index: number, field: 'grade' | 'weight', value: string) => {
-        const newQuarterlyGrades = [...data.quarterly_grades];
+        const newQuarterlyGrades = [...(data.quarterly_grades || [])];
         const numericValue = parseFloat(value) || 0;
         newQuarterlyGrades[index] = {
             ...newQuarterlyGrades[index],
@@ -91,7 +207,7 @@ const GradingEdit: React.FC<Props> = ({
         };
         setData('quarterly_grades', newQuarterlyGrades);
 
-        // Auto-calculate final grade
+        // Auto-calculate final grade for Elementary/Junior High
         const totalWeight = newQuarterlyGrades.reduce((sum, qg) => sum + (qg.weight || 0), 0);
         if (totalWeight > 0) {
             const weightedSum = newQuarterlyGrades.reduce((sum, qg) => {
@@ -101,6 +217,69 @@ const GradingEdit: React.FC<Props> = ({
             }, 0);
             const calculatedFinalGrade = weightedSum / totalWeight;
             setData('final_grade', calculatedFinalGrade.toFixed(2));
+        }
+    };
+
+    const handleSemesterGradeChange = (index: number, field: 'first_grading' | 'second_grading' | 'third_grading' | 'fourth_grading' | 'weight', value: string) => {
+        const newSemesterGrades = [...(data.semester_grades || [])];
+        const numericValue = parseFloat(value) || 0;
+        newSemesterGrades[index] = {
+            ...newSemesterGrades[index],
+            [field]: numericValue
+        };
+        setData('semester_grades', newSemesterGrades);
+
+        // Auto-calculate final grade for Senior High
+        const totalWeight = newSemesterGrades.reduce((sum, sg) => sum + (sg.weight || 0), 0);
+        if (totalWeight > 0) {
+            let totalGrade = 0;
+            let totalWeightedGrade = 0;
+            
+            newSemesterGrades.forEach(semester => {
+                if (semester.semester === 1) {
+                    const semesterGrade = ((semester.first_grading || 0) + (semester.second_grading || 0)) / 2;
+                    totalGrade += semesterGrade * (semester.weight || 0);
+                    totalWeightedGrade += semester.weight || 0;
+                } else if (semester.semester === 2) {
+                    const semesterGrade = ((semester.third_grading || 0) + (semester.fourth_grading || 0)) / 2;
+                    totalGrade += semesterGrade * (semester.weight || 0);
+                    totalWeightedGrade += semester.weight || 0;
+                }
+            });
+            
+            if (totalWeightedGrade > 0) {
+                const calculatedFinalGrade = totalGrade / totalWeightedGrade;
+                setData('final_grade', calculatedFinalGrade.toFixed(2));
+            }
+        }
+    };
+
+    const handleCollegeGradeChange = (index: number, field: 'midterm' | 'pre_final' | 'final' | 'weight', value: string) => {
+        const newCollegeGrades = [...(data.college_grades || [])];
+        const numericValue = parseFloat(value) || 0;
+        newCollegeGrades[index] = {
+            ...newCollegeGrades[index],
+            [field]: numericValue
+        };
+        setData('college_grades', newCollegeGrades);
+
+        // Auto-calculate final grade for College
+        const totalWeight = newCollegeGrades.reduce((sum, cg) => sum + (cg.weight || 0), 0);
+        if (totalWeight > 0) {
+            let totalGrade = 0;
+            let totalWeightedGrade = 0;
+            
+            newCollegeGrades.forEach(semester => {
+                // College formula: (Midterm + Pre-Final) / 2 = Final Grade per semester
+                const semesterGrade = ((semester.midterm || 0) + (semester.pre_final || 0)) / 2;
+                totalGrade += semesterGrade * (semester.weight || 0);
+                totalWeightedGrade += semester.weight || 0;
+            });
+            
+            if (totalWeightedGrade > 0) {
+                const calculatedFinalGrade = totalGrade / totalWeightedGrade;
+                setData('final_grade', calculatedFinalGrade.toFixed(2));
+            }
         }
     };
 
@@ -300,48 +479,187 @@ const GradingEdit: React.FC<Props> = ({
                                 </div>
 
                                 {/* Quarterly Grades */}
-                                <div className="mt-6">
-                                    <h3 className="text-lg font-medium text-gray-900 mb-4">Quarterly Grades</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                        {data.quarterly_grades.map((quarterlyGrade, index) => (
-                                            <div key={index} className="bg-gray-50 rounded-lg p-4">
-                                                <h4 className="font-medium text-gray-900 mb-3">Quarter {quarterlyGrade.quarter}</h4>
-                                                <div className="space-y-3">
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                            Grade
-                                                        </label>
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            max="100"
-                                                            step="0.01"
-                                                            value={quarterlyGrade.grade}
-                                                            onChange={(e) => handleQuarterlyGradeChange(index, 'grade', e.target.value)}
-                                                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                                            required
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                            Weight (%)
-                                                        </label>
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            max="100"
-                                                            step="0.01"
-                                                            value={quarterlyGrade.weight}
-                                                            onChange={(e) => handleQuarterlyGradeChange(index, 'weight', e.target.value)}
-                                                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                                            required
-                                                        />
+                                {studentType === 'elementary' || studentType === 'junior_high' ? (
+                                    <div className="mt-6">
+                                        <h3 className="text-lg font-medium text-gray-900 mb-4">Quarterly Grades</h3>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                            {data.quarterly_grades?.map((quarterlyGrade, index) => (
+                                                <div key={index} className="bg-gray-50 rounded-lg p-4">
+                                                    <h4 className="font-medium text-gray-900 mb-3">Quarter {quarterlyGrade.quarter}</h4>
+                                                    <div className="space-y-3">
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                                Grade
+                                                            </label>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                max="100"
+                                                                step="0.01"
+                                                                value={quarterlyGrade.grade}
+                                                                onChange={(e) => handleQuarterlyGradeChange(index, 'grade', e.target.value)}
+                                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                                required
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                                Weight (%)
+                                                            </label>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                max="100"
+                                                                step="0.01"
+                                                                value={quarterlyGrade.weight}
+                                                                onChange={(e) => handleQuarterlyGradeChange(index, 'weight', e.target.value)}
+                                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                                required
+                                                            />
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
+                                ) : null}
+
+                                {/* Semester Grades */}
+                                {studentType === 'senior_high' ? (
+                                    <div className="mt-6">
+                                        <h3 className="text-lg font-medium text-gray-900 mb-4">Semester Grades</h3>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {data.semester_grades?.map((semesterGrade, index) => (
+                                                <div key={index} className="bg-gray-50 rounded-lg p-4">
+                                                    <h4 className="font-medium text-gray-900 mb-3">Semester {semesterGrade.semester}</h4>
+                                                    <div className="space-y-3">
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                                First Grading
+                                                            </label>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                max="100"
+                                                                step="0.01"
+                                                                value={semesterGrade.first_grading}
+                                                                onChange={(e) => handleSemesterGradeChange(index, 'first_grading', e.target.value)}
+                                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                                required
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                                Second Grading
+                                                            </label>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                max="100"
+                                                                step="0.01"
+                                                                value={semesterGrade.second_grading}
+                                                                onChange={(e) => handleSemesterGradeChange(index, 'second_grading', e.target.value)}
+                                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                                required
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                                Weight (%)
+                                                            </label>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                max="100"
+                                                                step="0.01"
+                                                                value={semesterGrade.weight}
+                                                                onChange={(e) => handleSemesterGradeChange(index, 'weight', e.target.value)}
+                                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                                required
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : null}
+
+                                {/* College Grades */}
+                                {studentType === 'college' ? (
+                                    <div className="mt-6">
+                                        <h3 className="text-lg font-medium text-gray-900 mb-4">College Grades</h3>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {data.college_grades?.map((collegeGrade, index) => (
+                                                <div key={index} className="bg-gray-50 rounded-lg p-4">
+                                                    <h4 className="font-medium text-gray-900 mb-3">Semester {collegeGrade.semester}</h4>
+                                                    <div className="space-y-3">
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                                Midterm
+                                                            </label>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                max="100"
+                                                                step="0.01"
+                                                                value={collegeGrade.midterm}
+                                                                onChange={(e) => handleCollegeGradeChange(index, 'midterm', e.target.value)}
+                                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                                required
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                                Pre-Final
+                                                            </label>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                max="100"
+                                                                step="0.01"
+                                                                value={collegeGrade.pre_final}
+                                                                onChange={(e) => handleCollegeGradeChange(index, 'pre_final', e.target.value)}
+                                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                                required
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                                Final
+                                                            </label>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                max="100"
+                                                                step="0.01"
+                                                                value={collegeGrade.final}
+                                                                onChange={(e) => handleCollegeGradeChange(index, 'final', e.target.value)}
+                                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                                required
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                                Weight (%)
+                                                            </label>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                max="100"
+                                                                step="0.01"
+                                                                value={collegeGrade.weight}
+                                                                onChange={(e) => handleCollegeGradeChange(index, 'weight', e.target.value)}
+                                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                                required
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : null}
 
                                 {/* Final Grade */}
                                 <div className="mt-6">
