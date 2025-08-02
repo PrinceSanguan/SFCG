@@ -170,6 +170,7 @@ Route::middleware([AdminMiddleware::class])->group(function () {
 
   // Assignment Pages
   Route::get('admin/assignments/instructors', [AcademicController::class, 'instructorAssignments'])->name('admin.assignments.instructors');
+  Route::get('admin/assignments/teachers', [AcademicController::class, 'teacherAssignments'])->name('admin.assignments.teachers');
   Route::get('admin/assignments/advisers', [AcademicController::class, 'adviserAssignments'])->name('admin.assignments.advisers');
 
   // Assignment Operations
@@ -177,6 +178,11 @@ Route::middleware([AdminMiddleware::class])->group(function () {
   Route::post('admin/assignments/instructors', [AcademicController::class, 'storeInstructorAssignments'])->name('admin.assignments.instructors.store');
   Route::put('admin/assignments/instructors/{assignment}', [AcademicController::class, 'updateInstructorAssignments'])->name('admin.assignments.instructors.update');
   Route::delete('admin/assignments/instructors/{assignment}', [AcademicController::class, 'destroyInstructorAssignments'])->name('admin.assignments.instructors.destroy');
+
+  // Teacher Assignments
+  Route::post('admin/assignments/teachers', [AcademicController::class, 'storeTeacherAssignments'])->name('admin.assignments.teachers.store');
+  Route::put('admin/assignments/teachers/{assignment}', [AcademicController::class, 'updateTeacherAssignments'])->name('admin.assignments.teachers.update');
+  Route::delete('admin/assignments/teachers/{assignment}', [AcademicController::class, 'destroyTeacherAssignments'])->name('admin.assignments.teachers.destroy');
 
   // Class Adviser Assignments
   Route::post('admin/assignments/advisers/assign', [AcademicController::class, 'assignClassAdviser'])->name('admin.assignments.advisers.assign');
@@ -559,6 +565,10 @@ Route::middleware([RegistrarMiddleware::class])->group(function () {
   Route::post('registrar/assignments/instructors', [RegistrarController::class, 'storeInstructorAssignments'])->name('registrar.assignments.instructors.store');
   Route::put('registrar/assignments/instructors/{assignment}', [RegistrarController::class, 'updateInstructorAssignments'])->name('registrar.assignments.instructors.update');
   Route::delete('registrar/assignments/instructors/{assignment}', [RegistrarController::class, 'destroyInstructorAssignments'])->name('registrar.assignments.instructors.destroy');
+  Route::get('registrar/assignments/teachers', [RegistrarController::class, 'teacherAssignments'])->name('registrar.assignments.teachers');
+  Route::post('registrar/assignments/teachers', [RegistrarController::class, 'storeTeacherAssignments'])->name('registrar.assignments.teachers.store');
+  Route::put('registrar/assignments/teachers/{assignment}', [RegistrarController::class, 'updateTeacherAssignments'])->name('registrar.assignments.teachers.update');
+  Route::delete('registrar/assignments/teachers/{assignment}', [RegistrarController::class, 'destroyTeacherAssignments'])->name('registrar.assignments.teachers.destroy');
   Route::get('registrar/assignments/advisers', [RegistrarController::class, 'adviserAssignments'])->name('registrar.assignments.advisers');
   Route::post('registrar/assignments/advisers/assign', [RegistrarController::class, 'assignAdvisers'])->name('registrar.assignments.advisers.assign');
   Route::post('registrar/assignments/advisers/remove', [RegistrarController::class, 'removeAdvisers'])->name('registrar.assignments.advisers.remove');

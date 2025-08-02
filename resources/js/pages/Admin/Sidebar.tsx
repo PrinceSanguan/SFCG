@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -14,7 +14,21 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
 
     const isActive = (href: string) => url.startsWith(href);
 
-    const toggleSection = (sectionKey: string) => {
+    // Auto-close dropdowns when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as Element;
+            if (!target.closest('.sidebar-dropdown')) {
+                setExpandedSections(prev => prev.filter(key => key === 'academic'));
+            }
+        };
+
+        document.addEventListener('click', handleClickOutside);
+        return () => document.removeEventListener('click', handleClickOutside);
+    }, []);
+
+    const toggleSection = (sectionKey: string, event: React.MouseEvent) => {
+        event.stopPropagation();
         setExpandedSections(prev => 
             prev.includes(sectionKey) 
                 ? prev.filter(key => key !== sectionKey)
@@ -72,7 +86,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
             icon: '📋',
             key: 'assignments',
             submenu: [
-                { title: 'Instructor Assignments', href: '/admin/assignments/instructors', icon: '👨‍🏫' },
+                { title: 'Assign Teachers (SHS)', href: '/admin/assignments/teachers', icon: '👩‍🏫' },
+                { title: 'Assign Instructors (College)', href: '/admin/assignments/instructors', icon: '👨‍🏫' },
                 { title: 'Adviser Assignments', href: '/admin/assignments/advisers', icon: '🧑‍🏫' }
             ]
         },
@@ -166,9 +181,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
                                     </Link>
                                 ) : (
                                     // Menu item with collapsible submenu
-                                    <div>
+                                    <div className="sidebar-dropdown">
                                         <button
-                                            onClick={() => toggleSection(item.key)}
+                                            onClick={(e) => toggleSection(item.key, e)}
                                             className={`group flex items-center justify-between w-full px-3 py-3 text-sm font-medium rounded-lg transition-colors ${
                                                 isSectionActive(item.submenu || [])
                                                     ? 'bg-blue-50 text-blue-700'

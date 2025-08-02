@@ -762,19 +762,175 @@ class AcademicController extends Controller
 
     public function destroyInstructorAssignments(InstructorSubjectAssignment $assignment)
     {
-        $oldValues = $assignment->toArray();
-        $assignment->update(['is_active' => false]);
-
         ActivityLog::logActivity(
             Auth::user(),
             'deleted',
             'InstructorSubjectAssignment',
             $assignment->id,
+            $assignment->toArray(),
+            null
+        );
+
+        $assignment->delete();
+
+        return redirect()->back()->with('success', 'Instructor assignment removed successfully.');
+    }
+
+    // ==================== TEACHER ASSIGNMENTS (SENIOR HIGH SCHOOL) ====================
+    
+    public function teacherAssignments()
+    {
+        // Get only senior high school levels
+        $seniorHighLevels = AcademicLevel::whereIn('name', ['Senior High School', 'Senior High'])
+            ->orWhere('code', 'SHS')
+            ->get();
+
+        $teachers = User::where('user_role', 'teacher')
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
+        $subjects = Subject::whereHas('academicLevel', function($query) use ($seniorHighLevels) {
+            $query->whereIn('id', $seniorHighLevels->pluck('id'));
+        })->with('academicLevel')->orderBy('name')->get();
+
+        $assignments = InstructorSubjectAssignment::whereHas('subject.academicLevel', function($query) use ($seniorHighLevels) {
+            $query->whereIn('id', $seniorHighLevels->pluck('id'));
+        })
+        ->with(['instructor', 'subject.academicLevel', 'academicPeriod'])
+        ->orderBy('created_at', 'desc')
+        ->get();
+
+        $academicPeriods = AcademicPeriod::orderBy('name')->get();
+
+        return Inertia::render('Admin/Assignments/Teachers', [
+            'assignments' => $assignments,
+            'teachers' => $teachers,
+            'subjects' => $subjects,
+            'academicPeriods' => $academicPeriods,
+            'seniorHighLevels' => $seniorHighLevels
+        ]);
+    }
+
+    public function storeTeacherAssignments(Request $request)
+    {
+        $request->validate([
+            'teacher_id' => 'required|exists:users,id',
+            'subject_id' => 'required|exists:subjects,id',
+            'academic_period_id' => 'required|exists:academic_periods,id',
+            'section' => 'nullable|string|max:255',
+            'is_active' => 'boolean',
+        ]);
+
+        // Check if teacher is actually a teacher
+        $teacher = User::find($request->teacher_id);
+        if ($teacher->user_role !== 'teacher') {
+            return redirect()->back()->with('error', 'Selected user is not a teacher.');
+        }
+
+        // Check if subject is for senior high school
+        $subject = Subject::with('academicLevel')->find($request->subject_id);
+        $seniorHighLevels = AcademicLevel::whereIn('name', ['Senior High School', 'Senior High'])
+            ->orWhere('code', 'SHS')
+            ->pluck('id');
+        
+        if (!$seniorHighLevels->contains($subject->academic_level_id)) {
+            return redirect()->back()->with('error', 'Subject must be for Senior High School level.');
+        }
+
+        // Check for existing assignment
+        $existingAssignment = InstructorSubjectAssignment::where([
+            'instructor_id' => $request->teacher_id,
+            'subject_id' => $request->subject_id,
+            'academic_period_id' => $request->academic_period_id,
+        ])->first();
+
+        if ($existingAssignment) {
+            return redirect()->back()->with('error', 'Teacher is already assigned to this subject for this period.');
+        }
+
+        $assignment = InstructorSubjectAssignment::create([
+            'instructor_id' => $request->teacher_id,
+            'subject_id' => $request->subject_id,
+            'academic_period_id' => $request->academic_period_id,
+            'section' => $request->section,
+            'is_active' => $request->is_active ?? true,
+        ]);
+
+        ActivityLog::logActivity(
+            Auth::user(),
+            'created',
+            'TeacherSubjectAssignment',
+            $assignment->id,
+            null,
+            $assignment->toArray()
+        );
+
+        return redirect()->back()->with('success', 'Teacher assigned successfully.');
+    }
+
+    public function updateTeacherAssignments(Request $request, InstructorSubjectAssignment $assignment)
+    {
+        $request->validate([
+            'teacher_id' => 'required|exists:users,id',
+            'subject_id' => 'required|exists:subjects,id',
+            'academic_period_id' => 'required|exists:academic_periods,id',
+            'section' => 'nullable|string|max:255',
+            'is_active' => 'boolean',
+        ]);
+
+        // Check if teacher is actually a teacher
+        $teacher = User::find($request->teacher_id);
+        if ($teacher->user_role !== 'teacher') {
+            return redirect()->back()->with('error', 'Selected user is not a teacher.');
+        }
+
+        // Check if subject is for senior high school
+        $subject = Subject::with('academicLevel')->find($request->subject_id);
+        $seniorHighLevels = AcademicLevel::whereIn('name', ['Senior High School', 'Senior High'])
+            ->orWhere('code', 'SHS')
+            ->pluck('id');
+        
+        if (!$seniorHighLevels->contains($subject->academic_level_id)) {
+            return redirect()->back()->with('error', 'Subject must be for Senior High School level.');
+        }
+
+        $oldValues = $assignment->toArray();
+
+        $assignment->update([
+            'instructor_id' => $request->teacher_id,
+            'subject_id' => $request->subject_id,
+            'academic_period_id' => $request->academic_period_id,
+            'section' => $request->section,
+            'is_active' => $request->is_active,
+        ]);
+
+        ActivityLog::logActivity(
+            Auth::user(),
+            'updated',
+            'TeacherSubjectAssignment',
+            $assignment->id,
             $oldValues,
             $assignment->toArray()
         );
 
-        return redirect()->back()->with('success', 'Instructor assignment deactivated successfully.');
+        return redirect()->back()->with('success', 'Teacher assignment updated successfully.');
+    }
+
+    public function destroyTeacherAssignments(InstructorSubjectAssignment $assignment)
+    {
+        ActivityLog::logActivity(
+            Auth::user(),
+            'deleted',
+            'TeacherSubjectAssignment',
+            $assignment->id,
+            $assignment->toArray(),
+            null
+        );
+
+        $assignment->delete();
+
+        return redirect()->back()->with('success', 'Teacher assignment removed successfully.');
     }
 
     // ==================== CLASS ADVISER ASSIGNMENTS ====================
