@@ -316,7 +316,9 @@ Route::middleware([StudentMiddleware::class])->group(function () {
   // 8.4. View certificates (read-only)
 Route::get('student/certificates', [StudentController::class, 'certificates'])->name('student.certificates');
 Route::get('student/certificates/{certificate}/download', [StudentController::class, 'downloadCertificate'])->name('student.certificates.download');
-Route::get('student/certificate-selection', [StudentController::class, 'certificateSelection'])->name('student.certificate-selection');
+      Route::get('student/certificate-selection', [StudentController::class, 'certificateSelection'])->name('student.certificate-selection');
+      Route::post('student/certificates/generate', [StudentController::class, 'generateCertificate'])->name('student.certificates.generate');
+      Route::get('student/certificates/{certificate}', [StudentController::class, 'viewCertificate'])->name('student.certificates.view');
 
   // 8.5. Notifications
   Route::get('student/notifications', [StudentController::class, 'notifications'])->name('student.notifications');
@@ -505,8 +507,7 @@ Route::middleware([RegistrarMiddleware::class])->group(function () {
 
   // 2.1.5. Manage parent accounts
   Route::get('registrar/parents', [RegistrarController::class, 'parents'])->name('registrar.parents.index');
-  Route::get('registrar/parents/{parent}', [RegistrarController::class, 'showParent'])->name('registrar.parents.show');
-  Route::get('registrar/parents/{parent}/edit', [RegistrarController::class, 'editParent'])->name('registrar.parents.edit');
+  Route::post('registrar/parents', [RegistrarController::class, 'storeParent'])->name('registrar.parents.store');
   Route::put('registrar/parents/{parent}', [RegistrarController::class, 'updateParent'])->name('registrar.parents.update');
   Route::delete('registrar/parents/{parent}', [RegistrarController::class, 'destroyParent'])->name('registrar.parents.destroy');
   Route::put('registrar/parents/{parent}/change-password', [RegistrarController::class, 'changeParentPassword'])->name('registrar.parents.change-password');
@@ -515,41 +516,6 @@ Route::middleware([RegistrarMiddleware::class])->group(function () {
 
   // 2.1.6. Search user, student, and parent accounts
   Route::get('registrar/search', [RegistrarController::class, 'searchUsers'])->name('registrar.search');
-
-  // 2.1.7. Specific User Management
-  // Instructors
-  Route::get('registrar/users/instructors', [RegistrarController::class, 'instructors'])->name('registrar.users.instructors');
-  Route::post('registrar/users/instructors', [RegistrarController::class, 'storeInstructors'])->name('registrar.users.instructors.store');
-  Route::put('registrar/users/instructors/{instructor}', [RegistrarController::class, 'updateInstructors'])->name('registrar.users.instructors.update');
-  Route::delete('registrar/users/instructors/{instructor}', [RegistrarController::class, 'destroyInstructors'])->name('registrar.users.instructors.destroy');
-
-  // Teachers
-  Route::get('registrar/users/teachers', [RegistrarController::class, 'teachers'])->name('registrar.users.teachers');
-  Route::post('registrar/users/teachers', [RegistrarController::class, 'storeTeachers'])->name('registrar.users.teachers.store');
-  Route::put('registrar/users/teachers/{teacher}', [RegistrarController::class, 'updateTeachers'])->name('registrar.users.teachers.update');
-  Route::delete('registrar/users/teachers/{teacher}', [RegistrarController::class, 'destroyTeachers'])->name('registrar.users.teachers.destroy');
-
-  // Advisers
-  Route::get('registrar/users/advisers', [RegistrarController::class, 'advisers'])->name('registrar.users.advisers');
-  Route::post('registrar/users/advisers', [RegistrarController::class, 'storeAdvisers'])->name('registrar.users.advisers.store');
-  Route::put('registrar/users/advisers/{adviser}', [RegistrarController::class, 'updateAdvisers'])->name('registrar.users.advisers.update');
-  Route::delete('registrar/users/advisers/{adviser}', [RegistrarController::class, 'destroyAdvisers'])->name('registrar.users.advisers.destroy');
-
-  // Chairpersons
-  Route::get('registrar/users/chairpersons', [RegistrarController::class, 'chairpersons'])->name('registrar.users.chairpersons');
-  Route::post('registrar/users/chairpersons', [RegistrarController::class, 'storeChairpersons'])->name('registrar.users.chairpersons.store');
-  Route::put('registrar/users/chairpersons/{chairperson}', [RegistrarController::class, 'updateChairpersons'])->name('registrar.users.chairpersons.update');
-  Route::delete('registrar/users/chairpersons/{chairperson}', [RegistrarController::class, 'destroyChairpersons'])->name('registrar.users.chairpersons.destroy');
-
-  // Principals
-  Route::get('registrar/users/principals', [RegistrarController::class, 'principals'])->name('registrar.users.principals');
-  Route::post('registrar/users/principals', [RegistrarController::class, 'storePrincipals'])->name('registrar.users.principals.store');
-  Route::put('registrar/users/principals/{principal}', [RegistrarController::class, 'updatePrincipals'])->name('registrar.users.principals.update');
-  Route::delete('registrar/users/principals/{principal}', [RegistrarController::class, 'destroyPrincipals'])->name('registrar.users.principals.destroy');
-
-  // User Upload
-  Route::get('registrar/users/upload', [RegistrarController::class, 'uploadUsers'])->name('registrar.users.upload');
-  Route::post('registrar/users/upload', [RegistrarController::class, 'processUserUpload'])->name('registrar.users.upload.process');
 
   // 2.2. Academic & Curriculum Management
   // Academic Levels CRUD
@@ -594,18 +560,25 @@ Route::middleware([RegistrarMiddleware::class])->group(function () {
   Route::put('registrar/assignments/instructors/{assignment}', [RegistrarController::class, 'updateInstructorAssignments'])->name('registrar.assignments.instructors.update');
   Route::delete('registrar/assignments/instructors/{assignment}', [RegistrarController::class, 'destroyInstructorAssignments'])->name('registrar.assignments.instructors.destroy');
   Route::get('registrar/assignments/advisers', [RegistrarController::class, 'adviserAssignments'])->name('registrar.assignments.advisers');
+  Route::post('registrar/assignments/advisers/assign', [RegistrarController::class, 'assignAdvisers'])->name('registrar.assignments.advisers.assign');
+  Route::post('registrar/assignments/advisers/remove', [RegistrarController::class, 'removeAdvisers'])->name('registrar.assignments.advisers.remove');
 
   // 2.3. Honor Tracking and Ranking
   Route::get('registrar/honors', [RegistrarController::class, 'honors'])->name('registrar.honors.index');
-      Route::get('registrar/honors/roll', [RegistrarController::class, 'honorRoll'])->name('registrar.honors.roll');
-    Route::get('registrar/honors/criteria', [RegistrarController::class, 'criteria'])->name('registrar.honors.criteria');
-    Route::post('registrar/honors/calculate', [RegistrarController::class, 'calculateHonors'])->name('registrar.honors.calculate');
-    Route::post('registrar/honors/export', [RegistrarController::class, 'exportHonorRoll'])->name('registrar.honors.export');
-    
-    // Honor CRUD Routes
-    Route::post('registrar/honors', [RegistrarController::class, 'storeHonor'])->name('registrar.honors.store');
-    Route::put('registrar/honors/{honor}', [RegistrarController::class, 'updateHonor'])->name('registrar.honors.update');
-    Route::delete('registrar/honors/{honor}', [RegistrarController::class, 'destroyHonor'])->name('registrar.honors.destroy');
+  Route::get('registrar/honors/roll', [RegistrarController::class, 'honorRoll'])->name('registrar.honors.roll');
+  Route::get('registrar/honors/criteria', [RegistrarController::class, 'criteria'])->name('registrar.honors.criteria');
+  Route::post('registrar/honors/calculate', [RegistrarController::class, 'calculateHonors'])->name('registrar.honors.calculate');
+  Route::post('registrar/honors/export', [RegistrarController::class, 'exportHonorRoll'])->name('registrar.honors.export');
+  
+  // Honor CRUD Routes
+  Route::post('registrar/honors', [RegistrarController::class, 'storeHonor'])->name('registrar.honors.store');
+  Route::put('registrar/honors/{honor}', [RegistrarController::class, 'updateHonor'])->name('registrar.honors.update');
+  Route::delete('registrar/honors/{honor}', [RegistrarController::class, 'destroyHonor'])->name('registrar.honors.destroy');
+  
+  // Honor Criteria CRUD Routes
+  Route::post('registrar/honors/criteria', [RegistrarController::class, 'storeHonorCriteria'])->name('registrar.honors.criteria.store');
+  Route::put('registrar/honors/criteria/{criterion}', [RegistrarController::class, 'updateHonorCriteria'])->name('registrar.honors.criteria.update');
+  Route::delete('registrar/honors/criteria/{criterion}', [RegistrarController::class, 'destroyHonorCriteria'])->name('registrar.honors.criteria.destroy');
 
   // 2.4. Automated Certificate Generation
   Route::get('registrar/certificates', [RegistrarController::class, 'certificates'])->name('registrar.certificates.index');
@@ -614,8 +587,14 @@ Route::middleware([RegistrarMiddleware::class])->group(function () {
   Route::post('registrar/certificates/bulk-generate', [RegistrarController::class, 'bulkGenerateCertificates'])->name('registrar.certificates.bulk-generate');
   Route::get('registrar/certificates/{certificate}/download', [RegistrarController::class, 'downloadCertificate'])->name('registrar.certificates.download');
   Route::get('registrar/certificates/{certificate}/print', [RegistrarController::class, 'printCertificate'])->name('registrar.certificates.print');
+  
+  // Certificate Templates CRUD Routes
+  Route::post('registrar/certificates/templates', [RegistrarController::class, 'storeCertificateTemplate'])->name('registrar.certificates.templates.store');
+  Route::post('registrar/certificates/templates/{template}', [RegistrarController::class, 'updateCertificateTemplate'])->name('registrar.certificates.templates.update');
+  Route::delete('registrar/certificates/templates/{template}', [RegistrarController::class, 'destroyCertificateTemplate'])->name('registrar.certificates.templates.destroy');
 
   // 2.5. Reports and Archiving
   Route::get('registrar/reports', [RegistrarController::class, 'reports'])->name('registrar.reports.index');
   Route::post('registrar/reports/generate', [RegistrarController::class, 'generateReport'])->name('registrar.reports.generate');
+  Route::get('registrar/reports/export', [RegistrarController::class, 'export'])->name('registrar.reports.export');
 });

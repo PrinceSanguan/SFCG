@@ -1,42 +1,184 @@
-import { router } from '@inertiajs/react';
-import React from 'react';
+import React, { useState } from 'react';
+import { Link, usePage } from '@inertiajs/react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
-const Sidebar: React.FC = () => {
-    const handleLogout = () => {
-        router.visit(route('auth.logout'));
+interface SidebarProps {
+    isOpen: boolean;
+    onClose: () => void;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
+    const [expandedSections, setExpandedSections] = useState<string[]>(['dashboard']);
+    const isMobile = useIsMobile();
+    const { url } = usePage();
+
+    const toggleSection = (section: string) => {
+        setExpandedSections(prev => 
+            prev.includes(section) 
+                ? prev.filter(s => s !== section)
+                : [...prev, section]
+        );
     };
 
-    const menuItems = [{ name: 'Dashboard', href: '/instructor/dashboard', icon: '📊' }];
+    const isSectionActive = (section: string) => {
+        return expandedSections.includes(section);
+    };
+
+    const isLinkActive = (href: string) => {
+        return url === href;
+    };
+
+    const handleLinkClick = () => {
+        if (isMobile) {
+            onClose();
+        }
+    };
+
+    const menuItems = [
+        {
+            name: 'Dashboard',
+            href: '/instructor/dashboard',
+            icon: '📊',
+            section: 'dashboard'
+        },
+        {
+            name: 'Account',
+            icon: '👤',
+            section: 'account',
+            items: [
+                { name: 'Profile', href: '/instructor/profile', icon: '👤' }
+            ]
+        },
+        {
+            name: 'Grade Management',
+            icon: '📝',
+            section: 'grades',
+            items: [
+                { name: 'Input Grades', href: '/instructor/grades', icon: '✏️' },
+                { name: 'Edit Grades', href: '/instructor/grades/edit', icon: '🔄' },
+                { name: 'Submit Grades', href: '/instructor/grades/submit', icon: '📤' },
+                { name: 'Upload CSV', href: '/instructor/grades/upload', icon: '📁' }
+            ]
+        },
+        {
+            name: 'Honor Tracking',
+            icon: '🏆',
+            section: 'honors',
+            items: [
+                { name: 'View Honor Results', href: '/instructor/honors', icon: '👀' }
+            ]
+        }
+    ];
 
     return (
-        <div className="flex w-64 flex-col border-r border-gray-200 bg-white shadow-sm">
-            <div className="border-b border-gray-200 p-6">
-                <h2 className="text-xl font-bold text-gray-900">Instructor Panel</h2>
-            </div>
+        <>
+            {/* Mobile overlay */}
+            {isMobile && isOpen && (
+                <div 
+                    className="fixed inset-0 bg-gray-600 bg-opacity-75 z-40 lg:hidden"
+                    onClick={onClose}
+                />
+            )}
 
-            <nav className="flex-1 p-4">
-                <ul className="space-y-2">
+            {/* Sidebar */}
+            <div className={`
+                fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0
+                ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+            `}>
+                {/* Header */}
+                <div className="flex h-16 items-center justify-between px-6 border-b border-gray-200">
+                    <h2 className="text-xl font-bold text-gray-900">Instructor Panel</h2>
+                    {isMobile && (
+                        <button
+                            onClick={onClose}
+                            className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
+                        >
+                            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    )}
+                </div>
+
+                {/* Navigation */}
+                <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
                     {menuItems.map((item) => (
-                        <li key={item.name}>
-                            <a href={item.href} className="flex items-center rounded-lg px-4 py-2 text-gray-700 transition-colors hover:bg-gray-100">
-                                <span className="mr-3">{item.icon}</span>
-                                {item.name}
-                            </a>
-                        </li>
+                        <div key={item.section}>
+                            {item.items ? (
+                                // Section with sub-items
+                                <div>
+                                    <button
+                                        onClick={() => toggleSection(item.section)}
+                                        className={`w-full flex items-center justify-between px-4 py-3 text-left rounded-lg transition-colors ${
+                                            isSectionActive(item.section)
+                                                ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                                : 'text-gray-700 hover:bg-gray-100'
+                                        }`}
+                                    >
+                                        <div className="flex items-center">
+                                            <span className="mr-3">{item.icon}</span>
+                                            <span className="font-medium">{item.name}</span>
+                                        </div>
+                                        <svg
+                                            className={`h-5 w-5 transition-transform ${
+                                                isSectionActive(item.section) ? 'rotate-180' : ''
+                                            }`}
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                        >
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
+                                    
+                                    {isSectionActive(item.section) && (
+                                        <div className="mt-2 ml-4 space-y-1">
+                                            {item.items.map((subItem) => (
+                                                <Link
+                                                    key={subItem.href}
+                                                    href={subItem.href}
+                                                    onClick={handleLinkClick}
+                                                    className={`flex items-center px-4 py-2 text-sm rounded-lg transition-colors ${
+                                                        isLinkActive(subItem.href)
+                                                            ? 'bg-blue-100 text-blue-700'
+                                                            : 'text-gray-600 hover:bg-gray-50'
+                                                    }`}
+                                                >
+                                                    <span className="mr-3">{subItem.icon}</span>
+                                                    {subItem.name}
+                                                </Link>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                // Single item
+                                <Link
+                                    href={item.href!}
+                                    onClick={handleLinkClick}
+                                    className={`flex items-center px-4 py-3 rounded-lg transition-colors ${
+                                        isLinkActive(item.href!)
+                                            ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                            : 'text-gray-700 hover:bg-gray-100'
+                                    }`}
+                                >
+                                    <span className="mr-3">{item.icon}</span>
+                                    <span className="font-medium">{item.name}</span>
+                                </Link>
+                            )}
+                        </div>
                     ))}
-                </ul>
-            </nav>
+                </nav>
 
-            <div className="border-t border-gray-200 p-4">
-                <button
-                    onClick={handleLogout}
-                    className="flex w-full items-center rounded-lg px-4 py-2 text-red-600 transition-colors hover:bg-red-50"
-                >
-                    <span className="mr-3">🚪</span>
-                    Logout
-                </button>
+                {/* Footer */}
+                <div className="border-t border-gray-200 p-4">
+                    <div className="text-xs text-gray-500 text-center">
+                        <p>Instructor Portal</p>
+                        <p className="mt-1">v1.0.0</p>
+                    </div>
+                </div>
             </div>
-        </div>
+        </>
     );
 };
 

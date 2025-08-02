@@ -342,19 +342,31 @@ class RegistrarController extends Controller
     // 2.1.5. Manage parent accounts
     public function parents(Request $request)
     {
-        $query = User::where('user_role', 'parent')
-                    ->with(['linkedStudents.studentProfile']);
+        $parents = User::where('user_role', 'parent')
+                      ->with(['linkedStudents.studentProfile'])
+                      ->orderBy('name')
+                      ->get();
 
-        if ($request->filled('search')) {
-            $query->where('name', 'like', '%' . $request->search . '%')
-                  ->orWhere('email', 'like', '%' . $request->search . '%');
-        }
+        $students = User::where('user_role', 'student')
+                       ->with(['studentProfile'])
+                       ->orderBy('name')
+                       ->get();
 
-        $parents = $query->orderBy('name')->paginate(20);
+        $relationshipTypes = [
+            'father' => 'Father',
+            'mother' => 'Mother',
+            'guardian' => 'Guardian',
+            'grandfather' => 'Grandfather',
+            'grandmother' => 'Grandmother',
+            'uncle' => 'Uncle',
+            'aunt' => 'Aunt',
+            'sibling' => 'Sibling',
+        ];
 
         return Inertia::render('Registrar/Parents/Index', [
             'parents' => $parents,
-            'filters' => $request->only(['search']),
+            'students' => $students,
+            'relationshipTypes' => $relationshipTypes,
         ]);
     }
 
@@ -375,23 +387,7 @@ class RegistrarController extends Controller
         ]);
     }
 
-    public function updateParent(Request $request, User $parent)
-    {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,' . $parent->id,
-        ]);
 
-        $parent->update($request->only(['name', 'email']));
-
-        return redirect()->route('registrar.parents.index')->with('success', 'Parent updated successfully.');
-    }
-
-    public function destroyParent(User $parent)
-    {
-        $parent->delete();
-        return redirect()->route('registrar.parents.index')->with('success', 'Parent deleted successfully.');
-    }
 
     public function linkParentToStudent(Request $request, User $parent)
     {
@@ -431,6 +427,90 @@ class RegistrarController extends Controller
         ]);
 
         return redirect()->back()->with('success', 'Password changed successfully.');
+    }
+
+    // Parent CRUD Methods
+    public function storeParent(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|min:8',
+            'student_ids' => 'array',
+            'relationships' => 'array',
+        ]);
+
+        $parent = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+            'user_role' => 'parent',
+        ]);
+
+        // Link students if provided
+        if ($request->student_ids && $request->relationships) {
+            foreach ($request->student_ids as $index => $studentId) {
+                if ($studentId && isset($request->relationships[$index])) {
+                    ParentStudentLink::create([
+                        'parent_id' => $parent->id,
+                        'student_id' => $studentId,
+                        'relationship' => $request->relationships[$index],
+                    ]);
+                }
+            }
+        }
+
+        return redirect()->back()->with('success', 'Parent created successfully.');
+    }
+
+    public function updateParent(Request $request, User $parent)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,' . $parent->id,
+            'password' => 'nullable|min:8',
+            'student_ids' => 'array',
+            'relationships' => 'array',
+        ]);
+
+        $parent->update([
+            'name' => $request->name,
+            'email' => $request->email,
+        ]);
+
+        if ($request->password) {
+            $parent->update([
+                'password' => Hash::make($request->password),
+            ]);
+        }
+
+        // Update student links
+        if ($request->student_ids && $request->relationships) {
+            // Remove existing links
+            ParentStudentLink::where('parent_id', $parent->id)->delete();
+            
+            // Create new links
+            foreach ($request->student_ids as $index => $studentId) {
+                if ($studentId && isset($request->relationships[$index])) {
+                    ParentStudentLink::create([
+                        'parent_id' => $parent->id,
+                        'student_id' => $studentId,
+                        'relationship' => $request->relationships[$index],
+                    ]);
+                }
+            }
+        }
+
+        return redirect()->back()->with('success', 'Parent updated successfully.');
+    }
+
+    public function destroyParent(User $parent)
+    {
+        // Remove all student links first
+        ParentStudentLink::where('parent_id', $parent->id)->delete();
+        
+        $parent->delete();
+        return redirect()->back()->with('success', 'Parent deleted successfully.');
     }
 
     // 2.1.6. Search user, student, and parent accounts
@@ -571,7 +651,7 @@ class RegistrarController extends Controller
     // Assignment Pages
     public function instructorAssignments()
     {
-        $assignments = InstructorSubjectAssignment::with(['instructor', 'subject', 'academicLevel'])
+        $assignments = InstructorSubjectAssignment::with(['instructor', 'subject', 'academicPeriod'])
                                                   ->orderBy('created_at', 'desc')
                                                   ->get();
         $instructors = User::whereIn('user_role', ['instructor', 'teacher'])->orderBy('name')->get();
@@ -593,10 +673,14 @@ class RegistrarController extends Controller
                        ->orderBy('name')
                        ->get();
         $advisers = User::where('user_role', 'class_adviser')->orderBy('name')->get();
+        $classAdvisers = User::where('user_role', 'class_adviser')->orderBy('name')->get();
+        $levels = AcademicLevel::orderBy('name')->get();
 
         return Inertia::render('Registrar/Assignments/Advisers', [
             'students' => $students,
             'advisers' => $advisers,
+            'classAdvisers' => $classAdvisers,
+            'levels' => $levels,
         ]);
     }
 
@@ -645,27 +729,109 @@ class RegistrarController extends Controller
         return redirect()->back()->with('success', 'Instructor assignment deleted successfully.');
     }
 
+    // Adviser Assignment Methods
+    public function assignAdvisers(Request $request)
+    {
+        $request->validate([
+            'student_ids' => 'required|array',
+            'student_ids.*' => 'exists:users,id',
+            'class_adviser_id' => 'required|exists:users,id',
+        ]);
+
+        $students = User::whereIn('id', $request->student_ids)
+                       ->where('user_role', 'student')
+                       ->get();
+
+        foreach ($students as $student) {
+            if ($student->studentProfile) {
+                $student->studentProfile->update([
+                    'class_adviser_id' => $request->class_adviser_id,
+                ]);
+            }
+        }
+
+        return redirect()->back()->with('success', 'Class adviser assigned successfully to ' . count($students) . ' students.');
+    }
+
+    public function removeAdvisers(Request $request)
+    {
+        $request->validate([
+            'student_ids' => 'required|array',
+            'student_ids.*' => 'exists:users,id',
+        ]);
+
+        $students = User::whereIn('id', $request->student_ids)
+                       ->where('user_role', 'student')
+                       ->get();
+
+        foreach ($students as $student) {
+            if ($student->studentProfile) {
+                $student->studentProfile->update([
+                    'class_adviser_id' => null,
+                ]);
+            }
+        }
+
+        return redirect()->back()->with('success', 'Class adviser removed successfully from ' . count($students) . ' students.');
+    }
+
     // 2.3. Honor Tracking and Ranking (Same as Admin)
     public function honors()
     {
-        $honors = StudentHonor::with(['student.studentProfile', 'honorCriterion'])
-                             ->orderBy('created_at', 'desc')
-                             ->paginate(20);
+        // Get honor criteria
+        $honorCriteria = HonorCriterion::orderBy('minimum_grade', 'desc')->paginate(20);
+
+        // Get recent honors
+        $recentHonors = StudentHonor::with(['student.studentProfile', 'honorCriterion', 'academicPeriod'])
+                                   ->where('is_active', true)
+                                   ->orderBy('awarded_date', 'desc')
+                                   ->limit(10)
+                                   ->get();
+
+        // Get statistics using the service
+        $service = new HonorCalculationService();
+        $stats = $service->generateHonorStatistics();
+
+        // Get academic periods
+        $academicPeriods = AcademicPeriod::orderBy('name')->get();
+
+        // Get academic levels
+        $academicLevels = AcademicLevel::orderBy('name')->get();
 
         return Inertia::render('Registrar/Honors/Index', [
-            'honors' => $honors,
+            'honorCriteria' => $honorCriteria,
+            'recentHonors' => $recentHonors,
+            'stats' => $stats,
+            'academicPeriods' => $academicPeriods,
+            'academicLevels' => $academicLevels,
         ]);
     }
 
     public function honorRoll()
     {
-        $honors = StudentHonor::with(['student.studentProfile', 'honorCriterion'])
-                             ->where('is_approved', true)
-                             ->orderBy('created_at', 'desc')
-                             ->paginate(20);
+        $academicPeriodId = request()->get('academic_period_id');
+        
+        if (!$academicPeriodId) {
+            $currentPeriod = AcademicPeriod::where('is_active', true)->first();
+            $academicPeriodId = $currentPeriod?->id;
+        }
+
+        $honorRoll = [];
+        $stats = [];
+
+        if ($academicPeriodId) {
+            $service = new HonorCalculationService();
+            $honorRoll = $service->getHonorRollByPeriod($academicPeriodId);
+            $stats = $service->generateHonorStatistics($academicPeriodId);
+        }
+
+        $academicPeriods = AcademicPeriod::orderBy('name')->get();
 
         return Inertia::render('Registrar/Honors/Roll', [
-            'honors' => $honors,
+            'honorRoll' => $honorRoll,
+            'stats' => $stats,
+            'academicPeriods' => $academicPeriods,
+            'selectedPeriodId' => $academicPeriodId
         ]);
     }
 
@@ -782,6 +948,59 @@ class RegistrarController extends Controller
         return redirect()->back()->with('success', 'Honor deleted successfully.');
     }
 
+    // Honor Criteria CRUD Methods
+    public function storeHonorCriteria(Request $request)
+    {
+        $request->validate([
+            'honor_type' => 'required|string|max:255',
+            'minimum_grade' => 'required|numeric|min:0|max:100',
+            'maximum_grade' => 'nullable|numeric|min:0|max:100|gte:minimum_grade',
+            'criteria_description' => 'required|string|max:1000',
+            'academic_level_id' => 'nullable|exists:academic_levels,id',
+            'is_active' => 'boolean',
+        ]);
+
+        HonorCriterion::create([
+            'honor_type' => $request->honor_type,
+            'minimum_grade' => $request->minimum_grade,
+            'maximum_grade' => $request->maximum_grade,
+            'criteria_description' => $request->criteria_description,
+            'academic_level_id' => $request->academic_level_id,
+            'is_active' => $request->is_active,
+        ]);
+
+        return redirect()->back()->with('success', 'Honor criterion created successfully.');
+    }
+
+    public function updateHonorCriteria(Request $request, HonorCriterion $criterion)
+    {
+        $request->validate([
+            'honor_type' => 'required|string|max:255',
+            'minimum_grade' => 'required|numeric|min:0|max:100',
+            'maximum_grade' => 'nullable|numeric|min:0|max:100|gte:minimum_grade',
+            'criteria_description' => 'required|string|max:1000',
+            'academic_level_id' => 'nullable|exists:academic_levels,id',
+            'is_active' => 'boolean',
+        ]);
+
+        $criterion->update([
+            'honor_type' => $request->honor_type,
+            'minimum_grade' => $request->minimum_grade,
+            'maximum_grade' => $request->maximum_grade,
+            'criteria_description' => $request->criteria_description,
+            'academic_level_id' => $request->academic_level_id,
+            'is_active' => $request->is_active,
+        ]);
+
+        return redirect()->back()->with('success', 'Honor criterion updated successfully.');
+    }
+
+    public function destroyHonorCriteria(HonorCriterion $criterion)
+    {
+        $criterion->delete();
+        return redirect()->back()->with('success', 'Honor criterion deleted successfully.');
+    }
+
     // 2.4. Automated Certificate Generation (Same as Admin)
     public function certificates()
     {
@@ -789,8 +1008,13 @@ class RegistrarController extends Controller
                                            ->orderBy('created_at', 'desc')
                                            ->paginate(20);
 
+        $templates = CertificateTemplate::where('is_active', true)->orderBy('name')->get();
+        $students = User::where('user_role', 'student')->orderBy('name')->get();
+
         return Inertia::render('Registrar/Certificates/Index', [
             'certificates' => $certificates,
+            'templates' => $templates,
+            'students' => $students,
         ]);
     }
 
@@ -863,86 +1087,291 @@ class RegistrarController extends Controller
         ]);
     }
 
+    // Certificate Templates CRUD Methods
+    public function storeCertificateTemplate(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'certificate_type' => 'required|string|max:255',
+            'template_type' => 'required|string|max:255',
+            'education_level' => 'required|string|max:255',
+            'image_description' => 'nullable|string|max:1000',
+            'template_image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'is_active' => 'boolean',
+        ]);
+
+        $imagePath = null;
+        if ($request->hasFile('template_image')) {
+            $imagePath = $request->file('template_image')->store('certificate-templates', 'public');
+        }
+
+        CertificateTemplate::create([
+            'name' => $request->name,
+            'certificate_type' => $request->certificate_type,
+            'template_type' => $request->template_type,
+            'education_level' => $request->education_level,
+            'image_description' => $request->image_description,
+            'template_image_path' => $imagePath,
+            'is_active' => $request->is_active,
+            'created_by' => auth()->id(),
+        ]);
+
+        return redirect()->back()->with('success', 'Certificate template created successfully.');
+    }
+
+    public function updateCertificateTemplate(Request $request, CertificateTemplate $template)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'certificate_type' => 'required|string|max:255',
+            'template_type' => 'required|string|max:255',
+            'education_level' => 'required|string|max:255',
+            'image_description' => 'nullable|string|max:1000',
+            'template_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'is_active' => 'boolean',
+        ]);
+
+        $data = [
+            'name' => $request->name,
+            'certificate_type' => $request->certificate_type,
+            'template_type' => $request->template_type,
+            'education_level' => $request->education_level,
+            'image_description' => $request->image_description,
+            'is_active' => $request->is_active,
+        ];
+
+        if ($request->hasFile('template_image')) {
+            // Delete old image if exists
+            if ($template->template_image_path) {
+                Storage::disk('public')->delete($template->template_image_path);
+            }
+            
+            $imagePath = $request->file('template_image')->store('certificate-templates', 'public');
+            $data['template_image_path'] = $imagePath;
+        }
+
+        $template->update($data);
+
+        return redirect()->back()->with('success', 'Certificate template updated successfully.');
+    }
+
+    public function destroyCertificateTemplate(CertificateTemplate $template)
+    {
+        // Delete image file if exists
+        if ($template->template_image_path) {
+            Storage::disk('public')->delete($template->template_image_path);
+        }
+
+        $template->delete();
+        return redirect()->back()->with('success', 'Certificate template deleted successfully.');
+    }
+
     // 2.5. Reports and Archiving (Same as Admin)
     public function reports()
     {
-        $stats = [
-            'totalStudents' => User::where('user_role', 'student')->count(),
-            'totalInstructors' => User::whereIn('user_role', ['instructor', 'teacher'])->count(),
-            'totalGrades' => Grade::count(),
-            'approvedHonors' => StudentHonor::where('is_approved', true)->count(),
-            'generatedCertificates' => GeneratedCertificate::count(),
+        $reportTypes = [
+            'student_grades' => 'Student Grades Report',
+            'honor_roll' => 'Honor Roll Report',
+            'enrollment' => 'Enrollment Report',
+            'instructor_performance' => 'Instructor Performance Report',
+            'academic_summary' => 'Academic Summary Report',
+            'user_activity' => 'User Activity Report',
         ];
 
+        $academicPeriods = AcademicPeriod::orderBy('name')->get();
+        $academicLevels = AcademicLevel::orderBy('name')->get();
+
         return Inertia::render('Registrar/Reports/Index', [
-            'stats' => $stats,
+            'reportTypes' => $reportTypes,
+            'academicPeriods' => $academicPeriods,
+            'academicLevels' => $academicLevels,
         ]);
     }
 
     public function generateReport(Request $request)
     {
         $request->validate([
-            'report_type' => 'required|in:grades,honors,students,performance',
-            'format' => 'required|in:pdf,excel,csv',
-            'filters' => 'array',
+            'report_type' => 'required|in:student_grades,honor_roll,enrollment,instructor_performance,academic_summary,user_activity',
+            'academic_period_id' => 'nullable|exists:academic_periods,id',
+            'academic_level_id' => 'nullable|exists:academic_levels,id',
+            'format' => 'required|in:view,csv,pdf',
+            'date_from' => 'nullable|date',
+            'date_to' => 'nullable|date|after_or_equal:date_from',
         ]);
 
-        // Generate report based on type
-        $report = $this->generateReportData($request->report_type, $request->filters ?? []);
+        $reportData = $this->generateReportData($request);
 
-        if ($request->format === 'csv') {
-            return $this->exportToCsv($report, $request->report_type);
-        } elseif ($request->format === 'excel') {
-            return $this->exportToExcel($report, $request->report_type);
+        if ($request->format === 'view') {
+            return Inertia::render('Registrar/Reports/View', [
+                'reportData' => $reportData,
+                'reportType' => $request->report_type,
+                'filters' => $request->only(['academic_period_id', 'academic_level_id', 'date_from', 'date_to'])
+            ]);
+        } elseif ($request->format === 'csv') {
+            return $this->exportCsv($reportData, $request->report_type);
         } else {
-            return $this->exportToPdf($report, $request->report_type);
+            return $this->exportPdf($reportData, $request->report_type);
         }
     }
 
-    private function generateReportData($type, $filters)
+    private function generateReportData(Request $request)
     {
-        switch ($type) {
-            case 'grades':
-                return Grade::with(['student.studentProfile', 'subject', 'academicPeriod'])
-                           ->when(isset($filters['academic_period_id']), function($q) use ($filters) {
-                               $q->where('academic_period_id', $filters['academic_period_id']);
-                           })
-                           ->when(isset($filters['subject_id']), function($q) use ($filters) {
-                               $q->where('subject_id', $filters['subject_id']);
-                           })
-                           ->get();
+        switch ($request->report_type) {
+            case 'student_grades':
+                return $this->generateStudentGradesReport($request);
 
-            case 'honors':
-                return StudentHonor::with(['student.studentProfile', 'honorCriterion'])
-                                  ->when(isset($filters['academic_level_id']), function($q) use ($filters) {
-                                      $q->whereHas('student.studentProfile', function($sq) use ($filters) {
-                                          $sq->where('academic_level_id', $filters['academic_level_id']);
-                                      });
-                                  })
-                                  ->get();
+            case 'honor_roll':
+                return $this->generateHonorRollReport($request);
 
-            case 'students':
-                return User::where('user_role', 'student')
-                          ->with(['studentProfile.academicLevel', 'studentProfile.collegeCourse'])
-                          ->when(isset($filters['academic_level_id']), function($q) use ($filters) {
-                              $q->whereHas('studentProfile', function($sq) use ($filters) {
-                                  $sq->where('academic_level_id', $filters['academic_level_id']);
-                              });
-                          })
-                          ->get();
+            case 'enrollment':
+                return $this->generateEnrollmentReport($request);
 
-            case 'performance':
-                return Grade::with(['student.studentProfile', 'subject'])
-                           ->select('student_id', 'subject_id', DB::raw('AVG(final_grade) as average_grade'))
-                           ->groupBy('student_id', 'subject_id')
-                           ->get();
+            case 'instructor_performance':
+                return $this->generateInstructorPerformanceReport($request);
+
+            case 'academic_summary':
+                return $this->generateAcademicSummaryReport($request);
+
+            case 'user_activity':
+                return $this->generateUserActivityReport($request);
 
             default:
                 return collect();
         }
     }
 
-    private function exportToCsv($data, $type)
+    private function generateStudentGradesReport(Request $request)
+    {
+        $query = Grade::with(['student.studentProfile.academicLevel', 'subject', 'academicPeriod']);
+
+        if ($request->academic_period_id) {
+            $query->where('academic_period_id', $request->academic_period_id);
+        }
+
+        if ($request->academic_level_id) {
+            $query->whereHas('student.studentProfile', function($q) use ($request) {
+                $q->where('academic_level_id', $request->academic_level_id);
+            });
+        }
+
+        if ($request->date_from) {
+            $query->where('created_at', '>=', $request->date_from);
+        }
+
+        if ($request->date_to) {
+            $query->where('created_at', '<=', $request->date_to . ' 23:59:59');
+        }
+
+        return $query->get();
+    }
+
+    private function generateHonorRollReport(Request $request)
+    {
+        $query = StudentHonor::with(['student.studentProfile.academicLevel', 'honorCriterion']);
+
+        if ($request->academic_level_id) {
+            $query->whereHas('student.studentProfile', function($q) use ($request) {
+                $q->where('academic_level_id', $request->academic_level_id);
+            });
+        }
+
+        if ($request->date_from) {
+            $query->where('awarded_date', '>=', $request->date_from);
+        }
+
+        if ($request->date_to) {
+            $query->where('awarded_date', '<=', $request->date_to);
+        }
+
+        return $query->get();
+    }
+
+    private function generateEnrollmentReport(Request $request)
+    {
+        $query = User::where('user_role', 'student')
+                    ->with(['studentProfile.academicLevel', 'studentProfile.collegeCourse']);
+
+        if ($request->academic_level_id) {
+            $query->whereHas('studentProfile', function($q) use ($request) {
+                $q->where('academic_level_id', $request->academic_level_id);
+            });
+        }
+
+        if ($request->date_from) {
+            $query->where('created_at', '>=', $request->date_from);
+        }
+
+        if ($request->date_to) {
+            $query->where('created_at', '<=', $request->date_to . ' 23:59:59');
+        }
+
+        return $query->get();
+    }
+
+    private function generateInstructorPerformanceReport(Request $request)
+    {
+        $query = Grade::with(['instructor', 'subject', 'academicPeriod'])
+                    ->select('instructor_id', 'subject_id', 'academic_period_id')
+                    ->selectRaw('COUNT(*) as total_grades')
+                    ->selectRaw('AVG(final_grade) as average_grade')
+                    ->groupBy('instructor_id', 'subject_id', 'academic_period_id');
+
+        if ($request->academic_period_id) {
+            $query->where('academic_period_id', $request->academic_period_id);
+        }
+
+        if ($request->date_from) {
+            $query->where('created_at', '>=', $request->date_from);
+        }
+
+        if ($request->date_to) {
+            $query->where('created_at', '<=', $request->date_to . ' 23:59:59');
+        }
+
+        return $query->get();
+    }
+
+    private function generateAcademicSummaryReport(Request $request)
+    {
+        $summary = [];
+
+        // Total students
+        $summary['total_students'] = User::where('user_role', 'student')->count();
+
+        // Total instructors
+        $summary['total_instructors'] = User::whereIn('user_role', ['instructor', 'teacher'])->count();
+
+        // Average grade
+        $summary['average_grade'] = Grade::avg('final_grade');
+
+        // Honor roll count
+        $summary['honor_roll_count'] = StudentHonor::count();
+
+        // Grade distribution
+        $summary['grade_distribution'] = $this->getGradeDistribution($request->academic_period_id);
+
+        // Honor distribution
+        $summary['honor_distribution'] = $this->getHonorDistribution($request->academic_period_id);
+
+        return $summary;
+    }
+
+    private function generateUserActivityReport(Request $request)
+    {
+        $query = ActivityLog::with(['user']);
+
+        if ($request->date_from) {
+            $query->where('created_at', '>=', $request->date_from);
+        }
+
+        if ($request->date_to) {
+            $query->where('created_at', '<=', $request->date_to . ' 23:59:59');
+        }
+
+        return $query->orderBy('created_at', 'desc')->get();
+    }
+
+    private function exportCsv($data, $type)
     {
         $filename = $type . '_report_' . date('Y-m-d_H-i-s') . '.csv';
         $headers = [
@@ -955,50 +1384,140 @@ class RegistrarController extends Controller
             
             // Add headers based on report type
             switch ($type) {
-                case 'grades':
-                    fputcsv($file, ['Student ID', 'Student Name', 'Subject', 'Grade', 'Period']);
+                case 'student_grades':
+                    fputcsv($file, ['Student', 'Subject', 'Period', 'Grade', 'Date']);
                     foreach ($data as $grade) {
                         fputcsv($file, [
-                            $grade->student->studentProfile->student_id,
-                            $grade->student->name,
-                            $grade->subject->name,
-                            $grade->final_grade,
-                            $grade->academicPeriod->name,
+                            $grade->student->name ?? 'N/A',
+                            $grade->subject->name ?? 'N/A',
+                            $grade->academicPeriod->name ?? 'N/A',
+                            $grade->final_grade ?? 'N/A',
+                            $grade->created_at ?? 'N/A',
                         ]);
                     }
                     break;
-
-                case 'honors':
-                    fputcsv($file, ['Student ID', 'Student Name', 'Honor Type', 'GPA', 'Level']);
+                case 'honor_roll':
+                    fputcsv($file, ['Student', 'Honor Type', 'GPA', 'Awarded Date']);
                     foreach ($data as $honor) {
                         fputcsv($file, [
-                            $honor->student->studentProfile->student_id,
-                            $honor->student->name,
-                            $honor->honorCriterion->name,
-                            $honor->gpa,
-                            $honor->student->studentProfile->academicLevel->name ?? 'N/A',
+                            $honor->student->name ?? 'N/A',
+                            $honor->honorCriterion->honor_type ?? 'N/A',
+                            $honor->gpa ?? 'N/A',
+                            $honor->awarded_date ?? 'N/A',
                         ]);
                     }
                     break;
-
-                case 'students':
-                    fputcsv($file, ['Student ID', 'Name', 'Email', 'Level', 'Course']);
+                case 'enrollment':
+                    fputcsv($file, ['Name', 'Email', 'Level', 'Course']);
                     foreach ($data as $student) {
                         fputcsv($file, [
-                            $student->studentProfile->student_id,
-                            $student->name,
-                            $student->email,
+                            $student->name ?? 'N/A',
+                            $student->email ?? 'N/A',
                             $student->studentProfile->academicLevel->name ?? 'N/A',
                             $student->studentProfile->collegeCourse->name ?? 'N/A',
                         ]);
                     }
                     break;
+                case 'instructor_performance':
+                    fputcsv($file, ['Instructor', 'Subject', 'Period', 'Total Grades', 'Average Grade']);
+                    foreach ($data as $performance) {
+                        fputcsv($file, [
+                            $performance->instructor->name ?? 'N/A',
+                            $performance->subject->name ?? 'N/A',
+                            $performance->academicPeriod->name ?? 'N/A',
+                            $performance->total_grades ?? 'N/A',
+                            $performance->average_grade ?? 'N/A',
+                        ]);
+                    }
+                    break;
+                case 'academic_summary':
+                    fputcsv($file, ['Metric', 'Value']);
+                    fputcsv($file, ['Total Students', $data['total_students'] ?? 'N/A']);
+                    fputcsv($file, ['Total Instructors', $data['total_instructors'] ?? 'N/A']);
+                    fputcsv($file, ['Average Grade', $data['average_grade'] ?? 'N/A']);
+                    fputcsv($file, ['Honor Roll Count', $data['honor_roll_count'] ?? 'N/A']);
+                    break;
+                case 'user_activity':
+                    fputcsv($file, ['User', 'Action', 'Description', 'Date']);
+                    foreach ($data as $activity) {
+                        fputcsv($file, [
+                            $activity->user->name ?? 'N/A',
+                            $activity->action ?? 'N/A',
+                            $activity->description ?? 'N/A',
+                            $activity->created_at ?? 'N/A',
+                        ]);
+                    }
+                    break;
             }
-
+            
             fclose($file);
         };
 
         return response()->stream($callback, 200, $headers);
+    }
+
+    private function exportPdf($data, $type)
+    {
+        // For now, return a simple response indicating PDF generation
+        // In a real implementation, you would use a PDF library like DomPDF
+        return response()->json([
+            'message' => 'PDF export functionality will be implemented',
+            'data' => $data,
+            'type' => $type
+        ]);
+    }
+
+    private function getGradeDistribution($academicPeriodId = null)
+    {
+        $query = Grade::selectRaw('
+            CASE 
+                WHEN final_grade >= 90 THEN "A (90-100)"
+                WHEN final_grade >= 80 THEN "B (80-89)"
+                WHEN final_grade >= 70 THEN "C (70-79)"
+                WHEN final_grade >= 60 THEN "D (60-69)"
+                ELSE "F (Below 60)"
+            END as grade_range,
+            COUNT(*) as count
+        ')
+        ->groupBy('grade_range')
+        ->orderBy('grade_range');
+
+        if ($academicPeriodId) {
+            $query->where('academic_period_id', $academicPeriodId);
+        }
+
+        return $query->get();
+    }
+
+    private function getHonorDistribution($academicPeriodId = null)
+    {
+        $query = StudentHonor::selectRaw('honor_type, COUNT(*) as count')
+                            ->groupBy('honor_type')
+                            ->orderBy('honor_type');
+
+        if ($academicPeriodId) {
+            $query->whereHas('student.grades', function($q) use ($academicPeriodId) {
+                $q->where('academic_period_id', $academicPeriodId);
+            });
+        }
+
+        return $query->get();
+    }
+
+    public function export()
+    {
+        $exportOptions = [
+            'all_users' => 'All Users',
+            'students' => 'Students Only',
+            'instructors' => 'Instructors Only',
+            'grades' => 'All Grades',
+            'honors' => 'Honor Roll Data',
+            'activity_logs' => 'Activity Logs',
+        ];
+
+        return Inertia::render('Registrar/Reports/Export', [
+            'exportOptions' => $exportOptions
+        ]);
     }
 
     private function exportToExcel($data, $type)
