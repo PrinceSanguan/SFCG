@@ -43,20 +43,20 @@ class HonorCalculationService
             // Get all grades for the student in the given period
             $grades = Grade::where('student_id', $student->id)
                 ->where('academic_period_id', $period->id)
-                ->get();
+                              ->get();
 
-            if ($grades->isEmpty()) {
-                return;
-            }
+                if ($grades->isEmpty()) {
+                    return;
+                }
 
-            // Calculate GPA
+                // Calculate GPA
             $gpa = $this->calculateGPA($grades);
             
             // Get applicable honor criteria based on education level
             $honorCriteria = $this->getApplicableHonorCriteria($academicLevel, $isCollege, $studentProfile);
 
             // Check each honor criterion
-            foreach ($honorCriteria as $criterion) {
+                foreach ($honorCriteria as $criterion) {
                 if ($this->qualifiesForHonor($student, $grades, $criterion, $gpa, $isCollege)) {
                     $this->awardHonor($student, $criterion, $gpa, $period);
                 }

@@ -96,12 +96,18 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         
+        // Debug: Log the form data being sent
+        console.log('Student form data being sent:', data);
+        
         if (editingStudent) {
             put(`/admin/users/students/${editingStudent.id}`, {
                 onSuccess: () => {
                     setEditingStudent(null);
                     reset();
                     resetFilters();
+                },
+                onError: (errors) => {
+                    console.log('Update student errors:', errors);
                 }
             });
         } else {
@@ -110,6 +116,9 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
                     setShowCreateModal(false);
                     reset();
                     resetFilters();
+                },
+                onError: (errors) => {
+                    console.log('Create student errors:', errors);
                 }
             });
         }
@@ -584,7 +593,7 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
                                                 </div>
                                             </div>
                                         ) : (
-                                            <div className="grid grid-cols-2 gap-4">
+                                            <div className="grid grid-cols-3 gap-4">
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                                         Academic Level
@@ -623,6 +632,26 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
                                                         ))}
                                                     </select>
                                                     {errors.academic_strand_id && <p className="text-red-500 text-xs mt-1">{errors.academic_strand_id}</p>}
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        Grade Level
+                                                    </label>
+                                                    <select
+                                                        value={data.year_level}
+                                                        onChange={(e) => setData('year_level', e.target.value)}
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                        required
+                                                    >
+                                                        <option value="">Select Grade Level</option>
+                                                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((grade) => (
+                                                            <option key={grade} value={grade}>
+                                                                Grade {grade}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    {errors.year_level && <p className="text-red-500 text-xs mt-1">{errors.year_level}</p>}
                                                 </div>
                                             </div>
                                         )}

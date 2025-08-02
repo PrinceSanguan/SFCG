@@ -74,12 +74,18 @@ const Subjects: React.FC<Props> = ({ subjects, levels, strands, collegeCourses, 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         
+        // Debug: Log the form data being sent
+        console.log('Form data being sent:', data);
+        
         if (editingSubject) {
             put(`/admin/academic/subjects/${editingSubject.id}`, {
                 onSuccess: () => {
                     setEditingSubject(null);
                     reset();
                     resetFilters();
+                },
+                onError: (errors) => {
+                    console.log('Update errors:', errors);
                 }
             });
         } else {
@@ -88,6 +94,9 @@ const Subjects: React.FC<Props> = ({ subjects, levels, strands, collegeCourses, 
                     setShowCreateModal(false);
                     reset();
                     resetFilters();
+                },
+                onError: (errors) => {
+                    console.log('Create errors:', errors);
                 }
             });
         }
@@ -403,6 +412,26 @@ const Subjects: React.FC<Props> = ({ subjects, levels, strands, collegeCourses, 
                                                         ))}
                                                     </select>
                                                     {errors.academic_strand_id && <p className="text-red-500 text-xs mt-1">{errors.academic_strand_id}</p>}
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        Grade Level
+                                                    </label>
+                                                    <select
+                                                        value={data.year_level}
+                                                        onChange={(e) => setData('year_level', e.target.value)}
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                        required
+                                                    >
+                                                        <option value="">Select Grade Level</option>
+                                                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((grade) => (
+                                                            <option key={grade} value={grade}>
+                                                                Grade {grade}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    {errors.year_level && <p className="text-red-500 text-xs mt-1">{errors.year_level}</p>}
                                                 </div>
                                             </>
                                         )}

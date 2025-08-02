@@ -258,8 +258,8 @@ const InstructorDashboard: React.FC<Props> = ({
                                 </div>
                             </a>
                         </div>
-                    </div>
-                </div>
+            </div>
+        </div>
             </InstructorLayout>
         </>
     );

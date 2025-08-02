@@ -581,14 +581,17 @@ class AcademicController extends Controller
 
         $subject = Subject::create($subjectData);
 
-        ActivityLog::logActivity(
-            Auth::user(),
-            'created',
-            'Subject',
-            $subject->id,
-            null,
-            $subject->toArray()
-        );
+        // Only log activity if user is authenticated
+        if (Auth::check()) {
+            ActivityLog::logActivity(
+                Auth::user(),
+                'created',
+                'Subject',
+                $subject->id,
+                null,
+                $subject->toArray()
+            );
+        }
 
         return redirect()->back()->with('success', 'Subject created successfully.');
     }

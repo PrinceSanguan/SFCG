@@ -586,14 +586,17 @@ class UserController extends Controller
 
             StudentProfile::create($profileData);
 
-            ActivityLog::logActivity(
-                Auth::user(),
-                'created',
-                'User',
-                $student->id,
-                null,
-                $student->toArray()
-            );
+            // Only log activity if user is authenticated
+            if (Auth::check()) {
+                ActivityLog::logActivity(
+                    Auth::user(),
+                    'created',
+                    'User',
+                    $student->id,
+                    null,
+                    $student->toArray()
+                );
+            }
         });
 
         return redirect()->back()->with('success', 'Student created successfully.');
