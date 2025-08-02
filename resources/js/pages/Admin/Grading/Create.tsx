@@ -242,39 +242,39 @@ const GradingCreate: React.FC<Props> = ({
             <div className="min-h-screen bg-gray-100">
                 <Header />
                 <div className="flex">
-                    <Sidebar />
+                <Sidebar />
                     <main className="flex-1 p-8">
                         <div className="max-w-4xl mx-auto">
-                            <div className="mb-8">
+                        <div className="mb-8">
                                 <h1 className="text-3xl font-bold text-gray-900">Create Grade</h1>
                                 <p className="text-gray-600 mt-2">Add a new grade record for a student</p>
-                            </div>
+                        </div>
 
                             <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                                {/* Student Selection */}
+                                    {/* Student Selection */}
                                 <div className="mb-6">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Student *
-                                    </label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Student *
+                                        </label>
                                     <div className="flex gap-2">
-                                        <input
-                                            type="text"
+                                            <input
+                                                type="text"
                                             value={selectedStudent ? `${selectedStudent.name} (${selectedStudent.student_profile?.student_id})` : ''}
                                             onClick={() => setShowStudentModal(true)}
-                                            readOnly
+                                                readOnly
                                             className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 cursor-pointer"
                                             placeholder="Click to select student"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowStudentModal(true)}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowStudentModal(true)}
                                             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        >
+                                            >
                                             Select
-                                        </button>
+                                            </button>
                                     </div>
                                     {errors.student_id && <p className="text-red-600 text-sm mt-1">{errors.student_id}</p>}
-                                </div>
+                                        </div>
 
                                 {/* Student Type Display */}
                                 {studentType && (
@@ -293,89 +293,89 @@ const GradingCreate: React.FC<Props> = ({
                                     </div>
                                 )}
 
-                                {/* Subject Selection */}
+                                    {/* Subject Selection */}
                                 <div className="mb-6">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Subject *
-                                    </label>
-                                    <select
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Subject *
+                                        </label>
+                                        <select
                                         value={data.subject_id}
-                                        onChange={(e) => setData('subject_id', e.target.value)}
-                                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                        required
-                                    >
-                                        <option value="">Select Subject</option>
+                                            onChange={(e) => setData('subject_id', e.target.value)}
+                                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                            required
+                                        >
+                                            <option value="">Select Subject</option>
                                         {subjects.map((subject) => (
-                                            <option key={subject.id} value={subject.id}>
+                                                    <option key={subject.id} value={subject.id}>
                                                 {subject.name} ({subject.code})
-                                            </option>
+                                                    </option>
                                         ))}
-                                    </select>
+                                        </select>
                                     {errors.subject_id && <p className="text-red-600 text-sm mt-1">{errors.subject_id}</p>}
-                                </div>
+                                    </div>
 
-                                {/* Academic Period */}
+                                    {/* Academic Period */}
                                 <div className="mb-6">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Academic Period *
-                                    </label>
-                                    <select
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Academic Period *
+                                        </label>
+                                        <select
                                         value={data.academic_period_id}
-                                        onChange={(e) => setData('academic_period_id', e.target.value)}
-                                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                        required
-                                    >
-                                        <option value="">Select Academic Period</option>
+                                            onChange={(e) => setData('academic_period_id', e.target.value)}
+                                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                            required
+                                        >
+                                            <option value="">Select Academic Period</option>
                                         {academicPeriods.map((period) => (
-                                            <option key={period.id} value={period.id}>
-                                                {period.name}
-                                            </option>
+                                                    <option key={period.id} value={period.id}>
+                                                        {period.name}
+                                                    </option>
                                         ))}
-                                    </select>
+                                        </select>
                                     {errors.academic_period_id && <p className="text-red-600 text-sm mt-1">{errors.academic_period_id}</p>}
-                                </div>
+                                    </div>
 
                                 {/* Instructor */}
                                 <div className="mb-6">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Instructor *
-                                    </label>
-                                    <select
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Instructor *
+                                        </label>
+                                        <select
                                         value={data.instructor_id}
-                                        onChange={(e) => setData('instructor_id', e.target.value)}
-                                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                        required
-                                    >
-                                        <option value="">Select Instructor</option>
+                                            onChange={(e) => setData('instructor_id', e.target.value)}
+                                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                            required
+                                        >
+                                            <option value="">Select Instructor</option>
                                         {instructors.map((instructor) => (
-                                            <option key={instructor.id} value={instructor.id}>
-                                                {instructor.name}
-                                            </option>
+                                                    <option key={instructor.id} value={instructor.id}>
+                                                        {instructor.name}
+                                                    </option>
                                         ))}
-                                    </select>
+                                        </select>
                                     {errors.instructor_id && <p className="text-red-600 text-sm mt-1">{errors.instructor_id}</p>}
-                                </div>
+                                    </div>
 
-                                {/* Section */}
+                                    {/* Section */}
                                 <div className="mb-6">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Section
-                                    </label>
-                                    <input
-                                        type="text"
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Section
+                                        </label>
+                                        <input
+                                            type="text"
                                         value={data.section}
-                                        onChange={(e) => setData('section', e.target.value)}
-                                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                            onChange={(e) => setData('section', e.target.value)}
+                                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                         placeholder="e.g., Section A"
-                                    />
+                                        />
                                     {errors.section && <p className="text-red-600 text-sm mt-1">{errors.section}</p>}
                                 </div>
 
                                 {/* Dynamic Grading Sections */}
                                 {(studentType === 'elementary' || studentType === 'junior_high') && (
-                                    <div className="mt-8">
-                                        <h3 className="text-lg font-medium text-gray-900 mb-4">Quarterly Grades</h3>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                <div className="mt-8">
+                                    <h3 className="text-lg font-medium text-gray-900 mb-4">Quarterly Grades</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                             <div className="bg-gray-50 p-4 rounded-lg">
                                                 <h4 className="font-medium text-gray-700 mb-3">1st Grading</h4>
                                                 <div>
@@ -517,7 +517,7 @@ const GradingCreate: React.FC<Props> = ({
 
                                 {/* College Grades */}
                                 {studentType === 'college' && (
-                                    <div className="mt-8">
+                                <div className="mt-8">
                                         <h3 className="text-lg font-medium text-gray-900 mb-4">College Grades</h3>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div className="bg-gray-50 p-4 rounded-lg">
@@ -594,7 +594,7 @@ const GradingCreate: React.FC<Props> = ({
                                                             placeholder="0.00"
                                                         />
                                                     </div>
-                                                    <div>
+                                        <div>
                                                         <label className="block text-sm text-gray-600 mb-1">Final (Auto-calculated)</label>
                                                         <input
                                                             type="number"
@@ -639,22 +639,22 @@ const GradingCreate: React.FC<Props> = ({
                                                 }
                                             </p>
                                         </div>
-                                        {errors.final_grade && (
-                                            <p className="text-red-600 text-sm mt-1">{errors.final_grade}</p>
-                                        )}
-                                    </div>
+                                            {errors.final_grade && (
+                                                <p className="text-red-600 text-sm mt-1">{errors.final_grade}</p>
+                                            )}
+                                        </div>
                                 )}
 
                                 {/* Remarks */}
                                 <div className="mt-6">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Remarks
-                                    </label>
-                                    <textarea
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Remarks
+                                            </label>
+                                            <textarea
                                         value={data.remarks}
-                                        onChange={(e) => setData('remarks', e.target.value)}
-                                        rows={3}
-                                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                onChange={(e) => setData('remarks', e.target.value)}
+                                                rows={3}
+                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                         placeholder="Additional notes or comments..."
                                     />
                                     {errors.remarks && <p className="text-red-600 text-sm mt-1">{errors.remarks}</p>}
@@ -679,25 +679,25 @@ const GradingCreate: React.FC<Props> = ({
                             </form>
                         </div>
                     </main>
-                </div>
+            </div>
 
-                {/* Student Selection Modal */}
-                {showStudentModal && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            {/* Student Selection Modal */}
+            {showStudentModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                         <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[80vh] overflow-hidden">
                             <div className="flex justify-between items-center mb-4">
                                 <h2 className="text-xl font-semibold text-gray-900">Select Student</h2>
-                                <button
-                                    onClick={() => setShowStudentModal(false)}
-                                    className="text-gray-400 hover:text-gray-600"
-                                >
+                            <button
+                                onClick={() => setShowStudentModal(false)}
+                                className="text-gray-400 hover:text-gray-600"
+                            >
                                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                     </svg>
-                                </button>
-                            </div>
+                            </button>
+                        </div>
 
-                            {/* Search and Filters */}
+                        {/* Search and Filters */}
                             <div className="mb-4 space-y-4">
                                 <input
                                     type="text"
@@ -727,8 +727,8 @@ const GradingCreate: React.FC<Props> = ({
                                             <option key={section} value={section}>{section}</option>
                                         ))}
                                     </select>
-                                </div>
                             </div>
+                        </div>
 
                             {/* Student List */}
                             <div className="overflow-y-auto max-h-96">
@@ -737,9 +737,9 @@ const GradingCreate: React.FC<Props> = ({
                                 ) : (
                                     <div className="space-y-2">
                                         {filteredStudents.map((student) => (
-                                            <div
-                                                key={student.id}
-                                                onClick={() => handleStudentSelect(student)}
+                                        <div
+                                            key={student.id}
+                                            onClick={() => handleStudentSelect(student)}
                                                 className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
                                             >
                                                                                                  <div>
@@ -750,16 +750,16 @@ const GradingCreate: React.FC<Props> = ({
                                                      <p className="text-sm text-gray-500">
                                                          {student.student_profile?.grade_level} • {student.student_profile?.section}
                                                      </p>
-                                                 </div>
+                                                </div>
                                             </div>
                                         ))}
-                                    </div>
+                                        </div>
                                 )}
                             </div>
                         </div>
                     </div>
                 )}
-            </div>
+                </div>
         </>
     );
 };
