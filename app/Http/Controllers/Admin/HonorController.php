@@ -104,10 +104,16 @@ class HonorController extends Controller
         ]);
 
         DB::transaction(function () use ($request) {
+            // Convert empty string to null for maximum_grade
+            $maximumGrade = $request->maximum_grade;
+            if ($maximumGrade === '' || $maximumGrade === null) {
+                $maximumGrade = null;
+            }
+
             $criterion = HonorCriterion::create([
                 'honor_type' => $request->honor_type,
                 'minimum_grade' => $request->minimum_grade,
-                'maximum_grade' => $request->maximum_grade,
+                'maximum_grade' => $maximumGrade,
                 'criteria_description' => $request->criteria_description,
                 'academic_level_id' => $request->academic_level_id,
                 'is_active' => $request->boolean('is_active', true),
@@ -140,10 +146,16 @@ class HonorController extends Controller
         DB::transaction(function () use ($request, $criterion) {
             $oldValues = $criterion->toArray();
 
+            // Convert empty string to null for maximum_grade
+            $maximumGrade = $request->maximum_grade;
+            if ($maximumGrade === '' || $maximumGrade === null) {
+                $maximumGrade = null;
+            }
+
             $criterion->update([
                 'honor_type' => $request->honor_type,
                 'minimum_grade' => $request->minimum_grade,
-                'maximum_grade' => $request->maximum_grade,
+                'maximum_grade' => $maximumGrade,
                 'criteria_description' => $request->criteria_description,
                 'academic_level_id' => $request->academic_level_id,
                 'is_active' => $request->boolean('is_active', true),

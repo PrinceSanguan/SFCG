@@ -10,6 +10,16 @@ interface Student {
         student_id: string;
         grade_level: string;
         section: string;
+        academic_level?: {
+            id: number;
+            name: string;
+            code: string;
+        };
+        college_course?: {
+            id: number;
+            name: string;
+            code: string;
+        };
     };
 }
 
@@ -73,13 +83,13 @@ const GradesIndex: React.FC<Props> = ({
 }) => {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [editingGrade, setEditingGrade] = useState<Grade | null>(null);
-    const [studentType, setStudentType] = useState<'k12' | 'college'>('k12');
+    const [studentType, setStudentType] = useState<'elementary' | 'junior_high' | 'senior_high' | 'college' | null>(null);
 
     const { data, setData, post, put, processing, errors, reset } = useForm({
         student_id: '',
         subject_id: '',
         academic_period_id: '',
-        student_type: 'k12',
+        student_type: '',
         '1st_grading': '',
         '2nd_grading': '',
         '3rd_grading': '',
@@ -90,60 +100,137 @@ const GradesIndex: React.FC<Props> = ({
         '2nd_semester_midterm': '',
         '2nd_semester_pre_final': '',
         '2nd_semester_final': '',
+        overall_grade: '',
         remarks: '',
     });
 
+    // Determine student type based on academic level or college course
+    const determineStudentType = (student: Student): 'elementary' | 'junior_high' | 'senior_high' | 'college' => {
+        if (student.student_profile?.college_course?.id) {
+            return 'college';
+        }
+        
+        const academicLevel = student.student_profile?.academic_level?.code;
+        switch (academicLevel) {
+            case 'ELEM':
+                return 'elementary';
+            case 'JHS':
+                return 'junior_high';
+            case 'SHS':
+                return 'senior_high';
+            default:
+                return 'elementary';
+        }
+    };
+
+    // Elementary/Junior High: 4 Quarters
+    const handleQuarterlyGradeChange = (field: '1st_grading' | '2nd_grading' | '3rd_grading' | '4th_grading', value: string) => {
+        setData(field, value);
+        
+        // Calculate final grade: average of all 4 quarters
+        const grades = [
+            parseFloat(data['1st_grading']) || 0,
+            parseFloat(data['2nd_grading']) || 0,
+            parseFloat(data['3rd_grading']) || 0,
+            parseFloat(data['4th_grading']) || 0
+        ];
+        
+        const validGrades = grades.filter(grade => grade > 0);
+        const finalGrade = validGrades.length > 0 ? (validGrades.reduce((a, b) => a + b, 0) / validGrades.length).toFixed(2) : '0.00';
+        setData('overall_grade', finalGrade);
+    };
+
+    // Senior High: 2 Semesters (1st: 1st-2nd grading, 2nd: 3rd-4th grading)
+    const handleSemesterGradeChange = (field: '1st_grading' | '2nd_grading' | '3rd_grading' | '4th_grading', value: string) => {
+        setData(field, value);
+        
+        // Calculate semester averages
+        const firstSemester = ((parseFloat(data['1st_grading']) || 0) + (parseFloat(data['2nd_grading']) || 0)) / 2;
+        const secondSemester = ((parseFloat(data['3rd_grading']) || 0) + (parseFloat(data['4th_grading']) || 0)) / 2;
+        
+        // Calculate final grade: average of both semesters
+        const finalGrade = ((firstSemester + secondSemester) / 2).toFixed(2);
+        setData('overall_grade', finalGrade);
+    };
+
+    // College: 2 Semesters with Midterm, Pre-Final (Final = (Midterm + Pre-Final) ÷ 2)
+    const handleCollegeGradeChange = (field: '1st_semester_midterm' | '1st_semester_pre_final' | '2nd_semester_midterm' | '2nd_semester_pre_final', value: string) => {
+        setData(field, value);
+        
+        // Calculate final grade for College
+        // 1st Semester: (Midterm + Pre-Final) / 2
+        const firstSemester = ((parseFloat(data['1st_semester_midterm']) || 0) + (parseFloat(data['1st_semester_pre_final']) || 0)) / 2;
+        
+        // 2nd Semester: (Midterm + Pre-Final) / 2
+        const secondSemester = ((parseFloat(data['2nd_semester_midterm']) || 0) + (parseFloat(data['2nd_semester_pre_final']) || 0)) / 2;
+        
+        // Overall: (1st Semester + 2nd Semester) / 2
+        const finalGrade = ((firstSemester + secondSemester) / 2).toFixed(2);
+        setData('overall_grade', finalGrade);
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        
+        // Set the student type before submitting
+        setData('student_type', studentType || '');
         
         if (editingGrade) {
             put(`/instructor/grades/${editingGrade.id}`, {
                 onSuccess: () => {
                     setEditingGrade(null);
-                    setShowCreateModal(false);
                     reset();
+                    setShowCreateModal(false);
                 }
             });
         } else {
             post('/instructor/grades', {
                 onSuccess: () => {
-                    setShowCreateModal(false);
                     reset();
+                    setShowCreateModal(false);
                 }
             });
         }
     };
 
     const handleEdit = (grade: Grade) => {
+        setEditingGrade(grade);
         setData('student_id', grade.student_id.toString());
         setData('subject_id', grade.subject_id.toString());
         setData('academic_period_id', grade.academic_period_id.toString());
         setData('student_type', grade.student_type);
-        setData('1st_grading', grade['1st_grading']?.toString() || '');
-        setData('2nd_grading', grade['2nd_grading']?.toString() || '');
-        setData('3rd_grading', grade['3rd_grading']?.toString() || '');
-        setData('4th_grading', grade['4th_grading']?.toString() || '');
-        setData('1st_semester_midterm', grade['1st_semester_midterm']?.toString() || '');
-        setData('1st_semester_pre_final', grade['1st_semester_pre_final']?.toString() || '');
-        setData('1st_semester_final', grade['1st_semester_final']?.toString() || '');
-        setData('2nd_semester_midterm', grade['2nd_semester_midterm']?.toString() || '');
-        setData('2nd_semester_pre_final', grade['2nd_semester_pre_final']?.toString() || '');
-        setData('2nd_semester_final', grade['2nd_semester_final']?.toString() || '');
         setData('remarks', grade.remarks || '');
         
-        setEditingGrade(grade);
+        // Set grades based on student type
+        if (grade.student_type === 'college') {
+            setData('1st_semester_midterm', grade['1st_semester_midterm']?.toString() || '');
+            setData('1st_semester_pre_final', grade['1st_semester_pre_final']?.toString() || '');
+            setData('2nd_semester_midterm', grade['2nd_semester_midterm']?.toString() || '');
+            setData('2nd_semester_pre_final', grade['2nd_semester_pre_final']?.toString() || '');
+        } else {
+            setData('1st_grading', grade['1st_grading']?.toString() || '');
+            setData('2nd_grading', grade['2nd_grading']?.toString() || '');
+            setData('3rd_grading', grade['3rd_grading']?.toString() || '');
+            setData('4th_grading', grade['4th_grading']?.toString() || '');
+        }
+        
+        // Determine student type for UI
+        const student = students.find(s => s.id === grade.student_id);
+        if (student) {
+            setStudentType(determineStudentType(student));
+        }
+        
         setShowCreateModal(true);
     };
 
     const handleSubmitGrades = (gradeId: number) => {
-        if (confirm('Are you sure you want to submit these grades for validation?')) {
-            router.post(`/instructor/grades/${gradeId}/submit`);
-        }
+        router.put(`/instructor/grades/${gradeId}/submit`);
     };
 
     const closeModal = () => {
         setShowCreateModal(false);
         setEditingGrade(null);
+        setStudentType(null);
         reset();
     };
 
@@ -157,38 +244,40 @@ const GradesIndex: React.FC<Props> = ({
         }
     };
 
+    const handleStudentChange = (studentId: string) => {
+        setData('student_id', studentId);
+        
+        if (studentId) {
+            const student = students.find(s => s.id === parseInt(studentId));
+            if (student) {
+                const type = determineStudentType(student);
+                setStudentType(type);
+                setData('student_type', type);
+            }
+        } else {
+            setStudentType(null);
+            setData('student_type', '');
+        }
+    };
+
     return (
         <>
-            <Head title="Grade Management - Instructor" />
+            <Head title="Grades Management" />
             <InstructorLayout>
-                {/* Header */}
                 <div className="mb-8">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <h1 className="text-3xl font-bold text-gray-900">Grade Management</h1>
-                            <p className="text-gray-600 mt-2">Input, edit, and submit student grades for your assigned subjects.</p>
-                        </div>
-                        <div className="flex space-x-3">
-                            <button
-                                onClick={() => setShowCreateModal(true)}
-                                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                            >
-                                <span className="mr-2">➕</span>
-                                Add Grade
-                            </button>
-                        </div>
-                    </div>
+                    <h1 className="text-3xl font-bold text-gray-900">Grades Management</h1>
+                    <p className="text-gray-600 mt-2">Manage and submit student grades</p>
                 </div>
 
-                {/* Statistics */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                {/* Statistics Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                         <div className="flex items-center">
                             <div className="p-2 bg-blue-100 rounded-lg">
                                 <span className="text-2xl">📚</span>
                             </div>
                             <div className="ml-4">
-                                <p className="text-sm font-medium text-gray-600">Total Subjects</p>
+                                <p className="text-sm font-medium text-gray-600">Assignments</p>
                                 <p className="text-2xl font-bold text-gray-900">{assignments.length}</p>
                             </div>
                         </div>
@@ -265,12 +354,18 @@ const GradesIndex: React.FC<Props> = ({
                                 <option value="rejected">Rejected</option>
                             </select>
                         </div>
-                        <div className="flex items-end">
+                        <div className="flex items-end space-x-2">
+                            <button
+                                onClick={() => setShowCreateModal(true)}
+                                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                Add Grade
+                            </button>
                             <button
                                 onClick={() => router.get('/instructor/grades')}
-                                className="w-full px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
                             >
-                                Clear Filters
+                                Clear
                             </button>
                         </div>
                     </div>
@@ -368,15 +463,33 @@ const GradesIndex: React.FC<Props> = ({
                                 <h3 className="text-lg font-medium text-gray-900 mb-4">
                                     {editingGrade ? 'Edit Grade' : 'Add Grade'}
                                 </h3>
+                                
+                                {/* Student Type Display */}
+                                {studentType && (
+                                    <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+                                        <h3 className="font-medium text-blue-900 mb-2">Student Type: {studentType.replace('_', ' ').toUpperCase()}</h3>
+                                        <p className="text-blue-700 text-sm">
+                                            {studentType === 'elementary' || studentType === 'junior_high' 
+                                                ? 'Grading: 4 Quarters (1st to 4th Grading)' 
+                                                : studentType === 'senior_high'
+                                                ? 'Grading: 2 Semesters (1st: 1st-2nd grading, 2nd: 3rd-4th grading)'
+                                                : studentType === 'college'
+                                                ? 'Grading: 2 Semesters with Midterm, Pre-Final (Final = (Midterm + Pre-Final) ÷ 2)'
+                                                : ''
+                                            }
+                                        </p>
+                                    </div>
+                                )}
+
                                 <form onSubmit={handleSubmit}>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                                 Student
                                             </label>
                                             <select
                                                 value={data.student_id}
-                                                onChange={(e) => setData('student_id', e.target.value)}
+                                                onChange={(e) => handleStudentChange(e.target.value)}
                                                 className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                                 required
                                             >
@@ -413,226 +526,335 @@ const GradesIndex: React.FC<Props> = ({
                                                 <p className="mt-1 text-sm text-red-600">{errors.subject_id}</p>
                                             )}
                                         </div>
-
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Student Type
-                                            </label>
-                                            <select
-                                                value={data.student_type}
-                                                onChange={(e) => {
-                                                    setData('student_type', e.target.value);
-                                                    setStudentType(e.target.value as 'k12' | 'college');
-                                                }}
-                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                                required
-                                            >
-                                                <option value="k12">K-12</option>
-                                                <option value="college">College</option>
-                                            </select>
-                                            {errors.student_type && (
-                                                <p className="mt-1 text-sm text-red-600">{errors.student_type}</p>
-                                            )}
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Academic Period
-                                            </label>
-                                            <select
-                                                value={data.academic_period_id}
-                                                onChange={(e) => setData('academic_period_id', e.target.value)}
-                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                                required
-                                            >
-                                                <option value="">Select Period</option>
-                                                {assignments.map((assignment) => (
-                                                    <option key={assignment.id} value={assignment.id}>
-                                                        {assignment.academic_period.name} ({assignment.academic_period.school_year})
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            {errors.academic_period_id && (
-                                                <p className="mt-1 text-sm text-red-600">{errors.academic_period_id}</p>
-                                            )}
-                                        </div>
                                     </div>
 
-                                    {/* Grade Inputs */}
-                                    <div className="mt-6">
-                                        <h4 className="text-lg font-medium text-gray-900 mb-4">Grade Inputs</h4>
-                                        
-                                        {studentType === 'k12' ? (
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-1">1st Grading</label>
-                                                    <input
-                                                        type="number"
-                                                        step="0.01"
-                                                        min="0"
-                                                        max="100"
-                                                        value={data['1st_grading']}
-                                                        onChange={(e) => setData('1st_grading', e.target.value)}
-                                                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                                    />
+                                    {/* Dynamic Grading Sections */}
+                                    {(studentType === 'elementary' || studentType === 'junior_high') && (
+                                        <div className="mb-6">
+                                            <h3 className="text-lg font-medium text-gray-900 mb-4">Quarterly Grades</h3>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                                <div className="bg-gray-50 p-4 rounded-lg">
+                                                    <h4 className="font-medium text-gray-700 mb-3">1st Grading</h4>
+                                                    <div>
+                                                        <label className="block text-sm text-gray-600 mb-1">Grade</label>
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            min="0"
+                                                            max="100"
+                                                            value={data['1st_grading']}
+                                                            onChange={(e) => handleQuarterlyGradeChange('1st_grading', e.target.value)}
+                                                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                            placeholder="0.00"
+                                                        />
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-1">2nd Grading</label>
-                                                    <input
-                                                        type="number"
-                                                        step="0.01"
-                                                        min="0"
-                                                        max="100"
-                                                        value={data['2nd_grading']}
-                                                        onChange={(e) => setData('2nd_grading', e.target.value)}
-                                                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                                    />
+                                                <div className="bg-gray-50 p-4 rounded-lg">
+                                                    <h4 className="font-medium text-gray-700 mb-3">2nd Grading</h4>
+                                                    <div>
+                                                        <label className="block text-sm text-gray-600 mb-1">Grade</label>
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            min="0"
+                                                            max="100"
+                                                            value={data['2nd_grading']}
+                                                            onChange={(e) => handleQuarterlyGradeChange('2nd_grading', e.target.value)}
+                                                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                            placeholder="0.00"
+                                                        />
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-1">3rd Grading</label>
-                                                    <input
-                                                        type="number"
-                                                        step="0.01"
-                                                        min="0"
-                                                        max="100"
-                                                        value={data['3rd_grading']}
-                                                        onChange={(e) => setData('3rd_grading', e.target.value)}
-                                                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                                    />
+                                                <div className="bg-gray-50 p-4 rounded-lg">
+                                                    <h4 className="font-medium text-gray-700 mb-3">3rd Grading</h4>
+                                                    <div>
+                                                        <label className="block text-sm text-gray-600 mb-1">Grade</label>
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            min="0"
+                                                            max="100"
+                                                            value={data['3rd_grading']}
+                                                            onChange={(e) => handleQuarterlyGradeChange('3rd_grading', e.target.value)}
+                                                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                            placeholder="0.00"
+                                                        />
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-1">4th Grading</label>
-                                                    <input
-                                                        type="number"
-                                                        step="0.01"
-                                                        min="0"
-                                                        max="100"
-                                                        value={data['4th_grading']}
-                                                        onChange={(e) => setData('4th_grading', e.target.value)}
-                                                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                                    />
+                                                <div className="bg-gray-50 p-4 rounded-lg">
+                                                    <h4 className="font-medium text-gray-700 mb-3">4th Grading</h4>
+                                                    <div>
+                                                        <label className="block text-sm text-gray-600 mb-1">Grade</label>
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            min="0"
+                                                            max="100"
+                                                            value={data['4th_grading']}
+                                                            onChange={(e) => handleQuarterlyGradeChange('4th_grading', e.target.value)}
+                                                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                            placeholder="0.00"
+                                                        />
+                                                    </div>
                                                 </div>
                                             </div>
-                                        ) : (
-                                            <div className="space-y-4">
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    <div>
-                                                        <h5 className="font-medium text-gray-900 mb-2">1st Semester</h5>
-                                                        <div className="grid grid-cols-3 gap-2">
-                                                            <div>
-                                                                <label className="block text-xs font-medium text-gray-700">Midterm</label>
-                                                                <input
-                                                                    type="number"
-                                                                    step="0.01"
-                                                                    min="0"
-                                                                    max="100"
-                                                                    value={data['1st_semester_midterm']}
-                                                                    onChange={(e) => setData('1st_semester_midterm', e.target.value)}
-                                                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label className="block text-xs font-medium text-gray-700">Pre-Final</label>
-                                                                <input
-                                                                    type="number"
-                                                                    step="0.01"
-                                                                    min="0"
-                                                                    max="100"
-                                                                    value={data['1st_semester_pre_final']}
-                                                                    onChange={(e) => setData('1st_semester_pre_final', e.target.value)}
-                                                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label className="block text-xs font-medium text-gray-700">Final</label>
-                                                                <input
-                                                                    type="number"
-                                                                    step="0.01"
-                                                                    min="0"
-                                                                    max="100"
-                                                                    value={data['1st_semester_final']}
-                                                                    onChange={(e) => setData('1st_semester_final', e.target.value)}
-                                                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                                                />
-                                                            </div>
+                                            
+                                            {/* Final Grade Display */}
+                                            <div className="mt-6 p-4 bg-green-50 rounded-lg">
+                                                <div className="flex justify-between items-center">
+                                                    <h4 className="font-medium text-green-900">Final Grade (Auto-calculated)</h4>
+                                                    <span className="text-2xl font-bold text-green-900">{data.overall_grade || '0.00'}</span>
+                                                </div>
+                                                <p className="text-sm text-green-700 mt-1">Average of all 4 quarters</p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Semester Grades - Senior High */}
+                                    {studentType === 'senior_high' && (
+                                        <div className="mb-6">
+                                            <h3 className="text-lg font-medium text-gray-900 mb-4">Semester Grades</h3>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div className="bg-gray-50 p-4 rounded-lg">
+                                                    <h4 className="font-medium text-gray-700 mb-3">1st Semester</h4>
+                                                    <div className="space-y-3">
+                                                        <div>
+                                                            <label className="block text-sm text-gray-600 mb-1">1st Grading</label>
+                                                            <input
+                                                                type="number"
+                                                                step="0.01"
+                                                                min="0"
+                                                                max="100"
+                                                                value={data['1st_grading']}
+                                                                onChange={(e) => handleSemesterGradeChange('1st_grading', e.target.value)}
+                                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                                placeholder="0.00"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-sm text-gray-600 mb-1">2nd Grading</label>
+                                                            <input
+                                                                type="number"
+                                                                step="0.01"
+                                                                min="0"
+                                                                max="100"
+                                                                value={data['2nd_grading']}
+                                                                onChange={(e) => handleSemesterGradeChange('2nd_grading', e.target.value)}
+                                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                                placeholder="0.00"
+                                                            />
+                                                        </div>
+                                                        <div className="pt-2 border-t border-gray-200">
+                                                            <label className="block text-sm text-gray-600 mb-1">1st Semester Average</label>
+                                                            <input
+                                                                type="number"
+                                                                step="0.01"
+                                                                min="0"
+                                                                max="100"
+                                                                value={((parseFloat(data['1st_grading']) || 0) + (parseFloat(data['2nd_grading']) || 0)) / 2}
+                                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-gray-100"
+                                                                placeholder="0.00"
+                                                                readOnly
+                                                            />
                                                         </div>
                                                     </div>
-                                                    <div>
-                                                        <h5 className="font-medium text-gray-900 mb-2">2nd Semester</h5>
-                                                        <div className="grid grid-cols-3 gap-2">
-                                                            <div>
-                                                                <label className="block text-xs font-medium text-gray-700">Midterm</label>
-                                                                <input
-                                                                    type="number"
-                                                                    step="0.01"
-                                                                    min="0"
-                                                                    max="100"
-                                                                    value={data['2nd_semester_midterm']}
-                                                                    onChange={(e) => setData('2nd_semester_midterm', e.target.value)}
-                                                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label className="block text-xs font-medium text-gray-700">Pre-Final</label>
-                                                                <input
-                                                                    type="number"
-                                                                    step="0.01"
-                                                                    min="0"
-                                                                    max="100"
-                                                                    value={data['2nd_semester_pre_final']}
-                                                                    onChange={(e) => setData('2nd_semester_pre_final', e.target.value)}
-                                                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label className="block text-xs font-medium text-gray-700">Final</label>
-                                                                <input
-                                                                    type="number"
-                                                                    step="0.01"
-                                                                    min="0"
-                                                                    max="100"
-                                                                    value={data['2nd_semester_final']}
-                                                                    onChange={(e) => setData('2nd_semester_final', e.target.value)}
-                                                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                                                />
-                                                            </div>
+                                                </div>
+                                                <div className="bg-gray-50 p-4 rounded-lg">
+                                                    <h4 className="font-medium text-gray-700 mb-3">2nd Semester</h4>
+                                                    <div className="space-y-3">
+                                                        <div>
+                                                            <label className="block text-sm text-gray-600 mb-1">3rd Grading</label>
+                                                            <input
+                                                                type="number"
+                                                                step="0.01"
+                                                                min="0"
+                                                                max="100"
+                                                                value={data['3rd_grading']}
+                                                                onChange={(e) => handleSemesterGradeChange('3rd_grading', e.target.value)}
+                                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                                placeholder="0.00"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-sm text-gray-600 mb-1">4th Grading</label>
+                                                            <input
+                                                                type="number"
+                                                                step="0.01"
+                                                                min="0"
+                                                                max="100"
+                                                                value={data['4th_grading']}
+                                                                onChange={(e) => handleSemesterGradeChange('4th_grading', e.target.value)}
+                                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                                placeholder="0.00"
+                                                            />
+                                                        </div>
+                                                        <div className="pt-2 border-t border-gray-200">
+                                                            <label className="block text-sm text-gray-600 mb-1">2nd Semester Average</label>
+                                                            <input
+                                                                type="number"
+                                                                step="0.01"
+                                                                min="0"
+                                                                max="100"
+                                                                value={((parseFloat(data['3rd_grading']) || 0) + (parseFloat(data['4th_grading']) || 0)) / 2}
+                                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-gray-100"
+                                                                placeholder="0.00"
+                                                                readOnly
+                                                            />
                                                         </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                        )}
-                                    </div>
+                                            
+                                            {/* Final Grade Display */}
+                                            <div className="mt-6 p-4 bg-green-50 rounded-lg">
+                                                <div className="flex justify-between items-center">
+                                                    <h4 className="font-medium text-green-900">Final Grade (Auto-calculated)</h4>
+                                                    <span className="text-2xl font-bold text-green-900">{data.overall_grade || '0.00'}</span>
+                                                </div>
+                                                <p className="text-sm text-green-700 mt-1">Average of both semesters</p>
+                                            </div>
+                                        </div>
+                                    )}
 
-                                    <div className="mt-6">
+                                    {/* College Grades */}
+                                    {studentType === 'college' && (
+                                        <div className="mb-6">
+                                            <h3 className="text-lg font-medium text-gray-900 mb-4">College Grades</h3>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div className="bg-gray-50 p-4 rounded-lg">
+                                                    <h4 className="font-medium text-gray-700 mb-3">1st Semester</h4>
+                                                    <div className="space-y-3">
+                                                        <div>
+                                                            <label className="block text-sm text-gray-600 mb-1">Midterm</label>
+                                                            <input
+                                                                type="number"
+                                                                step="0.01"
+                                                                min="0"
+                                                                max="100"
+                                                                value={data['1st_semester_midterm']}
+                                                                onChange={(e) => handleCollegeGradeChange('1st_semester_midterm', e.target.value)}
+                                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                                placeholder="0.00"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-sm text-gray-600 mb-1">Pre-Final</label>
+                                                            <input
+                                                                type="number"
+                                                                step="0.01"
+                                                                min="0"
+                                                                max="100"
+                                                                value={data['1st_semester_pre_final']}
+                                                                onChange={(e) => handleCollegeGradeChange('1st_semester_pre_final', e.target.value)}
+                                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                                placeholder="0.00"
+                                                            />
+                                                        </div>
+                                                        <div className="pt-2 border-t border-gray-200">
+                                                            <label className="block text-sm text-gray-600 mb-1">1st Semester Final</label>
+                                                            <input
+                                                                type="number"
+                                                                step="0.01"
+                                                                min="0"
+                                                                max="100"
+                                                                value={((parseFloat(data['1st_semester_midterm']) || 0) + (parseFloat(data['1st_semester_pre_final']) || 0)) / 2}
+                                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-gray-100"
+                                                                placeholder="0.00"
+                                                                readOnly
+                                                            />
+                                                            <p className="text-xs text-gray-500 mt-1">(Midterm + Pre-Final) ÷ 2</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="bg-gray-50 p-4 rounded-lg">
+                                                    <h4 className="font-medium text-gray-700 mb-3">2nd Semester</h4>
+                                                    <div className="space-y-3">
+                                                        <div>
+                                                            <label className="block text-sm text-gray-600 mb-1">Midterm</label>
+                                                            <input
+                                                                type="number"
+                                                                step="0.01"
+                                                                min="0"
+                                                                max="100"
+                                                                value={data['2nd_semester_midterm']}
+                                                                onChange={(e) => handleCollegeGradeChange('2nd_semester_midterm', e.target.value)}
+                                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                                placeholder="0.00"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-sm text-gray-600 mb-1">Pre-Final</label>
+                                                            <input
+                                                                type="number"
+                                                                step="0.01"
+                                                                min="0"
+                                                                max="100"
+                                                                value={data['2nd_semester_pre_final']}
+                                                                onChange={(e) => handleCollegeGradeChange('2nd_semester_pre_final', e.target.value)}
+                                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                                placeholder="0.00"
+                                                            />
+                                                        </div>
+                                                        <div className="pt-2 border-t border-gray-200">
+                                                            <label className="block text-sm text-gray-600 mb-1">2nd Semester Final</label>
+                                                            <input
+                                                                type="number"
+                                                                step="0.01"
+                                                                min="0"
+                                                                max="100"
+                                                                value={((parseFloat(data['2nd_semester_midterm']) || 0) + (parseFloat(data['2nd_semester_pre_final']) || 0)) / 2}
+                                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-gray-100"
+                                                                placeholder="0.00"
+                                                                readOnly
+                                                            />
+                                                            <p className="text-xs text-gray-500 mt-1">(Midterm + Pre-Final) ÷ 2</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            {/* Final Grade Display */}
+                                            <div className="mt-6 p-4 bg-green-50 rounded-lg">
+                                                <div className="flex justify-between items-center">
+                                                    <h4 className="font-medium text-green-900">Final Grade (Auto-calculated)</h4>
+                                                    <span className="text-2xl font-bold text-green-900">{data.overall_grade || '0.00'}</span>
+                                                </div>
+                                                <p className="text-sm text-green-700 mt-1">Average of both semesters</p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Remarks */}
+                                    <div className="mb-6">
                                         <label className="block text-sm font-medium text-gray-700 mb-2">
                                             Remarks
                                         </label>
                                         <textarea
                                             value={data.remarks}
                                             onChange={(e) => setData('remarks', e.target.value)}
-                                            rows={3}
                                             className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                            placeholder="Additional comments or notes..."
+                                            rows={3}
+                                            placeholder="Additional remarks or notes..."
                                         />
                                         {errors.remarks && (
                                             <p className="mt-1 text-sm text-red-600">{errors.remarks}</p>
                                         )}
                                     </div>
 
-                                    <div className="flex justify-end space-x-3 mt-6">
+                                    <div className="flex justify-end space-x-3">
                                         <button
                                             type="button"
                                             onClick={closeModal}
-                                            className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+                                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                                         >
                                             Cancel
                                         </button>
                                         <button
                                             type="submit"
                                             disabled={processing}
-                                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                                            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
                                         >
-                                            {processing ? 'Saving...' : (editingGrade ? 'Update' : 'Create')}
+                                            {processing ? 'Saving...' : (editingGrade ? 'Update Grade' : 'Create Grade')}
                                         </button>
                                     </div>
                                 </form>

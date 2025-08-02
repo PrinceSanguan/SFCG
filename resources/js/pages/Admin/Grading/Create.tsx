@@ -89,88 +89,39 @@ const GradingCreate: React.FC<Props> = ({
 
     // Determine student type based on academic level or college course
     const determineStudentType = (student: Student): 'elementary' | 'junior_high' | 'senior_high' | 'college' => {
-        // Debug logging for this specific function
-        console.log('=== determineStudentType Debug ===');
-        console.log('Student:', student.name);
-        console.log('Student ID:', student.student_profile?.student_id);
-        console.log('College course object:', student.student_profile?.college_course);
-        console.log('College course ID:', student.student_profile?.college_course?.id);
-        console.log('College course name:', student.student_profile?.college_course?.name);
-        console.log('Grade level:', student.student_profile?.grade_level);
-        console.log('Academic level:', student.student_profile?.academic_level);
-        
-        // Check for college course first
-        if (student.student_profile?.college_course) {
-            console.log('Detected as college via college_course');
+        if (student.student_profile?.college_course?.id) {
             return 'college';
         }
         
-        // Check student ID pattern for college (TUPV pattern)
-        if (student.student_profile?.student_id?.toUpperCase().includes('TUPV')) {
-            console.log('Detected as college via TUPV pattern');
-            return 'college';
+        const academicLevel = student.student_profile?.academic_level?.code;
+        switch (academicLevel) {
+            case 'ELEM':
+                return 'elementary';
+            case 'JHS':
+                return 'junior_high';
+            case 'SHS':
+                return 'senior_high';
+            default:
+                return 'elementary';
         }
-        
-        // Check if student has college-related data in their profile
-        if (student.student_profile?.grade_level?.toLowerCase().includes('college') ||
-            student.student_profile?.grade_level?.toLowerCase().includes('1st year') ||
-            student.student_profile?.grade_level?.toLowerCase().includes('2nd year') ||
-            student.student_profile?.grade_level?.toLowerCase().includes('3rd year') ||
-            student.student_profile?.grade_level?.toLowerCase().includes('4th year')) {
-            console.log('Detected as college via grade level');
-            return 'college';
-        }
-        
-        const academicLevel = student.student_profile?.academic_level;
-        if (!academicLevel) {
-            console.log('No academic level, defaulting to elementary');
-            return 'elementary';
-        }
-        
-        const levelCode = academicLevel.code.toUpperCase();
-        console.log('Academic level code:', levelCode);
-        
-        if (levelCode === 'ELEM') return 'elementary';
-        if (levelCode === 'JHS') return 'junior_high';
-        if (levelCode === 'SHS') return 'senior_high';
-        
-        // Fallback based on name
-        const levelName = academicLevel.name.toLowerCase();
-        console.log('Academic level name:', levelName);
-        if (levelName.includes('elementary')) return 'elementary';
-        if (levelName.includes('junior')) return 'junior_high';
-        if (levelName.includes('senior')) return 'senior_high';
-        if (levelName.includes('college')) return 'college';
-        
-        console.log('Defaulting to elementary');
-        return 'elementary';
     };
 
     const handleStudentSelect = (student: Student) => {
         setSelectedStudent(student);
-        const type = determineStudentType(student);
-        
-        // Debug logging
-        console.log('Selected student:', student);
-        console.log('Student profile:', student.student_profile);
-        console.log('College course:', student.student_profile?.college_course);
-        console.log('Grade level:', student.student_profile?.grade_level);
-        console.log('Academic level:', student.student_profile?.academic_level);
-        console.log('Determined type:', type);
-        
-        setStudentType(type);
         setData('student_id', student.id.toString());
-        setData('student_type', type);
+        setData('section', student.student_profile?.section || '');
+        
+        const type = determineStudentType(student);
+        setStudentType(type);
+        
         setShowStudentModal(false);
-        setSearchTerm('');
-        setFilterGradeLevel('');
-        setFilterSection('');
     };
 
+    // Elementary/Junior High: 4 Quarters
     const handleQuarterlyGradeChange = (field: '1st_grading' | '2nd_grading' | '3rd_grading' | '4th_grading', value: string) => {
         setData(field, value);
         
-        // Calculate final grade for Elementary/Junior High
+        // Calculate final grade: average of all 4 quarters
         const grades = [
             parseFloat(data['1st_grading']) || 0,
             parseFloat(data['2nd_grading']) || 0,
@@ -179,25 +130,24 @@ const GradingCreate: React.FC<Props> = ({
         ];
         
         const validGrades = grades.filter(grade => grade > 0);
-        const finalGrade = validGrades.length > 0 ? (validGrades.reduce((sum, grade) => sum + grade, 0) / validGrades.length).toFixed(2) : '0';
+        const finalGrade = validGrades.length > 0 ? (validGrades.reduce((a, b) => a + b, 0) / validGrades.length).toFixed(2) : '0.00';
         setData('final_grade', finalGrade);
     };
 
+    // Senior High: 2 Semesters (1st: 1st-2nd grading, 2nd: 3rd-4th grading)
     const handleSemesterGradeChange = (field: '1st_grading' | '2nd_grading' | '3rd_grading' | '4th_grading', value: string) => {
         setData(field, value);
         
-        // Calculate final grade for Senior High
-        // 1st Semester: (1st Grading + 2nd Grading) / 2
+        // Calculate semester averages
         const firstSemester = ((parseFloat(data['1st_grading']) || 0) + (parseFloat(data['2nd_grading']) || 0)) / 2;
-        
-        // 2nd Semester: (3rd Grading + 4th Grading) / 2
         const secondSemester = ((parseFloat(data['3rd_grading']) || 0) + (parseFloat(data['4th_grading']) || 0)) / 2;
         
-        // Overall: (1st Semester + 2nd Semester) / 2
+        // Calculate final grade: average of both semesters
         const finalGrade = ((firstSemester + secondSemester) / 2).toFixed(2);
         setData('final_grade', finalGrade);
     };
 
+    // College: 2 Semesters with Midterm, Pre-Final (Final = (Midterm + Pre-Final) ÷ 2)
     const handleCollegeGradeChange = (field: '1st_semester_midterm' | '1st_semester_pre_final' | '2nd_semester_midterm' | '2nd_semester_pre_final', value: string) => {
         setData(field, value);
         
@@ -441,6 +391,15 @@ const GradingCreate: React.FC<Props> = ({
                                                 </div>
                                             </div>
                                         </div>
+                                        
+                                        {/* Final Grade Display */}
+                                        <div className="mt-6 p-4 bg-green-50 rounded-lg">
+                                            <div className="flex justify-between items-center">
+                                                <h4 className="font-medium text-green-900">Final Grade (Auto-calculated)</h4>
+                                                <span className="text-2xl font-bold text-green-900">{data.final_grade || '0.00'}</span>
+                                            </div>
+                                            <p className="text-sm text-green-700 mt-1">Average of all 4 quarters</p>
+                                        </div>
                                     </div>
                                 )}
 
@@ -478,6 +437,19 @@ const GradingCreate: React.FC<Props> = ({
                                                             placeholder="0.00"
                                                         />
                                                     </div>
+                                                    <div className="pt-2 border-t border-gray-200">
+                                                        <label className="block text-sm text-gray-600 mb-1">1st Semester Average</label>
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            min="0"
+                                                            max="100"
+                                                            value={((parseFloat(data['1st_grading']) || 0) + (parseFloat(data['2nd_grading']) || 0)) / 2}
+                                                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-gray-100"
+                                                            placeholder="0.00"
+                                                            readOnly
+                                                        />
+                                                    </div>
                                                 </div>
                                             </div>
                                             <div className="bg-gray-50 p-4 rounded-lg">
@@ -509,8 +481,30 @@ const GradingCreate: React.FC<Props> = ({
                                                             placeholder="0.00"
                                                         />
                                                     </div>
+                                                    <div className="pt-2 border-t border-gray-200">
+                                                        <label className="block text-sm text-gray-600 mb-1">2nd Semester Average</label>
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            min="0"
+                                                            max="100"
+                                                            value={((parseFloat(data['3rd_grading']) || 0) + (parseFloat(data['4th_grading']) || 0)) / 2}
+                                                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-gray-100"
+                                                            placeholder="0.00"
+                                                            readOnly
+                                                        />
+                                                    </div>
                                                 </div>
                                             </div>
+                                        </div>
+                                        
+                                        {/* Final Grade Display */}
+                                        <div className="mt-6 p-4 bg-green-50 rounded-lg">
+                                            <div className="flex justify-between items-center">
+                                                <h4 className="font-medium text-green-900">Final Grade (Auto-calculated)</h4>
+                                                <span className="text-2xl font-bold text-green-900">{data.final_grade || '0.00'}</span>
+                                            </div>
+                                            <p className="text-sm text-green-700 mt-1">Average of both semesters</p>
                                         </div>
                                     </div>
                                 )}
@@ -549,15 +543,15 @@ const GradingCreate: React.FC<Props> = ({
                                                             placeholder="0.00"
                                                         />
                                                     </div>
-                                                    <div>
-                                                        <label className="block text-sm text-gray-600 mb-1">Final (Auto-calculated)</label>
+                                                    <div className="pt-2 border-t border-gray-200">
+                                                        <label className="block text-sm text-gray-600 mb-1">1st Semester Final</label>
                                                         <input
                                                             type="number"
                                                             step="0.01"
                                                             min="0"
                                                             max="100"
                                                             value={((parseFloat(data['1st_semester_midterm']) || 0) + (parseFloat(data['1st_semester_pre_final']) || 0)) / 2}
-                                                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-gray-50"
+                                                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-gray-100"
                                                             placeholder="0.00"
                                                             readOnly
                                                         />
@@ -594,15 +588,15 @@ const GradingCreate: React.FC<Props> = ({
                                                             placeholder="0.00"
                                                         />
                                                     </div>
-                                        <div>
-                                                        <label className="block text-sm text-gray-600 mb-1">Final (Auto-calculated)</label>
+                                        <div className="pt-2 border-t border-gray-200">
+                                                        <label className="block text-sm text-gray-600 mb-1">2nd Semester Final</label>
                                                         <input
                                                             type="number"
                                                             step="0.01"
                                                             min="0"
                                                             max="100"
                                                             value={((parseFloat(data['2nd_semester_midterm']) || 0) + (parseFloat(data['2nd_semester_pre_final']) || 0)) / 2}
-                                                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-gray-50"
+                                                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-gray-100"
                                                             placeholder="0.00"
                                                             readOnly
                                                         />
@@ -611,155 +605,146 @@ const GradingCreate: React.FC<Props> = ({
                                                 </div>
                                             </div>
                                         </div>
+                                        
+                                        {/* Final Grade Display */}
+                                        <div className="mt-6 p-4 bg-green-50 rounded-lg">
+                                            <div className="flex justify-between items-center">
+                                                <h4 className="font-medium text-green-900">Final Grade (Auto-calculated)</h4>
+                                                <span className="text-2xl font-bold text-green-900">{data.final_grade || '0.00'}</span>
+                                            </div>
+                                            <p className="text-sm text-green-700 mt-1">Average of both semesters</p>
+                                        </div>
                                     </div>
                                 )}
 
-                                {/* Final Grade Display */}
-                                {studentType && (
-                                    <div className="mt-8 p-4 bg-green-50 rounded-lg">
-                                        <h3 className="font-medium text-green-900 mb-2">Final Grade</h3>
-                                        <div className="flex items-center gap-4">
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                min="0"
-                                                max="100"
-                                                value={data.final_grade}
-                                                className="w-32 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-white"
-                                                readOnly
-                                            />
-                                            <p className="text-sm text-green-700">
-                                                {studentType === 'elementary' || studentType === 'junior_high' 
-                                                    ? 'Auto-calculated based on quarterly grades' 
-                                                    : studentType === 'senior_high'
-                                                    ? 'Auto-calculated based on semester grades (1st: 1st-2nd grading avg, 2nd: 3rd-4th grading avg)'
-                                                    : studentType === 'college'
-                                                    ? 'Auto-calculated based on college grades (Midterm + Pre-Final) ÷ 2 per semester'
-                                                    : 'Auto-calculated based on grades'
-                                                }
-                                            </p>
-                                        </div>
-                                            {errors.final_grade && (
-                                                <p className="text-red-600 text-sm mt-1">{errors.final_grade}</p>
-                                            )}
-                                        </div>
-                                )}
-
                                 {/* Remarks */}
-                                <div className="mt-6">
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Remarks
-                                            </label>
-                                            <textarea
+                                <div className="mt-8">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Remarks
+                                    </label>
+                                    <textarea
                                         value={data.remarks}
-                                                onChange={(e) => setData('remarks', e.target.value)}
-                                                rows={3}
-                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                        placeholder="Additional notes or comments..."
+                                        onChange={(e) => setData('remarks', e.target.value)}
+                                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        rows={3}
+                                        placeholder="Additional remarks or notes..."
                                     />
                                     {errors.remarks && <p className="text-red-600 text-sm mt-1">{errors.remarks}</p>}
                                 </div>
 
                                 {/* Submit Button */}
-                                <div className="mt-8 flex gap-4">
-                                    <button
-                                        type="submit"
-                                        disabled={processing || !selectedStudent}
-                                        className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        {processing ? 'Creating...' : 'Create Grade'}
-                                    </button>
+                                <div className="mt-8 flex justify-end space-x-3">
                                     <Link
                                         href="/admin/grading"
-                                        className="px-6 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                                     >
                                         Cancel
                                     </Link>
+                                    <button
+                                        type="submit"
+                                        disabled={processing || !selectedStudent}
+                                        className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                                    >
+                                        {processing ? 'Creating...' : 'Create Grade'}
+                                    </button>
                                 </div>
                             </form>
                         </div>
                     </main>
-            </div>
+                </div>
 
-            {/* Student Selection Modal */}
-            {showStudentModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                        <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[80vh] overflow-hidden">
-                            <div className="flex justify-between items-center mb-4">
-                                <h2 className="text-xl font-semibold text-gray-900">Select Student</h2>
-                            <button
-                                onClick={() => setShowStudentModal(false)}
-                                className="text-gray-400 hover:text-gray-600"
-                            >
-                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                            </button>
-                        </div>
+                {/* Student Selection Modal */}
+                {showStudentModal && (
+                    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+                        <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+                            <div className="mt-3">
+                                <h3 className="text-lg font-medium text-gray-900 mb-4">Select Student</h3>
+                                
+                                {/* Search and Filters */}
+                                <div className="mb-4 space-y-3">
+                                    <input
+                                        type="text"
+                                        placeholder="Search by name, email, or student ID..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <select
+                                            value={filterGradeLevel}
+                                            onChange={(e) => setFilterGradeLevel(e.target.value)}
+                                            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        >
+                                            <option value="">All Grade Levels</option>
+                                            {uniqueGradeLevels.map((level) => (
+                                                <option key={level} value={level}>{level}</option>
+                                            ))}
+                                        </select>
+                                        <select
+                                            value={filterSection}
+                                            onChange={(e) => setFilterSection(e.target.value)}
+                                            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        >
+                                            <option value="">All Sections</option>
+                                            {uniqueSections.map((section) => (
+                                                <option key={section} value={section}>{section}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
 
-                        {/* Search and Filters */}
-                            <div className="mb-4 space-y-4">
-                                <input
-                                    type="text"
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    placeholder="Search by name, email, or student ID..."
-                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                />
-                                <div className="flex gap-4">
-                                    <select
-                                        value={filterGradeLevel}
-                                        onChange={(e) => setFilterGradeLevel(e.target.value)}
-                                        className="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                    >
-                                        <option value="">All Grade Levels</option>
-                                        {uniqueGradeLevels.map((level) => (
-                                            <option key={level} value={level}>{level}</option>
-                                        ))}
-                                    </select>
-                                    <select
-                                        value={filterSection}
-                                        onChange={(e) => setFilterSection(e.target.value)}
-                                        className="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                    >
-                                        <option value="">All Sections</option>
-                                        {uniqueSections.map((section) => (
-                                            <option key={section} value={section}>{section}</option>
-                                        ))}
-                                    </select>
-                            </div>
-                        </div>
-
-                            {/* Student List */}
-                            <div className="overflow-y-auto max-h-96">
-                                {filteredStudents.length === 0 ? (
-                                    <p className="text-gray-500 text-center py-8">No students found</p>
-                                ) : (
-                                    <div className="space-y-2">
-                                        {filteredStudents.map((student) => (
-                                        <div
-                                            key={student.id}
-                                            onClick={() => handleStudentSelect(student)}
-                                                className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
-                                            >
-                                                                                                 <div>
-                                                     <h3 className="font-medium text-gray-900">{student.name}</h3>
-                                                     <p className="text-sm text-gray-500">
-                                                         {student.email} • {student.student_profile?.student_id}
-                                                     </p>
-                                                     <p className="text-sm text-gray-500">
-                                                         {student.student_profile?.grade_level} • {student.student_profile?.section}
-                                                     </p>
+                                {/* Students List */}
+                                <div className="max-h-96 overflow-y-auto">
+                                    {filteredStudents.length === 0 ? (
+                                        <p className="text-center text-gray-500 py-4">No students found</p>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {filteredStudents.map((student) => (
+                                                <div
+                                                    key={student.id}
+                                                    onClick={() => handleStudentSelect(student)}
+                                                    className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
+                                                >
+                                                    <div className="flex justify-between items-start">
+                                                        <div>
+                                                            <h3 className="font-medium text-gray-900">{student.name}</h3>
+                                                            <p className="text-sm text-gray-500">
+                                                                {student.email} • {student.student_profile?.student_id}
+                                                            </p>
+                                                            <p className="text-sm text-gray-500">
+                                                                {student.student_profile?.grade_level} • {student.student_profile?.section}
+                                                            </p>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                                                student.student_profile?.college_course
+                                                                    ? 'bg-purple-100 text-purple-800'
+                                                                    : 'bg-blue-100 text-blue-800'
+                                                            }`}>
+                                                                {student.student_profile?.college_course ? 'College' : 'K-12'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            ))}
                                         </div>
-                                )}
+                                    )}
+                                </div>
+
+                                <div className="mt-4 flex justify-end">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowStudentModal(false)}
+                                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                    >
+                                        Close
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
                 )}
-                </div>
+            </div>
         </>
     );
 };
