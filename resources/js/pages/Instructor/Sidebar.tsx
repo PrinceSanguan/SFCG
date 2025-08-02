@@ -51,9 +51,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     };
 
     const handleLinkClick = () => {
+        // Only close sidebar on mobile, keep it open on desktop
         if (isMobile) {
             onClose();
         }
+        // Don't collapse sections when clicking links
     };
 
     const menuItems = [
