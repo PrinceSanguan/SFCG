@@ -786,7 +786,6 @@ class AcademicController extends Controller
             ->get();
 
         $teachers = User::where('user_role', 'teacher')
-            ->where('is_active', true)
             ->orderBy('name')
             ->get();
 
