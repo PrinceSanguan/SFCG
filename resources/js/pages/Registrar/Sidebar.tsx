@@ -14,18 +14,61 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
 
     const isActive = (href: string) => url.startsWith(href);
 
-    // Auto-close dropdowns when clicking outside
+    // Keep sections expanded when navigating
     useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            const target = event.target as Element;
-            if (!target.closest('.sidebar-dropdown')) {
-                setExpandedSections(prev => prev.filter(key => key === 'academic'));
-            }
-        };
+        // Auto-expand sections based on current URL
+        const currentSections: string[] = [];
+        
+        if (url.startsWith('/registrar/users') || url.startsWith('/registrar/students') || url.startsWith('/registrar/parents')) {
+            currentSections.push('users');
+        }
+        if (url.startsWith('/registrar/academic')) {
+            currentSections.push('academic');
+        }
+        if (url.startsWith('/registrar/assignments')) {
+            currentSections.push('assignments');
+        }
+        if (url.startsWith('/registrar/honors') || url.startsWith('/registrar/certificates')) {
+            currentSections.push('honors');
+        }
+        if (url.startsWith('/registrar/reports')) {
+            currentSections.push('reports');
+        }
 
-        document.addEventListener('click', handleClickOutside);
-        return () => document.removeEventListener('click', handleClickOutside);
-    }, []);
+        // Merge with existing expanded sections to keep user's manual expansions
+        setExpandedSections(prev => {
+            const merged = [...new Set([...prev, ...currentSections])];
+            return merged;
+        });
+    }, [url]);
+
+    // Keep sections expanded when navigating
+    useEffect(() => {
+        // Auto-expand sections based on current URL
+        const currentSections: string[] = [];
+        
+        if (url.startsWith('/registrar/users') || url.startsWith('/registrar/students') || url.startsWith('/registrar/parents')) {
+            currentSections.push('users');
+        }
+        if (url.startsWith('/registrar/academic')) {
+            currentSections.push('academic');
+        }
+        if (url.startsWith('/registrar/assignments')) {
+            currentSections.push('assignments');
+        }
+        if (url.startsWith('/registrar/honors') || url.startsWith('/registrar/certificates')) {
+            currentSections.push('honors');
+        }
+        if (url.startsWith('/registrar/reports')) {
+            currentSections.push('reports');
+        }
+
+        // Merge with existing expanded sections to keep user's manual expansions
+        setExpandedSections(prev => {
+            const merged = [...new Set([...prev, ...currentSections])];
+            return merged;
+        });
+    }, [url]);
 
     const toggleSection = (sectionKey: string, event: React.MouseEvent) => {
         event.stopPropagation();
@@ -41,9 +84,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
     };
 
     const handleLinkClick = () => {
+        // Only close sidebar on mobile, keep it open on desktop
         if (isMobile && onClose) {
             onClose();
         }
+        // Don't collapse sections when clicking links
     };
 
     const menuItems = [

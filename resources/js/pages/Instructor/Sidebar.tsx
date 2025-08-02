@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -11,6 +11,28 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     const [expandedSections, setExpandedSections] = useState<string[]>(['dashboard']);
     const isMobile = useIsMobile();
     const { url } = usePage();
+
+    // Keep sections expanded when navigating
+    useEffect(() => {
+        // Auto-expand sections based on current URL
+        const currentSections: string[] = [];
+        
+        if (url.startsWith('/instructor/profile')) {
+            currentSections.push('account');
+        }
+        if (url.startsWith('/instructor/grades')) {
+            currentSections.push('grades');
+        }
+        if (url.startsWith('/instructor/honors')) {
+            currentSections.push('honors');
+        }
+
+        // Merge with existing expanded sections to keep user's manual expansions
+        setExpandedSections(prev => {
+            const merged = [...new Set([...prev, ...currentSections])];
+            return merged;
+        });
+    }, [url]);
 
     const toggleSection = (section: string) => {
         setExpandedSections(prev => 
