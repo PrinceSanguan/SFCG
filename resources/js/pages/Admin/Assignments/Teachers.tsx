@@ -11,7 +11,7 @@ interface Teacher {
 interface Subject {
     id: number;
     name: string;
-    academicLevel: {
+    academicLevel?: {
         id: number;
         name: string;
     };
@@ -36,10 +36,10 @@ interface AcademicStrand {
 
 interface Assignment {
     id: number;
-    instructor: Teacher;
-    subject: Subject;
-    academicPeriod: AcademicPeriod;
-    section: string;
+    instructor?: Teacher;
+    subject?: Subject;
+    academicPeriod?: AcademicPeriod;
+    section?: string;
     is_active: boolean;
     created_at: string;
 }
@@ -94,9 +94,9 @@ const Teachers: React.FC<Props> = ({
     };
 
     const handleEdit = (assignment: Assignment) => {
-        setData('teacher_id', assignment.instructor.id.toString());
-        setData('subject_id', assignment.subject.id.toString());
-        setData('academic_period_id', assignment.academicPeriod.id.toString());
+        setData('teacher_id', assignment.instructor?.id?.toString() || '');
+        setData('subject_id', assignment.subject?.id?.toString() || '');
+        setData('academic_period_id', assignment.academicPeriod?.id?.toString() || '');
         setData('section', assignment.section || '');
         setData('is_active', assignment.is_active);
         setEditingAssignment(assignment);
@@ -186,26 +186,26 @@ const Teachers: React.FC<Props> = ({
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div>
                                                 <div className="text-sm font-medium text-gray-900">
-                                                    {assignment.instructor.name}
+                                                    {assignment.instructor?.name || 'N/A'}
                                                 </div>
                                                 <div className="text-sm text-gray-500">
-                                                    {assignment.instructor.email}
+                                                    {assignment.instructor?.email || 'N/A'}
                                                 </div>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="text-sm text-gray-900">
-                                                {assignment.subject.name}
+                                                {assignment.subject?.name || 'N/A'}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="text-sm text-gray-900">
-                                                {assignment.subject.academicLevel.name}
+                                                {assignment.subject?.academicLevel?.name || 'N/A'}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="text-sm text-gray-900">
-                                                {assignment.academicPeriod.name}
+                                                {assignment.academicPeriod?.name || 'N/A'}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
@@ -289,7 +289,7 @@ const Teachers: React.FC<Props> = ({
                                         <option value="">Select Subject</option>
                                         {subjects.map((subject) => (
                                             <option key={subject.id} value={subject.id}>
-                                                {subject.name} - {subject.academicLevel.name}
+                                                {subject.name} - {subject.academicLevel?.name || 'N/A'}
                                             </option>
                                         ))}
                                     </select>
