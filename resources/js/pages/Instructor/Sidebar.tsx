@@ -70,7 +70,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             icon: '👤',
             section: 'account',
             items: [
-                { name: 'Profile', href: '/instructor/profile', icon: '👤' }
+                { name: 'View/Edit own information', href: '/instructor/profile', icon: '👤' }
             ]
         },
         {
@@ -78,10 +78,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             icon: '📝',
             section: 'grades',
             items: [
-                { name: 'Input Grades', href: '/instructor/grades', icon: '✏️' },
-                { name: 'Edit Grades', href: '/instructor/grades/edit', icon: '🔄' },
-                { name: 'Submit Grades', href: '/instructor/grades/submit', icon: '📤' },
-                { name: 'Upload CSV', href: '/instructor/grades/upload', icon: '📁' }
+                { name: 'Input grades', href: '/instructor/grades', icon: '✏️' },
+                { name: 'Edit submitted grades', href: '/instructor/grades/edit', icon: '🔄' },
+                { name: 'Submit grades for validation', href: '/instructor/grades/submit', icon: '📤' },
+                { name: 'Upload student grades via CSV', href: '/instructor/grades/upload', icon: '📁' }
             ]
         },
         {
@@ -89,7 +89,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             icon: '🏆',
             section: 'honors',
             items: [
-                { name: 'View Honor Results', href: '/instructor/honors', icon: '👀' }
+                { name: 'View honor results of students', href: '/instructor/honors', icon: '👀' }
             ]
         }
     ];

@@ -688,85 +688,213 @@ class InstructorController extends Controller
     public function honors(Request $request)
     {
         $instructor = Auth::user();
-        $academicPeriodId = $request->get('academic_period_id');
-        $honorType = $request->get('honor_type');
-
-        // Get students from instructor's subjects
-        $subjectIds = $instructor->subjectAssignments()
+        
+        // Get instructor's subject assignments
+        $assignments = $instructor->subjectAssignments()
+            ->with(['subject', 'academicPeriod'])
             ->where('is_active', true)
-            ->pluck('subject_id');
+            ->get();
 
-        $studentsQuery = User::where('user_role', 'student')
-            ->whereHas('receivedGrades', function ($q) use ($subjectIds) {
-                $q->whereIn('subject_id', $subjectIds)
-                  ->where('status', 'approved');
-            })
-            ->with(['studentProfile', 'honors.academicPeriod'])
-            ->distinct();
-
-        $students = $studentsQuery->get();
+        // Get students from instructor's assignments
+        $studentIds = [];
+        foreach ($assignments as $assignment) {
+            $subject = $assignment->subject;
+            
+            $students = User::where('user_role', 'student')
+                ->whereHas('studentProfile', function ($q) use ($subject) {
+                    $q->where('enrollment_status', 'active');
+                    
+                    if ($subject->isCollegeSubject()) {
+                        $q->where('college_course_id', $subject->college_course_id)
+                          ->where('year_level', $subject->year_level)
+                          ->where('semester', $subject->semester);
+                    } else {
+                        $q->where('academic_level_id', $subject->academic_level_id);
+                        if ($subject->academic_strand_id) {
+                            $q->where('academic_strand_id', $subject->academic_strand_id);
+                        }
+                    }
+                })->pluck('id');
+            
+            $studentIds = array_merge($studentIds, $students->toArray());
+        }
+        
+        $studentIds = array_unique($studentIds);
 
         // Get honors for these students
-        $honorsQuery = StudentHonor::whereIn('student_id', $students->pluck('id'))
-            ->with(['student.studentProfile', 'academicPeriod'])
+        $honorsQuery = StudentHonor::whereIn('student_id', $studentIds)
+            ->with(['student.studentProfile.academicLevel', 'student.studentProfile.collegeCourse', 'honorCriterion', 'academicPeriod'])
             ->orderBy('academic_period_id', 'desc')
             ->orderBy('gpa', 'desc');
 
-        if ($academicPeriodId) {
-            $honorsQuery->where('academic_period_id', $academicPeriodId);
+        // Apply filters
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $honorsQuery->whereHas('student', function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%");
+            });
         }
 
-        if ($honorType) {
-            $honorsQuery->where('honor_type', $honorType);
+        if ($request->filled('period')) {
+            $honorsQuery->where('academic_period_id', $request->period);
         }
 
-        $honors = $honorsQuery->get()->map(function ($honor) {
-            $student = $honor->student;
-            $profile = $student->studentProfile;
+        if ($request->filled('honor_type')) {
+            $honorsQuery->whereHas('honorCriterion', function ($q) use ($request) {
+                $q->where('honor_type', $request->honor_type);
+            });
+        }
 
-            return [
-                'id' => $honor->id,
-                'student' => [
-                    'id' => $student->id,
-                    'name' => $student->name,
-                    'student_id' => $profile->student_id ?? '',
-                    'full_name' => $profile->full_name ?? $student->name,
-                    'section' => $profile->section ?? '',
-                    'academic_level' => $profile->academicLevel->name ?? '',
-                ],
-                'honor_type' => $honor->getHonorDisplayName(),
-                'gpa' => number_format($honor->gpa, 2),
-                'academic_period' => [
-                    'id' => $honor->academicPeriod->id,
-                    'name' => $honor->academicPeriod->name,
-                    'school_year' => $honor->academicPeriod->school_year,
-                ],
-                'is_approved' => $honor->is_approved,
-                'is_active' => $honor->is_active,
-                'approved_at' => $honor->approved_at ? $honor->approved_at->format('M d, Y') : null,
-                'created_at' => $honor->created_at->format('M d, Y'),
-            ];
-        });
+        if ($request->filled('status')) {
+            if ($request->status === 'approved') {
+                $honorsQuery->where('is_approved', true);
+            } else {
+                $honorsQuery->where('is_approved', false);
+            }
+        }
 
-        // Get filter options
-        $academicPeriods = AcademicPeriod::orderBy('school_year', 'desc')->get();
-        $honorTypes = StudentHonor::distinct('honor_type')->pluck('honor_type');
+        $honors = $honorsQuery->get();
 
-        // Get statistics
+        // Calculate statistics
         $stats = [
-            'total_honor_students' => $honors->count(),
+            'total_honors' => $honors->count(),
             'approved_honors' => $honors->where('is_approved', true)->count(),
             'pending_honors' => $honors->where('is_approved', false)->count(),
-            'high_honors' => $honors->where('honor_type', 'with_high_honors')->count(),
-            'highest_honors' => $honors->where('honor_type', 'with_highest_honors')->count(),
+            'average_gpa' => $honors->count() > 0 ? $honors->avg('gpa') : 0,
         ];
 
-        return Inertia::render('Instructor/Honors', [
+        // Get filter options
+        $academicPeriods = AcademicPeriod::orderBy('name')->get();
+
+        return Inertia::render('Instructor/Honors/Index', [
             'honors' => $honors,
             'stats' => $stats,
-            'academicPeriods' => $academicPeriods,
-            'honorTypes' => $honorTypes,
-            'filters' => $request->only(['academic_period_id', 'honor_type']),
+            'filters' => $request->only(['search', 'period', 'honor_type', 'status']),
+            'periods' => $academicPeriods,
+        ]);
+    }
+
+    public function editGrades(Request $request)
+    {
+        $instructor = Auth::user();
+        
+        // Get instructor's grades
+        $gradesQuery = Grade::where('instructor_id', $instructor->id)
+            ->with(['student.studentProfile.academicLevel', 'student.studentProfile.collegeCourse', 'subject', 'academicPeriod'])
+            ->orderBy('created_at', 'desc');
+
+        // Apply filters
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $gradesQuery->whereHas('student', function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('status')) {
+            $gradesQuery->where('status', $request->status);
+        }
+
+        if ($request->filled('subject')) {
+            $gradesQuery->where('subject_id', $request->subject);
+        }
+
+        if ($request->filled('period')) {
+            $gradesQuery->where('academic_period_id', $request->period);
+        }
+
+        $grades = $gradesQuery->paginate(20);
+
+        // Get filter options
+        $subjects = $instructor->subjectAssignments()
+            ->with('subject')
+            ->where('is_active', true)
+            ->get()
+            ->pluck('subject')
+            ->unique('id')
+            ->values();
+
+        $periods = AcademicPeriod::orderBy('name')->get();
+
+        return Inertia::render('Instructor/Grades/Edit', [
+            'grades' => $grades,
+            'filters' => $request->only(['search', 'status', 'subject', 'period']),
+            'subjects' => $subjects,
+            'periods' => $periods,
+        ]);
+    }
+
+    public function submitGradesPage(Request $request)
+    {
+        $instructor = Auth::user();
+        
+        // Get instructor's grades
+        $gradesQuery = Grade::where('instructor_id', $instructor->id)
+            ->with(['student.studentProfile.academicLevel', 'student.studentProfile.collegeCourse', 'subject', 'academicPeriod'])
+            ->orderBy('created_at', 'desc');
+
+        // Apply filters
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $gradesQuery->whereHas('student', function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('status')) {
+            $gradesQuery->where('status', $request->status);
+        }
+
+        if ($request->filled('subject')) {
+            $gradesQuery->where('subject_id', $request->subject);
+        }
+
+        if ($request->filled('period')) {
+            $gradesQuery->where('academic_period_id', $request->period);
+        }
+
+        $grades = $gradesQuery->paginate(20);
+
+        // Get filter options
+        $subjects = $instructor->subjectAssignments()
+            ->with('subject')
+            ->where('is_active', true)
+            ->get()
+            ->pluck('subject')
+            ->unique('id')
+            ->values();
+
+        $periods = AcademicPeriod::orderBy('name')->get();
+
+        return Inertia::render('Instructor/Grades/Submit', [
+            'grades' => $grades,
+            'filters' => $request->only(['search', 'status', 'subject', 'period']),
+            'subjects' => $subjects,
+            'periods' => $periods,
+        ]);
+    }
+
+    public function uploadGradesPage()
+    {
+        $instructor = Auth::user();
+        
+        // Get instructor's subjects and periods
+        $subjects = $instructor->subjectAssignments()
+            ->with('subject')
+            ->where('is_active', true)
+            ->get()
+            ->pluck('subject')
+            ->unique('id')
+            ->values();
+
+        $periods = AcademicPeriod::orderBy('name')->get();
+
+        return Inertia::render('Instructor/Grades/Upload', [
+            'subjects' => $subjects,
+            'periods' => $periods,
         ]);
     }
 

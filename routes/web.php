@@ -363,8 +363,10 @@ Route::middleware([InstructorMiddleware::class])->group(function () {
   Route::get('instructor/api/students-for-subject', [InstructorController::class, 'getStudentsForSubject'])->name('instructor.api.students-for-subject');
 
   // 3.2.4. Upload student grades via CSV
-  Route::get('instructor/grades/upload', [InstructorController::class, 'uploadGrades'])->name('instructor.grades.upload');
-  Route::post('instructor/grades/upload', [InstructorController::class, 'processGradeUpload'])->name('instructor.grades.upload.process');
+  Route::get('instructor/grades/edit', [InstructorController::class, 'editGrades'])->name('instructor.grades.edit');
+Route::get('instructor/grades/submit', [InstructorController::class, 'submitGradesPage'])->name('instructor.grades.submit');
+Route::get('instructor/grades/upload', [InstructorController::class, 'uploadGradesPage'])->name('instructor.grades.upload');
+Route::post('instructor/grades/upload', [InstructorController::class, 'processGradeUpload'])->name('instructor.grades.upload.process');
 
   // 3.3.1. View honor results of students
   Route::get('instructor/honors', [InstructorController::class, 'honors'])->name('instructor.honors');

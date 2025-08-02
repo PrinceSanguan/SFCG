@@ -13,9 +13,9 @@ interface HonorCriterion {
     id: number;
     honor_type: string;
     academic_level: AcademicLevel;
-    minimum_gpa: number;
-    maximum_gpa: number;
-    description?: string;
+    minimum_grade: number | string | null;
+    maximum_grade: number | string | null;
+    criteria_description?: string;
     is_active: boolean;
     created_at: string;
 }
@@ -28,11 +28,26 @@ interface Props {
 const HonorCriteria: React.FC<Props> = ({ criteria, levels }) => {
     const getHonorTypeColor = (type: string) => {
         const colors: { [key: string]: string } = {
-            'president': 'bg-yellow-100 text-yellow-800',
-            'dean': 'bg-blue-100 text-blue-800',
-            'academic': 'bg-green-100 text-green-800',
+            'with_honors': 'bg-yellow-100 text-yellow-800',
+            'with_high_honors': 'bg-blue-100 text-blue-800',
+            'with_highest_honors': 'bg-green-100 text-green-800',
+            'president': 'bg-purple-100 text-purple-800',
+            'dean': 'bg-indigo-100 text-indigo-800',
+            'academic': 'bg-teal-100 text-teal-800',
         };
         return colors[type] || 'bg-gray-100 text-gray-800';
+    };
+
+    const getHonorDisplayName = (type: string) => {
+        const names: { [key: string]: string } = {
+            'with_honors': 'With Honors',
+            'with_high_honors': 'With High Honors',
+            'with_highest_honors': 'With Highest Honors',
+            'president': 'President\'s List',
+            'dean': 'Dean\'s List',
+            'academic': 'Academic Excellence',
+        };
+        return names[type] || type.toUpperCase();
     };
 
     return (
@@ -68,7 +83,7 @@ const HonorCriteria: React.FC<Props> = ({ criteria, levels }) => {
                                                     Academic Level
                                                 </th>
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    GPA Range
+                                                    Grade Range
                                                 </th>
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                     Description
@@ -86,19 +101,19 @@ const HonorCriteria: React.FC<Props> = ({ criteria, levels }) => {
                                                 <tr key={criterion.id} className="hover:bg-gray-50">
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getHonorTypeColor(criterion.honor_type)}`}>
-                                                            {criterion.honor_type.toUpperCase()}
+                                                            {getHonorDisplayName(criterion.honor_type)}
                                                         </span>
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                            {criterion.academic_level.name}
+                                                            {criterion.academic_level?.name || 'N/A'}
                                                         </span>
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                        {criterion.minimum_gpa.toFixed(2)} - {criterion.maximum_gpa.toFixed(2)}
+                                                        {(criterion.minimum_grade ? parseFloat(criterion.minimum_grade as string).toFixed(2) : 'N/A')} - {(criterion.maximum_grade ? parseFloat(criterion.maximum_grade as string).toFixed(2) : 'N/A')}
                                                     </td>
                                                     <td className="px-6 py-4 text-sm text-gray-900">
-                                                        {criterion.description || 'No description'}
+                                                        {criterion.criteria_description || 'No description'}
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
