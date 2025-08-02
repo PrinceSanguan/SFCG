@@ -514,6 +514,10 @@ const GradingCreate: React.FC<Props> = ({
                                 <div className="mt-8">
                                         <h3 className="text-lg font-medium text-gray-900 mb-4">College Grades</h3>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {/* Show 1st Semester only if 1st semester period is selected */}
+                                            {(data.academic_period_id === '' || 
+                                              academicPeriods.find(p => p.id.toString() === data.academic_period_id)?.name.toLowerCase().includes('1st') ||
+                                              academicPeriods.find(p => p.id.toString() === data.academic_period_id)?.name.toLowerCase().includes('first')) && (
                                             <div className="bg-gray-50 p-4 rounded-lg">
                                                 <h4 className="font-medium text-gray-700 mb-3">1st Semester</h4>
                                                 <div className="space-y-3">
@@ -559,6 +563,12 @@ const GradingCreate: React.FC<Props> = ({
                                                     </div>
                                                 </div>
                                             </div>
+                                            )}
+                                            
+                                            {/* Show 2nd Semester only if 2nd semester period is selected */}
+                                            {(data.academic_period_id === '' || 
+                                              academicPeriods.find(p => p.id.toString() === data.academic_period_id)?.name.toLowerCase().includes('2nd') ||
+                                              academicPeriods.find(p => p.id.toString() === data.academic_period_id)?.name.toLowerCase().includes('second')) && (
                                             <div className="bg-gray-50 p-4 rounded-lg">
                                                 <h4 className="font-medium text-gray-700 mb-3">2nd Semester</h4>
                                                 <div className="space-y-3">
@@ -604,6 +614,7 @@ const GradingCreate: React.FC<Props> = ({
                                                     </div>
                                                 </div>
                                             </div>
+                                            )}
                                         </div>
                                         
                                         {/* Final Grade Display */}

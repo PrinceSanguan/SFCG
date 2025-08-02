@@ -695,12 +695,14 @@ class AcademicController extends Controller
         $instructors = User::whereIn('user_role', ['instructor', 'teacher'])->get();
         $subjects = Subject::active()->with(['academicLevel', 'academicStrand', 'collegeCourse'])->get();
         $periods = AcademicPeriod::active()->get();
+        $collegeCourses = CollegeCourse::active()->orderBy('name')->get();
         
         return Inertia::render('Admin/Assignments/Instructors', [
             'assignments' => $assignments,
             'instructors' => $instructors,
             'subjects' => $subjects,
-            'periods' => $periods
+            'periods' => $periods,
+            'collegeCourses' => $collegeCourses
         ]);
     }
 
@@ -711,6 +713,9 @@ class AcademicController extends Controller
             'subject_id' => 'required|exists:subjects,id',
             'academic_period_id' => 'required|exists:academic_periods,id',
             'section' => 'nullable|string|max:50',
+            'college_course_id' => 'nullable|exists:college_courses,id',
+            'year_level' => 'nullable|string|max:20',
+            'semester' => 'nullable|string|max:20',
         ]);
 
         // Check if assignment already exists
@@ -804,13 +809,14 @@ class AcademicController extends Controller
         ->get();
 
         $academicPeriods = AcademicPeriod::orderBy('name')->get();
+        $strands = AcademicStrand::active()->orderBy('name')->get();
 
         return Inertia::render('Admin/Assignments/Teachers', [
             'assignments' => $assignments,
             'teachers' => $teachers,
             'subjects' => $subjects,
             'academicPeriods' => $academicPeriods,
-            'seniorHighLevels' => $seniorHighLevels
+            'strands' => $strands
         ]);
     }
 
@@ -821,6 +827,8 @@ class AcademicController extends Controller
             'subject_id' => 'required|exists:subjects,id',
             'academic_period_id' => 'required|exists:academic_periods,id',
             'section' => 'nullable|string|max:255',
+            'strand_id' => 'nullable|exists:academic_strands,id',
+            'year_level' => 'nullable|string|max:20',
             'is_active' => 'boolean',
         ]);
 

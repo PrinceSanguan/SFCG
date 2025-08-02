@@ -113,12 +113,26 @@ const AdviserAssignments: React.FC<Props> = ({ advisers, students, classAdvisers
 
     const getFilteredStudents = () => {
         return students.filter(student => {
-            const levelMatch = !filterLevel || student.student_profile?.academic_level?.id?.toString() === filterLevel;
-            const adviserMatch = !filterAdviser || 
-                (filterAdviser === 'unassigned' && !student.student_profile?.class_adviser) ||
-                (student.student_profile?.class_adviser && student.student_profile.class_adviser.id.toString() === filterAdviser);
+            // Exclude college students - only show Elementary, Junior High, and Senior High students
+            if (student.student_profile?.college_course) {
+                return false;
+            }
             
-            return levelMatch && adviserMatch;
+            // Filter by academic level if selected
+            if (filterLevel && student.student_profile?.academic_level?.id.toString() !== filterLevel) {
+                return false;
+            }
+            
+            // Filter by adviser if selected
+            if (filterAdviser) {
+                const hasAdviser = student.student_profile?.class_adviser?.id.toString() === filterAdviser;
+                if (filterAdviser === 'unassigned') {
+                    return !hasAdviser;
+                }
+                return hasAdviser;
+            }
+            
+            return true;
         });
     };
 

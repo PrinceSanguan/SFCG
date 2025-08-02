@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, router, useForm } from '@inertiajs/react';
 import AdminLayout from '@/pages/Admin/AdminLayout';
 
 interface Teacher {
@@ -15,11 +15,23 @@ interface Subject {
         id: number;
         name: string;
     };
+    academicStrand?: {
+        id: number;
+        name: string;
+        code: string;
+    };
+    year_level?: string;
 }
 
 interface AcademicPeriod {
     id: number;
     name: string;
+}
+
+interface AcademicStrand {
+    id: number;
+    name: string;
+    code: string;
 }
 
 interface Assignment {
@@ -37,7 +49,7 @@ interface Props {
     teachers: Teacher[];
     subjects: Subject[];
     academicPeriods: AcademicPeriod[];
-    seniorHighLevels: any[];
+    strands: AcademicStrand[];
 }
 
 const Teachers: React.FC<Props> = ({ 
@@ -45,7 +57,7 @@ const Teachers: React.FC<Props> = ({
     teachers = [], 
     subjects = [], 
     academicPeriods = [],
-    seniorHighLevels = []
+    strands = []
 }) => {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(null);
@@ -55,6 +67,8 @@ const Teachers: React.FC<Props> = ({
         subject_id: '',
         academic_period_id: '',
         section: '',
+        strand_id: '',
+        year_level: '',
         is_active: true as boolean,
     });
 
@@ -319,6 +333,43 @@ const Teachers: React.FC<Props> = ({
                                     />
                                     {errors.section && (
                                         <p className="text-red-500 text-sm mt-1">{errors.section}</p>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Strand (Optional)
+                                    </label>
+                                    <select
+                                        value={data.strand_id}
+                                        onChange={(e) => setData('strand_id', e.target.value)}
+                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    >
+                                        <option value="">Select Strand</option>
+                                        {strands.map((strand) => (
+                                            <option key={strand.id} value={strand.id}>
+                                                {strand.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    {errors.strand_id && (
+                                        <p className="text-red-500 text-sm mt-1">{errors.strand_id}</p>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Year Level (Optional)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={data.year_level}
+                                        onChange={(e) => setData('year_level', e.target.value)}
+                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        placeholder="e.g., Grade 11"
+                                    />
+                                    {errors.year_level && (
+                                        <p className="text-red-500 text-sm mt-1">{errors.year_level}</p>
                                     )}
                                 </div>
 

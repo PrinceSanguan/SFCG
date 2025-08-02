@@ -22,8 +22,12 @@ interface InstructorAssignment {
             name: string;
         };
         collegeCourse?: {
+            id: number;
             name: string;
+            code: string;
         };
+        year_level?: string;
+        semester?: string;
     };
     academicPeriod?: {
         id: number;
@@ -51,8 +55,12 @@ interface Subject {
         name: string;
     };
     collegeCourse?: {
+        id: number;
         name: string;
+        code: string;
     };
+    year_level?: string;
+    semester?: string;
 }
 
 interface AcademicPeriod {
@@ -60,14 +68,21 @@ interface AcademicPeriod {
     name: string;
 }
 
+interface CollegeCourse {
+    id: number;
+    name: string;
+    code: string;
+}
+
 interface Props {
     assignments: InstructorAssignment[];
     instructors: Instructor[];
     subjects: Subject[];
     periods: AcademicPeriod[];
+    collegeCourses: CollegeCourse[];
 }
 
-const InstructorAssignments: React.FC<Props> = ({ assignments, instructors, subjects, periods }) => {
+const InstructorAssignments: React.FC<Props> = ({ assignments, instructors, subjects, periods, collegeCourses }) => {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [editingAssignment, setEditingAssignment] = useState<InstructorAssignment | null>(null);
     const [filterInstructor, setFilterInstructor] = useState('');
@@ -79,6 +94,9 @@ const InstructorAssignments: React.FC<Props> = ({ assignments, instructors, subj
         subject_id: '',
         academic_period_id: '',
         section: '',
+        college_course_id: '',
+        year_level: '',
+        semester: '',
     });
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -108,6 +126,9 @@ const InstructorAssignments: React.FC<Props> = ({ assignments, instructors, subj
             subject_id: assignment.subject?.id?.toString() || '',
             academic_period_id: assignment.academicPeriod?.id?.toString() || '',
             section: assignment.section || '',
+            college_course_id: assignment.subject?.collegeCourse?.id?.toString() || '',
+            year_level: assignment.subject?.year_level || '',
+            semester: assignment.subject?.semester || '',
         });
         setEditingAssignment(assignment);
         setShowCreateModal(true);
@@ -288,6 +309,9 @@ const InstructorAssignments: React.FC<Props> = ({ assignments, instructors, subj
                                             Section
                                         </th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            College Details
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Actions
                                         </th>
                                     </tr>
@@ -323,6 +347,21 @@ const InstructorAssignments: React.FC<Props> = ({ assignments, instructors, subj
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                 {assignment.section || 'N/A'}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                {assignment.subject?.collegeCourse ? (
+                                                    <div>
+                                                        <div className="font-medium">{assignment.subject.collegeCourse.name}</div>
+                                                        <div className="text-gray-500">{assignment.subject.collegeCourse.code}</div>
+                                                        {assignment.subject?.year_level && (
+                                                            <div className="text-xs text-gray-400">
+                                                                {assignment.subject.year_level} {assignment.subject?.semester ? `• ${assignment.subject.semester}` : ''}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-gray-400">N/A</span>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 <div className="flex space-x-2">
@@ -441,6 +480,67 @@ const InstructorAssignments: React.FC<Props> = ({ assignments, instructors, subj
                                             />
                                             {errors.section && (
                                                 <p className="text-red-600 text-sm mt-1">{errors.section}</p>
+                                            )}
+                                        </div>
+
+                                        {/* College-specific fields */}
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                College Course <span className="text-gray-400">(For College Subjects)</span>
+                                            </label>
+                                            <select
+                                                value={data.college_course_id}
+                                                onChange={(e) => setData('college_course_id', e.target.value)}
+                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                            >
+                                                <option value="">Select College Course</option>
+                                                {collegeCourses.map((course) => (
+                                                    <option key={course.id} value={course.id}>
+                                                        {course.name} ({course.code})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            {errors.college_course_id && (
+                                                <p className="text-red-600 text-sm mt-1">{errors.college_course_id}</p>
+                                            )}
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Year Level <span className="text-gray-400">(For College)</span>
+                                            </label>
+                                            <select
+                                                value={data.year_level}
+                                                onChange={(e) => setData('year_level', e.target.value)}
+                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                            >
+                                                <option value="">Select Year Level</option>
+                                                <option value="1st Year">1st Year</option>
+                                                <option value="2nd Year">2nd Year</option>
+                                                <option value="3rd Year">3rd Year</option>
+                                                <option value="4th Year">4th Year</option>
+                                            </select>
+                                            {errors.year_level && (
+                                                <p className="text-red-600 text-sm mt-1">{errors.year_level}</p>
+                                            )}
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Semester <span className="text-gray-400">(For College)</span>
+                                            </label>
+                                            <select
+                                                value={data.semester}
+                                                onChange={(e) => setData('semester', e.target.value)}
+                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                            >
+                                                <option value="">Select Semester</option>
+                                                <option value="1st Semester">1st Semester</option>
+                                                <option value="2nd Semester">2nd Semester</option>
+                                                <option value="Summer">Summer</option>
+                                            </select>
+                                            {errors.semester && (
+                                                <p className="text-red-600 text-sm mt-1">{errors.semester}</p>
                                             )}
                                         </div>
 
