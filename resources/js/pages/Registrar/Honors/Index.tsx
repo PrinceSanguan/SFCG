@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, router, useForm } from '@inertiajs/react';
 import RegistrarLayout from '@/pages/Registrar/RegistrarLayout';
 
 interface HonorCriterion {
@@ -26,15 +26,20 @@ interface Student {
     student_profile?: StudentProfile;
 }
 
-interface StudentHonor {
+interface RecentHonor {
     id: number;
     student: Student;
-    honor_criterion: HonorCriterion;
+    honorCriterion: HonorCriterion;
     honor_type: string;
     gpa: number;
     is_approved: boolean;
     awarded_date: string;
     created_at: string;
+}
+
+interface AcademicPeriod {
+    id: number;
+    name: string;
 }
 
 interface AcademicLevel {
@@ -44,13 +49,6 @@ interface AcademicLevel {
 }
 
 interface Props {
-    honors: {
-        data: StudentHonor[];
-        current_page: number;
-        last_page: number;
-        per_page: number;
-        total: number;
-    };
     honorCriteria: {
         data: HonorCriterion[];
         current_page: number;
@@ -58,12 +56,33 @@ interface Props {
         per_page: number;
         total: number;
     };
+    recentHonors: RecentHonor[];
+    stats: {
+        total_honors: number;
+        average_gpa: number;
+        highest_gpa: number;
+        by_honor_type: Record<string, number>;
+        by_period: Record<string, number>;
+        approved_honors: number;
+        pending_honors: number;
+    };
+    academicPeriods: AcademicPeriod[];
     academicLevels: AcademicLevel[];
 }
 
 const HonorsIndex: React.FC<Props> = ({ 
-    honors = { data: [], current_page: 1, last_page: 1, per_page: 20, total: 0 },
     honorCriteria = { data: [], current_page: 1, last_page: 1, per_page: 20, total: 0 },
+    recentHonors = [],
+    stats = {
+        total_honors: 0,
+        average_gpa: 0,
+        highest_gpa: 0,
+        by_honor_type: {},
+        by_period: {},
+        approved_honors: 0,
+        pending_honors: 0
+    },
+    academicPeriods = [],
     academicLevels = []
 }) => {
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -195,7 +214,7 @@ const HonorsIndex: React.FC<Props> = ({
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                         <h3 className="text-lg font-medium text-gray-900">Total Honors</h3>
-                        <p className="text-3xl font-bold text-blue-600">{honors.total}</p>
+                        <p className="text-3xl font-bold text-blue-600">{stats.total_honors}</p>
                     </div>
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                         <h3 className="text-lg font-medium text-gray-900">Honor Criteria</h3>
@@ -204,13 +223,13 @@ const HonorsIndex: React.FC<Props> = ({
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                         <h3 className="text-lg font-medium text-gray-900">Approved Honors</h3>
                         <p className="text-3xl font-bold text-yellow-600">
-                            {honors.data.filter(h => h.is_approved).length}
+                            {stats.approved_honors}
                         </p>
                     </div>
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                         <h3 className="text-lg font-medium text-gray-900">Pending Approval</h3>
                         <p className="text-3xl font-bold text-red-600">
-                            {honors.data.filter(h => !h.is_approved).length}
+                            {stats.pending_honors}
                         </p>
                     </div>
                 </div>
@@ -318,7 +337,7 @@ const HonorsIndex: React.FC<Props> = ({
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {honors.data.map((honor) => (
+                                {recentHonors.map((honor) => (
                                     <tr key={honor.id} className="hover:bg-gray-50">
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div>
