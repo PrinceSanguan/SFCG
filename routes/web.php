@@ -201,6 +201,10 @@ Route::middleware([AdminMiddleware::class])->group(function () {
 
   // Grading System
   Route::get('admin/grading', [GradingController::class, 'index'])->name('admin.grading.index');
+  Route::get('admin/grading/elementary', [GradingController::class, 'elementaryGrading'])->name('admin.grading.elementary');
+  Route::get('admin/grading/junior-high', [GradingController::class, 'juniorHighGrading'])->name('admin.grading.junior-high');
+  Route::get('admin/grading/senior-high', [GradingController::class, 'seniorHighGrading'])->name('admin.grading.senior-high');
+  Route::get('admin/grading/college', [GradingController::class, 'collegeGrading'])->name('admin.grading.college');
   Route::get('admin/grading/create', [GradingController::class, 'create'])->name('admin.grading.create');
   Route::post('admin/grading', [GradingController::class, 'store'])->name('admin.grading.store');
   Route::get('admin/grading/{grade}', [GradingController::class, 'show'])->name('admin.grading.show');

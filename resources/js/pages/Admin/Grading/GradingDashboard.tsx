@@ -14,7 +14,7 @@ interface Props {
     };
 }
 
-const GradingIndex: React.FC<Props> = ({ gradeCounts }) => {
+const GradingDashboard: React.FC<Props> = ({ gradeCounts }) => {
     const categories = [
         {
             id: 'elementary',
@@ -182,4 +182,4 @@ const GradingIndex: React.FC<Props> = ({ gradeCounts }) => {
     );
 };
 
-export default GradingIndex; 
+export default GradingDashboard; 

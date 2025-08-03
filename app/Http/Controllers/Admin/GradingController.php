@@ -21,12 +21,57 @@ class GradingController extends Controller
 {
     public function index(Request $request)
     {
+        // Get academic levels for categorization
+        $elementaryLevels = AcademicLevel::whereIn('name', ['Elementary'])
+            ->orWhere('code', 'ELEM')
+            ->pluck('id');
+            
+        $juniorHighLevels = AcademicLevel::whereIn('name', ['Junior High School', 'Junior High'])
+            ->orWhere('code', 'JHS')
+            ->pluck('id');
+            
+        $seniorHighLevels = AcademicLevel::whereIn('name', ['Senior High School', 'Senior High'])
+            ->orWhere('code', 'SHS')
+            ->pluck('id');
+
+        // Count grades by category
+        $gradeCounts = [
+            'elementary' => Grade::whereHas('student.studentProfile', function($q) use ($elementaryLevels) {
+                $q->whereIn('academic_level_id', $elementaryLevels);
+            })->count(),
+            'junior_high' => Grade::whereHas('student.studentProfile', function($q) use ($juniorHighLevels) {
+                $q->whereIn('academic_level_id', $juniorHighLevels);
+            })->count(),
+            'senior_high' => Grade::whereHas('student.studentProfile', function($q) use ($seniorHighLevels) {
+                $q->whereIn('academic_level_id', $seniorHighLevels);
+            })->count(),
+            'college' => Grade::whereHas('student.studentProfile', function($q) {
+                $q->whereNotNull('college_course_id');
+            })->count(),
+            'total' => Grade::count(),
+            'pending' => Grade::where('status', 'submitted')->count(),
+            'approved' => Grade::where('status', 'approved')->count(),
+        ];
+        
+        return Inertia::render('Admin/Grading/Index', [
+            'gradeCounts' => $gradeCounts,
+        ]);
+    }
+
+    public function elementaryGrading(Request $request)
+    {
+        $elementaryLevels = AcademicLevel::whereIn('name', ['Elementary'])
+            ->orWhere('code', 'ELEM')
+            ->pluck('id');
+
         $query = Grade::with([
-            'student.studentProfile',
+            'student.studentProfile.academicLevel',
             'subject',
             'academicPeriod',
             'instructor'
-        ]);
+        ])->whereHas('student.studentProfile', function($q) use ($elementaryLevels) {
+            $q->whereIn('academic_level_id', $elementaryLevels);
+        });
 
         // Apply filters
         if ($request->filled('academic_period_id')) {
@@ -53,24 +98,270 @@ class GradingController extends Controller
 
         // Get filter options
         $academicPeriods = AcademicPeriod::orderBy('name')->get();
-        $subjects = Subject::orderBy('name')->get();
+        $subjects = Subject::whereHas('academicLevel', function($q) use ($elementaryLevels) {
+            $q->whereIn('id', $elementaryLevels);
+        })->orderBy('name')->get();
         $instructors = User::where('user_role', 'instructor')
                           ->orWhere('user_role', 'teacher')
                           ->orderBy('name')
                           ->get();
 
         // Get sections
-        $sections = Grade::distinct()->orderBy('section')->pluck('section')->filter();
+        $sections = Grade::whereHas('student.studentProfile', function($q) use ($elementaryLevels) {
+            $q->whereIn('academic_level_id', $elementaryLevels);
+        })->distinct()->orderBy('section')->pluck('section')->filter();
 
         // Stats
         $stats = [
-            'totalGrades' => Grade::count(),
-            'pendingGrades' => Grade::where('status', 'submitted')->count(),
-            'approvedGrades' => Grade::where('status', 'approved')->count(),
-            'averageGrade' => Grade::where('status', 'approved')->avg('final_grade'),
+            'totalGrades' => Grade::whereHas('student.studentProfile', function($q) use ($elementaryLevels) {
+                $q->whereIn('academic_level_id', $elementaryLevels);
+            })->count(),
+            'pendingGrades' => Grade::whereHas('student.studentProfile', function($q) use ($elementaryLevels) {
+                $q->whereIn('academic_level_id', $elementaryLevels);
+            })->where('status', 'submitted')->count(),
+            'approvedGrades' => Grade::whereHas('student.studentProfile', function($q) use ($elementaryLevels) {
+                $q->whereIn('academic_level_id', $elementaryLevels);
+            })->where('status', 'approved')->count(),
+            'averageGrade' => Grade::whereHas('student.studentProfile', function($q) use ($elementaryLevels) {
+                $q->whereIn('academic_level_id', $elementaryLevels);
+            })->where('status', 'approved')->avg('final_grade'),
         ];
 
-        return Inertia::render('Admin/Grading/Index', [
+        return Inertia::render('Admin/Grading/ElementaryGrading', [
+            'grades' => $grades,
+            'academicPeriods' => $academicPeriods,
+            'subjects' => $subjects,
+            'instructors' => $instructors,
+            'sections' => $sections,
+            'stats' => $stats,
+            'filters' => $request->only(['academic_period_id', 'subject_id', 'instructor_id', 'section', 'status'])
+        ]);
+    }
+
+    public function juniorHighGrading(Request $request)
+    {
+        $juniorHighLevels = AcademicLevel::whereIn('name', ['Junior High School', 'Junior High'])
+            ->orWhere('code', 'JHS')
+            ->pluck('id');
+
+        $query = Grade::with([
+            'student.studentProfile.academicLevel',
+            'subject',
+            'academicPeriod',
+            'instructor'
+        ])->whereHas('student.studentProfile', function($q) use ($juniorHighLevels) {
+            $q->whereIn('academic_level_id', $juniorHighLevels);
+        });
+
+        // Apply filters
+        if ($request->filled('academic_period_id')) {
+            $query->where('academic_period_id', $request->academic_period_id);
+        }
+
+        if ($request->filled('subject_id')) {
+            $query->where('subject_id', $request->subject_id);
+        }
+
+        if ($request->filled('instructor_id')) {
+            $query->where('instructor_id', $request->instructor_id);
+        }
+
+        if ($request->filled('section')) {
+            $query->where('section', $request->section);
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $grades = $query->orderBy('created_at', 'desc')->paginate(50);
+
+        // Get filter options
+        $academicPeriods = AcademicPeriod::orderBy('name')->get();
+        $subjects = Subject::whereHas('academicLevel', function($q) use ($juniorHighLevels) {
+            $q->whereIn('id', $juniorHighLevels);
+        })->orderBy('name')->get();
+        $instructors = User::where('user_role', 'instructor')
+                          ->orWhere('user_role', 'teacher')
+                          ->orderBy('name')
+                          ->get();
+
+        // Get sections
+        $sections = Grade::whereHas('student.studentProfile', function($q) use ($juniorHighLevels) {
+            $q->whereIn('academic_level_id', $juniorHighLevels);
+        })->distinct()->orderBy('section')->pluck('section')->filter();
+
+        // Stats
+        $stats = [
+            'totalGrades' => Grade::whereHas('student.studentProfile', function($q) use ($juniorHighLevels) {
+                $q->whereIn('academic_level_id', $juniorHighLevels);
+            })->count(),
+            'pendingGrades' => Grade::whereHas('student.studentProfile', function($q) use ($juniorHighLevels) {
+                $q->whereIn('academic_level_id', $juniorHighLevels);
+            })->where('status', 'submitted')->count(),
+            'approvedGrades' => Grade::whereHas('student.studentProfile', function($q) use ($juniorHighLevels) {
+                $q->whereIn('academic_level_id', $juniorHighLevels);
+            })->where('status', 'approved')->count(),
+            'averageGrade' => Grade::whereHas('student.studentProfile', function($q) use ($juniorHighLevels) {
+                $q->whereIn('academic_level_id', $juniorHighLevels);
+            })->where('status', 'approved')->avg('final_grade'),
+        ];
+
+        return Inertia::render('Admin/Grading/JuniorHighGrading', [
+            'grades' => $grades,
+            'academicPeriods' => $academicPeriods,
+            'subjects' => $subjects,
+            'instructors' => $instructors,
+            'sections' => $sections,
+            'stats' => $stats,
+            'filters' => $request->only(['academic_period_id', 'subject_id', 'instructor_id', 'section', 'status'])
+        ]);
+    }
+
+    public function seniorHighGrading(Request $request)
+    {
+        $seniorHighLevels = AcademicLevel::whereIn('name', ['Senior High School', 'Senior High'])
+            ->orWhere('code', 'SHS')
+            ->pluck('id');
+
+        $query = Grade::with([
+            'student.studentProfile.academicLevel',
+            'subject',
+            'academicPeriod',
+            'instructor'
+        ])->whereHas('student.studentProfile', function($q) use ($seniorHighLevels) {
+            $q->whereIn('academic_level_id', $seniorHighLevels);
+        });
+
+        // Apply filters
+        if ($request->filled('academic_period_id')) {
+            $query->where('academic_period_id', $request->academic_period_id);
+        }
+
+        if ($request->filled('subject_id')) {
+            $query->where('subject_id', $request->subject_id);
+        }
+
+        if ($request->filled('instructor_id')) {
+            $query->where('instructor_id', $request->instructor_id);
+        }
+
+        if ($request->filled('section')) {
+            $query->where('section', $request->section);
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $grades = $query->orderBy('created_at', 'desc')->paginate(50);
+
+        // Get filter options
+        $academicPeriods = AcademicPeriod::orderBy('name')->get();
+        $subjects = Subject::whereHas('academicLevel', function($q) use ($seniorHighLevels) {
+            $q->whereIn('id', $seniorHighLevels);
+        })->orderBy('name')->get();
+        $instructors = User::where('user_role', 'instructor')
+                          ->orWhere('user_role', 'teacher')
+                          ->orderBy('name')
+                          ->get();
+
+        // Get sections
+        $sections = Grade::whereHas('student.studentProfile', function($q) use ($seniorHighLevels) {
+            $q->whereIn('academic_level_id', $seniorHighLevels);
+        })->distinct()->orderBy('section')->pluck('section')->filter();
+
+        // Stats
+        $stats = [
+            'totalGrades' => Grade::whereHas('student.studentProfile', function($q) use ($seniorHighLevels) {
+                $q->whereIn('academic_level_id', $seniorHighLevels);
+            })->count(),
+            'pendingGrades' => Grade::whereHas('student.studentProfile', function($q) use ($seniorHighLevels) {
+                $q->whereIn('academic_level_id', $seniorHighLevels);
+            })->where('status', 'submitted')->count(),
+            'approvedGrades' => Grade::whereHas('student.studentProfile', function($q) use ($seniorHighLevels) {
+                $q->whereIn('academic_level_id', $seniorHighLevels);
+            })->where('status', 'approved')->count(),
+            'averageGrade' => Grade::whereHas('student.studentProfile', function($q) use ($seniorHighLevels) {
+                $q->whereIn('academic_level_id', $seniorHighLevels);
+            })->where('status', 'approved')->avg('final_grade'),
+        ];
+
+        return Inertia::render('Admin/Grading/SeniorHighGrading', [
+            'grades' => $grades,
+            'academicPeriods' => $academicPeriods,
+            'subjects' => $subjects,
+            'instructors' => $instructors,
+            'sections' => $sections,
+            'stats' => $stats,
+            'filters' => $request->only(['academic_period_id', 'subject_id', 'instructor_id', 'section', 'status'])
+        ]);
+    }
+
+    public function collegeGrading(Request $request)
+    {
+        $query = Grade::with([
+            'student.studentProfile.collegeCourse',
+            'subject',
+            'academicPeriod',
+            'instructor'
+        ])->whereHas('student.studentProfile', function($q) {
+            $q->whereNotNull('college_course_id');
+        });
+
+        // Apply filters
+        if ($request->filled('academic_period_id')) {
+            $query->where('academic_period_id', $request->academic_period_id);
+        }
+
+        if ($request->filled('subject_id')) {
+            $query->where('subject_id', $request->subject_id);
+        }
+
+        if ($request->filled('instructor_id')) {
+            $query->where('instructor_id', $request->instructor_id);
+        }
+
+        if ($request->filled('section')) {
+            $query->where('section', $request->section);
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $grades = $query->orderBy('created_at', 'desc')->paginate(50);
+
+        // Get filter options
+        $academicPeriods = AcademicPeriod::orderBy('name')->get();
+        $subjects = Subject::whereNotNull('college_course_id')->orderBy('name')->get();
+        $instructors = User::where('user_role', 'instructor')
+                          ->orWhere('user_role', 'teacher')
+                          ->orderBy('name')
+                          ->get();
+
+        // Get sections
+        $sections = Grade::whereHas('student.studentProfile', function($q) {
+            $q->whereNotNull('college_course_id');
+        })->distinct()->orderBy('section')->pluck('section')->filter();
+
+        // Stats
+        $stats = [
+            'totalGrades' => Grade::whereHas('student.studentProfile', function($q) {
+                $q->whereNotNull('college_course_id');
+            })->count(),
+            'pendingGrades' => Grade::whereHas('student.studentProfile', function($q) {
+                $q->whereNotNull('college_course_id');
+            })->where('status', 'submitted')->count(),
+            'approvedGrades' => Grade::whereHas('student.studentProfile', function($q) {
+                $q->whereNotNull('college_course_id');
+            })->where('status', 'approved')->count(),
+            'averageGrade' => Grade::whereHas('student.studentProfile', function($q) {
+                $q->whereNotNull('college_course_id');
+            })->where('status', 'approved')->avg('final_grade'),
+        ];
+
+        return Inertia::render('Admin/Grading/CollegeGrading', [
             'grades' => $grades,
             'academicPeriods' => $academicPeriods,
             'subjects' => $subjects,
