@@ -12,11 +12,14 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('instructor_subject_assignments', function (Blueprint $table) {
-            $table->string('year_level')->nullable()->after('section');
-            $table->unsignedBigInteger('college_course_id')->nullable()->after('year_level');
-            $table->string('semester')->nullable()->after('college_course_id');
-            
-            $table->foreign('college_course_id')->references('id')->on('college_courses')->onDelete('set null');
+            // Only add columns that don't exist yet
+            if (!Schema::hasColumn('instructor_subject_assignments', 'college_course_id')) {
+                $table->unsignedBigInteger('college_course_id')->nullable()->after('year_level');
+                $table->foreign('college_course_id')->references('id')->on('college_courses')->onDelete('set null');
+            }
+            if (!Schema::hasColumn('instructor_subject_assignments', 'semester')) {
+                $table->string('semester')->nullable()->after('college_course_id');
+            }
         });
     }
 
@@ -26,8 +29,13 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('instructor_subject_assignments', function (Blueprint $table) {
-            $table->dropForeign(['college_course_id']);
-            $table->dropColumn(['year_level', 'college_course_id', 'semester']);
+            if (Schema::hasColumn('instructor_subject_assignments', 'college_course_id')) {
+                $table->dropForeign(['college_course_id']);
+                $table->dropColumn(['college_course_id']);
+            }
+            if (Schema::hasColumn('instructor_subject_assignments', 'semester')) {
+                $table->dropColumn(['semester']);
+            }
         });
     }
 };

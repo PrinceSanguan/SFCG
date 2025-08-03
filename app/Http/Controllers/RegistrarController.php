@@ -660,7 +660,7 @@ class RegistrarController extends Controller
             'collegeCourse'
         ])->where('is_active', true)->get();
         
-        $instructors = User::whereIn('user_role', ['instructor', 'teacher'])->orderBy('name')->get();
+        $instructors = User::where('user_role', 'instructor')->orderBy('name')->get();
         $subjects = Subject::active()->with(['academicLevel', 'academicStrand', 'collegeCourse'])->get();
         $periods = AcademicPeriod::active()->get();
         $collegeCourses = CollegeCourse::active()->orderBy('name')->get();

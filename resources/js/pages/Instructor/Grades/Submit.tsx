@@ -77,9 +77,9 @@ interface Props {
 const SubmitGrades: React.FC<Props> = ({ grades, filters, subjects, periods }) => {
     const [selectedGrades, setSelectedGrades] = useState<number[]>([]);
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
-    const [statusFilter, setStatusFilter] = useState(filters.status || '');
-    const [subjectFilter, setSubjectFilter] = useState(filters.subject || '');
-    const [periodFilter, setPeriodFilter] = useState(filters.period || '');
+    const [statusFilter, setStatusFilter] = useState(filters.status || 'all');
+    const [subjectFilter, setSubjectFilter] = useState(filters.subject || 'all');
+    const [periodFilter, setPeriodFilter] = useState(filters.period || 'all');
 
     const { post, processing, errors } = useForm({
         grade_ids: [] as number[],
@@ -126,9 +126,9 @@ const SubmitGrades: React.FC<Props> = ({ grades, filters, subjects, periods }) =
     const handleFilter = () => {
         router.get('/instructor/grades/submit', {
             search: searchTerm,
-            status: statusFilter,
-            subject: subjectFilter,
-            period: periodFilter,
+            status: statusFilter === 'all' ? '' : statusFilter,
+            subject: subjectFilter === 'all' ? '' : subjectFilter,
+            period: periodFilter === 'all' ? '' : periodFilter,
         }, {
             preserveState: true,
         });
@@ -194,7 +194,7 @@ const SubmitGrades: React.FC<Props> = ({ grades, filters, subjects, periods }) =
                                         <SelectValue placeholder="All Status" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="">All Status</SelectItem>
+                                        <SelectItem value="all">All Status</SelectItem>
                                         <SelectItem value="draft">Draft</SelectItem>
                                         <SelectItem value="submitted">Submitted</SelectItem>
                                         <SelectItem value="approved">Approved</SelectItem>
@@ -209,7 +209,7 @@ const SubmitGrades: React.FC<Props> = ({ grades, filters, subjects, periods }) =
                                         <SelectValue placeholder="All Subjects" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="">All Subjects</SelectItem>
+                                        <SelectItem value="all">All Subjects</SelectItem>
                                         {subjects.map((subject) => (
                                             <SelectItem key={subject.id} value={subject.id.toString()}>
                                                 {subject.code} - {subject.name}
@@ -225,7 +225,7 @@ const SubmitGrades: React.FC<Props> = ({ grades, filters, subjects, periods }) =
                                         <SelectValue placeholder="All Periods" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="">All Periods</SelectItem>
+                                        <SelectItem value="all">All Periods</SelectItem>
                                         {periods.map((period) => (
                                             <SelectItem key={period.id} value={period.id.toString()}>
                                                 {period.name}

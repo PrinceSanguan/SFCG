@@ -65,7 +65,13 @@ interface Grade {
 
 interface Props {
     assignments: Assignment[];
-    grades: Grade[];
+    grades: {
+        data: Grade[];
+        current_page: number;
+        last_page: number;
+        per_page: number;
+        total: number;
+    };
     students: Student[];
     subjects: Subject[];
     filters: {
@@ -76,7 +82,7 @@ interface Props {
 
 const GradesIndex: React.FC<Props> = ({ 
     assignments = [], 
-    grades = [], 
+    grades = { data: [], current_page: 1, last_page: 1, per_page: 20, total: 0 }, 
     students = [], 
     subjects = [],
     filters = {} 
@@ -302,7 +308,7 @@ const GradesIndex: React.FC<Props> = ({
                             </div>
                             <div className="ml-4">
                                 <p className="text-sm font-medium text-gray-600">Total Grades</p>
-                                <p className="text-2xl font-bold text-gray-900">{grades.length}</p>
+                                <p className="text-2xl font-bold text-gray-900">{grades.data.length}</p>
                             </div>
                         </div>
                     </div>
@@ -315,7 +321,7 @@ const GradesIndex: React.FC<Props> = ({
                             <div className="ml-4">
                                 <p className="text-sm font-medium text-gray-600">Pending</p>
                                 <p className="text-2xl font-bold text-gray-900">
-                                    {grades.filter(g => g.status === 'submitted').length}
+                                    {grades.data.filter(g => g.status === 'submitted').length}
                                 </p>
                             </div>
                         </div>
@@ -375,11 +381,11 @@ const GradesIndex: React.FC<Props> = ({
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200">
                     <div className="px-6 py-4 border-b border-gray-200">
                         <h3 className="text-lg font-medium text-gray-900">
-                            Grades List ({grades.length})
+                            Grades List ({grades.data.length})
                         </h3>
                     </div>
                     
-                    {grades.length === 0 ? (
+                    {grades.data.length === 0 ? (
                         <div className="p-6 text-center text-gray-500">
                             No grades found. Add your first grade to get started.
                         </div>
@@ -397,7 +403,7 @@ const GradesIndex: React.FC<Props> = ({
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {grades.map((grade) => (
+                                    {grades.data.map((grade) => (
                                         <tr key={grade.id} className="hover:bg-gray-50">
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div>
@@ -451,6 +457,60 @@ const GradesIndex: React.FC<Props> = ({
                                     ))}
                                 </tbody>
                             </table>
+                        </div>
+                    )}
+                    
+                    {/* Pagination */}
+                    {grades.last_page > 1 && (
+                        <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+                            <div className="text-sm text-gray-500">
+                                Showing {((grades.current_page - 1) * grades.per_page) + 1} to {Math.min(grades.current_page * grades.per_page, grades.total)} of {grades.total} results
+                            </div>
+                            <div className="flex space-x-1">
+                                {grades.current_page > 1 && (
+                                    <button
+                                        onClick={() => router.get('/instructor/grades', { 
+                                            ...filters, 
+                                            page: grades.current_page - 1 
+                                        })}
+                                        className="px-3 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50"
+                                    >
+                                        Previous
+                                    </button>
+                                )}
+                                
+                                {Array.from({ length: Math.min(5, grades.last_page) }, (_, i) => {
+                                    const pageNum = Math.max(1, Math.min(grades.last_page - 4, grades.current_page - 2)) + i;
+                                    return pageNum <= grades.last_page ? (
+                                        <button
+                                            key={pageNum}
+                                            onClick={() => router.get('/instructor/grades', { 
+                                                ...filters, 
+                                                page: pageNum 
+                                            })}
+                                            className={`px-3 py-1 text-sm border rounded ${
+                                                pageNum === grades.current_page
+                                                    ? 'bg-blue-500 text-white border-blue-500'
+                                                    : 'bg-white border-gray-300 hover:bg-gray-50'
+                                            }`}
+                                        >
+                                            {pageNum}
+                                        </button>
+                                    ) : null;
+                                })}
+                                
+                                {grades.current_page < grades.last_page && (
+                                    <button
+                                        onClick={() => router.get('/instructor/grades', { 
+                                            ...filters, 
+                                            page: grades.current_page + 1 
+                                        })}
+                                        className="px-3 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50"
+                                    >
+                                        Next
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>

@@ -96,6 +96,10 @@ class InstructorController extends Controller
             'email' => ['required', 'email', Rule::unique('users')->ignore($instructor->id)],
         ]);
 
+        // Store original values for activity log
+        $originalName = $instructor->name;
+        $originalEmail = $instructor->email;
+
         $instructor->update([
             'name' => $request->name,
             'email' => $request->email,
@@ -107,7 +111,7 @@ class InstructorController extends Controller
             'updated',
             'User',
             $instructor->id,
-            ['name' => $instructor->getOriginal('name'), 'email' => $instructor->getOriginal('email')],
+            ['name' => $originalName, 'email' => $originalEmail],
             ['name' => $request->name, 'email' => $request->email]
         );
 
@@ -215,7 +219,7 @@ class InstructorController extends Controller
         $subjects = $assignments->pluck('subject')->unique('id')->values();
         $academicPeriods = $assignments->pluck('academicPeriod')->unique('id')->values();
 
-        return Inertia::render('Instructor/Grades', [
+        return Inertia::render('Instructor/Grades/Index', [
             'grades' => $grades,
             'assignments' => $assignments,
             'subjects' => $subjects,

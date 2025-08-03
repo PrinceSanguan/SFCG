@@ -61,16 +61,16 @@ interface Props {
 
 const HonorResults: React.FC<Props> = ({ honors, stats, filters, periods }) => {
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
-    const [periodFilter, setPeriodFilter] = useState(filters.period || '');
-    const [honorTypeFilter, setHonorTypeFilter] = useState(filters.honor_type || '');
-    const [statusFilter, setStatusFilter] = useState(filters.status || '');
+    const [periodFilter, setPeriodFilter] = useState(filters.period || 'all');
+    const [honorTypeFilter, setHonorTypeFilter] = useState(filters.honor_type || 'all');
+    const [statusFilter, setStatusFilter] = useState(filters.status || 'all');
 
     const handleFilter = () => {
         router.get('/instructor/honors', {
             search: searchTerm,
-            period: periodFilter,
-            honor_type: honorTypeFilter,
-            status: statusFilter,
+            period: periodFilter === 'all' ? '' : periodFilter,
+            honor_type: honorTypeFilter === 'all' ? '' : honorTypeFilter,
+            status: statusFilter === 'all' ? '' : statusFilter,
         }, {
             preserveState: true,
         });
@@ -205,7 +205,7 @@ const HonorResults: React.FC<Props> = ({ honors, stats, filters, periods }) => {
                                         <SelectValue placeholder="All Periods" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="">All Periods</SelectItem>
+                                        <SelectItem value="all">All Periods</SelectItem>
                                         {periods.map((period) => (
                                             <SelectItem key={period.id} value={period.id.toString()}>
                                                 {period.name}
@@ -221,7 +221,7 @@ const HonorResults: React.FC<Props> = ({ honors, stats, filters, periods }) => {
                                         <SelectValue placeholder="All Types" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="">All Types</SelectItem>
+                                        <SelectItem value="all">All Types</SelectItem>
                                         <SelectItem value="with_honors">With Honors</SelectItem>
                                         <SelectItem value="with_high_honors">With High Honors</SelectItem>
                                         <SelectItem value="with_highest_honors">With Highest Honors</SelectItem>
@@ -238,7 +238,7 @@ const HonorResults: React.FC<Props> = ({ honors, stats, filters, periods }) => {
                                         <SelectValue placeholder="All Status" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="">All Status</SelectItem>
+                                        <SelectItem value="all">All Status</SelectItem>
                                         <SelectItem value="approved">Approved</SelectItem>
                                         <SelectItem value="pending">Pending</SelectItem>
                                     </SelectContent>
