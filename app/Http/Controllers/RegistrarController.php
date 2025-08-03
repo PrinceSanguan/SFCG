@@ -651,17 +651,27 @@ class RegistrarController extends Controller
     // Assignment Pages
     public function instructorAssignments()
     {
-        $assignments = InstructorSubjectAssignment::with([
-            'instructor',
-            'subject.academicLevel',
-            'subject.academicStrand',
-            'subject.collegeCourse',
-            'academicPeriod',
-            'collegeCourse'
-        ])->where('is_active', true)->get();
+        // Get only college instructor assignments
+        $assignments = InstructorSubjectAssignment::whereHas('subject.collegeCourse')
+            ->with([
+                'instructor',
+                'subject.academicLevel',
+                'subject.collegeCourse',
+                'academicPeriod',
+                'collegeCourse'
+            ])
+            ->where('is_active', true)
+            ->orderBy('created_at', 'desc')
+            ->get();
         
         $instructors = User::where('user_role', 'instructor')->orderBy('name')->get();
-        $subjects = Subject::active()->with(['academicLevel', 'academicStrand', 'collegeCourse'])->get();
+        
+        // Get only college subjects
+        $subjects = Subject::whereHas('collegeCourse')
+            ->with(['academicLevel', 'collegeCourse'])
+            ->orderBy('name')
+            ->get();
+            
         $periods = AcademicPeriod::active()->get();
         $collegeCourses = CollegeCourse::active()->orderBy('name')->get();
 
@@ -702,25 +712,43 @@ class RegistrarController extends Controller
             'instructor_id' => 'required|exists:users,id',
             'subject_id' => 'required|exists:subjects,id',
             'academic_period_id' => 'required|exists:academic_periods,id',
-            'section' => 'nullable|string|max:50',
-            'college_course_id' => 'nullable|exists:college_courses,id',
-            'year_level' => 'nullable|string|max:20',
-            'semester' => 'nullable|string|max:20',
+            'college_course_id' => 'required|exists:college_courses,id',
+            'year_level' => 'required|string|max:20',
         ]);
+
+        // Verify instructor role
+        $instructor = User::findOrFail($request->instructor_id);
+        if ($instructor->user_role !== 'instructor') {
+            return redirect()->back()->with('error', 'Selected user is not an instructor.');
+        }
+
+        // Verify subject is for college
+        $subject = Subject::with('collegeCourse')->findOrFail($request->subject_id);
+        if (!$subject->collegeCourse) {
+            return redirect()->back()->with('error', 'Subject must be for college level.');
+        }
 
         // Check if assignment already exists
         $existingAssignment = InstructorSubjectAssignment::where([
             'instructor_id' => $request->instructor_id,
             'subject_id' => $request->subject_id,
             'academic_period_id' => $request->academic_period_id,
-            'section' => $request->section,
+            'college_course_id' => $request->college_course_id,
+            'year_level' => $request->year_level,
         ])->first();
 
         if ($existingAssignment) {
             return redirect()->back()->with('error', 'This assignment already exists.');
         }
 
-        $assignment = InstructorSubjectAssignment::create(array_merge($request->all(), ['is_active' => true]));
+        $assignment = InstructorSubjectAssignment::create([
+            'instructor_id' => $request->instructor_id,
+            'subject_id' => $request->subject_id,
+            'academic_period_id' => $request->academic_period_id,
+            'college_course_id' => $request->college_course_id,
+            'year_level' => $request->year_level,
+            'is_active' => true,
+        ]);
 
         ActivityLog::logActivity(
             Auth::user(),
@@ -811,20 +839,18 @@ class RegistrarController extends Controller
             'teacher_id' => 'required|exists:users,id',
             'subject_id' => 'required|exists:subjects,id',
             'academic_period_id' => 'required|exists:academic_periods,id',
-            'section' => 'nullable|string|max:255',
-            'strand_id' => 'nullable|exists:academic_strands,id',
-            'year_level' => 'nullable|string|max:20',
-            'is_active' => 'boolean',
+            'strand_id' => 'required|exists:academic_strands,id',
+            'year_level' => 'required|string|max:20',
         ]);
 
         // Check if teacher is actually a teacher
-        $teacher = User::find($request->teacher_id);
+        $teacher = User::findOrFail($request->teacher_id);
         if ($teacher->user_role !== 'teacher') {
             return redirect()->back()->with('error', 'Selected user is not a teacher.');
         }
 
         // Check if subject is for senior high school
-        $subject = Subject::with('academicLevel')->find($request->subject_id);
+        $subject = Subject::with('academicLevel')->findOrFail($request->subject_id);
         $seniorHighLevels = AcademicLevel::whereIn('name', ['Senior High School', 'Senior High'])
             ->orWhere('code', 'SHS')
             ->pluck('id');
@@ -838,20 +864,21 @@ class RegistrarController extends Controller
             'instructor_id' => $request->teacher_id,
             'subject_id' => $request->subject_id,
             'academic_period_id' => $request->academic_period_id,
+            'strand_id' => $request->strand_id,
+            'year_level' => $request->year_level,
         ])->first();
 
         if ($existingAssignment) {
-            return redirect()->back()->with('error', 'Teacher is already assigned to this subject for this period.');
+            return redirect()->back()->with('error', 'Teacher is already assigned to this subject, strand, and year level for this period.');
         }
 
         $assignment = InstructorSubjectAssignment::create([
             'instructor_id' => $request->teacher_id,
             'subject_id' => $request->subject_id,
             'academic_period_id' => $request->academic_period_id,
-            'section' => $request->section,
             'strand_id' => $request->strand_id,
             'year_level' => $request->year_level,
-            'is_active' => $request->is_active ?? true,
+            'is_active' => true,
         ]);
 
         ActivityLog::logActivity(

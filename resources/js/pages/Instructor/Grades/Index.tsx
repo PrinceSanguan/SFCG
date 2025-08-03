@@ -33,6 +33,7 @@ interface Assignment {
     id: number;
     subject: Subject;
     academic_period: {
+        id: number;
         name: string;
         school_year: string;
     };
@@ -74,8 +75,10 @@ interface Props {
     };
     students: Student[];
     subjects: Subject[];
+    academicPeriods: Assignment['academic_period'][];
     filters: {
         subject_id?: string;
+        academic_period_id?: string;
         status?: string;
     };
 }
@@ -85,6 +88,7 @@ const GradesIndex: React.FC<Props> = ({
     grades = { data: [], current_page: 1, last_page: 1, per_page: 20, total: 0 }, 
     students = [], 
     subjects = [],
+    academicPeriods = [],
     filters = {} 
 }) => {
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -330,13 +334,16 @@ const GradesIndex: React.FC<Props> = ({
 
                 {/* Filters */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
                             <select 
                                 className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                 value={filters.subject_id || ''}
-                                onChange={(e) => router.get('/instructor/grades', { subject_id: e.target.value })}
+                                onChange={(e) => router.get('/instructor/grades', { 
+                                    ...filters, 
+                                    subject_id: e.target.value 
+                                })}
                             >
                                 <option value="">All Subjects</option>
                                 {subjects.map((subject) => (
@@ -347,11 +354,32 @@ const GradesIndex: React.FC<Props> = ({
                             </select>
                         </div>
                         <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Academic Period</label>
+                            <select 
+                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                value={filters.academic_period_id || ''}
+                                onChange={(e) => router.get('/instructor/grades', { 
+                                    ...filters, 
+                                    academic_period_id: e.target.value 
+                                })}
+                            >
+                                <option value="">All Periods</option>
+                                {academicPeriods.map((period) => (
+                                    <option key={period.id} value={period.id}>
+                                        {period.name} ({period.school_year})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                             <select 
                                 className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                 value={filters.status || ''}
-                                onChange={(e) => router.get('/instructor/grades', { status: e.target.value })}
+                                onChange={(e) => router.get('/instructor/grades', { 
+                                    ...filters, 
+                                    status: e.target.value 
+                                })}
                             >
                                 <option value="">All Status</option>
                                 <option value="draft">Draft</option>
@@ -375,6 +403,25 @@ const GradesIndex: React.FC<Props> = ({
                             </button>
                         </div>
                     </div>
+                    {filters.academic_period_id && (() => {
+                        const selectedPeriod = academicPeriods.find(p => p.id.toString() === filters.academic_period_id);
+                        if (selectedPeriod) {
+                            const periodName = selectedPeriod.name.toLowerCase();
+                            const semesterType = periodName.includes('1st') || periodName.includes('first') ? '1st' : 
+                                               periodName.includes('2nd') || periodName.includes('second') ? '2nd' : null;
+                            if (semesterType) {
+                                return (
+                                    <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                                        <p className="text-blue-800 text-sm">
+                                            <strong>Viewing {semesterType === '1st' ? '1st' : '2nd'} Semester grades only</strong> - 
+                                            Grade entry will be limited to fields relevant to the selected semester.
+                                        </p>
+                                    </div>
+                                );
+                            }
+                        }
+                        return null;
+                    })()}
                 </div>
 
                 {/* Grades Table */}
@@ -675,6 +722,14 @@ const GradesIndex: React.FC<Props> = ({
                                         <div className="mb-6">
                                             <h3 className="text-lg font-medium text-gray-900 mb-4">Semester Grades</h3>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                {/* Show 1st Semester only if 1st semester period is selected or no specific period */}
+                                                {(() => {
+                                                    const selectedPeriod = academicPeriods.find(p => p.id.toString() === filters.academic_period_id);
+                                                    if (!selectedPeriod) return true; // Show all if no filter
+                                                    const periodName = selectedPeriod.name.toLowerCase();
+                                                    return periodName.includes('1st') || periodName.includes('first') || 
+                                                          (!periodName.includes('2nd') && !periodName.includes('second'));
+                                                })() && (
                                                 <div className="bg-gray-50 p-4 rounded-lg">
                                                     <h4 className="font-medium text-gray-700 mb-3">1st Semester</h4>
                                                     <div className="space-y-3">
@@ -719,6 +774,16 @@ const GradesIndex: React.FC<Props> = ({
                                                         </div>
                                                     </div>
                                                 </div>
+                                                )}
+                                                
+                                                {/* Show 2nd Semester only if 2nd semester period is selected or no specific period */}
+                                                {(() => {
+                                                    const selectedPeriod = academicPeriods.find(p => p.id.toString() === filters.academic_period_id);
+                                                    if (!selectedPeriod) return true; // Show all if no filter
+                                                    const periodName = selectedPeriod.name.toLowerCase();
+                                                    return periodName.includes('2nd') || periodName.includes('second') || 
+                                                          (!periodName.includes('1st') && !periodName.includes('first'));
+                                                })() && (
                                                 <div className="bg-gray-50 p-4 rounded-lg">
                                                     <h4 className="font-medium text-gray-700 mb-3">2nd Semester</h4>
                                                     <div className="space-y-3">
@@ -763,6 +828,7 @@ const GradesIndex: React.FC<Props> = ({
                                                         </div>
                                                     </div>
                                                 </div>
+                                                )}
                                             </div>
                                             
                                             {/* Final Grade Display */}
@@ -781,6 +847,14 @@ const GradesIndex: React.FC<Props> = ({
                                         <div className="mb-6">
                                             <h3 className="text-lg font-medium text-gray-900 mb-4">College Grades</h3>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                {/* Show 1st Semester only if 1st semester period is selected or no specific period */}
+                                                {(() => {
+                                                    const selectedPeriod = academicPeriods.find(p => p.id.toString() === filters.academic_period_id);
+                                                    if (!selectedPeriod) return true; // Show all if no filter
+                                                    const periodName = selectedPeriod.name.toLowerCase();
+                                                    return periodName.includes('1st') || periodName.includes('first') || 
+                                                          (!periodName.includes('2nd') && !periodName.includes('second'));
+                                                })() && (
                                                 <div className="bg-gray-50 p-4 rounded-lg">
                                                     <h4 className="font-medium text-gray-700 mb-3">1st Semester</h4>
                                                     <div className="space-y-3">
@@ -826,6 +900,16 @@ const GradesIndex: React.FC<Props> = ({
                                                         </div>
                                                     </div>
                                                 </div>
+                                                )}
+                                                
+                                                {/* Show 2nd Semester only if 2nd semester period is selected or no specific period */}
+                                                {(() => {
+                                                    const selectedPeriod = academicPeriods.find(p => p.id.toString() === filters.academic_period_id);
+                                                    if (!selectedPeriod) return true; // Show all if no filter
+                                                    const periodName = selectedPeriod.name.toLowerCase();
+                                                    return periodName.includes('2nd') || periodName.includes('second') || 
+                                                          (!periodName.includes('1st') && !periodName.includes('first'));
+                                                })() && (
                                                 <div className="bg-gray-50 p-4 rounded-lg">
                                                     <h4 className="font-medium text-gray-700 mb-3">2nd Semester</h4>
                                                     <div className="space-y-3">
@@ -871,6 +955,7 @@ const GradesIndex: React.FC<Props> = ({
                                                         </div>
                                                     </div>
                                                 </div>
+                                                )}
                                             </div>
                                             
                                             {/* Final Grade Display */}

@@ -6,6 +6,8 @@ use App\Models\User;
 use App\Models\CertificateTemplate;
 use App\Models\StudentHonor;
 use App\Models\GeneratedCertificate;
+use App\Models\Grade;
+use App\Models\AcademicPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -132,6 +134,124 @@ class StudentController extends Controller
         return Inertia::render('Student/ViewCertificate', [
             'certificate' => $certificate->load(['certificateTemplate', 'honor', 'academicPeriod']),
             'student' => $student,
+        ]);
+    }
+
+    public function grades(Request $request)
+    {
+        $student = Auth::user();
+        $academicPeriodId = $request->get('academic_period_id');
+        
+        // Get all academic periods for the filter dropdown
+        $academicPeriods = AcademicPeriod::orderBy('school_year', 'desc')
+            ->orderBy('name')
+            ->get();
+
+        // Build the grades query
+        $query = Grade::where('student_id', $student->id)
+            ->with(['subject', 'academicPeriod', 'instructor'])
+            ->where('status', 'approved'); // Only show approved grades to students
+
+        // Apply academic period filter if selected
+        if ($academicPeriodId) {
+            $query->where('academic_period_id', $academicPeriodId);
+        }
+
+        $grades = $query->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($grade) use ($academicPeriodId, $academicPeriods) {
+                // Determine if this is a semester-specific period
+                $selectedPeriod = null;
+                if ($academicPeriodId) {
+                    $selectedPeriod = $academicPeriods->find($academicPeriodId);
+                }
+                
+                $isSemesterSpecific = false;
+                $semesterType = null;
+                if ($selectedPeriod) {
+                    $periodName = strtolower($selectedPeriod->name);
+                    if (str_contains($periodName, '1st') || str_contains($periodName, 'first')) {
+                        $isSemesterSpecific = true;
+                        $semesterType = '1st';
+                    } elseif (str_contains($periodName, '2nd') || str_contains($periodName, 'second')) {
+                        $isSemesterSpecific = true;
+                        $semesterType = '2nd';
+                    }
+                }
+
+                // Prepare grade data based on student type and semester selection
+                $gradeData = [
+                    'id' => $grade->id,
+                    'subject' => [
+                        'id' => $grade->subject->id,
+                        'name' => $grade->subject->name,
+                        'code' => $grade->subject->code,
+                        'units' => $grade->subject->units,
+                    ],
+                    'academic_period' => [
+                        'id' => $grade->academicPeriod->id,
+                        'name' => $grade->academicPeriod->name,
+                        'school_year' => $grade->academicPeriod->school_year,
+                    ],
+                    'instructor' => [
+                        'name' => $grade->instructor->name ?? 'N/A',
+                    ],
+                    'student_type' => $grade->student_type,
+                    'overall_grade' => $grade->overall_grade,
+                    'remarks' => $grade->remarks,
+                    'submitted_at' => $grade->created_at->format('M d, Y'),
+                ];
+
+                // Add semester-specific grade details based on selection and student type
+                if ($grade->student_type === 'college') {
+                    if (!$isSemesterSpecific || $semesterType === '1st') {
+                        $gradeData['1st_semester'] = [
+                            'midterm' => $grade->{'1st_semester_midterm'},
+                            'pre_final' => $grade->{'1st_semester_pre_final'},
+                            'final' => $grade->{'1st_semester_final'},
+                        ];
+                    }
+                    if (!$isSemesterSpecific || $semesterType === '2nd') {
+                        $gradeData['2nd_semester'] = [
+                            'midterm' => $grade->{'2nd_semester_midterm'},
+                            'pre_final' => $grade->{'2nd_semester_pre_final'},
+                            'final' => $grade->{'2nd_semester_final'},
+                        ];
+                    }
+                } else {
+                    // For K-12 students
+                    if ($grade->student_type === 'senior_high') {
+                        // Senior High: semesters based on grading periods
+                        if (!$isSemesterSpecific || $semesterType === '1st') {
+                            $gradeData['1st_semester'] = [
+                                '1st_grading' => $grade->{'1st_grading'},
+                                '2nd_grading' => $grade->{'2nd_grading'},
+                            ];
+                        }
+                        if (!$isSemesterSpecific || $semesterType === '2nd') {
+                            $gradeData['2nd_semester'] = [
+                                '3rd_grading' => $grade->{'3rd_grading'},
+                                '4th_grading' => $grade->{'4th_grading'},
+                            ];
+                        }
+                    } else {
+                        // Elementary/Junior High: all quarters
+                        $gradeData['quarters'] = [
+                            '1st_grading' => $grade->{'1st_grading'},
+                            '2nd_grading' => $grade->{'2nd_grading'},
+                            '3rd_grading' => $grade->{'3rd_grading'},
+                            '4th_grading' => $grade->{'4th_grading'},
+                        ];
+                    }
+                }
+
+                return $gradeData;
+            });
+
+        return Inertia::render('Student/Grades', [
+            'grades' => $grades,
+            'academicPeriods' => $academicPeriods,
+            'filters' => $request->only(['academic_period_id']),
         ]);
     }
 }
