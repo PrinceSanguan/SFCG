@@ -42,6 +42,10 @@ interface Assignment {
     section?: string;
     is_active: boolean;
     created_at: string;
+    strand_id?: number;
+    year_level?: string;
+    college_course_id?: number;
+    semester?: string;
 }
 
 interface Props {
@@ -167,6 +171,9 @@ const Teachers: React.FC<Props> = ({
                                         Academic Level
                                     </th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Strand & Year Level
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Period
                                     </th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -201,6 +208,14 @@ const Teachers: React.FC<Props> = ({
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="text-sm text-gray-900">
                                                 {assignment.subject?.academicLevel?.name || 'N/A'}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="text-sm text-gray-900">
+                                                {assignment.subject?.academicStrand?.name || 'N/A'}
+                                            </div>
+                                            <div className="text-sm text-gray-900">
+                                                {assignment.year_level || 'N/A'}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">

@@ -15,6 +15,10 @@ class InstructorSubjectAssignment extends Model
         'academic_period_id',
         'section',
         'is_active',
+        'strand_id',
+        'year_level',
+        'college_course_id',
+        'semester',
     ];
 
     protected $casts = [
@@ -35,6 +39,16 @@ class InstructorSubjectAssignment extends Model
     public function academicPeriod()
     {
         return $this->belongsTo(AcademicPeriod::class);
+    }
+
+    public function strand()
+    {
+        return $this->belongsTo(AcademicStrand::class);
+    }
+
+    public function collegeCourse()
+    {
+        return $this->belongsTo(CollegeCourse::class);
     }
 
     // Scopes

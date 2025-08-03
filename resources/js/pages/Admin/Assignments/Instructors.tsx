@@ -35,6 +35,10 @@ interface InstructorAssignment {
     };
     section?: string;
     created_at: string;
+    strand_id?: number;
+    year_level?: string;
+    college_course_id?: number;
+    semester?: string;
 }
 
 interface Instructor {

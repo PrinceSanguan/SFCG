@@ -138,9 +138,9 @@ const AdviserAssignments: React.FC<Props> = ({ advisers, students, classAdvisers
 
     const filteredStudents = getFilteredStudents();
 
-    // Calculate statistics
-    const unassignedStudents = students.filter(s => !s.student_profile?.class_adviser).length;
-    const totalAssignments = students.filter(s => s.student_profile?.class_adviser).length;
+    // Calculate statistics based on filtered students (excluding college students)
+    const unassignedStudents = filteredStudents.filter(s => !s.student_profile?.class_adviser).length;
+    const totalAssignments = filteredStudents.filter(s => s.student_profile?.class_adviser).length;
 
     return (
         <>
@@ -171,7 +171,7 @@ const AdviserAssignments: React.FC<Props> = ({ advisers, students, classAdvisers
                                     </div>
                                     <div className="ml-4">
                                         <dt className="text-sm font-medium text-gray-500">Total Students</dt>
-                                        <dd className="text-2xl font-bold text-gray-900">{students.length}</dd>
+                                        <dd className="text-2xl font-bold text-gray-900">{filteredStudents.length}</dd>
                                     </div>
                                 </div>
                             </div>

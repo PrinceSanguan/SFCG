@@ -689,7 +689,8 @@ class AcademicController extends Controller
             'subject.academicLevel',
             'subject.academicStrand',
             'subject.collegeCourse',
-            'academicPeriod'
+            'academicPeriod',
+            'collegeCourse'
         ])->where('is_active', true)->get();
 
         $instructors = User::whereIn('user_role', ['instructor', 'teacher'])->get();
@@ -804,7 +805,7 @@ class AcademicController extends Controller
         $assignments = InstructorSubjectAssignment::whereHas('subject.academicLevel', function($query) use ($seniorHighLevels) {
             $query->whereIn('id', $seniorHighLevels->pluck('id'));
         })
-        ->with(['instructor', 'subject.academicLevel', 'academicPeriod'])
+        ->with(['instructor', 'subject.academicLevel', 'subject.academicStrand', 'academicPeriod', 'strand'])
         ->orderBy('created_at', 'desc')
         ->get();
 
@@ -864,6 +865,8 @@ class AcademicController extends Controller
             'subject_id' => $request->subject_id,
             'academic_period_id' => $request->academic_period_id,
             'section' => $request->section,
+            'strand_id' => $request->strand_id,
+            'year_level' => $request->year_level,
             'is_active' => $request->is_active ?? true,
         ]);
 
