@@ -12,7 +12,7 @@ interface Props {
     };
 }
 
-const Subjects: React.FC<Props> = ({ subjectCounts }) => {
+const SubjectsDashboard: React.FC<Props> = ({ subjectCounts }) => {
     const categories = [
         {
             id: 'elementary',
@@ -68,10 +68,10 @@ const Subjects: React.FC<Props> = ({ subjectCounts }) => {
         <>
             <Head title="Subject Management" />
             <AdminLayout>
-                    <div className="mb-8">
+                <div className="mb-8">
                     <h1 className="text-3xl font-bold text-gray-900">Subject Management</h1>
                     <p className="text-gray-600 mt-2">Manage academic subjects by educational level</p>
-                    </div>
+                </div>
 
                 {/* Summary Statistics */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
@@ -80,7 +80,7 @@ const Subjects: React.FC<Props> = ({ subjectCounts }) => {
                         <div className="text-center">
                             <div className="text-2xl font-bold text-gray-900">{subjectCounts.total}</div>
                             <div className="text-sm text-gray-600">Total Subjects</div>
-                    </div>
+                        </div>
                         <div className="text-center">
                             <div className="text-2xl font-bold text-green-600">{subjectCounts.elementary}</div>
                             <div className="text-sm text-gray-600">Elementary</div>
@@ -88,17 +88,17 @@ const Subjects: React.FC<Props> = ({ subjectCounts }) => {
                         <div className="text-center">
                             <div className="text-2xl font-bold text-blue-600">{subjectCounts.junior_high}</div>
                             <div className="text-sm text-gray-600">Junior High</div>
-                            </div>
+                        </div>
                         <div className="text-center">
                             <div className="text-2xl font-bold text-purple-600">{subjectCounts.senior_high}</div>
                             <div className="text-sm text-gray-600">Senior High</div>
-                                                            </div>
+                        </div>
                         <div className="text-center">
                             <div className="text-2xl font-bold text-orange-600">{subjectCounts.college}</div>
                             <div className="text-sm text-gray-600">College</div>
-                            </div>
+                        </div>
                     </div>
-                    </div>
+                </div>
 
                 {/* Subject Categories */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
@@ -126,7 +126,7 @@ const Subjects: React.FC<Props> = ({ subjectCounts }) => {
                                         <div className={`text-sm font-medium ${category.textColor}`}>
                                             Manage →
                                         </div>
-                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </Link>
@@ -136,26 +136,19 @@ const Subjects: React.FC<Props> = ({ subjectCounts }) => {
                 {/* Quick Actions */}
                 <div className="mt-8 bg-gray-50 rounded-lg p-6">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <Link
                             href="/admin/academic/subjects/elementary"
                             className="flex items-center space-x-3 p-4 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
                         >
-                            <span className="text-xl">🧒</span>
+                            <span className="text-xl">➕</span>
                             <span className="font-medium text-gray-900">Add Elementary Subject</span>
-                        </Link>
-                        <Link
-                            href="/admin/academic/subjects/junior-high"
-                            className="flex items-center space-x-3 p-4 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
-                        >
-                            <span className="text-xl">📚</span>
-                            <span className="font-medium text-gray-900">Add Junior High Subject</span>
                         </Link>
                         <Link
                             href="/admin/academic/subjects/senior-high"
                             className="flex items-center space-x-3 p-4 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
                         >
-                            <span className="text-xl">🎓</span>
+                            <span className="text-xl">🎯</span>
                             <span className="font-medium text-gray-900">Add Senior High Subject</span>
                         </Link>
                         <Link
@@ -165,11 +158,11 @@ const Subjects: React.FC<Props> = ({ subjectCounts }) => {
                             <span className="text-xl">🏛️</span>
                             <span className="font-medium text-gray-900">Add College Subject</span>
                         </Link>
-                            </div>
-                        </div>
-                </AdminLayout>
+                    </div>
+                </div>
+            </AdminLayout>
         </>
     );
 };
 
-export default Subjects; 
+export default SubjectsDashboard;

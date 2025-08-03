@@ -395,21 +395,6 @@ class AcademicController extends Controller
     }
 
     // ==================== COLLEGE SUBJECTS ====================
-    
-    public function collegeSubjects()
-    {
-        $subjects = Subject::with(['collegeCourse'])
-            ->whereNotNull('college_course_id')
-            ->orderBy('name')
-            ->get();
-
-        $collegeCourses = CollegeCourse::active()->orderBy('name')->get();
-        
-        return Inertia::render('Admin/Academic/CollegeSubjects', [
-            'subjects' => $subjects,
-            'collegeCourses' => $collegeCourses,
-        ]);
-    }
 
     public function storeCollegeSubjects(Request $request)
     {
@@ -520,20 +505,103 @@ class AcademicController extends Controller
     
     public function subjects()
     {
-        $subjects = Subject::with(['academicLevel', 'academicStrand', 'collegeCourse', 'instructorAssignments.instructor'])
-            ->orderBy('academic_level_id')
-            ->orderBy('college_course_id')
+        // Get academic levels for categorization
+        $elementaryLevels = AcademicLevel::whereIn('name', ['Elementary'])
+            ->orWhere('code', 'ELEM')
+            ->pluck('id');
+            
+        $juniorHighLevels = AcademicLevel::whereIn('name', ['Junior High School', 'Junior High'])
+            ->orWhere('code', 'JHS')
+            ->pluck('id');
+            
+        $seniorHighLevels = AcademicLevel::whereIn('name', ['Senior High School', 'Senior High'])
+            ->orWhere('code', 'SHS')
+            ->pluck('id');
+
+        // Count subjects by category
+        $subjectCounts = [
+            'elementary' => Subject::whereIn('academic_level_id', $elementaryLevels)->count(),
+            'junior_high' => Subject::whereIn('academic_level_id', $juniorHighLevels)->count(),
+            'senior_high' => Subject::whereIn('academic_level_id', $seniorHighLevels)->count(),
+            'college' => Subject::whereNotNull('college_course_id')->count(),
+            'total' => Subject::count(),
+        ];
+        
+        return Inertia::render('Admin/Academic/Subjects', [
+            'subjectCounts' => $subjectCounts,
+        ]);
+    }
+
+    public function elementarySubjects()
+    {
+        $elementaryLevels = AcademicLevel::whereIn('name', ['Elementary'])
+            ->orWhere('code', 'ELEM')
+            ->get();
+
+        $subjects = Subject::whereIn('academic_level_id', $elementaryLevels->pluck('id'))
+            ->with(['academicLevel'])
             ->orderBy('name')
             ->get();
         
-        $levels = AcademicLevel::active()->get();
-        $strands = AcademicStrand::active()->get();
-        $collegeCourses = CollegeCourse::active()->get();
-        
-        return Inertia::render('Admin/Academic/Subjects', [
+        return Inertia::render('Admin/Academic/ElementarySubjects', [
             'subjects' => $subjects,
-            'levels' => $levels,
+            'levels' => $elementaryLevels,
+        ]);
+    }
+
+    public function juniorHighSubjects()
+    {
+        $juniorHighLevels = AcademicLevel::whereIn('name', ['Junior High School', 'Junior High'])
+            ->orWhere('code', 'JHS')
+            ->get();
+
+        $subjects = Subject::whereIn('academic_level_id', $juniorHighLevels->pluck('id'))
+            ->with(['academicLevel', 'academicStrand'])
+            ->orderBy('name')
+            ->get();
+
+        $strands = AcademicStrand::whereIn('academic_level_id', $juniorHighLevels->pluck('id'))->get();
+        
+        return Inertia::render('Admin/Academic/HighSchoolSubjects', [
+            'subjects' => $subjects,
+            'levels' => $juniorHighLevels,
             'strands' => $strands,
+            'levelType' => 'junior',
+        ]);
+    }
+
+    public function seniorHighSubjects()
+    {
+        $seniorHighLevels = AcademicLevel::whereIn('name', ['Senior High School', 'Senior High'])
+            ->orWhere('code', 'SHS')
+            ->get();
+
+        $subjects = Subject::whereIn('academic_level_id', $seniorHighLevels->pluck('id'))
+            ->with(['academicLevel', 'academicStrand'])
+            ->orderBy('name')
+            ->get();
+
+        $strands = AcademicStrand::whereIn('academic_level_id', $seniorHighLevels->pluck('id'))->get();
+        
+        return Inertia::render('Admin/Academic/HighSchoolSubjects', [
+            'subjects' => $subjects,
+            'levels' => $seniorHighLevels,
+            'strands' => $strands,
+            'levelType' => 'senior',
+        ]);
+    }
+
+    public function collegeSubjects()
+    {
+        $subjects = Subject::whereNotNull('college_course_id')
+            ->with(['collegeCourse'])
+            ->orderBy('name')
+            ->get();
+
+        $collegeCourses = CollegeCourse::active()->orderBy('name')->get();
+        
+        return Inertia::render('Admin/Academic/CollegeSubjects', [
+            'subjects' => $subjects,
             'collegeCourses' => $collegeCourses,
             'semesters' => CollegeCourse::getSemesters(),
         ]);

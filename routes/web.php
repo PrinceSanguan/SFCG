@@ -134,6 +134,10 @@ Route::middleware([AdminMiddleware::class])->group(function () {
   Route::get('admin/academic/periods', [AcademicController::class, 'periods'])->name('admin.academic.periods');
   Route::get('admin/academic/strands', [AcademicController::class, 'strands'])->name('admin.academic.strands');
   Route::get('admin/academic/subjects', [AcademicController::class, 'subjects'])->name('admin.academic.subjects');
+  Route::get('admin/academic/subjects/elementary', [AcademicController::class, 'elementarySubjects'])->name('admin.academic.subjects.elementary');
+  Route::get('admin/academic/subjects/junior-high', [AcademicController::class, 'juniorHighSubjects'])->name('admin.academic.subjects.junior-high');
+  Route::get('admin/academic/subjects/senior-high', [AcademicController::class, 'seniorHighSubjects'])->name('admin.academic.subjects.senior-high');
+  Route::get('admin/academic/subjects/college', [AcademicController::class, 'collegeSubjects'])->name('admin.academic.subjects.college');
   Route::get('admin/academic/college-courses', [AcademicController::class, 'collegeCourses'])->name('admin.academic.college-courses');
 
   // Academic Setup - CRUD Operations
