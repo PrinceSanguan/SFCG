@@ -651,24 +651,35 @@ class RegistrarController extends Controller
     // Assignment Pages
     public function instructorAssignments()
     {
-        $assignments = InstructorSubjectAssignment::with(['instructor', 'subject', 'academicPeriod'])
-                                                  ->orderBy('created_at', 'desc')
-                                                  ->get();
+        $assignments = InstructorSubjectAssignment::with([
+            'instructor',
+            'subject.academicLevel',
+            'subject.academicStrand',
+            'subject.collegeCourse',
+            'academicPeriod',
+            'collegeCourse'
+        ])->where('is_active', true)->get();
+        
         $instructors = User::whereIn('user_role', ['instructor', 'teacher'])->orderBy('name')->get();
-        $subjects = Subject::orderBy('name')->get();
-        $periods = AcademicPeriod::orderBy('name')->get();
+        $subjects = Subject::active()->with(['academicLevel', 'academicStrand', 'collegeCourse'])->get();
+        $periods = AcademicPeriod::active()->get();
+        $collegeCourses = CollegeCourse::active()->orderBy('name')->get();
 
         return Inertia::render('Registrar/Assignments/Instructors', [
             'assignments' => $assignments,
             'instructors' => $instructors,
             'subjects' => $subjects,
             'periods' => $periods,
+            'collegeCourses' => $collegeCourses
         ]);
     }
 
     public function adviserAssignments()
     {
         $students = User::where('user_role', 'student')
+                       ->whereDoesntHave('studentProfile', function($query) {
+                           $query->whereNotNull('college_course_id');
+                       })
                        ->with(['studentProfile.academicLevel', 'studentProfile.classAdviser'])
                        ->orderBy('name')
                        ->get();
@@ -692,14 +703,33 @@ class RegistrarController extends Controller
             'subject_id' => 'required|exists:subjects,id',
             'academic_period_id' => 'required|exists:academic_periods,id',
             'section' => 'nullable|string|max:50',
+            'college_course_id' => 'nullable|exists:college_courses,id',
+            'year_level' => 'nullable|string|max:20',
+            'semester' => 'nullable|string|max:20',
         ]);
 
-        InstructorSubjectAssignment::create([
+        // Check if assignment already exists
+        $existingAssignment = InstructorSubjectAssignment::where([
             'instructor_id' => $request->instructor_id,
             'subject_id' => $request->subject_id,
             'academic_period_id' => $request->academic_period_id,
             'section' => $request->section,
-        ]);
+        ])->first();
+
+        if ($existingAssignment) {
+            return redirect()->back()->with('error', 'This assignment already exists.');
+        }
+
+        $assignment = InstructorSubjectAssignment::create(array_merge($request->all(), ['is_active' => true]));
+
+        ActivityLog::logActivity(
+            Auth::user(),
+            'created',
+            'InstructorSubjectAssignment',
+            $assignment->id,
+            null,
+            $assignment->toArray()
+        );
 
         return redirect()->back()->with('success', 'Instructor assignment created successfully.');
     }
@@ -759,18 +789,19 @@ class RegistrarController extends Controller
         $assignments = InstructorSubjectAssignment::whereHas('subject.academicLevel', function($query) use ($seniorHighLevels) {
             $query->whereIn('id', $seniorHighLevels->pluck('id'));
         })
-        ->with(['instructor', 'subject.academicLevel', 'academicPeriod'])
+        ->with(['instructor', 'subject.academicLevel', 'subject.academicStrand', 'academicPeriod', 'strand'])
         ->orderBy('created_at', 'desc')
         ->get();
 
         $academicPeriods = AcademicPeriod::orderBy('name')->get();
+        $strands = AcademicStrand::active()->orderBy('name')->get();
 
         return Inertia::render('Registrar/Assignments/Teachers', [
             'assignments' => $assignments,
             'teachers' => $teachers,
             'subjects' => $subjects,
             'academicPeriods' => $academicPeriods,
-            'seniorHighLevels' => $seniorHighLevels
+            'strands' => $strands
         ]);
     }
 
@@ -781,6 +812,8 @@ class RegistrarController extends Controller
             'subject_id' => 'required|exists:subjects,id',
             'academic_period_id' => 'required|exists:academic_periods,id',
             'section' => 'nullable|string|max:255',
+            'strand_id' => 'nullable|exists:academic_strands,id',
+            'year_level' => 'nullable|string|max:20',
             'is_active' => 'boolean',
         ]);
 
@@ -816,6 +849,8 @@ class RegistrarController extends Controller
             'subject_id' => $request->subject_id,
             'academic_period_id' => $request->academic_period_id,
             'section' => $request->section,
+            'strand_id' => $request->strand_id,
+            'year_level' => $request->year_level,
             'is_active' => $request->is_active ?? true,
         ]);
 

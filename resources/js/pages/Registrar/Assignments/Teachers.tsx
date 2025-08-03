@@ -11,10 +11,16 @@ interface Teacher {
 interface Subject {
     id: number;
     name: string;
-    academicLevel: {
+    academicLevel?: {
         id: number;
         name: string;
     };
+    academicStrand?: {
+        id: number;
+        name: string;
+        code: string;
+    };
+    year_level?: string;
 }
 
 interface AcademicPeriod {
@@ -22,14 +28,22 @@ interface AcademicPeriod {
     name: string;
 }
 
+interface AcademicStrand {
+    id: number;
+    name: string;
+    code: string;
+}
+
 interface Assignment {
     id: number;
-    instructor: Teacher;
-    subject: Subject;
-    academicPeriod: AcademicPeriod;
-    section: string;
+    instructor?: Teacher;
+    subject?: Subject;
+    academicPeriod?: AcademicPeriod;
+    section?: string;
     is_active: boolean;
     created_at: string;
+    strand_id?: number;
+    year_level?: string;
 }
 
 interface Props {
@@ -37,7 +51,7 @@ interface Props {
     teachers: Teacher[];
     subjects: Subject[];
     academicPeriods: AcademicPeriod[];
-    seniorHighLevels: any[];
+    strands: AcademicStrand[];
 }
 
 const Teachers: React.FC<Props> = ({ 
@@ -45,7 +59,7 @@ const Teachers: React.FC<Props> = ({
     teachers = [], 
     subjects = [], 
     academicPeriods = [],
-    seniorHighLevels = []
+    strands = []
 }) => {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(null);
@@ -55,6 +69,8 @@ const Teachers: React.FC<Props> = ({
         subject_id: '',
         academic_period_id: '',
         section: '',
+        strand_id: '',
+        year_level: '',
         is_active: true as boolean,
     });
 
@@ -80,11 +96,15 @@ const Teachers: React.FC<Props> = ({
     };
 
     const handleEdit = (assignment: Assignment) => {
-        setData('teacher_id', assignment.instructor.id.toString());
-        setData('subject_id', assignment.subject.id.toString());
-        setData('academic_period_id', assignment.academicPeriod.id.toString());
-        setData('section', assignment.section || '');
-        setData('is_active', assignment.is_active);
+        setData({
+            teacher_id: assignment.instructor?.id?.toString() || '',
+            subject_id: assignment.subject?.id?.toString() || '',
+            academic_period_id: assignment.academicPeriod?.id?.toString() || '',
+            section: assignment.section || '',
+            strand_id: assignment.strand_id?.toString() || '',
+            year_level: assignment.year_level || '',
+            is_active: assignment.is_active,
+        });
         setEditingAssignment(assignment);
         setShowCreateModal(true);
     };
@@ -172,26 +192,26 @@ const Teachers: React.FC<Props> = ({
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div>
                                                 <div className="text-sm font-medium text-gray-900">
-                                                    {assignment.instructor.name}
+                                                    {assignment.instructor?.name}
                                                 </div>
                                                 <div className="text-sm text-gray-500">
-                                                    {assignment.instructor.email}
+                                                    {assignment.instructor?.email}
                                                 </div>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="text-sm text-gray-900">
-                                                {assignment.subject.name}
+                                                {assignment.subject?.name}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="text-sm text-gray-900">
-                                                {assignment.subject.academicLevel.name}
+                                                {assignment.subject?.academicLevel?.name}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="text-sm text-gray-900">
-                                                {assignment.academicPeriod.name}
+                                                {assignment.academicPeriod?.name}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
@@ -275,7 +295,7 @@ const Teachers: React.FC<Props> = ({
                                         <option value="">Select Subject</option>
                                         {subjects.map((subject) => (
                                             <option key={subject.id} value={subject.id}>
-                                                {subject.name} - {subject.academicLevel.name}
+                                                {subject.name} - {subject.academicLevel?.name}
                                             </option>
                                         ))}
                                     </select>

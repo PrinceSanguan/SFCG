@@ -119,6 +119,11 @@ const AdviserAssignments: React.FC<Props> = ({
 
     const getFilteredStudents = () => {
         return students.filter(student => {
+            // Exclude college students - only show Elementary, Junior High, and Senior High students
+            if (student.student_profile?.college_course) {
+                return false;
+            }
+            
             const levelMatch = !filterLevel || student.student_profile?.academic_level?.id.toString() === filterLevel;
             const adviserMatch = !filterAdviser || student.student_profile?.class_adviser?.id.toString() === filterAdviser;
             return levelMatch && adviserMatch;
@@ -131,6 +136,12 @@ const AdviserAssignments: React.FC<Props> = ({
             return adviser.id.toString() === filterAdviser;
         });
     };
+
+    const filteredStudents = getFilteredStudents();
+
+    // Calculate statistics based on filtered students (excluding college students)
+    const unassignedStudents = filteredStudents.filter(s => !s.student_profile?.class_adviser).length;
+    const totalAssignments = filteredStudents.filter(s => s.student_profile?.class_adviser).length;
 
     return (
         <>
@@ -146,7 +157,7 @@ const AdviserAssignments: React.FC<Props> = ({
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                         <h3 className="text-lg font-medium text-gray-900">Total Students</h3>
-                        <p className="text-3xl font-bold text-blue-600">{students.length}</p>
+                        <p className="text-3xl font-bold text-blue-600">{filteredStudents.length}</p>
                     </div>
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                         <h3 className="text-lg font-medium text-gray-900">Total Advisers</h3>
@@ -155,13 +166,13 @@ const AdviserAssignments: React.FC<Props> = ({
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                         <h3 className="text-lg font-medium text-gray-900">Assigned Students</h3>
                         <p className="text-3xl font-bold text-yellow-600">
-                            {students.filter(s => s.student_profile?.class_adviser).length}
+                            {totalAssignments}
                         </p>
                     </div>
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                         <h3 className="text-lg font-medium text-gray-900">Unassigned Students</h3>
                         <p className="text-3xl font-bold text-red-600">
-                            {students.filter(s => !s.student_profile?.class_adviser).length}
+                            {unassignedStudents}
                         </p>
                     </div>
                 </div>
@@ -282,7 +293,7 @@ const AdviserAssignments: React.FC<Props> = ({
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {getFilteredStudents().map((student) => (
+                                {filteredStudents.map((student) => (
                                     <tr key={student.id} className="hover:bg-gray-50">
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <input

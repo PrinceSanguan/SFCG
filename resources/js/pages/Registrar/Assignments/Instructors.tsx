@@ -21,8 +21,12 @@ interface InstructorAssignment {
             name: string;
         };
         collegeCourse?: {
+            id: number;
             name: string;
+            code: string;
         };
+        year_level?: string;
+        semester?: string;
     };
     academicPeriod?: {
         id: number;
@@ -30,6 +34,10 @@ interface InstructorAssignment {
     };
     section?: string;
     created_at: string;
+    strand_id?: number;
+    year_level?: string;
+    college_course_id?: number;
+    semester?: string;
 }
 
 interface Instructor {
@@ -50,8 +58,12 @@ interface Subject {
         name: string;
     };
     collegeCourse?: {
+        id: number;
         name: string;
+        code: string;
     };
+    year_level?: string;
+    semester?: string;
 }
 
 interface AcademicPeriod {
@@ -59,14 +71,21 @@ interface AcademicPeriod {
     name: string;
 }
 
+interface CollegeCourse {
+    id: number;
+    name: string;
+    code: string;
+}
+
 interface Props {
     assignments: InstructorAssignment[];
     instructors: Instructor[];
     subjects: Subject[];
     periods: AcademicPeriod[];
+    collegeCourses: CollegeCourse[];
 }
 
-const InstructorAssignments: React.FC<Props> = ({ assignments = [], instructors = [], subjects = [], periods = [] }) => {
+const InstructorAssignments: React.FC<Props> = ({ assignments = [], instructors = [], subjects = [], periods = [], collegeCourses = [] }) => {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [editingAssignment, setEditingAssignment] = useState<InstructorAssignment | null>(null);
     const [filterInstructor, setFilterInstructor] = useState('');
@@ -78,6 +97,9 @@ const InstructorAssignments: React.FC<Props> = ({ assignments = [], instructors 
         subject_id: '',
         academic_period_id: '',
         section: '',
+        college_course_id: '',
+        year_level: '',
+        semester: '',
     });
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -102,11 +124,17 @@ const InstructorAssignments: React.FC<Props> = ({ assignments = [], instructors 
     };
 
     const handleEdit = (assignment: InstructorAssignment) => {
-        setData('instructor_id', assignment.instructor?.id?.toString() || '');
-        setData('subject_id', assignment.subject?.id?.toString() || '');
-        setData('academic_period_id', assignment.academicPeriod?.id?.toString() || '');
-        setData('section', assignment.section || '');
+        setData({
+            instructor_id: assignment.instructor?.id?.toString() || '',
+            subject_id: assignment.subject?.id?.toString() || '',
+            academic_period_id: assignment.academicPeriod?.id?.toString() || '',
+            section: assignment.section || '',
+            college_course_id: assignment.college_course_id?.toString() || '',
+            year_level: assignment.year_level || '',
+            semester: assignment.semester || '',
+        });
         setEditingAssignment(assignment);
+        setShowCreateModal(true);
     };
 
     const handleDelete = (assignment: InstructorAssignment) => {
@@ -223,6 +251,7 @@ const InstructorAssignments: React.FC<Props> = ({ assignments = [], instructors 
                                                 <tr>
                                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Instructor</th>
                                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">College Details</th>
                                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Academic Period</th>
                                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Section</th>
                                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
@@ -246,6 +275,17 @@ const InstructorAssignments: React.FC<Props> = ({ assignments = [], instructors 
                                                             </div>
                                                             <div className="text-xs text-gray-500">
                                                                 {assignment.subject?.units || 0} units
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <div className="text-sm text-gray-900">
+                                                                {assignment.subject?.collegeCourse ? `${assignment.subject.collegeCourse.name} (${assignment.subject.collegeCourse.code})` : 'N/A'}
+                                                            </div>
+                                                            <div className="text-xs text-gray-500">
+                                                                {assignment.subject?.year_level || 'N/A'}
+                                                            </div>
+                                                            <div className="text-xs text-gray-500">
+                                                                {assignment.subject?.semester || 'N/A'}
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-4 whitespace-nowrap">
@@ -367,6 +407,56 @@ const InstructorAssignments: React.FC<Props> = ({ assignments = [], instructors 
                                                         placeholder="e.g., Section A"
                                                     />
                                                     {errors.section && <p className="text-red-500 text-xs mt-1">{errors.section}</p>}
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        College Course <span className="text-gray-400">(For College Subjects)</span>
+                                                    </label>
+                                                    <select
+                                                        value={data.college_course_id}
+                                                        onChange={(e) => setData('college_course_id', e.target.value)}
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    >
+                                                        <option value="">Select College Course</option>
+                                                        {collegeCourses?.map((course) => (
+                                                            <option key={course.id} value={course.id}>
+                                                                {course.name} ({course.code})
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    {errors.college_course_id && <p className="text-red-500 text-xs mt-1">{errors.college_course_id}</p>}
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        Year Level <span className="text-gray-400">(Optional)</span>
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        value={data.year_level}
+                                                        onChange={(e) => setData('year_level', e.target.value)}
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                        placeholder="e.g., 1st Year, 2nd Year"
+                                                    />
+                                                    {errors.year_level && <p className="text-red-500 text-xs mt-1">{errors.year_level}</p>}
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        Semester <span className="text-gray-400">(For College)</span>
+                                                    </label>
+                                                    <select
+                                                        value={data.semester}
+                                                        onChange={(e) => setData('semester', e.target.value)}
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    >
+                                                        <option value="">Select Semester</option>
+                                                        <option value="1st Semester">1st Semester</option>
+                                                        <option value="2nd Semester">2nd Semester</option>
+                                                        <option value="Summer">Summer</option>
+                                                    </select>
+                                                    {errors.semester && <p className="text-red-500 text-xs mt-1">{errors.semester}</p>}
                                                 </div>
 
                                                 <div className="flex justify-end space-x-3 pt-4">
