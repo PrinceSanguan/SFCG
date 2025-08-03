@@ -31,6 +31,7 @@ interface AcademicPeriod {
 interface Instructor {
     id: number;
     name: string;
+    user_role: string;
 }
 
 interface Props {
@@ -198,7 +199,7 @@ const CreateJuniorHigh: React.FC<Props> = ({ students, subjects, academicPeriods
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Instructor <span className="text-red-500">*</span>
+                                        Class Adviser <span className="text-red-500">*</span>
                                     </label>
                                     <select
                                         value={data.instructor_id}
@@ -207,7 +208,7 @@ const CreateJuniorHigh: React.FC<Props> = ({ students, subjects, academicPeriods
                                             errors.instructor_id ? 'border-red-500' : 'border-gray-300'
                                         }`}
                                     >
-                                        <option value="">Select Instructor</option>
+                                        <option value="">Select Class Adviser</option>
                                         {instructors.map((instructor) => (
                                             <option key={instructor.id} value={instructor.id}>
                                                 {instructor.name}

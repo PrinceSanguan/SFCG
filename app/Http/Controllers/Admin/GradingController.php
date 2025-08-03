@@ -334,7 +334,13 @@ class GradingController extends Controller
 
         // Get filter options
         $academicPeriods = AcademicPeriod::orderBy('name')->get();
-        $subjects = Subject::whereNotNull('college_course_id')->orderBy('name')->get();
+        $subjects = Subject::whereNotNull('college_course_id')
+                          ->orWhereHas('academicLevel', function($q) {
+                              $q->where('name', 'like', '%college%')
+                                ->orWhere('name', 'like', '%university%');
+                          })
+                          ->orderBy('name')
+                          ->get();
         $instructors = User::where('user_role', 'instructor')
                           ->orWhere('user_role', 'teacher')
                           ->orderBy('name')
@@ -413,8 +419,7 @@ class GradingController extends Controller
         })->orderBy('name')->get();
 
         $academicPeriods = AcademicPeriod::where('is_active', true)->orderBy('name')->get();
-        $instructors = User::where('user_role', 'instructor')
-                          ->orWhere('user_role', 'teacher')
+        $instructors = User::where('user_role', 'class_adviser')
                           ->orderBy('name')
                           ->get();
 
@@ -445,8 +450,7 @@ class GradingController extends Controller
         })->orderBy('name')->get();
 
         $academicPeriods = AcademicPeriod::where('is_active', true)->orderBy('name')->get();
-        $instructors = User::where('user_role', 'instructor')
-                          ->orWhere('user_role', 'teacher')
+        $instructors = User::where('user_role', 'class_adviser')
                           ->orderBy('name')
                           ->get();
 
@@ -477,7 +481,7 @@ class GradingController extends Controller
         })->orderBy('name')->get();
 
         $academicPeriods = AcademicPeriod::where('is_active', true)->orderBy('name')->get();
-        $instructors = User::where('user_role', 'instructor')
+        $instructors = User::where('user_role', 'class_adviser')
                           ->orWhere('user_role', 'teacher')
                           ->orderBy('name')
                           ->get();
@@ -500,7 +504,15 @@ class GradingController extends Controller
                        ->orderBy('name')
                        ->get();
 
-        $subjects = Subject::whereNotNull('college_course_id')->orderBy('name')->get();
+        // Get college subjects (subjects that have college_course_id)
+        $subjects = Subject::whereNotNull('college_course_id')
+                          ->orWhereHas('academicLevel', function($q) {
+                              $q->where('name', 'like', '%college%')
+                                ->orWhere('name', 'like', '%university%');
+                          })
+                          ->orderBy('name')
+                          ->get();
+
         $academicPeriods = AcademicPeriod::where('is_active', true)->orderBy('name')->get();
         $instructors = User::where('user_role', 'instructor')
                           ->orWhere('user_role', 'teacher')

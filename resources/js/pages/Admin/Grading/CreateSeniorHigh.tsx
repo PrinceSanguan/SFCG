@@ -31,6 +31,7 @@ interface AcademicPeriod {
 interface Instructor {
     id: number;
     name: string;
+    user_role: string;
 }
 
 interface Props {
@@ -210,7 +211,7 @@ const CreateSeniorHigh: React.FC<Props> = ({ students, subjects, academicPeriods
                                         <option value="">Select Instructor</option>
                                         {instructors.map((instructor) => (
                                             <option key={instructor.id} value={instructor.id}>
-                                                {instructor.name}
+                                                {instructor.name} ({instructor.user_role === 'class_adviser' ? 'Class Adviser' : 'Teacher'})
                                             </option>
                                         ))}
                                     </select>
