@@ -242,7 +242,7 @@ const CollegeSubjects: React.FC<Props> = ({ subjects, collegeCourses, semesters 
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Units</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Year & Semester</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grade & Semester</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -272,7 +272,7 @@ const CollegeSubjects: React.FC<Props> = ({ subjects, collegeCourses, semesters 
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="text-sm text-gray-900">
-                                                    {subject.year_level && `Year ${subject.year_level}`}
+                                                    {subject.year_level && `Grade ${subject.year_level}`}
                                                     {subject.semester && ` - ${semesters[subject.semester] || subject.semester}`}
                                                 </div>
                                             </td>
@@ -381,27 +381,27 @@ const CollegeSubjects: React.FC<Props> = ({ subjects, collegeCourses, semesters 
                                     </div>
 
                                     {Object.keys(availableYearLevels).length > 0 && (
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Year Level
-                                            </label>
-                                            <select
-                                                value={data.year_level}
-                                                onChange={(e) => setData('year_level', e.target.value)}
-                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
-                                                required
-                                            >
-                                                <option value="">Select Year Level</option>
-                                                {Object.entries(availableYearLevels).map(([year, label]) => (
-                                                    <option key={year} value={year}>
-                                                        {label}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            {errors.year_level && (
-                                                <p className="text-red-600 text-sm mt-1">{errors.year_level}</p>
-                                            )}
-                                        </div>
+                                                                            <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Grade Level
+                                        </label>
+                                        <select
+                                            value={data.year_level}
+                                            onChange={(e) => setData('year_level', e.target.value)}
+                                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+                                            required
+                                        >
+                                            <option value="">Select Grade Level</option>
+                                            {Object.entries(availableYearLevels).map(([year, label]) => (
+                                                <option key={year} value={year}>
+                                                    {label}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {errors.year_level && (
+                                            <p className="text-red-600 text-sm mt-1">{errors.year_level}</p>
+                                        )}
+                                    </div>
                                     )}
 
                                     <div>

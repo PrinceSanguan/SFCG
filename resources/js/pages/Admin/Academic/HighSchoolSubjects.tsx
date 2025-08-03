@@ -23,6 +23,7 @@ interface Subject {
     units: number;
     academic_level_id?: number;
     academic_strand_id?: number;
+    year_level?: number;
     is_active: boolean;
     created_at: string;
     academic_level?: AcademicLevel;
@@ -48,6 +49,7 @@ const HighSchoolSubjects: React.FC<Props> = ({ subjects, levels, strands, levelT
         units: 1,
         academic_level_id: '',
         academic_strand_id: '',
+        year_level: '',
         is_active: true as boolean,
     });
 
@@ -107,6 +109,7 @@ const HighSchoolSubjects: React.FC<Props> = ({ subjects, levels, strands, levelT
             units: subject.units,
             academic_level_id: subject.academic_level_id?.toString() || '',
             academic_strand_id: subject.academic_strand_id?.toString() || '',
+            year_level: subject.year_level?.toString() || '',
             is_active: subject.is_active,
         });
         setEditingSubject(subject);
@@ -252,7 +255,7 @@ const HighSchoolSubjects: React.FC<Props> = ({ subjects, levels, strands, levelT
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Units</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level & Grade</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Strand</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
@@ -275,6 +278,9 @@ const HighSchoolSubjects: React.FC<Props> = ({ subjects, levels, strands, levelT
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="text-sm text-gray-900">{subject.academic_level?.name}</div>
+                                                <div className="text-xs text-gray-500">
+                                                    {subject.year_level && `Grade ${subject.year_level}`}
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="text-sm text-gray-900">
@@ -382,6 +388,36 @@ const HighSchoolSubjects: React.FC<Props> = ({ subjects, levels, strands, levelT
                                         </select>
                                         {errors.academic_level_id && (
                                             <p className="text-red-600 text-sm mt-1">{errors.academic_level_id}</p>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Grade Level
+                                        </label>
+                                        <select
+                                            value={data.year_level}
+                                            onChange={(e) => setData('year_level', e.target.value)}
+                                            className={`w-full rounded-md border-gray-300 shadow-sm focus:border-${colorTheme}-500 focus:ring-${colorTheme}-500`}
+                                            required
+                                        >
+                                            <option value="">Select Grade Level</option>
+                                            {isJuniorHigh ? (
+                                                <>
+                                                    <option value="7">Grade 7</option>
+                                                    <option value="8">Grade 8</option>
+                                                    <option value="9">Grade 9</option>
+                                                    <option value="10">Grade 10</option>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <option value="11">Grade 11</option>
+                                                    <option value="12">Grade 12</option>
+                                                </>
+                                            )}
+                                        </select>
+                                        {errors.year_level && (
+                                            <p className="text-red-600 text-sm mt-1">{errors.year_level}</p>
                                         )}
                                     </div>
 

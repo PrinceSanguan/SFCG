@@ -15,6 +15,7 @@ interface Subject {
     description: string;
     units: number;
     academic_level_id?: number;
+    year_level?: number;
     is_active: boolean;
     created_at: string;
     academic_level?: AcademicLevel;
@@ -35,6 +36,7 @@ const ElementarySubjects: React.FC<Props> = ({ subjects, levels }) => {
         description: '',
         units: 1,
         academic_level_id: '',
+        year_level: '',
         is_active: true as boolean,
     });
 
@@ -66,6 +68,7 @@ const ElementarySubjects: React.FC<Props> = ({ subjects, levels }) => {
             description: subject.description || '',
             units: subject.units,
             academic_level_id: subject.academic_level_id?.toString() || '',
+            year_level: subject.year_level?.toString() || '',
             is_active: subject.is_active,
         });
         setEditingSubject(subject);
@@ -197,7 +200,7 @@ const ElementarySubjects: React.FC<Props> = ({ subjects, levels }) => {
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Units</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level & Grade</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -219,6 +222,9 @@ const ElementarySubjects: React.FC<Props> = ({ subjects, levels }) => {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="text-sm text-gray-900">{subject.academic_level?.name}</div>
+                                                <div className="text-xs text-gray-500">
+                                                    {subject.year_level && `Grade ${subject.year_level}`}
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4 max-w-xs">
                                                 <div className="text-sm text-gray-900 truncate">
@@ -321,6 +327,29 @@ const ElementarySubjects: React.FC<Props> = ({ subjects, levels }) => {
                                         </select>
                                         {errors.academic_level_id && (
                                             <p className="text-red-600 text-sm mt-1">{errors.academic_level_id}</p>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Grade Level
+                                        </label>
+                                        <select
+                                            value={data.year_level}
+                                            onChange={(e) => setData('year_level', e.target.value)}
+                                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                                            required
+                                        >
+                                            <option value="">Select Grade Level</option>
+                                            <option value="1">Grade 1</option>
+                                            <option value="2">Grade 2</option>
+                                            <option value="3">Grade 3</option>
+                                            <option value="4">Grade 4</option>
+                                            <option value="5">Grade 5</option>
+                                            <option value="6">Grade 6</option>
+                                        </select>
+                                        {errors.year_level && (
+                                            <p className="text-red-600 text-sm mt-1">{errors.year_level}</p>
                                         )}
                                     </div>
 
