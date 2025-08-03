@@ -925,6 +925,7 @@ class AcademicController extends Controller
             'academic_period_id' => 'required|exists:academic_periods,id',
             'strand_id' => 'required|exists:academic_strands,id',
             'year_level' => 'required|string|max:20',
+            'section' => 'nullable|string|max:255',
         ]);
 
         // Check if teacher is actually a teacher
@@ -968,7 +969,7 @@ class AcademicController extends Controller
         ActivityLog::logActivity(
             Auth::user(),
             'created',
-            'TeacherSubjectAssignment',
+            'InstructorSubjectAssignment',
             $assignment->id,
             null,
             $assignment->toArray()
@@ -983,6 +984,8 @@ class AcademicController extends Controller
             'teacher_id' => 'required|exists:users,id',
             'subject_id' => 'required|exists:subjects,id',
             'academic_period_id' => 'required|exists:academic_periods,id',
+            'strand_id' => 'required|exists:academic_strands,id',
+            'year_level' => 'required|string|max:20',
             'section' => 'nullable|string|max:255',
             'is_active' => 'boolean',
         ]);
@@ -1009,6 +1012,8 @@ class AcademicController extends Controller
             'instructor_id' => $request->teacher_id,
             'subject_id' => $request->subject_id,
             'academic_period_id' => $request->academic_period_id,
+            'strand_id' => $request->strand_id,
+            'year_level' => $request->year_level,
             'section' => $request->section,
             'is_active' => $request->is_active,
         ]);
@@ -1016,7 +1021,7 @@ class AcademicController extends Controller
         ActivityLog::logActivity(
             Auth::user(),
             'updated',
-            'TeacherSubjectAssignment',
+            'InstructorSubjectAssignment',
             $assignment->id,
             $oldValues,
             $assignment->toArray()
@@ -1030,7 +1035,7 @@ class AcademicController extends Controller
         ActivityLog::logActivity(
             Auth::user(),
             'deleted',
-            'TeacherSubjectAssignment',
+            'InstructorSubjectAssignment',
             $assignment->id,
             $assignment->toArray(),
             null

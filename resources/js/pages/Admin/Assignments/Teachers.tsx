@@ -102,6 +102,8 @@ const Teachers: React.FC<Props> = ({
         setData('subject_id', assignment.subject?.id?.toString() || '');
         setData('academic_period_id', assignment.academicPeriod?.id?.toString() || '');
         setData('section', assignment.section || '');
+        setData('strand_id', assignment.strand_id?.toString() || '');
+        setData('year_level', assignment.year_level || '');
         setData('is_active', assignment.is_active);
         setEditingAssignment(assignment);
         setShowCreateModal(true);
