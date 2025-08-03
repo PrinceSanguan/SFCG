@@ -206,6 +206,10 @@ Route::middleware([AdminMiddleware::class])->group(function () {
   Route::get('admin/grading/senior-high', [GradingController::class, 'seniorHighGrading'])->name('admin.grading.senior-high');
   Route::get('admin/grading/college', [GradingController::class, 'collegeGrading'])->name('admin.grading.college');
   Route::get('admin/grading/create', [GradingController::class, 'create'])->name('admin.grading.create');
+  Route::get('admin/grading/elementary/create', [GradingController::class, 'createElementary'])->name('admin.grading.elementary.create');
+  Route::get('admin/grading/junior-high/create', [GradingController::class, 'createJuniorHigh'])->name('admin.grading.junior-high.create');
+  Route::get('admin/grading/senior-high/create', [GradingController::class, 'createSeniorHigh'])->name('admin.grading.senior-high.create');
+  Route::get('admin/grading/college/create', [GradingController::class, 'createCollege'])->name('admin.grading.college.create');
   Route::post('admin/grading', [GradingController::class, 'store'])->name('admin.grading.store');
   Route::get('admin/grading/{grade}', [GradingController::class, 'show'])->name('admin.grading.show');
   Route::get('admin/grading/{grade}/edit', [GradingController::class, 'edit'])->name('admin.grading.edit');

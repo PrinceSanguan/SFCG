@@ -394,6 +394,127 @@ class GradingController extends Controller
         ]);
     }
 
+    public function createElementary()
+    {
+        $elementaryLevels = AcademicLevel::whereIn('name', ['Elementary'])
+            ->orWhere('code', 'ELEM')
+            ->pluck('id');
+
+        $students = User::where('user_role', 'student')
+                       ->whereHas('studentProfile', function($q) use ($elementaryLevels) {
+                           $q->whereIn('academic_level_id', $elementaryLevels);
+                       })
+                       ->with(['studentProfile.academicLevel'])
+                       ->orderBy('name')
+                       ->get();
+
+        $subjects = Subject::whereHas('academicLevel', function($q) use ($elementaryLevels) {
+            $q->whereIn('id', $elementaryLevels);
+        })->orderBy('name')->get();
+
+        $academicPeriods = AcademicPeriod::where('is_active', true)->orderBy('name')->get();
+        $instructors = User::where('user_role', 'instructor')
+                          ->orWhere('user_role', 'teacher')
+                          ->orderBy('name')
+                          ->get();
+
+        return Inertia::render('Admin/Grading/CreateElementary', [
+            'students' => $students,
+            'subjects' => $subjects,
+            'academicPeriods' => $academicPeriods,
+            'instructors' => $instructors
+        ]);
+    }
+
+    public function createJuniorHigh()
+    {
+        $juniorHighLevels = AcademicLevel::whereIn('name', ['Junior High School', 'Junior High'])
+            ->orWhere('code', 'JHS')
+            ->pluck('id');
+
+        $students = User::where('user_role', 'student')
+                       ->whereHas('studentProfile', function($q) use ($juniorHighLevels) {
+                           $q->whereIn('academic_level_id', $juniorHighLevels);
+                       })
+                       ->with(['studentProfile.academicLevel'])
+                       ->orderBy('name')
+                       ->get();
+
+        $subjects = Subject::whereHas('academicLevel', function($q) use ($juniorHighLevels) {
+            $q->whereIn('id', $juniorHighLevels);
+        })->orderBy('name')->get();
+
+        $academicPeriods = AcademicPeriod::where('is_active', true)->orderBy('name')->get();
+        $instructors = User::where('user_role', 'instructor')
+                          ->orWhere('user_role', 'teacher')
+                          ->orderBy('name')
+                          ->get();
+
+        return Inertia::render('Admin/Grading/CreateJuniorHigh', [
+            'students' => $students,
+            'subjects' => $subjects,
+            'academicPeriods' => $academicPeriods,
+            'instructors' => $instructors
+        ]);
+    }
+
+    public function createSeniorHigh()
+    {
+        $seniorHighLevels = AcademicLevel::whereIn('name', ['Senior High School', 'Senior High'])
+            ->orWhere('code', 'SHS')
+            ->pluck('id');
+
+        $students = User::where('user_role', 'student')
+                       ->whereHas('studentProfile', function($q) use ($seniorHighLevels) {
+                           $q->whereIn('academic_level_id', $seniorHighLevels);
+                       })
+                       ->with(['studentProfile.academicLevel'])
+                       ->orderBy('name')
+                       ->get();
+
+        $subjects = Subject::whereHas('academicLevel', function($q) use ($seniorHighLevels) {
+            $q->whereIn('id', $seniorHighLevels);
+        })->orderBy('name')->get();
+
+        $academicPeriods = AcademicPeriod::where('is_active', true)->orderBy('name')->get();
+        $instructors = User::where('user_role', 'instructor')
+                          ->orWhere('user_role', 'teacher')
+                          ->orderBy('name')
+                          ->get();
+
+        return Inertia::render('Admin/Grading/CreateSeniorHigh', [
+            'students' => $students,
+            'subjects' => $subjects,
+            'academicPeriods' => $academicPeriods,
+            'instructors' => $instructors
+        ]);
+    }
+
+    public function createCollege()
+    {
+        $students = User::where('user_role', 'student')
+                       ->whereHas('studentProfile', function($q) {
+                           $q->whereNotNull('college_course_id');
+                       })
+                       ->with(['studentProfile.collegeCourse'])
+                       ->orderBy('name')
+                       ->get();
+
+        $subjects = Subject::whereNotNull('college_course_id')->orderBy('name')->get();
+        $academicPeriods = AcademicPeriod::where('is_active', true)->orderBy('name')->get();
+        $instructors = User::where('user_role', 'instructor')
+                          ->orWhere('user_role', 'teacher')
+                          ->orderBy('name')
+                          ->get();
+
+        return Inertia::render('Admin/Grading/CreateCollege', [
+            'students' => $students,
+            'subjects' => $subjects,
+            'academicPeriods' => $academicPeriods,
+            'instructors' => $instructors
+        ]);
+    }
+
     public function store(Request $request)
     {
         $request->validate([

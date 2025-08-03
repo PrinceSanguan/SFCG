@@ -71,6 +71,7 @@ const ElementaryGrading: React.FC<Props> = ({
     academicPeriods, 
     subjects, 
     instructors, 
+    sections,
     stats, 
     filters 
 }) => {
@@ -338,8 +339,15 @@ const ElementaryGrading: React.FC<Props> = ({
 
                     {/* Grades Table */}
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-                            <h2 className="text-lg font-semibold text-gray-900">Elementary Grades</h2>
+                                            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                        <h2 className="text-lg font-semibold text-gray-900">Elementary Grades</h2>
+                        <div className="flex items-center space-x-4">
+                            <Link
+                                href="/admin/grading/elementary/create"
+                                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                            >
+                                + Create Grade
+                            </Link>
                             <div className="flex items-center space-x-2">
                                 <input
                                     type="checkbox"
@@ -350,6 +358,7 @@ const ElementaryGrading: React.FC<Props> = ({
                                 <span className="text-sm text-gray-600">Select All</span>
                             </div>
                         </div>
+                    </div>
                         
                         {grades.data.length === 0 ? (
                             <div className="p-12 text-center text-gray-500">
