@@ -793,6 +793,7 @@ class AcademicController extends Controller
             'academic_period_id' => 'required|exists:academic_periods,id',
             'college_course_id' => 'required|exists:college_courses,id',
             'year_level' => 'required|string|max:20',
+            'section' => 'required|string|max:50',
         ]);
 
         // Verify instructor role
@@ -826,6 +827,7 @@ class AcademicController extends Controller
             'academic_period_id' => $request->academic_period_id,
             'college_course_id' => $request->college_course_id,
             'year_level' => $request->year_level,
+            'section' => $request->section,
             'is_active' => true,
         ]);
 

@@ -50,14 +50,6 @@ const Header: React.FC<HeaderProps> = ({ onMenuToggle, isSidebarOpen }) => {
 
                     {/* Right side */}
                     <div className="flex items-center space-x-4">
-                        {/* Notifications */}
-                        <button className="p-2 text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md">
-                            <span className="sr-only">View notifications</span>
-                            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM10.5 3.75a6 6 0 0 1 6 6v3.75l-1.5 1.5H6l-1.5-1.5V9.75a6 6 0 0 1 6-6z" />
-                            </svg>
-                        </button>
-
                         {/* User menu */}
                         <div className="relative">
                             <button

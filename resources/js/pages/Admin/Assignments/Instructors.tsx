@@ -39,6 +39,11 @@ interface InstructorAssignment {
     year_level?: string;
     college_course_id?: number;
     semester?: string;
+    collegeCourse?: {
+        id: number;
+        name: string;
+        code: string;
+    };
 }
 
 interface Instructor {
@@ -99,6 +104,7 @@ const InstructorAssignments: React.FC<Props> = ({ assignments, instructors, subj
         academic_period_id: '',
         college_course_id: '',
         year_level: '',
+        section: '',
     });
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -129,6 +135,7 @@ const InstructorAssignments: React.FC<Props> = ({ assignments, instructors, subj
             academic_period_id: assignment.academicPeriod?.id?.toString() || '',
             college_course_id: assignment.college_course_id?.toString() || '',
             year_level: assignment.year_level || '',
+            section: assignment.section || '',
         });
         setEditingAssignment(assignment);
         setShowCreateModal(true);
@@ -349,13 +356,13 @@ const InstructorAssignments: React.FC<Props> = ({ assignments, instructors, subj
                                                 {assignment.section || 'N/A'}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                {assignment.subject?.collegeCourse ? (
+                                                {assignment.collegeCourse ? (
                                                     <div>
-                                                        <div className="font-medium">{assignment.subject.collegeCourse.name}</div>
-                                                        <div className="text-gray-500">{assignment.subject.collegeCourse.code}</div>
-                                                        {assignment.subject?.year_level && (
+                                                        <div className="font-medium">{assignment.collegeCourse.name}</div>
+                                                        <div className="text-gray-500">{assignment.collegeCourse.code}</div>
+                                                        {assignment.year_level && (
                                                             <div className="text-xs text-gray-400">
-                                                                {assignment.subject.year_level} {assignment.subject?.semester ? `• ${assignment.subject.semester}` : ''}
+                                                                {assignment.year_level}
                                                             </div>
                                                         )}
                                                     </div>
@@ -507,6 +514,23 @@ const InstructorAssignments: React.FC<Props> = ({ assignments, instructors, subj
                                             </select>
                                             {errors.year_level && (
                                                 <p className="text-red-600 text-sm mt-1">{errors.year_level}</p>
+                                            )}
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Section
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={data.section}
+                                                onChange={(e) => setData('section', e.target.value)}
+                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                placeholder="e.g., A, B, C"
+                                                required
+                                            />
+                                            {errors.section && (
+                                                <p className="text-red-600 text-sm mt-1">{errors.section}</p>
                                             )}
                                         </div>
 
