@@ -31,6 +31,8 @@ interface Grade {
         quarter: number;
         grade: number;
         weight: number;
+        label?: string;
+        semester?: number;
     }>;
     final_grade: number;
     status: string;
@@ -386,7 +388,7 @@ const ElementaryGrading: React.FC<Props> = ({
                                             </th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quarterly Grades</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quarterly Grades (1st-4th)</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Final Grade</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -430,7 +432,11 @@ const ElementaryGrading: React.FC<Props> = ({
                                                     <div className="flex space-x-2">
                                                         {grade.quarterly_grades.map((qg, index) => (
                                                             <div key={index} className="text-center">
-                                                                <div className="text-xs text-gray-500">Q{qg.quarter}</div>
+                                                                <div className="text-xs text-gray-500">
+                                                                    {qg.quarter === 1 ? '1st' : 
+                                                                     qg.quarter === 2 ? '2nd' : 
+                                                                     qg.quarter === 3 ? '3rd' : '4th'} Grading
+                                                                </div>
                                                                 <div className={`text-sm font-medium ${getGradeColor(qg.grade)}`}>
                                                                     {qg.grade}
                                                                 </div>

@@ -49,10 +49,10 @@ const CreateSeniorHigh: React.FC<Props> = ({ students, subjects, academicPeriods
         instructor_id: '',
         section: '',
         quarterly_grades: [
-            { quarter: 1, grade: '', weight: 25 },
-            { quarter: 2, grade: '', weight: 25 },
-            { quarter: 3, grade: '', weight: 25 },
-            { quarter: 4, grade: '', weight: 25 }
+            { quarter: 1, grade: '', weight: 50, label: '1st Grading', semester: 1 },
+            { quarter: 2, grade: '', weight: 50, label: '2nd Grading', semester: 1 },
+            { quarter: 3, grade: '', weight: 50, label: '3rd Grading', semester: 2 },
+            { quarter: 4, grade: '', weight: 50, label: '4th Grading', semester: 2 }
         ],
         final_grade: '',
         remarks: '',
@@ -78,10 +78,21 @@ const CreateSeniorHigh: React.FC<Props> = ({ students, subjects, academicPeriods
         };
         setData('quarterly_grades', newQuarterlyGrades);
 
-        // Calculate final grade
-        const totalWeight = newQuarterlyGrades.reduce((sum, q) => sum + (q.weight || 0), 0);
-        const weightedSum = newQuarterlyGrades.reduce((sum, q) => sum + ((q.grade || 0) * (q.weight || 0)), 0);
-        const finalGrade = totalWeight > 0 ? weightedSum / totalWeight : 0;
+        // Calculate final grade for Senior High (semester-based)
+        const semester1Grades = newQuarterlyGrades.filter(q => q.semester === 1 && q.grade > 0);
+        const semester2Grades = newQuarterlyGrades.filter(q => q.semester === 2 && q.grade > 0);
+        
+        let finalGrade = 0;
+        if (semester1Grades.length > 0 && semester2Grades.length > 0) {
+            const semester1Avg = semester1Grades.reduce((sum, q) => sum + (q.grade || 0), 0) / semester1Grades.length;
+            const semester2Avg = semester2Grades.reduce((sum, q) => sum + (q.grade || 0), 0) / semester2Grades.length;
+            finalGrade = (semester1Avg + semester2Avg) / 2;
+        } else if (semester1Grades.length > 0) {
+            finalGrade = semester1Grades.reduce((sum, q) => sum + (q.grade || 0), 0) / semester1Grades.length;
+        } else if (semester2Grades.length > 0) {
+            finalGrade = semester2Grades.reduce((sum, q) => sum + (q.grade || 0), 0) / semester2Grades.length;
+        }
+        
         setData('final_grade', finalGrade.toFixed(2));
     };
 
@@ -279,43 +290,95 @@ const CreateSeniorHigh: React.FC<Props> = ({ students, subjects, academicPeriods
                                 </div>
                             )}
 
-                            {/* Quarterly Grades */}
+                            {/* Semester-Based Grades */}
                             <div>
-                                <h3 className="text-lg font-medium text-gray-900 mb-4">Quarterly Grades</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                    {data.quarterly_grades.map((quarter, index) => (
-                                        <div key={index} className="bg-gray-50 rounded-lg p-4">
-                                            <h4 className="text-sm font-medium text-gray-700 mb-2">Quarter {quarter.quarter}</h4>
-                                            <div className="space-y-2">
-                                                <div>
-                                                    <label className="block text-xs text-gray-600 mb-1">Grade</label>
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        max="100"
-                                                        step="0.01"
-                                                        value={quarter.grade}
-                                                        onChange={(e) => handleQuarterlyGradeChange(index, 'grade', e.target.value)}
-                                                        className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                                        placeholder="0.00"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-xs text-gray-600 mb-1">Weight (%)</label>
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        max="100"
-                                                        step="0.01"
-                                                        value={quarter.weight}
-                                                        onChange={(e) => handleQuarterlyGradeChange(index, 'weight', e.target.value)}
-                                                        className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                                        placeholder="25"
-                                                    />
-                                                </div>
-                                            </div>
+                                <h3 className="text-lg font-medium text-gray-900 mb-4">Semester-Based Grades</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {/* 1st Semester */}
+                                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                                        <h4 className="text-sm font-medium text-purple-800 mb-3">1st Semester</h4>
+                                        <div className="grid grid-cols-1 gap-4">
+                                            {data.quarterly_grades.filter(q => q.semester === 1).map((quarter, index) => {
+                                                const originalIndex = data.quarterly_grades.findIndex(q => q.quarter === quarter.quarter);
+                                                return (
+                                                    <div key={index} className="bg-white rounded-lg p-3">
+                                                        <h5 className="text-sm font-medium text-gray-700 mb-2">{quarter.label}</h5>
+                                                        <div className="space-y-2">
+                                                            <div>
+                                                                <label className="block text-xs text-gray-600 mb-1">Grade</label>
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    max="100"
+                                                                    step="0.01"
+                                                                    value={quarter.grade}
+                                                                    onChange={(e) => handleQuarterlyGradeChange(originalIndex, 'grade', e.target.value)}
+                                                                    className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                                    placeholder="0.00"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-xs text-gray-600 mb-1">Weight (%)</label>
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    max="100"
+                                                                    step="0.01"
+                                                                    value={quarter.weight}
+                                                                    onChange={(e) => handleQuarterlyGradeChange(originalIndex, 'weight', e.target.value)}
+                                                                    className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                                    placeholder="50"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
-                                    ))}
+                                    </div>
+                                    
+                                    {/* 2nd Semester */}
+                                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                                        <h4 className="text-sm font-medium text-purple-800 mb-3">2nd Semester</h4>
+                                        <div className="grid grid-cols-1 gap-4">
+                                            {data.quarterly_grades.filter(q => q.semester === 2).map((quarter, index) => {
+                                                const originalIndex = data.quarterly_grades.findIndex(q => q.quarter === quarter.quarter);
+                                                return (
+                                                    <div key={index} className="bg-white rounded-lg p-3">
+                                                        <h5 className="text-sm font-medium text-gray-700 mb-2">{quarter.label}</h5>
+                                                        <div className="space-y-2">
+                                                            <div>
+                                                                <label className="block text-xs text-gray-600 mb-1">Grade</label>
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    max="100"
+                                                                    step="0.01"
+                                                                    value={quarter.grade}
+                                                                    onChange={(e) => handleQuarterlyGradeChange(originalIndex, 'grade', e.target.value)}
+                                                                    className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                                    placeholder="0.00"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-xs text-gray-600 mb-1">Weight (%)</label>
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    max="100"
+                                                                    step="0.01"
+                                                                    value={quarter.weight}
+                                                                    onChange={(e) => handleQuarterlyGradeChange(originalIndex, 'weight', e.target.value)}
+                                                                    className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                                    placeholder="50"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 

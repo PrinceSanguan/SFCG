@@ -49,10 +49,10 @@ const CreateJuniorHigh: React.FC<Props> = ({ students, subjects, academicPeriods
         instructor_id: '',
         section: '',
         quarterly_grades: [
-            { quarter: 1, grade: '', weight: 25 },
-            { quarter: 2, grade: '', weight: 25 },
-            { quarter: 3, grade: '', weight: 25 },
-            { quarter: 4, grade: '', weight: 25 }
+            { quarter: 1, grade: '', weight: 25, label: '1st Grading' },
+            { quarter: 2, grade: '', weight: 25, label: '2nd Grading' },
+            { quarter: 3, grade: '', weight: 25, label: '3rd Grading' },
+            { quarter: 4, grade: '', weight: 25, label: '4th Grading' }
         ],
         final_grade: '',
         remarks: '',
@@ -285,7 +285,7 @@ const CreateJuniorHigh: React.FC<Props> = ({ students, subjects, academicPeriods
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                     {data.quarterly_grades.map((quarter, index) => (
                                         <div key={index} className="bg-gray-50 rounded-lg p-4">
-                                            <h4 className="text-sm font-medium text-gray-700 mb-2">Quarter {quarter.quarter}</h4>
+                                            <h4 className="text-sm font-medium text-gray-700 mb-2">{quarter.label}</h4>
                                             <div className="space-y-2">
                                                 <div>
                                                     <label className="block text-xs text-gray-600 mb-1">Grade</label>

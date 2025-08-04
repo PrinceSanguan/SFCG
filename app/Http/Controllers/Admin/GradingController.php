@@ -515,7 +515,6 @@ class GradingController extends Controller
 
         $academicPeriods = AcademicPeriod::where('is_active', true)->orderBy('name')->get();
         $instructors = User::where('user_role', 'instructor')
-                          ->orWhere('user_role', 'teacher')
                           ->orderBy('name')
                           ->get();
 
@@ -542,6 +541,13 @@ class GradingController extends Controller
         ]);
 
         DB::transaction(function () use ($request) {
+            // Get student's academic level to determine grading system
+            $student = User::with('studentProfile.academicLevel')->find($request->student_id);
+            $academicLevel = $student->studentProfile->academicLevel;
+            
+            // Calculate final grade based on academic level
+            $calculatedFinalGrade = $this->calculateFinalGradeByLevel($request->quarterly_grades, $academicLevel);
+            
             $grade = Grade::create([
                 'student_id' => $request->student_id,
                 'subject_id' => $request->subject_id,
@@ -549,7 +555,7 @@ class GradingController extends Controller
                 'instructor_id' => $request->instructor_id,
                 'section' => $request->section,
                 'quarterly_grades' => $request->quarterly_grades,
-                'final_grade' => $request->final_grade,
+                'final_grade' => $calculatedFinalGrade,
                 'remarks' => $request->remarks,
                 'status' => 'submitted',
                 'submitted_at' => now(),
@@ -565,12 +571,94 @@ class GradingController extends Controller
             );
 
             // Auto-calculate honors if final grade is high
-            if ($request->final_grade >= 90) {
+            if ($calculatedFinalGrade >= 90) {
                 app(HonorCalculationService::class)->calculateStudentHonors($request->student_id, $request->academic_period_id);
             }
         });
 
         return redirect()->route('admin.grading.index')->with('success', 'Grade created successfully.');
+    }
+
+    /**
+     * Calculate final grade based on academic level and grading system
+     */
+    private function calculateFinalGradeByLevel($quarterlyGrades, $academicLevel)
+    {
+        $levelName = strtolower($academicLevel->name);
+        
+        // Elementary and Junior High: Simple average of all quarters
+        if (str_contains($levelName, 'elementary') || str_contains($levelName, 'junior high')) {
+            $validGrades = array_filter($quarterlyGrades, function($q) {
+                return isset($q['grade']) && $q['grade'] > 0;
+            });
+            
+            if (empty($validGrades)) {
+                return 0;
+            }
+            
+            $sum = array_sum(array_column($validGrades, 'grade'));
+            return round($sum / count($validGrades), 2);
+        }
+        
+        // Senior High: Semester-based (1st & 2nd Grading = 1st Semester, 3rd & 4th Grading = 2nd Semester)
+        if (str_contains($levelName, 'senior high')) {
+            $semester1Grades = array_filter($quarterlyGrades, function($q) {
+                return isset($q['semester']) && $q['semester'] == 1 && isset($q['grade']) && $q['grade'] > 0;
+            });
+            
+            $semester2Grades = array_filter($quarterlyGrades, function($q) {
+                return isset($q['semester']) && $q['semester'] == 2 && isset($q['grade']) && $q['grade'] > 0;
+            });
+            
+            $semester1Avg = !empty($semester1Grades) ? array_sum(array_column($semester1Grades, 'grade')) / count($semester1Grades) : 0;
+            $semester2Avg = !empty($semester2Grades) ? array_sum(array_column($semester2Grades, 'grade')) / count($semester2Grades) : 0;
+            
+            if ($semester1Avg > 0 && $semester2Avg > 0) {
+                return round(($semester1Avg + $semester2Avg) / 2, 2);
+            } elseif ($semester1Avg > 0) {
+                return round($semester1Avg, 2);
+            } elseif ($semester2Avg > 0) {
+                return round($semester2Avg, 2);
+            }
+            
+            return 0;
+        }
+        
+        // College: Semester-based (Midterm + Pre-Final) / 2 for each semester
+        if (str_contains($levelName, 'college') || str_contains($levelName, 'university')) {
+            $semester1Grades = array_filter($quarterlyGrades, function($q) {
+                return isset($q['semester']) && $q['semester'] == 1 && isset($q['grade']) && $q['grade'] > 0;
+            });
+            
+            $semester2Grades = array_filter($quarterlyGrades, function($q) {
+                return isset($q['semester']) && $q['semester'] == 2 && isset($q['grade']) && $q['grade'] > 0;
+            });
+            
+            $semester1Avg = !empty($semester1Grades) ? array_sum(array_column($semester1Grades, 'grade')) / count($semester1Grades) : 0;
+            $semester2Avg = !empty($semester2Grades) ? array_sum(array_column($semester2Grades, 'grade')) / count($semester2Grades) : 0;
+            
+            if ($semester1Avg > 0 && $semester2Avg > 0) {
+                return round(($semester1Avg + $semester2Avg) / 2, 2);
+            } elseif ($semester1Avg > 0) {
+                return round($semester1Avg, 2);
+            } elseif ($semester2Avg > 0) {
+                return round($semester2Avg, 2);
+            }
+            
+            return 0;
+        }
+        
+        // Default: Simple average
+        $validGrades = array_filter($quarterlyGrades, function($q) {
+            return isset($q['grade']) && $q['grade'] > 0;
+        });
+        
+        if (empty($validGrades)) {
+            return 0;
+        }
+        
+        $sum = array_sum(array_column($validGrades, 'grade'));
+        return round($sum / count($validGrades), 2);
     }
 
     public function show(Grade $grade)
@@ -635,6 +723,13 @@ class GradingController extends Controller
         DB::transaction(function () use ($request, $grade) {
             $oldValues = $grade->toArray();
 
+            // Get student's academic level to determine grading system
+            $student = User::with('studentProfile.academicLevel')->find($request->student_id);
+            $academicLevel = $student->studentProfile->academicLevel;
+            
+            // Calculate final grade based on academic level
+            $calculatedFinalGrade = $this->calculateFinalGradeByLevel($request->quarterly_grades, $academicLevel);
+
             $grade->update([
                 'student_id' => $request->student_id,
                 'subject_id' => $request->subject_id,
@@ -642,7 +737,7 @@ class GradingController extends Controller
                 'instructor_id' => $request->instructor_id,
                 'section' => $request->section,
                 'quarterly_grades' => $request->quarterly_grades,
-                'final_grade' => $request->final_grade,
+                'final_grade' => $calculatedFinalGrade,
                 'remarks' => $request->remarks,
                 'status' => $request->status ?? $grade->status,
                 'approved_at' => $request->status === 'approved' ? now() : null,

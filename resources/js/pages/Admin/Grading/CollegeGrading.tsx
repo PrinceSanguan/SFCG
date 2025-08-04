@@ -36,6 +36,8 @@ interface Grade {
         quarter: number;
         grade: number;
         weight: number;
+        label?: string;
+        semester?: number;
     }>;
     final_grade: number;
     status: string;
@@ -399,7 +401,7 @@ const CollegeGrading: React.FC<Props> = ({
                                             Academic Period
                                         </th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Quarterly Grades
+                                            Semester Grades (Midterm/Pre-Final)
                                         </th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Final Grade
@@ -453,15 +455,39 @@ const CollegeGrading: React.FC<Props> = ({
                                                 {grade.academic_period.name}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="flex space-x-2">
-                                                    {grade.quarterly_grades.map((quarter, index) => (
-                                                        <div key={index} className="text-center">
-                                                            <div className="text-xs text-gray-500">Q{quarter.quarter}</div>
-                                                            <div className={`text-sm font-medium ${getGradeColor(quarter.grade)}`}>
-                                                                {quarter.grade}
-                                                            </div>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    {/* 1st Semester */}
+                                                    <div className="bg-orange-50 rounded p-2">
+                                                        <div className="text-xs text-orange-700 font-medium mb-1">1st Semester</div>
+                                                        <div className="flex space-x-1">
+                                                            {grade.quarterly_grades.filter(q => q.semester === 1).map((quarter, index) => (
+                                                                <div key={index} className="text-center flex-1">
+                                                                    <div className="text-xs text-gray-500">
+                                                                        {quarter.quarter === 1 ? 'Midterm' : 'Pre-Final'}
+                                                                    </div>
+                                                                    <div className={`text-sm font-medium ${getGradeColor(quarter.grade)}`}>
+                                                                        {quarter.grade}
+                                                                    </div>
+                                                                </div>
+                                                            ))}
                                                         </div>
-                                                    ))}
+                                                    </div>
+                                                    {/* 2nd Semester */}
+                                                    <div className="bg-orange-50 rounded p-2">
+                                                        <div className="text-xs text-orange-700 font-medium mb-1">2nd Semester</div>
+                                                        <div className="flex space-x-1">
+                                                            {grade.quarterly_grades.filter(q => q.semester === 2).map((quarter, index) => (
+                                                                <div key={index} className="text-center flex-1">
+                                                                    <div className="text-xs text-gray-500">
+                                                                        {quarter.quarter === 3 ? 'Midterm' : 'Pre-Final'}
+                                                                    </div>
+                                                                    <div className={`text-sm font-medium ${getGradeColor(quarter.grade)}`}>
+                                                                        {quarter.grade}
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">

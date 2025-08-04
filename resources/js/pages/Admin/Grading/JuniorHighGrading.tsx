@@ -31,6 +31,8 @@ interface Grade {
         quarter: number;
         grade: number;
         weight: number;
+        label?: string;
+        semester?: number;
     }>;
     final_grade: number;
     status: string;
@@ -394,7 +396,7 @@ const JuniorHighGrading: React.FC<Props> = ({
                                             Academic Period
                                         </th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Quarterly Grades
+                                            Quarterly Grades (1st-4th)
                                         </th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Final Grade
@@ -448,7 +450,11 @@ const JuniorHighGrading: React.FC<Props> = ({
                                                 <div className="flex space-x-2">
                                                     {grade.quarterly_grades.map((quarter, index) => (
                                                         <div key={index} className="text-center">
-                                                            <div className="text-xs text-gray-500">Q{quarter.quarter}</div>
+                                                            <div className="text-xs text-gray-500">
+                                                                {quarter.quarter === 1 ? '1st' : 
+                                                                 quarter.quarter === 2 ? '2nd' : 
+                                                                 quarter.quarter === 3 ? '3rd' : '4th'} Grading
+                                                            </div>
                                                             <div className={`text-sm font-medium ${getGradeColor(quarter.grade)}`}>
                                                                 {quarter.grade}
                                                             </div>
