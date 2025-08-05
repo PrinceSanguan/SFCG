@@ -965,6 +965,7 @@ class AcademicController extends Controller
             'academic_period_id' => $request->academic_period_id,
             'strand_id' => $request->strand_id,
             'year_level' => $request->year_level,
+            'section' => $request->section,
             'is_active' => true,
         ]);
 

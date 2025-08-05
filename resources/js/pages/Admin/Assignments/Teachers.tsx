@@ -46,6 +46,7 @@ interface Assignment {
     year_level?: string;
     college_course_id?: number;
     semester?: string;
+    strand?: AcademicStrand;
 }
 
 interface Props {
@@ -214,7 +215,7 @@ const Teachers: React.FC<Props> = ({
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="text-sm text-gray-900">
-                                                {assignment.subject?.academicStrand?.name || 'N/A'}
+                                                {assignment.strand?.name || 'N/A'}
                                             </div>
                                             <div className="text-sm text-gray-900">
                                                 {assignment.year_level || 'N/A'}

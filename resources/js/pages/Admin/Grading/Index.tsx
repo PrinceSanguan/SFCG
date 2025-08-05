@@ -70,8 +70,8 @@ const GradingIndex: React.FC<Props> = ({ gradeCounts }) => {
         <>
             <Head title="Grading Management" />
             <AdminLayout>
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900">Grading Management</h1>
+                        <div className="mb-8">
+                                    <h1 className="text-3xl font-bold text-gray-900">Grading Management</h1>
                     <p className="text-gray-600 mt-2">Manage academic grades by educational level</p>
                 </div>
 
@@ -82,15 +82,15 @@ const GradingIndex: React.FC<Props> = ({ gradeCounts }) => {
                         <div className="text-center">
                             <div className="text-2xl font-bold text-gray-900">{gradeCounts.total}</div>
                             <div className="text-sm text-gray-600">Total Grades</div>
-                        </div>
+                                </div>
                         <div className="text-center">
                             <div className="text-2xl font-bold text-yellow-600">{gradeCounts.pending}</div>
                             <div className="text-sm text-gray-600">Pending</div>
-                        </div>
+                                </div>
                         <div className="text-center">
                             <div className="text-2xl font-bold text-green-600">{gradeCounts.approved}</div>
                             <div className="text-sm text-gray-600">Approved</div>
-                        </div>
+                            </div>
                         <div className="text-center">
                             <div className="text-2xl font-bold text-green-600">{gradeCounts.elementary}</div>
                             <div className="text-sm text-gray-600">Elementary</div>
@@ -98,17 +98,17 @@ const GradingIndex: React.FC<Props> = ({ gradeCounts }) => {
                         <div className="text-center">
                             <div className="text-2xl font-bold text-blue-600">{gradeCounts.junior_high}</div>
                             <div className="text-sm text-gray-600">Junior High</div>
-                        </div>
+                                        </div>
                         <div className="text-center">
                             <div className="text-2xl font-bold text-purple-600">{gradeCounts.senior_high}</div>
                             <div className="text-sm text-gray-600">Senior High</div>
-                        </div>
+                                    </div>
                         <div className="text-center">
                             <div className="text-2xl font-bold text-orange-600">{gradeCounts.college}</div>
                             <div className="text-sm text-gray-600">College</div>
-                        </div>
-                    </div>
-                </div>
+                                    </div>
+                                </div>
+                            </div>
 
                 {/* Grading Categories */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
@@ -141,7 +141,7 @@ const GradingIndex: React.FC<Props> = ({ gradeCounts }) => {
                             </div>
                         </Link>
                     ))}
-                </div>
+                                </div>
 
                 {/* Quick Actions */}
                 <div className="mt-8 bg-gray-50 rounded-lg p-6">
@@ -154,30 +154,30 @@ const GradingIndex: React.FC<Props> = ({ gradeCounts }) => {
                             <span className="text-xl">📝</span>
                             <span className="font-medium text-gray-900">Elementary Grades</span>
                         </Link>
-                        <Link
+                                                    <Link
                             href="/admin/grading/junior-high"
                             className="flex items-center space-x-3 p-4 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
-                        >
+                                                    >
                             <span className="text-xl">📊</span>
                             <span className="font-medium text-gray-900">Junior High Grades</span>
-                        </Link>
-                        <Link
+                                                    </Link>
+                                                    <Link
                             href="/admin/grading/senior-high"
                             className="flex items-center space-x-3 p-4 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
-                        >
+                                                    >
                             <span className="text-xl">🎯</span>
                             <span className="font-medium text-gray-900">Senior High Grades</span>
-                        </Link>
-                        <Link
+                                                    </Link>
+                                        <Link
                             href="/admin/grading/college"
                             className="flex items-center space-x-3 p-4 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
                         >
                             <span className="text-xl">🏛️</span>
                             <span className="font-medium text-gray-900">College Grades</span>
-                        </Link>
-                    </div>
-                </div>
-            </AdminLayout>
+                                        </Link>
+                                </div>
+            </div>
+        </AdminLayout>
         </>
     );
 };
