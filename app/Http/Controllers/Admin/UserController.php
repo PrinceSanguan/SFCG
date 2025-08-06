@@ -14,6 +14,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
@@ -1240,5 +1242,330 @@ class UserController extends Controller
         );
 
         return back()->with('success', 'Password updated successfully for parent ' . $parent->name);
+    }
+
+    // ==================== LEVEL-SPECIFIC CSV UPLOAD ====================
+    
+    public function uploadCsvByLevel(Request $request)
+    {
+        // Validate the request first
+        $validator = Validator::make($request->all(), [
+            'csv_file' => 'required|file|mimes:csv,txt|max:2048',
+            'academic_level' => 'required|string|in:elementary,junior_high,college',
+        ]);
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput();
+        }
+
+        $file = $request->file('csv_file');
+        $academicLevel = $request->academic_level;
+        
+        if (!$file) {
+            return back()->withErrors(['csv_file' => 'No file was uploaded.'])->withInput();
+        }
+        
+        try {
+            // Check if file is readable
+            if (!is_readable($file->path())) {
+                return back()->withErrors(['csv_file' => 'Unable to read the uploaded file.'])->withInput();
+            }
+
+            $csvData = array_map('str_getcsv', file($file->path()));
+            
+            // Check if CSV has data
+            if (empty($csvData) || count($csvData) < 2) {
+                return back()->withErrors(['csv_file' => 'CSV file must contain at least a header row and one data row.'])->withInput();
+            }
+
+            $headers = array_shift($csvData); // Remove header row
+            
+            // Validate headers
+            if (!in_array('name', $headers) || !in_array('email', $headers)) {
+                return back()->withErrors(['csv_file' => 'CSV must contain "name" and "email" columns.'])->withInput();
+            }
+            
+            $successCount = 0;
+            $errorCount = 0;
+            $errors = [];
+
+            DB::transaction(function () use ($csvData, $headers, $academicLevel, &$successCount, &$errorCount, &$errors) {
+                foreach ($csvData as $rowIndex => $row) {
+                    try {
+                        // Ensure row has same number of columns as headers
+                        if (count($row) !== count($headers)) {
+                            $errors[] = "Row " . ($rowIndex + 2) . ": Number of columns doesn't match headers.";
+                            $errorCount++;
+                            continue;
+                        }
+
+                        $data = array_combine($headers, $row);
+                        
+                        // Basic validation
+                        if (empty($data['name']) || empty($data['email'])) {
+                            $errors[] = "Row " . ($rowIndex + 2) . ": Name and email are required.";
+                            $errorCount++;
+                            continue;
+                        }
+
+                        // Validate email format
+                        if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
+                            $errors[] = "Row " . ($rowIndex + 2) . ": Invalid email format for {$data['email']}.";
+                            $errorCount++;
+                            continue;
+                        }
+
+                        // Check if email already exists
+                        if (User::where('email', $data['email'])->exists()) {
+                            $errors[] = "Row " . ($rowIndex + 2) . ": Email {$data['email']} already exists.";
+                            $errorCount++;
+                            continue;
+                        }
+
+                        // Sanitize and validate data
+                        $name = trim($data['name']);
+                        $email = trim($data['email']);
+                        
+                        if (strlen($name) < 2) {
+                            $errors[] = "Row " . ($rowIndex + 2) . ": Name must be at least 2 characters long.";
+                            $errorCount++;
+                            continue;
+                        }
+
+                        if (strlen($email) > 255) {
+                            $errors[] = "Row " . ($rowIndex + 2) . ": Email is too long.";
+                            $errorCount++;
+                            continue;
+                        }
+
+                        $user = User::create([
+                            'name' => $name,
+                            'email' => $email,
+                            'password' => Hash::make($data['password'] ?? 'password123'),
+                            'user_role' => 'student',
+                        ]);
+
+                        // Create student profile based on academic level
+                        $this->createStudentProfileByLevel($user, $data, $academicLevel);
+
+                        ActivityLog::logActivity(
+                            Auth::user(),
+                            'created',
+                            'User',
+                            $user->id,
+                            null,
+                            $user->toArray()
+                        );
+
+                        $successCount++;
+                        
+                    } catch (\Exception $e) {
+                        $errors[] = "Row " . ($rowIndex + 2) . ": " . $e->getMessage();
+                        $errorCount++;
+                    }
+                }
+            });
+
+            $levelName = ucfirst(str_replace('_', ' ', $academicLevel));
+            $message = "CSV upload completed for {$levelName} students. {$successCount} students created successfully.";
+            if ($errorCount > 0) {
+                $message .= " {$errorCount} rows had errors.";
+            }
+
+            // Return success with any errors as flash data
+            return redirect()->back()
+                ->with('success', $message)
+                ->with('csv_errors', $errors);
+
+        } catch (\Exception $e) {
+            Log::error('CSV Upload Error: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return redirect()->back()
+                ->withErrors(['csv_file' => 'Error processing CSV file: ' . $e->getMessage()])
+                ->withInput();
+        }
+    }
+
+    private function createStudentProfileByLevel(User $user, array $data, string $academicLevel)
+    {
+        $profileData = [
+            'user_id' => $user->id,
+            'student_id' => $data['student_id'] ?? 'STU-' . str_pad($user->id, 6, '0', STR_PAD_LEFT),
+            'first_name' => $data['first_name'] ?? explode(' ', $user->name)[0],
+            'middle_name' => $data['middle_name'] ?? null,
+            'last_name' => $data['last_name'] ?? (explode(' ', $user->name)[1] ?? ''),
+            'birth_date' => $data['birth_date'] ?? '2000-01-01',
+            'gender' => $data['gender'] ?? 'Male',
+            'address' => $data['address'] ?? '',
+            'contact_number' => $data['contact_number'] ?? null,
+            'enrollment_status' => 'active',
+            'class_adviser_id' => null,
+        ];
+
+        switch ($academicLevel) {
+            case 'elementary':
+                $this->setElementaryFields($profileData, $data);
+                break;
+            case 'junior_high':
+                $this->setJuniorHighFields($profileData, $data);
+                break;
+            case 'college':
+                $this->setCollegeFields($profileData, $data);
+                break;
+        }
+
+        StudentProfile::create($profileData);
+    }
+
+    private function setElementaryFields(array &$profileData, array $data)
+    {
+        // Set elementary level
+        $elementaryLevel = AcademicLevel::where('name', 'like', '%Elementary%')
+            ->orWhere('code', 'ELEM')
+            ->first();
+        
+        $profileData['academic_level_id'] = $elementaryLevel ? $elementaryLevel->id : null;
+        $profileData['academic_strand_id'] = null;
+        $profileData['college_course_id'] = null;
+        $profileData['grade_level'] = $data['grade_level'] ?? 'Grade 1';
+        $profileData['section'] = $data['section'] ?? null;
+        $profileData['year_level'] = $data['year_level'] ?? 1;
+        $profileData['semester'] = null;
+    }
+
+    private function setJuniorHighFields(array &$profileData, array $data)
+    {
+        // Set junior high level
+        $juniorHighLevel = AcademicLevel::where('name', 'like', '%Junior High%')
+            ->orWhere('code', 'JHS')
+            ->first();
+        
+        $profileData['academic_level_id'] = $juniorHighLevel ? $juniorHighLevel->id : null;
+        $profileData['college_course_id'] = null;
+        $profileData['grade_level'] = $data['grade_level'] ?? 'Grade 7';
+        $profileData['section'] = $data['section'] ?? null;
+        $profileData['year_level'] = $data['year_level'] ?? 7;
+        $profileData['semester'] = null;
+
+        // Set academic strand if provided
+        if (isset($data['academic_strand']) && !empty($data['academic_strand'])) {
+            $strand = AcademicStrand::where('name', 'like', '%' . $data['academic_strand'] . '%')
+                ->where('academic_level_id', $profileData['academic_level_id'])
+                ->first();
+            $profileData['academic_strand_id'] = $strand ? $strand->id : null;
+        } else {
+            $profileData['academic_strand_id'] = null;
+        }
+    }
+
+    private function setCollegeFields(array &$profileData, array $data)
+    {
+        // Set college level
+        $collegeLevel = AcademicLevel::where('name', 'like', '%College%')
+            ->orWhere('code', 'COL')
+            ->first();
+        
+        $profileData['academic_level_id'] = $collegeLevel ? $collegeLevel->id : null;
+        $profileData['academic_strand_id'] = null;
+        $profileData['grade_level'] = null;
+        $profileData['section'] = $data['section'] ?? null;
+        $profileData['year_level'] = $data['year_level'] ?? 1;
+        $profileData['semester'] = $data['semester'] ?? '1st';
+
+        // Set college course if provided
+        if (isset($data['college_course']) && !empty($data['college_course'])) {
+            $course = CollegeCourse::where('name', 'like', '%' . $data['college_course'] . '%')
+                ->orWhere('code', 'like', '%' . $data['college_course'] . '%')
+                ->first();
+            $profileData['college_course_id'] = $course ? $course->id : null;
+        } else {
+            $profileData['college_course_id'] = null;
+        }
+    }
+
+    // ==================== CSV TEMPLATE DOWNLOAD ====================
+    
+    public function downloadCsvTemplate(Request $request)
+    {
+        $academicLevel = $request->query('level', 'elementary');
+        
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="' . $academicLevel . '_students_template.csv"',
+        ];
+
+        $callback = function() use ($academicLevel) {
+            $file = fopen('php://output', 'w');
+            
+            // Common headers for all levels
+            $commonHeaders = [
+                'name',
+                'email', 
+                'password',
+                'student_id',
+                'first_name',
+                'middle_name',
+                'last_name',
+                'birth_date',
+                'gender',
+                'address',
+                'contact_number',
+                'section'
+            ];
+
+            // Level-specific headers
+            switch ($academicLevel) {
+                case 'elementary':
+                    $headers = array_merge($commonHeaders, ['grade_level', 'year_level']);
+                    break;
+                case 'junior_high':
+                    $headers = array_merge($commonHeaders, ['grade_level', 'year_level', 'academic_strand']);
+                    break;
+                case 'college':
+                    $headers = array_merge($commonHeaders, ['year_level', 'semester', 'college_course']);
+                    break;
+                default:
+                    $headers = $commonHeaders;
+            }
+
+            fputcsv($file, $headers);
+
+            // Add sample data row
+            $sampleData = [
+                'John Doe',
+                'john.doe@example.com',
+                'password123',
+                'STU-001',
+                'John',
+                'M',
+                'Doe',
+                '2000-01-01',
+                'Male',
+                '123 Main St, City',
+                '09123456789',
+                'A'
+            ];
+
+            switch ($academicLevel) {
+                case 'elementary':
+                    $sampleData = array_merge($sampleData, ['Grade 1', '1']);
+                    break;
+                case 'junior_high':
+                    $sampleData = array_merge($sampleData, ['Grade 7', '7', 'STEM']);
+                    break;
+                case 'college':
+                    $sampleData = array_merge($sampleData, ['1', '1st', 'Bachelor of Science in Computer Science']);
+                    break;
+            }
+
+            fputcsv($file, $sampleData);
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
     }
 } 

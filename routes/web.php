@@ -3,6 +3,8 @@
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Middleware\GuestMiddleware;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 
 /*
@@ -118,6 +120,21 @@ Route::middleware([AdminMiddleware::class])->group(function () {
   // User Management - CSV Upload
   Route::get('admin/users/upload', [UserController::class, 'uploadCsv'])->name('admin.users.upload');
   Route::post('admin/users/upload', [UserController::class, 'processCsvUpload'])->name('admin.users.upload.process');
+
+  // User Management - Level-Specific CSV Upload
+  Route::post('admin/users/upload-by-level', [UserController::class, 'uploadCsvByLevel'])->name('admin.users.upload.by-level');
+  Route::get('admin/users/download-template', [UserController::class, 'downloadCsvTemplate'])->name('admin.users.download-template');
+  
+  // Debug route for CSV upload testing
+  Route::post('admin/users/debug-csv', function(Request $request) {
+      Log::info('CSV Debug Request', [
+          'has_file' => $request->hasFile('csv_file'),
+          'file_size' => $request->file('csv_file') ? $request->file('csv_file')->getSize() : 'no file',
+          'academic_level' => $request->input('academic_level'),
+          'all_data' => $request->all()
+      ]);
+      return response()->json(['message' => 'Debug logged']);
+  })->name('admin.users.debug-csv');
 
   // User Management - Search Functions
   Route::get('admin/users/search', [UserController::class, 'searchUsers'])->name('admin.users.search');

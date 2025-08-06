@@ -66,6 +66,10 @@ interface Props {
 const StudentsIndex: React.FC<Props> = ({ students, academicLevels, academicStrands, collegeCourses, classAdvisers }) => {
     const [selectedLevel, setSelectedLevel] = useState<string>('all');
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [showCsvModal, setShowCsvModal] = useState(false);
+    const [showStudentDetailModal, setShowStudentDetailModal] = useState(false);
+    const [csvLevel, setCsvLevel] = useState<string>('');
+    const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
     const [editingStudent, setEditingStudent] = useState<Student | null>(null);
     const [studentType, setStudentType] = useState<'k12' | 'college'>('k12');
     const [filteredStrands, setFilteredStrands] = useState<AcademicStrand[]>([]);
@@ -92,6 +96,11 @@ const StudentsIndex: React.FC<Props> = ({ students, academicLevels, academicStra
         college_course_id: '',
         year_level: '',
         semester: '',
+    });
+
+    const { data: csvData, setData: setCsvData, post: postCsv, processing: csvProcessing, errors: csvErrors, reset: resetCsv } = useForm({
+        csv_file: null as File | null,
+        academic_level: '',
     });
 
     // Filter students by academic level
@@ -173,7 +182,52 @@ const StudentsIndex: React.FC<Props> = ({ students, academicLevels, academicStra
         setShowCreateModal(false);
         setEditingStudent(null);
         reset();
-        resetFilters();
+    };
+
+    const closeCsvModal = () => {
+        setShowCsvModal(false);
+        setCsvLevel('');
+        resetCsv();
+    };
+
+    const openStudentDetailModal = (student: Student) => {
+        setSelectedStudent(student);
+        setShowStudentDetailModal(true);
+    };
+
+    const closeStudentDetailModal = () => {
+        setShowStudentDetailModal(false);
+        setSelectedStudent(null);
+    };
+
+    const openCsvModal = (level: string) => {
+        setCsvLevel(level);
+        setCsvData('academic_level', level);
+        setShowCsvModal(true);
+    };
+
+    const handleCsvUpload = (e: React.FormEvent) => {
+        e.preventDefault();
+        postCsv(route('admin.users.upload.by-level'), {
+            onSuccess: () => {
+                closeCsvModal();
+            },
+        });
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            setCsvData('csv_file', e.target.files[0]);
+        }
+    };
+
+    const downloadTemplate = (level: string) => {
+        const link = document.createElement('a');
+        link.href = route('admin.users.download-template', { level });
+        link.download = `${level}_students_template.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     const resetFilters = () => {
@@ -256,6 +310,98 @@ const StudentsIndex: React.FC<Props> = ({ students, academicLevels, academicStra
             case 'COL': return '🎓';
             default: return '👤';
         }
+    };
+
+    const downloadStudentCsv = (student: Student) => {
+        const profile = student.student_profile;
+        
+        // Determine the academic level for proper CSV format
+        const academicLevel = profile?.academic_level?.code;
+        
+        // Create headers based on academic level
+        let headers = ['name', 'email'];
+        let data = [student.name, student.email];
+        
+        if (academicLevel === 'ELEM') {
+            // Elementary format
+            headers = ['name', 'email', 'password', 'student_id', 'first_name', 'middle_name', 'last_name', 'birth_date', 'gender', 'address', 'contact_number', 'section', 'grade_level', 'year_level'];
+            data = [
+                student.name,
+                student.email,
+                'password123', // Default password
+                profile?.student_id || '',
+                profile?.first_name || '',
+                profile?.middle_name || '',
+                profile?.last_name || '',
+                profile?.birth_date ? new Date(profile.birth_date).toISOString().split('T')[0] : '',
+                profile?.gender || '',
+                profile?.address || '',
+                profile?.contact_number || '',
+                profile?.section || '',
+                String(profile?.grade_level || ''),
+                String(profile?.year_level || '')
+            ];
+        } else if (academicLevel === 'JHS' || academicLevel === 'SHS') {
+            // Junior High / Senior High format
+            headers = ['name', 'email', 'password', 'student_id', 'first_name', 'middle_name', 'last_name', 'birth_date', 'gender', 'address', 'contact_number', 'section', 'grade_level', 'year_level', 'academic_strand'];
+            data = [
+                student.name,
+                student.email,
+                'password123', // Default password
+                profile?.student_id || '',
+                profile?.first_name || '',
+                profile?.middle_name || '',
+                profile?.last_name || '',
+                profile?.birth_date ? new Date(profile.birth_date).toISOString().split('T')[0] : '',
+                profile?.gender || '',
+                profile?.address || '',
+                profile?.contact_number || '',
+                profile?.section || '',
+                String(profile?.grade_level || ''),
+                String(profile?.year_level || ''),
+                profile?.academic_strand?.name || ''
+            ];
+        } else if (profile?.college_course) {
+            // College format
+            headers = ['name', 'email', 'password', 'student_id', 'first_name', 'middle_name', 'last_name', 'birth_date', 'gender', 'address', 'contact_number', 'section', 'year_level', 'semester', 'college_course'];
+            data = [
+                student.name,
+                student.email,
+                'password123', // Default password
+                profile?.student_id || '',
+                profile?.first_name || '',
+                profile?.middle_name || '',
+                profile?.last_name || '',
+                profile?.birth_date ? new Date(profile.birth_date).toISOString().split('T')[0] : '',
+                profile?.gender || '',
+                profile?.address || '',
+                profile?.contact_number || '',
+                profile?.section || '',
+                String(profile?.year_level || ''),
+                profile?.semester || '',
+                profile?.college_course?.name || ''
+            ];
+        }
+
+        // Create CSV content
+        const csvContent = [
+            headers.join(','),
+            data.map(field => `"${field}"`).join(',') // Wrap fields in quotes to handle commas
+        ];
+
+        const csvString = csvContent.join('\n');
+        const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${student.name.toLowerCase().replace(/\s+/g, '_')}_student_data.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        // Show success notification
+        alert(`CSV file for ${student.name} has been downloaded successfully!`);
     };
 
     return (
@@ -370,8 +516,8 @@ const StudentsIndex: React.FC<Props> = ({ students, academicLevels, academicStra
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation(); // Prevent card click
-                                        // TODO: Implement CSV upload for specific level
-                                        alert(`CSV upload for ${level.name} students coming soon!`);
+                                        openCsvModal(level.code === 'COL' ? 'college' : 
+                                                   level.code === 'ELEM' ? 'elementary' : 'junior_high');
                                     }}
                                     className="bg-gray-100 text-gray-700 text-sm font-medium py-2 px-3 rounded-md hover:bg-gray-200 transition-colors"
                                     title={`Upload ${level.name} Students CSV`}
@@ -441,7 +587,11 @@ const StudentsIndex: React.FC<Props> = ({ students, academicLevels, academicStra
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {getStudentsByLevel(selectedLevel).map((student) => (
-                                    <tr key={student.id} className="hover:bg-gray-50">
+                                    <tr 
+                                        key={student.id} 
+                                        className="hover:bg-gray-50 cursor-pointer"
+                                        onClick={() => openStudentDetailModal(student)}
+                                    >
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="text-sm font-medium text-gray-900">{student.name}</div>
                                             <div className="text-xs text-gray-500">{student.email}</div>
@@ -486,13 +636,19 @@ const StudentsIndex: React.FC<Props> = ({ students, academicLevels, academicStra
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                             <div className="flex space-x-2">
                                                 <button
-                                                    onClick={() => handleEdit(student)}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleEdit(student);
+                                                    }}
                                                     className="text-indigo-600 hover:text-indigo-900"
                                                 >
                                                     Edit
                                                 </button>
                                                 <button
-                                                    onClick={() => handleDelete(student)}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDelete(student);
+                                                    }}
                                                     className="text-red-600 hover:text-red-900"
                                                 >
                                                     Delete
@@ -876,6 +1032,103 @@ const StudentsIndex: React.FC<Props> = ({ students, academicLevels, academicStra
                                     {errors.enrollment_status && <p className="text-red-500 text-xs mt-1">{errors.enrollment_status}</p>}
                                 </div>
 
+                                {/* CSV Upload Section */}
+                                <div className="border-t border-gray-200 pt-6 mt-6">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h4 className="text-lg font-medium text-gray-900">
+                                            📁 Bulk Upload Students
+                                        </h4>
+                                        <button
+                                            type="button"
+                                            onClick={() => downloadTemplate(
+                                                data.student_type === 'college' ? 'college' : 
+                                                data.academic_level_id ? 
+                                                    academicLevels.find(l => l.id.toString() === data.academic_level_id)?.code === 'ELEM' ? 'elementary' : 'junior_high'
+                                                : 'elementary'
+                                            )}
+                                            className="text-sm text-green-600 hover:text-green-700 font-medium"
+                                        >
+                                            📥 Download Template
+                                        </button>
+                                    </div>
+                                    
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Upload CSV File
+                                            </label>
+                                            <input
+                                                type="file"
+                                                accept=".csv,.txt"
+                                                onChange={handleFileChange}
+                                                className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                                            />
+                                            {csvErrors.csv_file && (
+                                                <p className="text-red-500 text-sm mt-1">{csvErrors.csv_file}</p>
+                                            )}
+                                        </div>
+
+                                        <div className="flex space-x-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (!csvData.csv_file) {
+                                                        alert('Please select a CSV file first.');
+                                                        return;
+                                                    }
+                                                    
+                                                    const level = data.student_type === 'college' ? 'college' : 
+                                                        data.academic_level_id ? 
+                                                            academicLevels.find(l => l.id.toString() === data.academic_level_id)?.code === 'ELEM' ? 'elementary' : 'junior_high'
+                                                        : 'elementary';
+                                                    
+                                                    // Set the academic level in the CSV form data
+                                                    setCsvData('academic_level', level);
+                                                    
+                                                    // Submit the CSV form
+                                                    postCsv(route('admin.users.upload.by-level'), {
+                                                        onSuccess: () => {
+                                                            // Reset CSV form
+                                                            setCsvData('csv_file', null);
+                                                            resetCsv();
+                                                        },
+                                                        onError: (errors) => {
+                                                            console.error('CSV upload errors:', errors);
+                                                            // Handle specific validation errors
+                                                            if (errors.csv_file) {
+                                                                alert('CSV File Error: ' + errors.csv_file);
+                                                            } else if (errors.academic_level) {
+                                                                alert('Academic Level Error: ' + errors.academic_level);
+                                                            } else {
+                                                                alert('Upload failed. Please check your CSV file and try again.');
+                                                            }
+                                                        },
+                                                    });
+                                                }}
+                                                disabled={csvProcessing || !csvData.csv_file}
+                                                className="flex-1 bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors disabled:opacity-50"
+                                            >
+                                                {csvProcessing ? 'Uploading...' : 'Upload CSV'}
+                                            </button>
+                                        </div>
+
+                                        <div className="p-3 bg-blue-50 rounded-md">
+                                            <h5 className="font-medium text-blue-900 mb-2">CSV Upload Info:</h5>
+                                            <ul className="text-sm text-blue-800 space-y-1">
+                                                <li>• Upload multiple students at once</li>
+                                                <li>• Students will be created with current form settings</li>
+                                                <li>• Academic level: <span className="font-medium">
+                                                    {data.student_type === 'college' ? 'College' : 
+                                                     data.academic_level_id ? 
+                                                         academicLevels.find(l => l.id.toString() === data.academic_level_id)?.name || 'Not selected'
+                                                     : 'Not selected'}
+                                                </span></li>
+                                                <li>• Download template for exact format</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div className="flex justify-end space-x-3 pt-4">
                                     <button
                                         type="button"
@@ -893,6 +1146,291 @@ const StudentsIndex: React.FC<Props> = ({ students, academicLevels, academicStra
                                     </button>
                                 </div>
                             </form>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* CSV Upload Modal */}
+            {showCsvModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-md">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-semibold text-gray-900">
+                                Upload {csvLevel === 'elementary' ? 'Elementary' : 
+                                        csvLevel === 'junior_high' ? 'Junior High' : 'College'} Students CSV
+                            </h3>
+                            <button
+                                onClick={closeCsvModal}
+                                className="text-gray-400 hover:text-gray-600"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleCsvUpload} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    CSV File
+                                </label>
+                                <input
+                                    type="file"
+                                    accept=".csv,.txt"
+                                    onChange={handleFileChange}
+                                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                                    required
+                                />
+                                {csvErrors.csv_file && (
+                                    <p className="text-red-500 text-sm mt-1">{csvErrors.csv_file}</p>
+                                )}
+                            </div>
+
+                            <div className="flex space-x-3">
+                                <button
+                                    type="button"
+                                    onClick={() => downloadTemplate(csvLevel)}
+                                    className="flex-1 bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors"
+                                >
+                                    📥 Download Template
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={csvProcessing || !csvData.csv_file}
+                                    className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+                                >
+                                    {csvProcessing ? 'Uploading...' : 'Upload CSV'}
+                                </button>
+                            </div>
+                        </form>
+
+                        <div className="mt-4 p-3 bg-blue-50 rounded-md">
+                            <h4 className="font-medium text-blue-900 mb-2">CSV Format Requirements:</h4>
+                            <ul className="text-sm text-blue-800 space-y-1">
+                                <li>• First row must contain headers</li>
+                                <li>• Required fields: name, email</li>
+                                <li>• Optional: password (default: password123)</li>
+                                <li>• Download template for exact format</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Student Detail Modal */}
+            {showStudentDetailModal && selectedStudent && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-semibold text-gray-900">
+                                Student Details - {selectedStudent.name}
+                            </h3>
+                            <button
+                                onClick={closeStudentDetailModal}
+                                className="text-gray-400 hover:text-gray-600"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Student Information */}
+                            <div className="space-y-6">
+                                <div className="bg-gray-50 rounded-lg p-4">
+                                    <h4 className="text-lg font-medium text-gray-900 mb-4">📋 Student Information</h4>
+                                    
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between">
+                                            <span className="text-sm font-medium text-gray-600">Full Name:</span>
+                                            <span className="text-sm text-gray-900">{selectedStudent.name}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-sm font-medium text-gray-600">Email:</span>
+                                            <span className="text-sm text-gray-900">{selectedStudent.email}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-sm font-medium text-gray-600">Student ID:</span>
+                                            <span className="text-sm text-gray-900">{selectedStudent.student_profile?.student_id || 'N/A'}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-sm font-medium text-gray-600">First Name:</span>
+                                            <span className="text-sm text-gray-900">{selectedStudent.student_profile?.first_name || 'N/A'}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-sm font-medium text-gray-600">Middle Name:</span>
+                                            <span className="text-sm text-gray-900">{selectedStudent.student_profile?.middle_name || 'N/A'}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-sm font-medium text-gray-600">Last Name:</span>
+                                            <span className="text-sm text-gray-900">{selectedStudent.student_profile?.last_name || 'N/A'}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-sm font-medium text-gray-600">Birth Date:</span>
+                                            <span className="text-sm text-gray-900">{selectedStudent.student_profile?.birth_date || 'N/A'}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-sm font-medium text-gray-600">Gender:</span>
+                                            <span className="text-sm text-gray-900">{selectedStudent.student_profile?.gender || 'N/A'}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-sm font-medium text-gray-600">Address:</span>
+                                            <span className="text-sm text-gray-900">{selectedStudent.student_profile?.address || 'N/A'}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-sm font-medium text-gray-600">Contact Number:</span>
+                                            <span className="text-sm text-gray-900">{selectedStudent.student_profile?.contact_number || 'N/A'}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Academic Information */}
+                                <div className="bg-blue-50 rounded-lg p-4">
+                                    <h4 className="text-lg font-medium text-gray-900 mb-4">🎓 Academic Information</h4>
+                                    
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between">
+                                            <span className="text-sm font-medium text-gray-600">Academic Level:</span>
+                                            <span className="text-sm text-gray-900">{selectedStudent.student_profile?.academic_level?.name || 'N/A'}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-sm font-medium text-gray-600">Academic Strand:</span>
+                                            <span className="text-sm text-gray-900">{selectedStudent.student_profile?.academic_strand?.name || 'N/A'}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-sm font-medium text-gray-600">College Course:</span>
+                                            <span className="text-sm text-gray-900">{selectedStudent.student_profile?.college_course?.name || 'N/A'}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-sm font-medium text-gray-600">Grade Level:</span>
+                                            <span className="text-sm text-gray-900">{selectedStudent.student_profile?.grade_level || 'N/A'}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-sm font-medium text-gray-600">Year Level:</span>
+                                            <span className="text-sm text-gray-900">{selectedStudent.student_profile?.year_level || 'N/A'}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-sm font-medium text-gray-600">Semester:</span>
+                                            <span className="text-sm text-gray-900">{selectedStudent.student_profile?.semester || 'N/A'}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-sm font-medium text-gray-600">Section:</span>
+                                            <span className="text-sm text-gray-900">{selectedStudent.student_profile?.section || 'N/A'}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-sm font-medium text-gray-600">Enrollment Status:</span>
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                                selectedStudent.student_profile?.enrollment_status === 'active'
+                                                    ? 'bg-green-100 text-green-800'
+                                                    : selectedStudent.student_profile?.enrollment_status === 'inactive'
+                                                    ? 'bg-yellow-100 text-yellow-800'
+                                                    : selectedStudent.student_profile?.enrollment_status === 'graduated'
+                                                    ? 'bg-blue-100 text-blue-800'
+                                                    : 'bg-red-100 text-red-800'
+                                            }`}>
+                                                {selectedStudent.student_profile?.enrollment_status?.toUpperCase() || 'UNKNOWN'}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-sm font-medium text-gray-600">Class Adviser:</span>
+                                            <span className="text-sm text-gray-900">{selectedStudent.student_profile?.class_adviser?.name || 'Not assigned'}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* CSV Data Section */}
+                            <div className="space-y-6">
+                                <div className="bg-green-50 rounded-lg p-4">
+                                    <h4 className="text-lg font-medium text-gray-900 mb-4">📁 CSV Upload Data</h4>
+                                    
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between">
+                                            <span className="text-sm font-medium text-gray-600">Upload Source:</span>
+                                            <span className="text-sm text-gray-900">
+                                                {selectedStudent.student_profile?.academic_level?.code === 'ELEM' ? 'Elementary CSV' :
+                                                 selectedStudent.student_profile?.academic_level?.code === 'JHS' ? 'Junior High CSV' :
+                                                 selectedStudent.student_profile?.academic_level?.code === 'SHS' ? 'Senior High CSV' :
+                                                 selectedStudent.student_profile?.college_course ? 'College CSV' : 'Manual Entry'}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-sm font-medium text-gray-600">Created Date:</span>
+                                            <span className="text-sm text-gray-900">{new Date(selectedStudent.created_at).toLocaleDateString()}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-sm font-medium text-gray-600">Account Type:</span>
+                                            <span className="text-sm text-gray-900">{selectedStudent.student_profile?.college_course ? 'College Student' : 'K-12 Student'}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* CSV Template Information */}
+                                <div className="bg-yellow-50 rounded-lg p-4">
+                                    <h4 className="text-lg font-medium text-gray-900 mb-4">📋 CSV Template Used</h4>
+                                    
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between">
+                                            <span className="text-sm font-medium text-gray-600">Template Type:</span>
+                                            <span className="text-sm text-gray-900">
+                                                {selectedStudent.student_profile?.academic_level?.code === 'ELEM' ? 'Elementary Template' :
+                                                 selectedStudent.student_profile?.academic_level?.code === 'JHS' ? 'Junior High Template' :
+                                                 selectedStudent.student_profile?.academic_level?.code === 'SHS' ? 'Senior High Template' :
+                                                 selectedStudent.student_profile?.college_course ? 'College Template' : 'Unknown'}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-sm font-medium text-gray-600">Required Fields:</span>
+                                            <span className="text-sm text-gray-900">name, email</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-sm font-medium text-gray-600">Optional Fields:</span>
+                                            <span className="text-sm text-gray-900">password, student_id, first_name, middle_name, last_name, birth_date, gender, address, contact_number, section</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-sm font-medium text-gray-600">Level-Specific Fields:</span>
+                                            <span className="text-sm text-gray-900">
+                                                {selectedStudent.student_profile?.academic_level?.code === 'ELEM' ? 'grade_level, year_level' :
+                                                 selectedStudent.student_profile?.academic_level?.code === 'JHS' ? 'grade_level, year_level, academic_strand' :
+                                                 selectedStudent.student_profile?.academic_level?.code === 'SHS' ? 'grade_level, year_level, academic_strand' :
+                                                 selectedStudent.student_profile?.college_course ? 'year_level, semester, college_course' : 'N/A'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Actions */}
+                                <div className="bg-gray-50 rounded-lg p-4">
+                                    <h4 className="text-lg font-medium text-gray-900 mb-4">⚙️ Actions</h4>
+                                    
+                                    <div className="flex space-x-3">
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                closeStudentDetailModal();
+                                                handleEdit(selectedStudent);
+                                            }}
+                                            className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
+                                        >
+                                            Edit Student
+                                        </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                closeStudentDetailModal();
+                                                handleDelete(selectedStudent);
+                                            }}
+                                            className="flex-1 bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition-colors"
+                                        >
+                                            Delete Student
+                                        </button>
+                                        <button
+                                            onClick={() => downloadStudentCsv(selectedStudent)}
+                                            className="flex-1 bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors"
+                                        >
+                                            📥 Download CSV
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
