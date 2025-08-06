@@ -43,10 +43,12 @@ class LoginController extends Controller
                 return redirect()->route('student.dashboard');
             } elseif (Auth::user()->user_role === 'instructor') {
                 return redirect()->route('instructor.dashboard');
-            } elseif (Auth::user()->user_role === 'chairperson') {
-                return redirect()->route('chairperson.dashboard');
+            } elseif (Auth::user()->user_role === 'teacher') {
+                return redirect()->route('teacher.dashboard');
             } elseif (Auth::user()->user_role === 'class_adviser') {
                 return redirect()->route('class-adviser.dashboard');
+            } elseif (Auth::user()->user_role === 'chairperson') {
+                return redirect()->route('chairperson.dashboard');
             } elseif (Auth::user()->user_role === 'parent') {
                 return redirect()->route('parent.dashboard');
             } elseif (Auth::user()->user_role === 'principal') {
@@ -75,6 +77,6 @@ class LoginController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('home');
+        return redirect()->route('home')->with('success', 'You have been successfully logged out.');
     }
 }

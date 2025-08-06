@@ -24,6 +24,15 @@ interface CollegeCourse {
 interface ClassAdviser {
     id: number;
     name: string;
+    email: string;
+    assignments?: Array<{
+        id: number;
+        academic_level: string;
+        year_level: string;
+        section: string;
+        strand: string | null;
+        display_name: string;
+    }>;
 }
 
 interface StudentProfile {
@@ -1075,9 +1084,19 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
                                             >
                                                 <option value="">No adviser assigned</option>
                                                 {classAdvisers.map((adviser) => (
-                                                    <option key={adviser.id} value={adviser.id}>
-                                                        {adviser.name}
-                                                    </option>
+                                                    <optgroup key={adviser.id} label={adviser.name}>
+                                                        {adviser.assignments && adviser.assignments.length > 0 ? (
+                                                            adviser.assignments.map((assignment) => (
+                                                                <option key={assignment.id} value={adviser.id}>
+                                                                    {assignment.display_name}
+                                                                </option>
+                                                            ))
+                                                        ) : (
+                                                            <option value={adviser.id} disabled>
+                                                                No assignments
+                                                            </option>
+                                                        )}
+                                                    </optgroup>
                                                 ))}
                                             </select>
                                             {errors.class_adviser_id && <p className="text-red-500 text-xs mt-1">{errors.class_adviser_id}</p>}

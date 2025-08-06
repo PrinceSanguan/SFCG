@@ -174,9 +174,15 @@ const Header: React.FC<HeaderProps> = ({ onMenuToggle, isSidebarOpen = false }) 
 
             {/* Logout Confirmation Modal */}
             {showLogoutConfirm && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setShowLogoutConfirm(false)}></div>
-                    <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm z-10">
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                    <div 
+                        className="fixed inset-0 bg-black bg-opacity-50" 
+                        onClick={() => setShowLogoutConfirm(false)}
+                    ></div>
+                    <div 
+                        className="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm z-10"
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <div className="flex items-center mb-4">
                             <div className="flex-shrink-0">
                                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
@@ -198,7 +204,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuToggle, isSidebarOpen = false }) 
                             <button
                                 onClick={() => {
                                     setShowLogoutConfirm(false);
-                                    router.get('/logout');
+                                    router.get(route('auth.logout'));
                                 }}
                                 className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors"
                             >

@@ -241,7 +241,12 @@ class User extends Authenticatable
      */
     public function subjectAssignments(): HasMany
     {
-        return $this->hasMany(InstructorSubjectAssignment::class, 'instructor_id')->where('is_active', true);
+        return $this->hasMany(InstructorSubjectAssignment::class, 'instructor_id');
+    }
+
+    public function classAdviserAssignments(): HasMany
+    {
+        return $this->hasMany(ClassAdviserAssignment::class, 'adviser_id');
     }
 
     /**
@@ -249,7 +254,7 @@ class User extends Authenticatable
      */
     public function submittedGrades(): HasMany
     {
-        return $this->hasMany(Grade::class, 'submitted_by');
+        return $this->hasMany(Grade::class, 'instructor_id');
     }
 
     /**

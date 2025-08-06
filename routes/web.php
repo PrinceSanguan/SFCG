@@ -206,8 +206,9 @@ Route::middleware([AdminMiddleware::class])->group(function () {
   Route::delete('admin/assignments/teachers/{assignment}', [AcademicController::class, 'destroyTeacherAssignments'])->name('admin.assignments.teachers.destroy');
 
   // Class Adviser Assignments
-  Route::post('admin/assignments/advisers/assign', [AcademicController::class, 'assignClassAdviser'])->name('admin.assignments.advisers.assign');
-  Route::post('admin/assignments/advisers/remove', [AcademicController::class, 'removeClassAdviser'])->name('admin.assignments.advisers.remove');
+  Route::post('admin/assignments/advisers', [AcademicController::class, 'storeAdviserAssignments'])->name('admin.assignments.advisers.store');
+  Route::put('admin/assignments/advisers/{assignment}', [AcademicController::class, 'updateAdviserAssignments'])->name('admin.assignments.advisers.update');
+  Route::delete('admin/assignments/advisers/{assignment}', [AcademicController::class, 'destroyAdviserAssignments'])->name('admin.assignments.advisers.destroy');
 
   // Academic Data API Routes
   Route::get('admin/api/strands-by-level', [AcademicController::class, 'getStrandsByLevel'])->name('admin.api.strands-by-level');
@@ -363,59 +364,51 @@ Route::get('student/certificates/{certificate}/download', [StudentController::cl
 
 /*
 |--------------------------------------------------------------------------
-| This controller handles All Instructor Logic
+| This controller handles All Teacher Logic
 |--------------------------------------------------------------------------
 */
 
-use App\Http\Controllers\InstructorController;
-use App\Http\Middleware\InstructorMiddleware;
+use App\Http\Controllers\TeacherController;
+use App\Http\Middleware\TeacherMiddleware;
 
-Route::middleware([InstructorMiddleware::class])->group(function () {
+Route::middleware([TeacherMiddleware::class])->group(function () {
 
   // Dashboard
-  Route::get('instructor/dashboard', [InstructorController::class, 'index'])->name('instructor.dashboard');
+  Route::get('teacher/dashboard', [TeacherController::class, 'index'])->name('teacher.dashboard');
 
-  // 3.1.1. View/Edit own information
-  Route::get('instructor/profile', [InstructorController::class, 'profile'])->name('instructor.profile');
-  Route::put('instructor/profile', [InstructorController::class, 'updateProfile'])->name('instructor.profile.update');
-  Route::put('instructor/password', [InstructorController::class, 'updatePassword'])->name('instructor.password.update');
+  // 4.1.1. View/Edit own information
+  Route::get('teacher/profile', [TeacherController::class, 'profile'])->name('teacher.profile');
+  Route::put('teacher/profile', [TeacherController::class, 'updateProfile'])->name('teacher.profile.update');
+  Route::put('teacher/password', [TeacherController::class, 'updatePassword'])->name('teacher.password.update');
 
-  // 3.2. Grade Management
-  Route::get('instructor/grades', [InstructorController::class, 'grades'])->name('instructor.grades');
-  Route::get('instructor/grades/create', [InstructorController::class, 'createGrade'])->name('instructor.grades.create');
-  Route::post('instructor/grades', [InstructorController::class, 'storeGrade'])->name('instructor.grades.store');
-  Route::get('instructor/grades/{grade}/edit', [InstructorController::class, 'editGrade'])->name('instructor.grades.edit');
-  Route::put('instructor/grades/{grade}', [InstructorController::class, 'updateGrade'])->name('instructor.grades.update');
-  Route::post('instructor/grades/submit', [InstructorController::class, 'submitGrades'])->name('instructor.grades.submit');
+  // 4.2. Grade Management
+  Route::get('teacher/grades', [TeacherController::class, 'grades'])->name('teacher.grades');
+  Route::get('teacher/grades/create', [TeacherController::class, 'createGrade'])->name('teacher.grades.create');
+  Route::post('teacher/grades', [TeacherController::class, 'storeGrade'])->name('teacher.grades.store');
+  Route::get('teacher/grades/{grade}/edit', [TeacherController::class, 'editGrade'])->name('teacher.grades.edit');
+  Route::put('teacher/grades/{grade}', [TeacherController::class, 'updateGrade'])->name('teacher.grades.update');
+  Route::post('teacher/grades/submit', [TeacherController::class, 'submitGrades'])->name('teacher.grades.submit');
 
   // Grade input helpers
-  Route::get('instructor/api/students-for-subject', [InstructorController::class, 'getStudentsForSubject'])->name('instructor.api.students-for-subject');
+  Route::get('teacher/api/students-for-subject', [TeacherController::class, 'getStudentsForSubject'])->name('teacher.api.students-for-subject');
 
-  // 3.2.4. Upload student grades via CSV
-  Route::get('instructor/grades/edit', [InstructorController::class, 'editGrades'])->name('instructor.grades.edit');
-Route::get('instructor/grades/submit', [InstructorController::class, 'submitGradesPage'])->name('instructor.grades.submit');
-Route::get('instructor/grades/upload', [InstructorController::class, 'uploadGradesPage'])->name('instructor.grades.upload');
-Route::post('instructor/grades/upload', [InstructorController::class, 'processGradeUpload'])->name('instructor.grades.upload.process');
+  // 4.2.4. Upload student grades via CSV
+  Route::get('teacher/grades/edit', [TeacherController::class, 'editGrades'])->name('teacher.grades.edit');
+  Route::get('teacher/grades/submit', [TeacherController::class, 'submitGradesPage'])->name('teacher.grades.submit');
+  Route::get('teacher/grades/upload', [TeacherController::class, 'uploadGradesPage'])->name('teacher.grades.upload');
+  Route::post('teacher/grades/upload', [TeacherController::class, 'processGradeUpload'])->name('teacher.grades.upload.process');
 
-  // 3.3.1. View honor results of students
-  Route::get('instructor/honors', [InstructorController::class, 'honors'])->name('instructor.honors');
-});
+  // 4.3.1. View honor results of students
+  Route::get('teacher/honors', [TeacherController::class, 'honors'])->name('teacher.honors');
 
-
-/*
-|--------------------------------------------------------------------------
-| This controller handles All Chairperson Logic
-|--------------------------------------------------------------------------
-*/
-
-use App\Http\Controllers\ChairpersonController;
-use App\Http\Middleware\ChairpersonMiddleware;
-
-
-Route::middleware([ChairpersonMiddleware::class])->group(function () {
-
-  // Dashboard
-  Route::get('chairperson/dashboard', [ChairpersonController::class, 'index'])->name('chairperson.dashboard');
+  // Grading Management (K-12 Only)
+  Route::get('teacher/grading', [TeacherController::class, 'gradingIndex'])->name('teacher.grading.index');
+  Route::get('teacher/grading/elementary', [TeacherController::class, 'elementaryGrading'])->name('teacher.grading.elementary');
+  Route::get('teacher/grading/junior-high', [TeacherController::class, 'juniorHighGrading'])->name('teacher.grading.junior-high');
+  Route::get('teacher/grading/senior-high', [TeacherController::class, 'seniorHighGrading'])->name('teacher.grading.senior-high');
+  Route::get('teacher/grading/elementary/create', [TeacherController::class, 'createElementary'])->name('teacher.grading.elementary.create');
+  Route::get('teacher/grading/junior-high/create', [TeacherController::class, 'createJuniorHigh'])->name('teacher.grading.junior-high.create');
+  Route::get('teacher/grading/senior-high/create', [TeacherController::class, 'createSeniorHigh'])->name('teacher.grading.senior-high.create');
 });
 
 /*
@@ -427,11 +420,33 @@ Route::middleware([ChairpersonMiddleware::class])->group(function () {
 use App\Http\Controllers\ClassAdviserController;
 use App\Http\Middleware\ClassAdviserMiddleware;
 
-
 Route::middleware([ClassAdviserMiddleware::class])->group(function () {
 
   // Dashboard
   Route::get('class-adviser/dashboard', [ClassAdviserController::class, 'index'])->name('class-adviser.dashboard');
+
+  // 5.1.1. View/Edit own information
+  Route::get('class-adviser/profile', [ClassAdviserController::class, 'profile'])->name('class-adviser.profile');
+  Route::put('class-adviser/profile', [ClassAdviserController::class, 'updateProfile'])->name('class-adviser.profile.update');
+  Route::put('class-adviser/password', [ClassAdviserController::class, 'updatePassword'])->name('class-adviser.password.update');
+
+  // 5.2. Grade Management
+  Route::get('class-adviser/grades', [ClassAdviserController::class, 'grades'])->name('class-adviser.grades');
+  Route::get('class-adviser/grades/create', [ClassAdviserController::class, 'createGrade'])->name('class-adviser.grades.create');
+  Route::post('class-adviser/grades', [ClassAdviserController::class, 'storeGrade'])->name('class-adviser.grades.store');
+  Route::get('class-adviser/grades/{grade}/edit', [ClassAdviserController::class, 'editGrade'])->name('class-adviser.grades.edit');
+  Route::put('class-adviser/grades/{grade}', [ClassAdviserController::class, 'updateGrade'])->name('class-adviser.grades.update');
+
+  // Grade input helpers
+  Route::get('class-adviser/api/students-for-subject', [ClassAdviserController::class, 'getStudentsForSubject'])->name('class-adviser.api.students-for-subject');
+
+  // 5.2.3. Upload student grades via CSV
+  Route::get('class-adviser/grades/edit', [ClassAdviserController::class, 'editGrades'])->name('class-adviser.grades.edit');
+  Route::get('class-adviser/grades/upload', [ClassAdviserController::class, 'uploadGradesPage'])->name('class-adviser.grades.upload');
+  Route::post('class-adviser/grades/upload', [ClassAdviserController::class, 'processGradeUpload'])->name('class-adviser.grades.upload.process');
+
+  // 5.3.1. View honor results of students
+  Route::get('class-adviser/honors', [ClassAdviserController::class, 'honors'])->name('class-adviser.honors');
 });
 
 /*

@@ -501,7 +501,29 @@ class UserController extends Controller
         $academicLevels = AcademicLevel::active()->get();
         $academicStrands = AcademicStrand::active()->get();
         $collegeCourses = CollegeCourse::active()->get();
-        $classAdvisers = User::where('user_role', 'class_adviser')->get();
+        
+        // Get class advisers from the new assignment system
+        $classAdvisers = User::where('user_role', 'class_adviser')
+            ->whereHas('classAdviserAssignments', function($query) {
+                $query->where('is_active', true);
+            })
+            ->with(['classAdviserAssignments.academicLevel', 'classAdviserAssignments.academicPeriod'])
+            ->orderBy('name')
+            ->get()
+            ->map(function($adviser) {
+                // Add assignment info to each adviser
+                $adviser->assignments = $adviser->classAdviserAssignments->map(function($assignment) {
+                    return [
+                        'id' => $assignment->id,
+                        'academic_level' => $assignment->academicLevel->name,
+                        'year_level' => $assignment->year_level,
+                        'section' => $assignment->section,
+                        'strand' => $assignment->strand ? $assignment->strand->name : null,
+                        'display_name' => $assignment->getDisplayName(),
+                    ];
+                });
+                return $adviser;
+            });
         
         return Inertia::render('Admin/Users/Students', [
             'students' => $students,

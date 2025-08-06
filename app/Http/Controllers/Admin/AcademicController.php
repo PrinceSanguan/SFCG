@@ -16,6 +16,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use App\Models\ClassAdviserAssignment;
 
 class AcademicController extends Controller
 {
@@ -887,21 +888,21 @@ class AcademicController extends Controller
     
     public function teacherAssignments()
     {
-        // Get only senior high school levels
-        $seniorHighLevels = AcademicLevel::whereIn('name', ['Senior High School', 'Senior High'])
-            ->orWhere('code', 'SHS')
+        // Get both junior high school and senior high school levels
+        $highSchoolLevels = AcademicLevel::whereIn('name', ['Junior High School', 'Senior High School', 'Junior High', 'Senior High'])
+            ->orWhereIn('code', ['JHS', 'SHS'])
             ->get();
 
         $teachers = User::where('user_role', 'teacher')
             ->orderBy('name')
             ->get();
 
-        $subjects = Subject::whereHas('academicLevel', function($query) use ($seniorHighLevels) {
-            $query->whereIn('id', $seniorHighLevels->pluck('id'));
+        $subjects = Subject::whereHas('academicLevel', function($query) use ($highSchoolLevels) {
+            $query->whereIn('id', $highSchoolLevels->pluck('id'));
         })->with('academicLevel')->orderBy('name')->get();
 
-        $assignments = InstructorSubjectAssignment::whereHas('subject.academicLevel', function($query) use ($seniorHighLevels) {
-            $query->whereIn('id', $seniorHighLevels->pluck('id'));
+        $assignments = InstructorSubjectAssignment::whereHas('subject.academicLevel', function($query) use ($highSchoolLevels) {
+            $query->whereIn('id', $highSchoolLevels->pluck('id'));
         })
         ->with(['instructor', 'subject.academicLevel', 'subject.academicStrand', 'academicPeriod', 'strand'])
         ->orderBy('created_at', 'desc')
@@ -925,7 +926,7 @@ class AcademicController extends Controller
             'teacher_id' => 'required|exists:users,id',
             'subject_id' => 'required|exists:subjects,id',
             'academic_period_id' => 'required|exists:academic_periods,id',
-            'strand_id' => 'required|exists:academic_strands,id',
+            'strand_id' => 'nullable|exists:academic_strands,id',
             'year_level' => 'required|string|max:20',
             'section' => 'nullable|string|max:255',
         ]);
@@ -936,14 +937,22 @@ class AcademicController extends Controller
             return redirect()->back()->with('error', 'Selected user is not a teacher.');
         }
 
-        // Check if subject is for senior high school
+        // Check if subject is for junior high school or senior high school
         $subject = Subject::with('academicLevel')->findOrFail($request->subject_id);
-        $seniorHighLevels = AcademicLevel::whereIn('name', ['Senior High School', 'Senior High'])
-            ->orWhere('code', 'SHS')
+        $highSchoolLevels = AcademicLevel::whereIn('name', ['Junior High School', 'Senior High School', 'Junior High', 'Senior High'])
+            ->orWhereIn('code', ['JHS', 'SHS'])
             ->pluck('id');
         
-        if (!$seniorHighLevels->contains($subject->academic_level_id)) {
-            return redirect()->back()->with('error', 'Subject must be for Senior High School level.');
+        if (!$highSchoolLevels->contains($subject->academic_level_id)) {
+            return redirect()->back()->with('error', 'Subject must be for Junior High School or Senior High School level.');
+        }
+
+        // Check if strand is required for Senior High School
+        $isSeniorHigh = $subject->academicLevel->code === 'SHS' || 
+                       str_contains($subject->academicLevel->name, 'Senior High');
+        
+        if ($isSeniorHigh && empty($request->strand_id)) {
+            return redirect()->back()->with('error', 'Strand is required for Senior High School subjects.');
         }
 
         // Check for existing assignment
@@ -987,7 +996,7 @@ class AcademicController extends Controller
             'teacher_id' => 'required|exists:users,id',
             'subject_id' => 'required|exists:subjects,id',
             'academic_period_id' => 'required|exists:academic_periods,id',
-            'strand_id' => 'required|exists:academic_strands,id',
+            'strand_id' => 'nullable|exists:academic_strands,id',
             'year_level' => 'required|string|max:20',
             'section' => 'nullable|string|max:255',
             'is_active' => 'boolean',
@@ -999,14 +1008,22 @@ class AcademicController extends Controller
             return redirect()->back()->with('error', 'Selected user is not a teacher.');
         }
 
-        // Check if subject is for senior high school
+        // Check if subject is for junior high school or senior high school
         $subject = Subject::with('academicLevel')->find($request->subject_id);
-        $seniorHighLevels = AcademicLevel::whereIn('name', ['Senior High School', 'Senior High'])
-            ->orWhere('code', 'SHS')
+        $highSchoolLevels = AcademicLevel::whereIn('name', ['Junior High School', 'Senior High School', 'Junior High', 'Senior High'])
+            ->orWhereIn('code', ['JHS', 'SHS'])
             ->pluck('id');
         
-        if (!$seniorHighLevels->contains($subject->academic_level_id)) {
-            return redirect()->back()->with('error', 'Subject must be for Senior High School level.');
+        if (!$highSchoolLevels->contains($subject->academic_level_id)) {
+            return redirect()->back()->with('error', 'Subject must be for Junior High School or Senior High School level.');
+        }
+
+        // Check if strand is required for Senior High School
+        $isSeniorHigh = $subject->academicLevel->code === 'SHS' || 
+                       str_contains($subject->academicLevel->name, 'Senior High');
+        
+        if ($isSeniorHigh && empty($request->strand_id)) {
+            return redirect()->back()->with('error', 'Strand is required for Senior High School subjects.');
         }
 
         $oldValues = $assignment->toArray();
@@ -1053,110 +1070,179 @@ class AcademicController extends Controller
     
     public function adviserAssignments()
     {
-        // Get advisers with their advised students (as User objects)
-        $advisers = User::byRole('class_adviser')
-            ->with(['advisedStudents.user.studentProfile.academicLevel', 'advisedStudents.user.studentProfile.academicStrand', 'advisedStudents.user.studentProfile.collegeCourse'])
-            ->get()
-            ->map(function ($adviser) {
-                // Transform advisedStudents from StudentProfile to User objects
-                $adviser->advised_students = $adviser->advisedStudents->map(function ($studentProfile) {
-                    $user = $studentProfile->user;
-                    $user->student_profile = $studentProfile;
-                    return $user;
-                });
-                return $adviser;
-            });
-
-        // Get only K-12 students (Elementary, Junior High, Senior High) - exclude college students
+        // Get K-12 academic levels (Elementary, Junior High School, Senior High School)
         $k12Levels = AcademicLevel::whereIn('name', ['Elementary', 'Junior High School', 'Senior High School', 'Junior High', 'Senior High'])
             ->orWhereIn('code', ['ELEM', 'JHS', 'SHS'])
-            ->pluck('id');
-
-        $students = User::students()
-            ->with(['studentProfile.academicLevel', 'studentProfile.academicStrand', 'studentProfile.collegeCourse', 'studentProfile.classAdviser'])
-            ->whereHas('studentProfile', function($query) use ($k12Levels) {
-                $query->whereIn('academic_level_id', $k12Levels)
-                    ->whereNull('college_course_id'); // Ensure no college course is assigned
-            })
             ->get();
 
-        $classAdvisers = User::byRole('class_adviser')->get();
-        $levels = AcademicLevel::active()->get();
-        $collegeCourses = CollegeCourse::active()->get();
-        
+        $advisers = User::where('user_role', 'class_adviser')
+            ->orderBy('name')
+            ->get();
+
+        $assignments = ClassAdviserAssignment::whereHas('academicLevel', function($query) use ($k12Levels) {
+            $query->whereIn('id', $k12Levels->pluck('id'));
+        })
+        ->with(['adviser', 'academicLevel', 'academicPeriod', 'strand'])
+        ->orderBy('created_at', 'desc')
+        ->get();
+
+        $academicPeriods = AcademicPeriod::orderBy('name')->get();
+        $strands = AcademicStrand::active()->orderBy('name')->get();
+
         return Inertia::render('Admin/Assignments/Advisers', [
+            'assignments' => $assignments,
             'advisers' => $advisers,
-            'students' => $students,
-            'classAdvisers' => $classAdvisers,
-            'levels' => $levels,
-            'collegeCourses' => $collegeCourses,
+            'academicLevels' => $k12Levels,
+            'academicPeriods' => $academicPeriods,
+            'strands' => $strands
         ]);
     }
 
-    public function assignClassAdviser(Request $request)
+    public function storeAdviserAssignments(Request $request)
     {
         $request->validate([
-            'student_ids' => 'required|array',
-            'student_ids.*' => 'exists:users,id',
-            'class_adviser_id' => 'required|exists:users,id',
+            'adviser_id' => 'required|exists:users,id',
+            'academic_level_id' => 'required|exists:academic_levels,id',
+            'academic_period_id' => 'required|exists:academic_periods,id',
+            'strand_id' => 'nullable|exists:academic_strands,id',
+            'year_level' => 'required|string|max:20',
+            'section' => 'nullable|string|max:255',
         ]);
 
-        $adviser = User::findOrFail($request->class_adviser_id);
-        if (!$adviser->isClassAdviser()) {
+        // Check if adviser is actually a class adviser
+        $adviser = User::findOrFail($request->adviser_id);
+        if ($adviser->user_role !== 'class_adviser') {
             return redirect()->back()->with('error', 'Selected user is not a class adviser.');
         }
 
-        $updatedCount = 0;
-        foreach ($request->student_ids as $studentId) {
-            $student = User::findOrFail($studentId);
-            if ($student->studentProfile) {
-                $oldAdviser = $student->studentProfile->class_adviser_id;
-                $student->studentProfile->update(['class_adviser_id' => $request->class_adviser_id]);
-                
-                ActivityLog::logActivity(
-                    Auth::user(),
-                    'updated',
-                    'StudentProfile',
-                    $student->studentProfile->id,
-                    ['class_adviser_id' => $oldAdviser],
-                    ['class_adviser_id' => $request->class_adviser_id]
-                );
-                
-                $updatedCount++;
-            }
+        // Check if academic level is K-12 (Elementary, Junior High School, Senior High School)
+        $academicLevel = AcademicLevel::findOrFail($request->academic_level_id);
+        $k12Levels = AcademicLevel::whereIn('name', ['Elementary', 'Junior High School', 'Senior High School', 'Junior High', 'Senior High'])
+            ->orWhereIn('code', ['ELEM', 'JHS', 'SHS'])
+            ->pluck('id');
+        
+        if (!$k12Levels->contains($academicLevel->id)) {
+            return redirect()->back()->with('error', 'Academic level must be Elementary, Junior High School, or Senior High School.');
         }
 
-        return redirect()->back()->with('success', "Successfully assigned {$updatedCount} students to {$adviser->name}.");
-    }
+        // Check if strand is required for Senior High School
+        $isSeniorHigh = $academicLevel->code === 'SHS' || 
+                       str_contains($academicLevel->name, 'Senior High');
+        
+        if ($isSeniorHigh && empty($request->strand_id)) {
+            return redirect()->back()->with('error', 'Strand is required for Senior High School level.');
+        }
 
-    public function removeClassAdviser(Request $request)
-    {
-        $request->validate([
-            'student_ids' => 'required|array',
-            'student_ids.*' => 'exists:users,id',
+        // Check for existing assignment
+        $existingAssignment = ClassAdviserAssignment::where([
+            'adviser_id' => $request->adviser_id,
+            'academic_level_id' => $request->academic_level_id,
+            'academic_period_id' => $request->academic_period_id,
+            'strand_id' => $request->strand_id,
+            'year_level' => $request->year_level,
+            'section' => $request->section,
+        ])->first();
+
+        if ($existingAssignment) {
+            return redirect()->back()->with('error', 'Class adviser is already assigned to this level, year, and section for this period.');
+        }
+
+        $assignment = ClassAdviserAssignment::create([
+            'adviser_id' => $request->adviser_id,
+            'academic_level_id' => $request->academic_level_id,
+            'academic_period_id' => $request->academic_period_id,
+            'strand_id' => $request->strand_id,
+            'year_level' => $request->year_level,
+            'section' => $request->section,
+            'is_active' => true,
         ]);
 
-        $updatedCount = 0;
-        foreach ($request->student_ids as $studentId) {
-            $student = User::findOrFail($studentId);
-            if ($student->studentProfile && $student->studentProfile->class_adviser_id) {
-                $oldAdviser = $student->studentProfile->class_adviser_id;
-                $student->studentProfile->update(['class_adviser_id' => null]);
-                
-                ActivityLog::logActivity(
-                    Auth::user(),
-                    'updated',
-                    'StudentProfile',
-                    $student->studentProfile->id,
-                    ['class_adviser_id' => $oldAdviser],
-                    ['class_adviser_id' => null]
-                );
-                
-                $updatedCount++;
-            }
+        ActivityLog::logActivity(
+            Auth::user(),
+            'created',
+            'ClassAdviserAssignment',
+            $assignment->id,
+            null,
+            $assignment->toArray()
+        );
+
+        return redirect()->back()->with('success', 'Class adviser assigned successfully.');
+    }
+
+    public function updateAdviserAssignments(Request $request, ClassAdviserAssignment $assignment)
+    {
+        $request->validate([
+            'adviser_id' => 'required|exists:users,id',
+            'academic_level_id' => 'required|exists:academic_levels,id',
+            'academic_period_id' => 'required|exists:academic_periods,id',
+            'strand_id' => 'nullable|exists:academic_strands,id',
+            'year_level' => 'required|string|max:20',
+            'section' => 'nullable|string|max:255',
+            'is_active' => 'boolean',
+        ]);
+
+        // Check if adviser is actually a class adviser
+        $adviser = User::find($request->adviser_id);
+        if ($adviser->user_role !== 'class_adviser') {
+            return redirect()->back()->with('error', 'Selected user is not a class adviser.');
         }
 
-        return redirect()->back()->with('success', "Successfully removed class adviser from {$updatedCount} students.");
+        // Check if academic level is K-12 (Elementary, Junior High School, Senior High School)
+        $academicLevel = AcademicLevel::find($request->academic_level_id);
+        $k12Levels = AcademicLevel::whereIn('name', ['Elementary', 'Junior High School', 'Senior High School', 'Junior High', 'Senior High'])
+            ->orWhereIn('code', ['ELEM', 'JHS', 'SHS'])
+            ->pluck('id');
+        
+        if (!$k12Levels->contains($academicLevel->id)) {
+            return redirect()->back()->with('error', 'Academic level must be Elementary, Junior High School, or Senior High School.');
+        }
+
+        // Check if strand is required for Senior High School
+        $isSeniorHigh = $academicLevel->code === 'SHS' || 
+                       str_contains($academicLevel->name, 'Senior High');
+        
+        if ($isSeniorHigh && empty($request->strand_id)) {
+            return redirect()->back()->with('error', 'Strand is required for Senior High School level.');
+        }
+
+        $oldValues = $assignment->toArray();
+
+        $assignment->update([
+            'adviser_id' => $request->adviser_id,
+            'academic_level_id' => $request->academic_level_id,
+            'academic_period_id' => $request->academic_period_id,
+            'strand_id' => $request->strand_id,
+            'year_level' => $request->year_level,
+            'section' => $request->section,
+            'is_active' => $request->is_active,
+        ]);
+
+        ActivityLog::logActivity(
+            Auth::user(),
+            'updated',
+            'ClassAdviserAssignment',
+            $assignment->id,
+            $oldValues,
+            $assignment->toArray()
+        );
+
+        return redirect()->back()->with('success', 'Class adviser assignment updated successfully.');
+    }
+
+    public function destroyAdviserAssignments(ClassAdviserAssignment $assignment)
+    {
+        ActivityLog::logActivity(
+            Auth::user(),
+            'deleted',
+            'ClassAdviserAssignment',
+            $assignment->id,
+            $assignment->toArray(),
+            null
+        );
+
+        $assignment->delete();
+
+        return redirect()->back()->with('success', 'Class adviser assignment removed successfully.');
     }
 
     // ==================== UTILITY METHODS ====================

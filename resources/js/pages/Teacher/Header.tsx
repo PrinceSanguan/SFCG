@@ -91,7 +91,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuToggle, isSidebarOpen }) => {
                         )}
                         
                         <div className="ml-4 flex items-center">
-                            <h1 className="text-xl font-semibold text-gray-900">Instructor Dashboard</h1>
+                            <h1 className="text-xl font-semibold text-gray-900">Teacher Dashboard</h1>
                         </div>
                     </div>
 
@@ -107,11 +107,11 @@ const Header: React.FC<HeaderProps> = ({ onMenuToggle, isSidebarOpen }) => {
                                 className="flex items-center space-x-3 p-2 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
                                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-white text-sm font-medium">
-                                    {auth?.user?.name?.charAt(0)?.toUpperCase() || 'I'}
+                                    {auth?.user?.name?.charAt(0)?.toUpperCase() || 'T'}
                                 </div>
                                 <div className="hidden md:block text-left">
-                                    <div className="text-sm font-medium text-gray-900">{auth?.user?.name || 'Instructor'}</div>
-                                    <div className="text-xs text-gray-500">{auth?.user?.email || 'instructor@school.com'}</div>
+                                    <div className="text-sm font-medium text-gray-900">{auth?.user?.name || 'Teacher'}</div>
+                                    <div className="text-xs text-gray-500">{auth?.user?.email || 'teacher@school.com'}</div>
                                 </div>
                                 <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -121,7 +121,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuToggle, isSidebarOpen }) => {
                             {showUserMenu && (
                                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200">
                                     <a
-                                        href="/instructor/profile"
+                                        href="/teacher/profile"
                                         className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                                         onClick={() => setShowUserMenu(false)}
                                     >
@@ -183,4 +183,4 @@ const Header: React.FC<HeaderProps> = ({ onMenuToggle, isSidebarOpen }) => {
     );
 };
 
-export default Header;
+export default Header; 

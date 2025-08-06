@@ -5,6 +5,7 @@ use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\RegistrarMiddleware;
 use App\Http\Middleware\AdminMiddleware;
 use App\Http\Middleware\InstructorMiddleware;
+use App\Http\Middleware\TeacherMiddleware;
 use App\Http\Middleware\StudentMiddleware;
 use App\Http\Middleware\ParentMiddleware;
 use App\Http\Middleware\ClassAdviserMiddleware;
@@ -30,6 +31,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'registrar' => RegistrarMiddleware::class,
             'admin' => AdminMiddleware::class,
             'instructor' => InstructorMiddleware::class,
+            'teacher' => TeacherMiddleware::class,
             'student' => StudentMiddleware::class,
             'parent' => ParentMiddleware::class,
             'class_adviser' => ClassAdviserMiddleware::class,

@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
 import { Head, router, useForm } from '@inertiajs/react';
-import Header from '@/pages/Admin/Header';
-import Sidebar from '@/pages/Admin/Sidebar';
+import AdminLayout from '@/pages/Admin/AdminLayout';
 
-interface User {
+interface Adviser {
     id: number;
     name: string;
     email: string;
-    user_role: string;
 }
 
 interface AcademicLevel {
@@ -16,443 +14,440 @@ interface AcademicLevel {
     code: string;
 }
 
+interface AcademicPeriod {
+    id: number;
+    name: string;
+}
+
 interface AcademicStrand {
     id: number;
     name: string;
     code: string;
 }
 
-interface CollegeCourse {
+interface Assignment {
     id: number;
-    name: string;
-    code: string;
-}
-
-interface StudentProfile {
-    academic_level?: AcademicLevel;
-    academic_strand?: AcademicStrand;
-    college_course?: CollegeCourse;
-    class_adviser?: User;
-    grade_level?: string;
-}
-
-interface Student extends User {
-    student_profile?: StudentProfile;
-}
-
-interface ClassAdviser extends User {
-    advised_students: Student[];
+    adviser?: Adviser;
+    academicLevel?: AcademicLevel;
+    academicPeriod?: AcademicPeriod;
+    strand?: AcademicStrand;
+    year_level?: string;
+    section?: string;
+    is_active: boolean;
+    created_at: string;
 }
 
 interface Props {
-    advisers: ClassAdviser[];
-    students: Student[];
-    classAdvisers: User[];
-    levels: AcademicLevel[];
+    assignments: Assignment[];
+    advisers: Adviser[];
+    academicLevels: AcademicLevel[];
+    academicPeriods: AcademicPeriod[];
+    strands: AcademicStrand[];
 }
 
-const AdviserAssignments: React.FC<Props> = ({ advisers, students, classAdvisers, levels }) => {
-    const [selectedStudents, setSelectedStudents] = useState<number[]>([]);
-    const [filterLevel, setFilterLevel] = useState<string>('');
-    const [filterAdviser, setFilterAdviser] = useState<string>('');
+const AdviserAssignments: React.FC<Props> = ({ 
+    assignments = [], 
+    advisers = [], 
+    academicLevels = [], 
+    academicPeriods = [],
+    strands = []
+}) => {
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(null);
+    const [selectedLevel, setSelectedLevel] = useState<AcademicLevel | null>(null);
 
-    const { data, setData, processing, errors, reset } = useForm({
-        student_ids: [] as number[],
-        class_adviser_id: '',
+    const { data, setData, post, put, processing, errors, reset } = useForm({
+        adviser_id: '',
+        academic_level_id: '',
+        academic_period_id: '',
+        section: '',
+        strand_id: '',
+        year_level: '',
+        is_active: true as boolean,
     });
 
-    const handleAssignAdviser = (e: React.FormEvent) => {
-        e.preventDefault();
+    // Check if selected level is for Senior High School (requires strand)
+    const isSeniorHighLevel = selectedLevel?.code === 'SHS' || 
+                             selectedLevel?.name?.includes('Senior High');
+
+    const handleLevelChange = (levelId: string) => {
+        const level = academicLevels.find(l => l.id.toString() === levelId);
+        setSelectedLevel(level || null);
+        setData('academic_level_id', levelId);
         
-        router.post('/admin/assignments/advisers/assign', {
-            student_ids: selectedStudents,
-            class_adviser_id: data.class_adviser_id,
-        }, {
-            onSuccess: () => {
-                setSelectedStudents([]);
-                reset();
-            }
-        });
+        // Clear strand if switching to non-SHS level
+        if (level && !(level.code === 'SHS' || level.name?.includes('Senior High'))) {
+            setData('strand_id', '');
+        }
     };
 
-    const handleRemoveAdviser = () => {
-        if (selectedStudents.length === 0) {
-            alert('Please select students first.');
-            return;
-        }
-
-        if (confirm(`Are you sure you want to remove class advisers from ${selectedStudents.length} students?`)) {
-            router.post('/admin/assignments/advisers/remove', {
-                student_ids: selectedStudents,
-            }, {
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        
+        if (editingAssignment) {
+            put(`/admin/assignments/advisers/${editingAssignment.id}`, {
                 onSuccess: () => {
-                    setSelectedStudents([]);
+                    setEditingAssignment(null);
+                    setShowCreateModal(false);
+                    reset();
+                    setSelectedLevel(null);
+                }
+            });
+        } else {
+            post('/admin/assignments/advisers', {
+                onSuccess: () => {
+                    setShowCreateModal(false);
+                    reset();
+                    setSelectedLevel(null);
                 }
             });
         }
     };
 
-    const handleStudentToggle = (studentId: number) => {
-        setSelectedStudents(prev => {
-            if (prev.includes(studentId)) {
-                return prev.filter(id => id !== studentId);
-            } else {
-                return [...prev, studentId];
-            }
+    const handleEdit = (assignment: Assignment) => {
+        setData({
+            adviser_id: assignment.adviser?.id.toString() || '',
+            academic_level_id: assignment.academicLevel?.id.toString() || '',
+            academic_period_id: assignment.academicPeriod?.id.toString() || '',
+            section: assignment.section || '',
+            strand_id: assignment.strand?.id.toString() || '',
+            year_level: assignment.year_level || '',
+            is_active: assignment.is_active,
         });
+        setEditingAssignment(assignment);
+        setShowCreateModal(true);
+        setSelectedLevel(assignment.academicLevel || null);
     };
 
-    const handleSelectAll = () => {
-        const filteredStudentIds = getFilteredStudents().map(s => s.id);
-        setSelectedStudents(filteredStudentIds);
+    const handleDelete = (assignment: Assignment) => {
+        if (confirm('Are you sure you want to remove this class adviser assignment?')) {
+            router.delete(`/admin/assignments/advisers/${assignment.id}`);
+        }
     };
 
-    const handleDeselectAll = () => {
-        setSelectedStudents([]);
+    const closeModal = () => {
+        setShowCreateModal(false);
+        setEditingAssignment(null);
+        reset();
+        setSelectedLevel(null);
     };
 
-    const getFilteredStudents = () => {
-        return students.filter(student => {
-            // Exclude college students - only show Elementary, Junior High, and Senior High students
-            if (student.student_profile?.college_course) {
-                return false;
-            }
-            
-            // Filter by academic level if selected
-            if (filterLevel && student.student_profile?.academic_level?.id.toString() !== filterLevel) {
-                return false;
-            }
-            
-            // Filter by adviser if selected
-            if (filterAdviser) {
-                const hasAdviser = student.student_profile?.class_adviser?.id.toString() === filterAdviser;
-                if (filterAdviser === 'unassigned') {
-                    return !hasAdviser;
-                }
-                return hasAdviser;
-            }
-            
-            return true;
-        });
+    const getYearLevelOptions = (levelCode: string) => {
+        switch (levelCode) {
+            case 'ELEM':
+                return [
+                    { value: 'Grade 1', label: 'Grade 1' },
+                    { value: 'Grade 2', label: 'Grade 2' },
+                    { value: 'Grade 3', label: 'Grade 3' },
+                    { value: 'Grade 4', label: 'Grade 4' },
+                    { value: 'Grade 5', label: 'Grade 5' },
+                    { value: 'Grade 6', label: 'Grade 6' },
+                ];
+            case 'JHS':
+                return [
+                    { value: 'Grade 7', label: 'Grade 7' },
+                    { value: 'Grade 8', label: 'Grade 8' },
+                    { value: 'Grade 9', label: 'Grade 9' },
+                    { value: 'Grade 10', label: 'Grade 10' },
+                ];
+            case 'SHS':
+                return [
+                    { value: 'Grade 11', label: 'Grade 11' },
+                    { value: 'Grade 12', label: 'Grade 12' },
+                ];
+            default:
+                return [];
+        }
     };
-
-    const filteredStudents = getFilteredStudents();
-
-    // Calculate statistics based on filtered students (excluding college students)
-    const unassignedStudents = filteredStudents.filter(s => !s.student_profile?.class_adviser).length;
-    const totalAssignments = filteredStudents.filter(s => s.student_profile?.class_adviser).length;
 
     return (
         <>
-            <Head title="Class Adviser Assignments" />
-            <div className="flex min-h-screen bg-gray-50">
-                <Sidebar />
-                <div className="flex flex-1 flex-col">
-                    <Header />
-                    <main className="flex-1 p-6">
-                        {/* Header */}
-                        <div className="mb-8">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h1 className="text-3xl font-bold text-gray-900">Class Adviser Assignments</h1>
-                                    <p className="text-gray-600 mt-2">Assign class advisers to students and manage advisory relationships</p>
-                                </div>
+            <Head title="Class Adviser Assignments - Admin" />
+            <AdminLayout>
+                <div className="max-w-7xl mx-auto">
+                    {/* Header */}
+                    <div className="mb-8">
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <h1 className="text-3xl font-bold text-gray-900">Class Adviser Assignments</h1>
+                                <p className="text-gray-600 mt-2">Manage class adviser assignments for different academic levels.</p>
                             </div>
+                            <button
+                                onClick={() => setShowCreateModal(true)}
+                                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                            >
+                                ✏️ Assign Class Adviser
+                            </button>
                         </div>
+                    </div>
 
-                        {/* Summary Statistics */}
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                                <div className="flex items-center">
-                                    <div className="flex-shrink-0">
-                                        <div className="flex items-center justify-center w-8 h-8 bg-blue-500 rounded-md">
-                                            <span className="text-white text-sm">👥</span>
-                                        </div>
-                                    </div>
-                                    <div className="ml-4">
-                                        <dt className="text-sm font-medium text-gray-500">Total Students</dt>
-                                        <dd className="text-2xl font-bold text-gray-900">{filteredStudents.length}</dd>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                                <div className="flex items-center">
-                                    <div className="flex-shrink-0">
-                                        <div className="flex items-center justify-center w-8 h-8 bg-green-500 rounded-md">
-                                            <span className="text-white text-sm">✅</span>
-                                        </div>
-                                    </div>
-                                    <div className="ml-4">
-                                        <dt className="text-sm font-medium text-gray-500">Assigned</dt>
-                                        <dd className="text-2xl font-bold text-gray-900">{totalAssignments}</dd>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                                <div className="flex items-center">
-                                    <div className="flex-shrink-0">
-                                        <div className="flex items-center justify-center w-8 h-8 bg-yellow-500 rounded-md">
-                                            <span className="text-white text-sm">⚠️</span>
-                                        </div>
-                                    </div>
-                                    <div className="ml-4">
-                                        <dt className="text-sm font-medium text-gray-500">Unassigned</dt>
-                                        <dd className="text-2xl font-bold text-gray-900">{unassignedStudents}</dd>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                                <div className="flex items-center">
-                                    <div className="flex-shrink-0">
-                                        <div className="flex items-center justify-center w-8 h-8 bg-purple-500 rounded-md">
-                                            <span className="text-white text-sm">👨‍🏫</span>
-                                        </div>
-                                    </div>
-                                    <div className="ml-4">
-                                        <dt className="text-sm font-medium text-gray-500">Active Advisers</dt>
-                                        <dd className="text-2xl font-bold text-gray-900">{advisers.filter(a => a.advised_students.length > 0).length}</dd>
-                                    </div>
-                                </div>
-                            </div>
+                    {/* Assignments Table */}
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                        <div className="px-6 py-4 border-b border-gray-200">
+                            <h2 className="text-lg font-semibold text-gray-900">Current Assignments</h2>
                         </div>
-
-                        {/* Current Assignments Overview */}
-                        <div className="mb-8">
-                            <h2 className="text-xl font-semibold text-gray-900 mb-4">Current Adviser Assignments</h2>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {advisers.filter(adviser => adviser.advised_students.length > 0).map((adviser) => (
-                                    <div key={adviser.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                                        <div className="flex items-center justify-between mb-4">
-                                            <h3 className="text-lg font-semibold text-gray-900">{adviser.name}</h3>
-                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                {adviser.advised_students.length} students
-                                            </span>
-                                        </div>
-                                        <div className="text-sm text-gray-600">
-                                            <p className="mb-2">{adviser.email}</p>
-                                            {adviser.advised_students.length > 0 && (
-                                                <div>
-                                                    <p className="font-medium mb-2">Recent students:</p>
-                                                    <ul className="space-y-1">
-                                                        {adviser.advised_students.slice(0, 3).map((student) => (
-                                                            <li key={student.id} className="text-xs">
-                                                                {student.name} - {student.student_profile?.academic_level?.name || student.student_profile?.grade_level || 'No Level'}
-                                                                {student.student_profile?.academic_strand && ` (${student.student_profile.academic_strand.name})`}
-                                                                {student.student_profile?.college_course && ` (${student.student_profile.college_course.name})`}
-                                                            </li>
-                                                        ))}
-                                                        {adviser.advised_students.length > 3 && (
-                                                            <li className="text-xs text-gray-500">
-                                                                +{adviser.advised_students.length - 3} more...
-                                                            </li>
-                                                        )}
-                                                    </ul>
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Class Adviser
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Academic Level
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Year Level
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Section
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Strand
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Academic Period
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Status
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Actions
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {assignments.map((assignment) => (
+                                        <tr key={assignment.id} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="text-sm font-medium text-gray-900">
+                                                    {assignment.adviser?.name || 'N/A'}
                                                 </div>
+                                                <div className="text-sm text-gray-500">
+                                                    {assignment.adviser?.email || 'N/A'}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="text-sm text-gray-900">
+                                                    {assignment.academicLevel?.name || 'N/A'}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                {assignment.year_level || 'N/A'}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                {assignment.section || 'N/A'}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                {assignment.strand?.name || 'N/A'}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                {assignment.academicPeriod?.name || 'N/A'}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                                    assignment.is_active 
+                                                        ? 'bg-green-100 text-green-800' 
+                                                        : 'bg-red-100 text-red-800'
+                                                }`}>
+                                                    {assignment.is_active ? 'Active' : 'Inactive'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <button
+                                                    onClick={() => handleEdit(assignment)}
+                                                    className="text-blue-600 hover:text-blue-900 mr-3"
+                                                >
+                                                    Edit
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(assignment)}
+                                                    className="text-red-600 hover:text-red-900"
+                                                >
+                                                    Remove
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {/* Create/Edit Modal */}
+                    {showCreateModal && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+                                <h2 className="text-lg font-semibold mb-4">
+                                    {editingAssignment ? 'Edit Class Adviser Assignment' : 'Assign Class Adviser'}
+                                </h2>
+                                
+                                <form onSubmit={handleSubmit}>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Class Adviser
+                                            </label>
+                                            <select
+                                                value={data.adviser_id}
+                                                onChange={(e) => setData('adviser_id', e.target.value)}
+                                                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                required
+                                            >
+                                                <option value="">Select Class Adviser</option>
+                                                {advisers.map((adviser) => (
+                                                    <option key={adviser.id} value={adviser.id}>
+                                                        {adviser.name} ({adviser.email})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            {errors.adviser_id && (
+                                                <p className="text-red-500 text-sm mt-1">{errors.adviser_id}</p>
                                             )}
                                         </div>
-                                    </div>
-                                ))}
-                                
-                                {advisers.filter(adviser => adviser.advised_students.length > 0).length === 0 && (
-                                    <div className="col-span-full text-center py-8">
-                                        <div className="text-gray-500 text-lg">No adviser assignments yet</div>
-                                        <p className="text-gray-400 mt-2">Start by assigning students to class advisers below</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
 
-                        {/* Assignment Form */}
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-                            <h2 className="text-lg font-semibold text-gray-900 mb-4">Assign Class Adviser</h2>
-                            
-                            <form onSubmit={handleAssignAdviser} className="space-y-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Class Adviser
-                                        </label>
-                                        <select
-                                            value={data.class_adviser_id}
-                                            onChange={(e) => setData('class_adviser_id', e.target.value)}
-                                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                            required
-                                        >
-                                            <option value="">Select Class Adviser</option>
-                                            {classAdvisers.map((adviser) => (
-                                                <option key={adviser.id} value={adviser.id}>
-                                                    {adviser.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        {errors.class_adviser_id && <p className="text-red-500 text-xs mt-1">{errors.class_adviser_id}</p>}
-                                    </div>
-
-                                    <div className="flex items-end space-x-2">
-                                        <button
-                                            type="submit"
-                                            disabled={processing || selectedStudents.length === 0 || !data.class_adviser_id}
-                                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                        >
-                                            {processing ? 'Assigning...' : `Assign to ${selectedStudents.length} Student${selectedStudents.length !== 1 ? 's' : ''}`}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={handleRemoveAdviser}
-                                            disabled={selectedStudents.length === 0}
-                                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                        >
-                                            Remove Adviser
-                                        </button>
-                                    </div>
-                                </div>
-                            </form>
-                        </div>
-
-                        {/* Students List */}
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                            <div className="px-6 py-4 border-b border-gray-200">
-                                <div className="flex items-center justify-between">
-                                    <h2 className="text-lg font-semibold text-gray-900">Students ({filteredStudents.length})</h2>
-                                    <div className="flex items-center space-x-4">
-                                        {/* Filters */}
-                                        <select
-                                            value={filterLevel}
-                                            onChange={(e) => setFilterLevel(e.target.value)}
-                                            className="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                                        >
-                                            <option value="">All Levels</option>
-                                            {levels.map((level) => (
-                                                <option key={level.id} value={level.id}>
-                                                    {level.name}
-                                                </option>
-                                            ))}
-                                        </select>
-
-                                        <select
-                                            value={filterAdviser}
-                                            onChange={(e) => setFilterAdviser(e.target.value)}
-                                            className="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                                        >
-                                            <option value="">All Students</option>
-                                            <option value="unassigned">Unassigned</option>
-                                            {classAdvisers.map((adviser) => (
-                                                <option key={adviser.id} value={adviser.id}>
-                                                    {adviser.name}
-                                                </option>
-                                            ))}
-                                        </select>
-
-                                        {/* Selection Controls */}
-                                        <div className="flex space-x-2">
-                                            <button
-                                                onClick={handleSelectAll}
-                                                className="text-sm text-blue-600 hover:text-blue-800"
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Academic Level
+                                            </label>
+                                            <select
+                                                value={data.academic_level_id}
+                                                onChange={(e) => handleLevelChange(e.target.value)}
+                                                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                required
                                             >
-                                                Select All
-                                            </button>
-                                            <button
-                                                onClick={handleDeselectAll}
-                                                className="text-sm text-gray-600 hover:text-gray-800"
+                                                <option value="">Select Academic Level</option>
+                                                {academicLevels.map((level) => (
+                                                    <option key={level.id} value={level.id}>
+                                                        {level.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            {errors.academic_level_id && (
+                                                <p className="text-red-500 text-sm mt-1">{errors.academic_level_id}</p>
+                                            )}
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Academic Period
+                                            </label>
+                                            <select
+                                                value={data.academic_period_id}
+                                                onChange={(e) => setData('academic_period_id', e.target.value)}
+                                                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                required
                                             >
-                                                Deselect All
-                                            </button>
+                                                <option value="">Select Period</option>
+                                                {academicPeriods.map((period) => (
+                                                    <option key={period.id} value={period.id}>
+                                                        {period.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            {errors.academic_period_id && (
+                                                <p className="text-red-500 text-sm mt-1">{errors.academic_period_id}</p>
+                                            )}
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Section (Optional)
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={data.section}
+                                                onChange={(e) => setData('section', e.target.value)}
+                                                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                placeholder="e.g., Section A"
+                                            />
+                                            {errors.section && (
+                                                <p className="text-red-500 text-sm mt-1">{errors.section}</p>
+                                            )}
+                                        </div>
+
+                                        {isSeniorHighLevel && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Strand
+                                                </label>
+                                                <select
+                                                    value={data.strand_id}
+                                                    onChange={(e) => setData('strand_id', e.target.value)}
+                                                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    required={isSeniorHighLevel}
+                                                >
+                                                    <option value="">Select Strand</option>
+                                                    {strands.map((strand) => (
+                                                        <option key={strand.id} value={strand.id}>
+                                                            {strand.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                {errors.strand_id && (
+                                                    <p className="text-red-500 text-sm mt-1">{errors.strand_id}</p>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Year Level
+                                            </label>
+                                            <select
+                                                value={data.year_level}
+                                                onChange={(e) => setData('year_level', e.target.value)}
+                                                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                required
+                                            >
+                                                <option value="">Select Year Level</option>
+                                                {selectedLevel && getYearLevelOptions(selectedLevel.code).map((option) => (
+                                                    <option key={option.value} value={option.value}>
+                                                        {option.label}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            {errors.year_level && (
+                                                <p className="text-red-500 text-sm mt-1">{errors.year_level}</p>
+                                            )}
+                                        </div>
+
+                                        <div className="flex items-center">
+                                            <input
+                                                type="checkbox"
+                                                id="is_active"
+                                                checked={data.is_active}
+                                                onChange={(e) => setData('is_active', e.target.checked)}
+                                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                            />
+                                            <label htmlFor="is_active" className="ml-2 block text-sm text-gray-900">
+                                                Active
+                                            </label>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
 
-                            <div className="p-4">
-                                {selectedStudents.length > 0 && (
-                                    <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                                        <p className="text-sm text-blue-800">
-                                            {selectedStudents.length} student(s) selected
-                                        </p>
+                                    <div className="flex justify-end space-x-3 mt-6">
+                                        <button
+                                            type="button"
+                                            onClick={closeModal}
+                                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={processing}
+                                            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+                                        >
+                                            {processing ? 'Saving...' : (editingAssignment ? 'Update' : 'Assign')}
+                                        </button>
                                     </div>
-                                )}
+                                </form>
                             </div>
-                            
-                            {filteredStudents.length === 0 ? (
-                                <div className="p-6 text-center text-gray-500">
-                                    <div className="text-lg">No students found</div>
-                                    <p className="text-gray-400 mt-2">Try adjusting your filters or add more students</p>
-                                </div>
-                            ) : (
-                                <div className="overflow-x-auto">
-                                    <table className="min-w-full divide-y divide-gray-200">
-                                        <thead className="bg-gray-50">
-                                            <tr>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={filteredStudents.length > 0 && filteredStudents.every(s => selectedStudents.includes(s.id))}
-                                                        onChange={(e) => {
-                                                            if (e.target.checked) {
-                                                                handleSelectAll();
-                                                            } else {
-                                                                handleDeselectAll();
-                                                            }
-                                                        }}
-                                                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                                    />
-                                                </th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Academic Level</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Strand/Course</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current Adviser</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="bg-white divide-y divide-gray-200">
-                                            {filteredStudents.map((student) => (
-                                                <tr key={student.id} className="hover:bg-gray-50">
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={selectedStudents.includes(student.id)}
-                                                            onChange={() => handleStudentToggle(student.id)}
-                                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                                        />
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className="text-sm font-medium text-gray-900">{student.name}</div>
-                                                        <div className="text-sm text-gray-500">{student.email}</div>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                                                                <div className="text-sm text-gray-900">{student.student_profile?.academic_level?.name || student.student_profile?.grade_level || 'No Level'}</div>
-                                        <div className="text-sm text-gray-500">{student.student_profile?.academic_level?.code || 'N/A'}</div>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className="text-sm text-gray-900">
-                                                            {student.student_profile?.college_course ? 
-                                                                student.student_profile.college_course.name :
-                                                                (student.student_profile?.academic_strand?.name || 'General')
-                                                            }
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        {student.student_profile?.class_adviser ? (
-                                                            <div className="text-sm text-gray-900">
-                                                                {student.student_profile.class_adviser.name}
-                                                            </div>
-                                                        ) : (
-                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                                                Unassigned
-                                                            </span>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            )}
                         </div>
-                    </main>
+                    )}
                 </div>
-            </div>
+            </AdminLayout>
         </>
     );
 };

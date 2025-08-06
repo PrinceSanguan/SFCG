@@ -202,7 +202,29 @@ class RegistrarController extends Controller
         $academicLevels = AcademicLevel::orderBy('name')->get();
         $academicStrands = AcademicStrand::orderBy('name')->get();
         $collegeCourses = CollegeCourse::orderBy('name')->get();
-        $classAdvisers = User::where('user_role', 'class_adviser')->orderBy('name')->get();
+        
+        // Get class advisers from the new assignment system
+        $classAdvisers = User::where('user_role', 'class_adviser')
+            ->whereHas('classAdviserAssignments', function($query) {
+                $query->where('is_active', true);
+            })
+            ->with(['classAdviserAssignments.academicLevel', 'classAdviserAssignments.academicPeriod'])
+            ->orderBy('name')
+            ->get()
+            ->map(function($adviser) {
+                // Add assignment info to each adviser
+                $adviser->assignments = $adviser->classAdviserAssignments->map(function($assignment) {
+                    return [
+                        'id' => $assignment->id,
+                        'academic_level' => $assignment->academicLevel->name,
+                        'year_level' => $assignment->year_level,
+                        'section' => $assignment->section,
+                        'strand' => $assignment->strand ? $assignment->strand->name : null,
+                        'display_name' => $assignment->getDisplayName(),
+                    ];
+                });
+                return $adviser;
+            });
 
         return Inertia::render('Registrar/Students/Index', [
             'students' => $students,
@@ -801,21 +823,21 @@ class RegistrarController extends Controller
     
     public function teacherAssignments()
     {
-        // Get only senior high school levels
-        $seniorHighLevels = AcademicLevel::whereIn('name', ['Senior High School', 'Senior High'])
-            ->orWhere('code', 'SHS')
+        // Get both junior high school and senior high school levels
+        $highSchoolLevels = AcademicLevel::whereIn('name', ['Junior High School', 'Senior High School', 'Junior High', 'Senior High'])
+            ->orWhereIn('code', ['JHS', 'SHS'])
             ->get();
 
         $teachers = User::where('user_role', 'teacher')
             ->orderBy('name')
             ->get();
 
-        $subjects = Subject::whereHas('academicLevel', function($query) use ($seniorHighLevels) {
-            $query->whereIn('id', $seniorHighLevels->pluck('id'));
+        $subjects = Subject::whereHas('academicLevel', function($query) use ($highSchoolLevels) {
+            $query->whereIn('id', $highSchoolLevels->pluck('id'));
         })->with('academicLevel')->orderBy('name')->get();
 
-        $assignments = InstructorSubjectAssignment::whereHas('subject.academicLevel', function($query) use ($seniorHighLevels) {
-            $query->whereIn('id', $seniorHighLevels->pluck('id'));
+        $assignments = InstructorSubjectAssignment::whereHas('subject.academicLevel', function($query) use ($highSchoolLevels) {
+            $query->whereIn('id', $highSchoolLevels->pluck('id'));
         })
         ->with(['instructor', 'subject.academicLevel', 'subject.academicStrand', 'academicPeriod', 'strand'])
         ->orderBy('created_at', 'desc')
@@ -839,7 +861,7 @@ class RegistrarController extends Controller
             'teacher_id' => 'required|exists:users,id',
             'subject_id' => 'required|exists:subjects,id',
             'academic_period_id' => 'required|exists:academic_periods,id',
-            'strand_id' => 'required|exists:academic_strands,id',
+            'strand_id' => 'nullable|exists:academic_strands,id',
             'year_level' => 'required|string|max:20',
         ]);
 
@@ -849,14 +871,22 @@ class RegistrarController extends Controller
             return redirect()->back()->with('error', 'Selected user is not a teacher.');
         }
 
-        // Check if subject is for senior high school
+        // Check if subject is for junior high school or senior high school
         $subject = Subject::with('academicLevel')->findOrFail($request->subject_id);
-        $seniorHighLevels = AcademicLevel::whereIn('name', ['Senior High School', 'Senior High'])
-            ->orWhere('code', 'SHS')
+        $highSchoolLevels = AcademicLevel::whereIn('name', ['Junior High School', 'Senior High School', 'Junior High', 'Senior High'])
+            ->orWhereIn('code', ['JHS', 'SHS'])
             ->pluck('id');
         
-        if (!$seniorHighLevels->contains($subject->academic_level_id)) {
-            return redirect()->back()->with('error', 'Subject must be for Senior High School level.');
+        if (!$highSchoolLevels->contains($subject->academic_level_id)) {
+            return redirect()->back()->with('error', 'Subject must be for Junior High School or Senior High School level.');
+        }
+
+        // Check if strand is required for Senior High School
+        $isSeniorHigh = $subject->academicLevel->code === 'SHS' || 
+                       str_contains($subject->academicLevel->name, 'Senior High');
+        
+        if ($isSeniorHigh && empty($request->strand_id)) {
+            return redirect()->back()->with('error', 'Strand is required for Senior High School subjects.');
         }
 
         // Check for existing assignment
@@ -899,6 +929,8 @@ class RegistrarController extends Controller
             'teacher_id' => 'required|exists:users,id',
             'subject_id' => 'required|exists:subjects,id',
             'academic_period_id' => 'required|exists:academic_periods,id',
+            'strand_id' => 'nullable|exists:academic_strands,id',
+            'year_level' => 'required|string|max:20',
             'section' => 'nullable|string|max:255',
             'is_active' => 'boolean',
         ]);
@@ -909,14 +941,22 @@ class RegistrarController extends Controller
             return redirect()->back()->with('error', 'Selected user is not a teacher.');
         }
 
-        // Check if subject is for senior high school
+        // Check if subject is for junior high school or senior high school
         $subject = Subject::with('academicLevel')->find($request->subject_id);
-        $seniorHighLevels = AcademicLevel::whereIn('name', ['Senior High School', 'Senior High'])
-            ->orWhere('code', 'SHS')
+        $highSchoolLevels = AcademicLevel::whereIn('name', ['Junior High School', 'Senior High School', 'Junior High', 'Senior High'])
+            ->orWhereIn('code', ['JHS', 'SHS'])
             ->pluck('id');
         
-        if (!$seniorHighLevels->contains($subject->academic_level_id)) {
-            return redirect()->back()->with('error', 'Subject must be for Senior High School level.');
+        if (!$highSchoolLevels->contains($subject->academic_level_id)) {
+            return redirect()->back()->with('error', 'Subject must be for Junior High School or Senior High School level.');
+        }
+
+        // Check if strand is required for Senior High School
+        $isSeniorHigh = $subject->academicLevel->code === 'SHS' || 
+                       str_contains($subject->academicLevel->name, 'Senior High');
+        
+        if ($isSeniorHigh && empty($request->strand_id)) {
+            return redirect()->back()->with('error', 'Strand is required for Senior High School subjects.');
         }
 
         $oldValues = $assignment->toArray();
@@ -925,6 +965,8 @@ class RegistrarController extends Controller
             'instructor_id' => $request->teacher_id,
             'subject_id' => $request->subject_id,
             'academic_period_id' => $request->academic_period_id,
+            'strand_id' => $request->strand_id,
+            'year_level' => $request->year_level,
             'section' => $request->section,
             'is_active' => $request->is_active,
         ]);

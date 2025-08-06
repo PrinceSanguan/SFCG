@@ -78,12 +78,22 @@ class AccountSeeder extends Seeder
             'user_role' => 'parent',
         ]);
 
-        // Create Teacher User
+        // Create test Teacher
         User::create([
-            'name' => 'Teacher User',
-            'email' => 'teacher@gmail.com',
-            'password' => Hash::make('password123'),
+            'name' => 'John Teacher',
+            'email' => 'teacher@school.com',
+            'password' => Hash::make('password'),
             'user_role' => 'teacher',
+            'email_verified_at' => now(),
+        ]);
+
+        // Create test Class Adviser
+        User::create([
+            'name' => 'Sarah Adviser',
+            'email' => 'adviser@school.com',
+            'password' => Hash::make('password'),
+            'user_role' => 'class_adviser',
+            'email_verified_at' => now(),
         ]);
     }
 }

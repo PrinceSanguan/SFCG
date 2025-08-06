@@ -14,6 +14,7 @@ interface Subject {
     academicLevel?: {
         id: number;
         name: string;
+        code: string;
     };
     academicStrand?: {
         id: number;
@@ -66,6 +67,7 @@ const Teachers: React.FC<Props> = ({
 }) => {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(null);
+    const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
 
     const { data, setData, post, put, processing, errors, reset } = useForm({
         teacher_id: '',
@@ -77,6 +79,21 @@ const Teachers: React.FC<Props> = ({
         is_active: true as boolean,
     });
 
+    // Check if selected subject is for Senior High School (requires strand)
+    const isSeniorHighSubject = selectedSubject?.academicLevel?.code === 'SHS' || 
+                               selectedSubject?.academicLevel?.name?.includes('Senior High');
+
+    const handleSubjectChange = (subjectId: string) => {
+        const subject = subjects.find(s => s.id.toString() === subjectId);
+        setSelectedSubject(subject || null);
+        setData('subject_id', subjectId);
+        
+        // Clear strand if switching to Junior High School
+        if (subject && (subject.academicLevel?.code === 'JHS' || subject.academicLevel?.name?.includes('Junior High'))) {
+            setData('strand_id', '');
+        }
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         
@@ -86,6 +103,7 @@ const Teachers: React.FC<Props> = ({
                     setEditingAssignment(null);
                     setShowCreateModal(false);
                     reset();
+                    setSelectedSubject(null);
                 }
             });
         } else {
@@ -93,6 +111,7 @@ const Teachers: React.FC<Props> = ({
                 onSuccess: () => {
                     setShowCreateModal(false);
                     reset();
+                    setSelectedSubject(null);
                 }
             });
         }
@@ -108,6 +127,7 @@ const Teachers: React.FC<Props> = ({
         setData('is_active', assignment.is_active);
         setEditingAssignment(assignment);
         setShowCreateModal(true);
+        setSelectedSubject(assignment.subject || null); // Set selected subject for editing
     };
 
     const handleDelete = (assignment: Assignment) => {
@@ -120,6 +140,7 @@ const Teachers: React.FC<Props> = ({
         setShowCreateModal(false);
         setEditingAssignment(null);
         reset();
+        setSelectedSubject(null);
     };
 
     return (
@@ -300,7 +321,7 @@ const Teachers: React.FC<Props> = ({
                                     </label>
                                     <select
                                         value={data.subject_id}
-                                        onChange={(e) => setData('subject_id', e.target.value)}
+                                        onChange={(e) => handleSubjectChange(e.target.value)}
                                         className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         required
                                     >
@@ -315,6 +336,30 @@ const Teachers: React.FC<Props> = ({
                                         <p className="text-red-500 text-sm mt-1">{errors.subject_id}</p>
                                     )}
                                 </div>
+
+                                {isSeniorHighSubject && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Strand
+                                        </label>
+                                        <select
+                                            value={data.strand_id}
+                                            onChange={(e) => setData('strand_id', e.target.value)}
+                                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            required
+                                        >
+                                            <option value="">Select Strand</option>
+                                            {strands.map((strand) => (
+                                                <option key={strand.id} value={strand.id}>
+                                                    {strand.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {errors.strand_id && (
+                                            <p className="text-red-500 text-sm mt-1">{errors.strand_id}</p>
+                                        )}
+                                    </div>
+                                )}
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -356,28 +401,6 @@ const Teachers: React.FC<Props> = ({
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Strand
-                                    </label>
-                                    <select
-                                        value={data.strand_id}
-                                        onChange={(e) => setData('strand_id', e.target.value)}
-                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        required
-                                    >
-                                        <option value="">Select Strand</option>
-                                        {strands.map((strand) => (
-                                            <option key={strand.id} value={strand.id}>
-                                                {strand.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    {errors.strand_id && (
-                                        <p className="text-red-500 text-sm mt-1">{errors.strand_id}</p>
-                                    )}
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
                                         Year Level
                                     </label>
                                     <select
@@ -387,8 +410,16 @@ const Teachers: React.FC<Props> = ({
                                         required
                                     >
                                         <option value="">Select Year Level</option>
-                                        <option value="Grade 11">Grade 11</option>
-                                        <option value="Grade 12">Grade 12</option>
+                                        <optgroup label="Junior High School">
+                                            <option value="Grade 7">Grade 7</option>
+                                            <option value="Grade 8">Grade 8</option>
+                                            <option value="Grade 9">Grade 9</option>
+                                            <option value="Grade 10">Grade 10</option>
+                                        </optgroup>
+                                        <optgroup label="Senior High School">
+                                            <option value="Grade 11">Grade 11</option>
+                                            <option value="Grade 12">Grade 12</option>
+                                        </optgroup>
                                     </select>
                                     {errors.year_level && (
                                         <p className="text-red-500 text-sm mt-1">{errors.year_level}</p>
