@@ -41,7 +41,6 @@ interface Props {
     assignments: Assignment[];
     advisers: Adviser[];
     academicLevels: AcademicLevel[];
-    academicPeriods: AcademicPeriod[];
     strands: AcademicStrand[];
 }
 
@@ -49,12 +48,15 @@ const AdviserAssignments: React.FC<Props> = ({
     assignments = [], 
     advisers = [], 
     academicLevels = [], 
-    academicPeriods = [],
     strands = []
 }) => {
+
+
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(null);
     const [selectedLevel, setSelectedLevel] = useState<AcademicLevel | null>(null);
+    const [filteredPeriods, setFilteredPeriods] = useState<AcademicPeriod[]>([]);
+    const [loadingPeriods, setLoadingPeriods] = useState(false);
 
     const { data, setData, post, put, processing, errors, reset } = useForm({
         adviser_id: '',
@@ -70,15 +72,43 @@ const AdviserAssignments: React.FC<Props> = ({
     const isSeniorHighLevel = selectedLevel?.code === 'SHS' || 
                              selectedLevel?.name?.includes('Senior High');
 
+    // Fetch periods by academic level
+    const fetchPeriodsByLevel = async (levelId: string) => {
+        if (!levelId) {
+            setFilteredPeriods([]);
+            return;
+        }
+
+        setLoadingPeriods(true);
+        try {
+            const response = await fetch(`/admin/api/periods-by-level?academic_level_id=${levelId}`);
+            if (response.ok) {
+                const periods = await response.json();
+                setFilteredPeriods(periods);
+            } else {
+                setFilteredPeriods([]);
+            }
+        } catch (error) {
+            console.error('Error fetching periods:', error);
+            setFilteredPeriods([]);
+        } finally {
+            setLoadingPeriods(false);
+        }
+    };
+
     const handleLevelChange = (levelId: string) => {
         const level = academicLevels.find(l => l.id.toString() === levelId);
         setSelectedLevel(level || null);
         setData('academic_level_id', levelId);
+        setData('academic_period_id', ''); // Clear selected period
         
         // Clear strand if switching to non-SHS level
         if (level && !(level.code === 'SHS' || level.name?.includes('Senior High'))) {
             setData('strand_id', '');
         }
+
+        // Fetch periods for the selected level
+        fetchPeriodsByLevel(levelId);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -117,6 +147,11 @@ const AdviserAssignments: React.FC<Props> = ({
         setEditingAssignment(assignment);
         setShowCreateModal(true);
         setSelectedLevel(assignment.academicLevel || null);
+        
+        // Fetch periods for the selected level when editing
+        if (assignment.academicLevel?.id) {
+            fetchPeriodsByLevel(assignment.academicLevel.id.toString());
+        }
     };
 
     const handleDelete = (assignment: Assignment) => {
@@ -130,6 +165,7 @@ const AdviserAssignments: React.FC<Props> = ({
         setEditingAssignment(null);
         reset();
         setSelectedLevel(null);
+        setFilteredPeriods([]);
     };
 
     const getYearLevelOptions = (levelCode: string) => {
@@ -180,6 +216,8 @@ const AdviserAssignments: React.FC<Props> = ({
                             </button>
                         </div>
                     </div>
+
+
 
                     {/* Assignments Table */}
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -337,9 +375,12 @@ const AdviserAssignments: React.FC<Props> = ({
                                                 onChange={(e) => setData('academic_period_id', e.target.value)}
                                                 className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                                 required
+                                                disabled={loadingPeriods}
                                             >
-                                                <option value="">Select Period</option>
-                                                {academicPeriods.map((period) => (
+                                                <option value="">
+                                                    {loadingPeriods ? 'Loading periods...' : 'Select Period'}
+                                                </option>
+                                                {filteredPeriods.map((period) => (
                                                     <option key={period.id} value={period.id}>
                                                         {period.name}
                                                     </option>

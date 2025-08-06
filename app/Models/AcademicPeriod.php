@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AcademicPeriod extends Model
 {
@@ -17,6 +18,7 @@ class AcademicPeriod extends Model
         'start_date',
         'end_date',
         'is_active',
+        'academic_level_id',
     ];
 
     protected $casts = [
@@ -26,6 +28,11 @@ class AcademicPeriod extends Model
     ];
 
     // Relationships
+    public function academicLevel(): BelongsTo
+    {
+        return $this->belongsTo(AcademicLevel::class);
+    }
+
     public function grades(): HasMany
     {
         return $this->hasMany(Grade::class);
@@ -58,6 +65,11 @@ class AcademicPeriod extends Model
         return $query->where('start_date', '<=', $now)
                     ->where('end_date', '>=', $now)
                     ->where('is_active', true);
+    }
+
+    public function scopeByLevel($query, $levelId)
+    {
+        return $query->where('academic_level_id', $levelId);
     }
 
     // Helper methods

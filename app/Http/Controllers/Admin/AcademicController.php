@@ -16,6 +16,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use App\Models\ClassAdviserAssignment;
 
 class AcademicController extends Controller
@@ -113,12 +114,23 @@ class AcademicController extends Controller
     
     public function periods()
     {
-        $periods = AcademicPeriod::orderBy('school_year', 'desc')
-            ->orderBy('start_date', 'desc')
-            ->get();
+        $levels = AcademicLevel::active()->get();
+        $periodsByLevel = [];
+        
+        foreach ($levels as $level) {
+            $periodsByLevel[$level->id] = [
+                'level' => $level,
+                'periods' => AcademicPeriod::with('academicLevel')
+                    ->where('academic_level_id', $level->id)
+                    ->orderBy('school_year', 'desc')
+                    ->orderBy('start_date', 'desc')
+                    ->get()
+            ];
+        }
         
         return Inertia::render('Admin/Academic/Periods', [
-            'periods' => $periods
+            'periodsByLevel' => $periodsByLevel,
+            'levels' => $levels
         ]);
     }
 
@@ -130,6 +142,7 @@ class AcademicController extends Controller
             'school_year' => 'required|string|regex:/^\d{4}-\d{4}$/',
             'start_date' => 'required|date',
             'end_date' => 'required|date|after:start_date',
+            'academic_level_id' => 'required|exists:academic_levels,id',
         ]);
 
         $period = AcademicPeriod::create($request->all());
@@ -155,6 +168,7 @@ class AcademicController extends Controller
             'start_date' => 'required|date',
             'end_date' => 'required|date|after:start_date',
             'is_active' => 'boolean',
+            'academic_level_id' => 'required|exists:academic_levels,id',
         ]);
 
         $oldValues = $period->toArray();
@@ -1079,12 +1093,36 @@ class AcademicController extends Controller
             ->orderBy('name')
             ->get();
 
-        $assignments = ClassAdviserAssignment::whereHas('academicLevel', function($query) use ($k12Levels) {
-            $query->whereIn('id', $k12Levels->pluck('id'));
-        })
-        ->with(['adviser', 'academicLevel', 'academicPeriod', 'strand'])
-        ->orderBy('created_at', 'desc')
-        ->get();
+        // Load all assignments with proper relationships
+        $assignments = ClassAdviserAssignment::with(['adviser', 'academicLevel', 'academicPeriod'])
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function($assignment) {
+                // Ensure relationships are properly loaded
+                return [
+                    'id' => $assignment->id,
+                    'adviser' => $assignment->adviser ? [
+                        'id' => $assignment->adviser->id,
+                        'name' => $assignment->adviser->name,
+                        'email' => $assignment->adviser->email,
+                    ] : null,
+                    'academicLevel' => $assignment->academicLevel ? [
+                        'id' => $assignment->academicLevel->id,
+                        'name' => $assignment->academicLevel->name,
+                        'code' => $assignment->academicLevel->code,
+                    ] : null,
+                    'academicPeriod' => $assignment->academicPeriod ? [
+                        'id' => $assignment->academicPeriod->id,
+                        'name' => $assignment->academicPeriod->name,
+                    ] : null,
+                    'year_level' => $assignment->year_level,
+                    'section' => $assignment->section,
+                    'is_active' => $assignment->is_active,
+                    'created_at' => $assignment->created_at,
+                ];
+            });
+
+
 
         $academicPeriods = AcademicPeriod::orderBy('name')->get();
         $strands = AcademicStrand::active()->orderBy('name')->get();
@@ -1295,6 +1333,20 @@ class AcademicController extends Controller
         $yearLevels = $course->getYearLevels();
         
         return response()->json($yearLevels);
+    }
+
+    public function getPeriodsByLevel(Request $request)
+    {
+        $request->validate([
+            'academic_level_id' => 'required|exists:academic_levels,id',
+        ]);
+
+        $periods = AcademicPeriod::where('academic_level_id', $request->academic_level_id)
+            ->orderBy('school_year', 'desc')
+            ->orderBy('start_date', 'desc')
+            ->get();
+
+        return response()->json($periods);
     }
 
     public function getAcademicData()

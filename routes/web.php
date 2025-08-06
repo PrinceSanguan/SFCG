@@ -215,6 +215,7 @@ Route::middleware([AdminMiddleware::class])->group(function () {
   Route::get('admin/api/subjects-by-level', [AcademicController::class, 'getSubjectsByLevel'])->name('admin.api.subjects-by-level');
   Route::get('admin/api/subjects-by-course', [AcademicController::class, 'getSubjectsByCourse'])->name('admin.api.subjects-by-course');
   Route::get('admin/api/year-levels-by-course', [AcademicController::class, 'getYearLevelsByCourse'])->name('admin.api.year-levels-by-course');
+  Route::get('admin/api/periods-by-level', [AcademicController::class, 'getPeriodsByLevel'])->name('admin.api.periods-by-level');
   Route::get('admin/api/academic-data', [AcademicController::class, 'getAcademicData'])->name('admin.api.academic-data');
 
   // Grading System
@@ -618,6 +619,9 @@ Route::middleware([RegistrarMiddleware::class])->group(function () {
   Route::get('registrar/assignments/advisers', [RegistrarController::class, 'adviserAssignments'])->name('registrar.assignments.advisers');
   Route::post('registrar/assignments/advisers/assign', [RegistrarController::class, 'assignAdvisers'])->name('registrar.assignments.advisers.assign');
   Route::post('registrar/assignments/advisers/remove', [RegistrarController::class, 'removeAdvisers'])->name('registrar.assignments.advisers.remove');
+
+  // Registrar API Routes
+  Route::get('registrar/api/periods-by-level', [RegistrarController::class, 'getPeriodsByLevel'])->name('registrar.api.periods-by-level');
 
   // 2.3. Honor Tracking and Ranking
   Route::get('registrar/honors', [RegistrarController::class, 'honors'])->name('registrar.honors.index');

@@ -2,6 +2,14 @@ import React, { useState } from 'react';
 import { router, useForm } from '@inertiajs/react';
 import AdminLayout from '@/pages/Admin/AdminLayout';
 
+interface AcademicLevel {
+    id: number;
+    name: string;
+    code: string;
+    description?: string;
+    is_active: boolean;
+}
+
 interface AcademicPeriod {
     id: number;
     name: string;
@@ -10,16 +18,27 @@ interface AcademicPeriod {
     start_date: string;
     end_date: string;
     is_active: boolean;
+    academic_level_id: number;
+    academic_level?: AcademicLevel;
     created_at: string;
 }
 
-interface Props {
-    periods: AcademicPeriod[];
+interface PeriodsByLevel {
+    [key: number]: {
+        level: AcademicLevel;
+        periods: AcademicPeriod[];
+    };
 }
 
-const Periods: React.FC<Props> = ({ periods }) => {
+interface Props {
+    periodsByLevel: PeriodsByLevel;
+    levels: AcademicLevel[];
+}
+
+const Periods: React.FC<Props> = ({ periodsByLevel, levels }) => {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [editingPeriod, setEditingPeriod] = useState<AcademicPeriod | null>(null);
+    const [selectedLevel, setSelectedLevel] = useState<number | null>(null);
 
     const { data, setData, post, put, processing, errors, reset } = useForm({
         name: '',
@@ -28,6 +47,7 @@ const Periods: React.FC<Props> = ({ periods }) => {
         start_date: '',
         end_date: '',
         is_active: true as boolean,
+        academic_level_id: '',
     });
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -57,6 +77,7 @@ const Periods: React.FC<Props> = ({ periods }) => {
         setData('start_date', period.start_date);
         setData('end_date', period.end_date);
         setData('is_active', period.is_active);
+        setData('academic_level_id', period.academic_level_id.toString());
         setEditingPeriod(period);
     };
 
@@ -81,36 +102,46 @@ const Periods: React.FC<Props> = ({ periods }) => {
         return `${currentYear}-${currentYear + 1}`;
     };
 
+    const openCreateModal = (levelId: number) => {
+        setSelectedLevel(levelId);
+        setData('academic_level_id', levelId.toString());
+        setData('school_year', generateSchoolYear());
+        setShowCreateModal(true);
+    };
+
     return (
         <AdminLayout>
-                    <div className="mb-8">
-                        <h1 className="text-2xl font-bold text-gray-900">Academic Periods</h1>
-                        <p className="text-gray-600">Configure academic periods, semesters, and quarters</p>
-                    </div>
+            <div className="mb-8">
+                <h1 className="text-2xl font-bold text-gray-900">Academic Periods</h1>
+                <p className="text-gray-600">Configure academic periods by education level</p>
+            </div>
 
-                    {/* Create Button */}
-                    <div className="mb-6">
+            {/* Education Level Sections */}
+            {Object.values(periodsByLevel).map(({ level, periods }) => (
+                <div key={level.id} className="mb-8">
+                    <div className="flex justify-between items-center mb-4">
+                        <div>
+                            <h2 className="text-xl font-semibold text-gray-900">{level.name} Periods</h2>
+                            <p className="text-gray-600">Manage academic periods for {level.name}</p>
+                        </div>
                         <button
-                            onClick={() => {
-                                setData('school_year', generateSchoolYear());
-                                setShowCreateModal(true);
-                            }}
+                            onClick={() => openCreateModal(level.id)}
                             className="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700 focus:bg-blue-700 active:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150"
                         >
                             <span className="mr-2">➕</span>
-                            Add Academic Period
+                            Add {level.name} Period
                         </button>
                     </div>
 
                     {/* Periods List */}
                     <div className="bg-white shadow-sm rounded-lg border border-gray-200">
                         <div className="px-6 py-4 border-b border-gray-200">
-                            <h2 className="text-lg font-semibold text-gray-900">Academic Periods List</h2>
+                            <h3 className="text-lg font-semibold text-gray-900">{level.name} Periods List</h3>
                         </div>
                         
                         {periods.length === 0 ? (
                             <div className="p-6 text-center text-gray-500">
-                                No academic periods found. Create your first academic period to get started.
+                                No academic periods found for {level.name}. Create your first period to get started.
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
@@ -176,132 +207,156 @@ const Periods: React.FC<Props> = ({ periods }) => {
                             </div>
                         )}
                     </div>
+                </div>
+            ))}
 
-                    {/* Create/Edit Modal */}
-                    {(showCreateModal || editingPeriod) && (
-                        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-                            <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-                                <div className="mt-3">
-                                    <h3 className="text-lg font-medium text-gray-900 mb-4">
-                                        {editingPeriod ? 'Edit Academic Period' : 'Create Academic Period'}
-                                    </h3>
-                                    
-                                    <form onSubmit={handleSubmit} className="space-y-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Period Name
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={data.name}
-                                                onChange={(e) => setData('name', e.target.value)}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                placeholder="e.g., 1st Semester, 2nd Quarter"
-                                                required
-                                            />
-                                            {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
-                                        </div>
+            {/* Create/Edit Modal */}
+            {(showCreateModal || editingPeriod) && (
+                <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+                    <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                        <div className="mt-3">
+                            <h3 className="text-lg font-medium text-gray-900 mb-4">
+                                {editingPeriod ? 'Edit Academic Period' : 'Create Academic Period'}
+                            </h3>
+                            
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                {!editingPeriod && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Education Level
+                                        </label>
+                                        <select
+                                            value={data.academic_level_id}
+                                            onChange={(e) => setData('academic_level_id', e.target.value)}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            required
+                                        >
+                                            <option value="">Select Education Level</option>
+                                            {levels.map((level) => (
+                                                <option key={level.id} value={level.id}>
+                                                    {level.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {errors.academic_level_id && <p className="text-red-500 text-xs mt-1">{errors.academic_level_id}</p>}
+                                    </div>
+                                )}
 
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Type
-                                            </label>
-                                            <select
-                                                value={data.type}
-                                                onChange={(e) => setData('type', e.target.value)}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                required
-                                            >
-                                                <option value="semester">Semester</option>
-                                                <option value="quarter">Quarter</option>
-                                                <option value="trimester">Trimester</option>
-                                            </select>
-                                            {errors.type && <p className="text-red-500 text-xs mt-1">{errors.type}</p>}
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                School Year
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={data.school_year}
-                                                onChange={(e) => setData('school_year', e.target.value)}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                placeholder="e.g., 2024-2025"
-                                                pattern="^\d{4}-\d{4}$"
-                                                required
-                                            />
-                                            {errors.school_year && <p className="text-red-500 text-xs mt-1">{errors.school_year}</p>}
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                    Start Date
-                                                </label>
-                                                <input
-                                                    type="date"
-                                                    value={data.start_date}
-                                                    onChange={(e) => setData('start_date', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                    required
-                                                />
-                                                {errors.start_date && <p className="text-red-500 text-xs mt-1">{errors.start_date}</p>}
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                    End Date
-                                                </label>
-                                                <input
-                                                    type="date"
-                                                    value={data.end_date}
-                                                    onChange={(e) => setData('end_date', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                    required
-                                                />
-                                                {errors.end_date && <p className="text-red-500 text-xs mt-1">{errors.end_date}</p>}
-                                            </div>
-                                        </div>
-
-                                        {editingPeriod && (
-                                            <div className="flex items-center">
-                                                <input
-                                                    type="checkbox"
-                                                    id="is_active"
-                                                    checked={data.is_active}
-                                                    onChange={(e) => setData('is_active', e.target.checked)}
-                                                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                                />
-                                                <label htmlFor="is_active" className="ml-2 block text-sm text-gray-900">
-                                                    Active
-                                                </label>
-                                            </div>
-                                        )}
-
-                                        <div className="flex justify-end space-x-3 pt-4">
-                                            <button
-                                                type="button"
-                                                onClick={closeModal}
-                                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                                            >
-                                                Cancel
-                                            </button>
-                                            <button
-                                                type="submit"
-                                                disabled={processing}
-                                                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-                                            >
-                                                {processing ? 'Saving...' : (editingPeriod ? 'Update' : 'Create')}
-                                            </button>
-                                        </div>
-                                    </form>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Period Name
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={data.name}
+                                        onChange={(e) => setData('name', e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        placeholder="e.g., 1st Semester, 2nd Quarter"
+                                        required
+                                    />
+                                    {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
                                 </div>
-                            </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Type
+                                    </label>
+                                    <select
+                                        value={data.type}
+                                        onChange={(e) => setData('type', e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        required
+                                    >
+                                        <option value="semester">Semester</option>
+                                        <option value="quarter">Quarter</option>
+                                        <option value="trimester">Trimester</option>
+                                    </select>
+                                    {errors.type && <p className="text-red-500 text-xs mt-1">{errors.type}</p>}
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        School Year
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={data.school_year}
+                                        onChange={(e) => setData('school_year', e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        placeholder="e.g., 2024-2025"
+                                        pattern="^\d{4}-\d{4}$"
+                                        required
+                                    />
+                                    {errors.school_year && <p className="text-red-500 text-xs mt-1">{errors.school_year}</p>}
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Start Date
+                                        </label>
+                                        <input
+                                            type="date"
+                                            value={data.start_date}
+                                            onChange={(e) => setData('start_date', e.target.value)}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            required
+                                        />
+                                        {errors.start_date && <p className="text-red-500 text-xs mt-1">{errors.start_date}</p>}
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            End Date
+                                        </label>
+                                        <input
+                                            type="date"
+                                            value={data.end_date}
+                                            onChange={(e) => setData('end_date', e.target.value)}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            required
+                                        />
+                                        {errors.end_date && <p className="text-red-500 text-xs mt-1">{errors.end_date}</p>}
+                                    </div>
+                                </div>
+
+                                {editingPeriod && (
+                                    <div className="flex items-center">
+                                        <input
+                                            type="checkbox"
+                                            id="is_active"
+                                            checked={data.is_active}
+                                            onChange={(e) => setData('is_active', e.target.checked)}
+                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                        />
+                                        <label htmlFor="is_active" className="ml-2 block text-sm text-gray-900">
+                                            Active
+                                        </label>
+                                    </div>
+                                )}
+
+                                <div className="flex justify-end space-x-3 pt-4">
+                                    <button
+                                        type="button"
+                                        onClick={closeModal}
+                                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={processing}
+                                        className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                                    >
+                                        {processing ? 'Saving...' : (editingPeriod ? 'Update' : 'Create')}
+                                    </button>
+                                </div>
+                            </form>
                         </div>
-                    )}
-                </AdminLayout>
+                    </div>
+                </div>
+            )}
+        </AdminLayout>
     );
 };
 

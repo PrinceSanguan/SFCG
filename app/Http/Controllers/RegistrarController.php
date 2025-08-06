@@ -600,9 +600,23 @@ class RegistrarController extends Controller
 
     public function academicPeriods()
     {
-        $periods = AcademicPeriod::orderBy('name')->get();
+        $levels = AcademicLevel::active()->get();
+        $periodsByLevel = [];
+        
+        foreach ($levels as $level) {
+            $periodsByLevel[$level->id] = [
+                'level' => $level,
+                'periods' => AcademicPeriod::with('academicLevel')
+                    ->where('academic_level_id', $level->id)
+                    ->orderBy('school_year', 'desc')
+                    ->orderBy('start_date', 'desc')
+                    ->get()
+            ];
+        }
+        
         return Inertia::render('Registrar/Academic/Periods', [
-            'periods' => $periods,
+            'periodsByLevel' => $periodsByLevel,
+            'levels' => $levels
         ]);
     }
 
@@ -1906,6 +1920,7 @@ class RegistrarController extends Controller
             'school_year' => 'required|string|regex:/^\d{4}-\d{4}$/',
             'start_date' => 'required|date',
             'end_date' => 'required|date|after:start_date',
+            'academic_level_id' => 'required|exists:academic_levels,id',
         ]);
 
         $period = AcademicPeriod::create($request->all());
@@ -1931,6 +1946,7 @@ class RegistrarController extends Controller
             'start_date' => 'required|date',
             'end_date' => 'required|date|after:start_date',
             'is_active' => 'boolean',
+            'academic_level_id' => 'required|exists:academic_levels,id',
         ]);
 
         $oldValues = $period->toArray();
@@ -2712,6 +2728,20 @@ class RegistrarController extends Controller
     public function uploadUsers()
     {
         return Inertia::render('Registrar/Users/UploadCsv');
+    }
+
+    public function getPeriodsByLevel(Request $request)
+    {
+        $request->validate([
+            'academic_level_id' => 'required|exists:academic_levels,id',
+        ]);
+
+        $periods = AcademicPeriod::where('academic_level_id', $request->academic_level_id)
+            ->orderBy('school_year', 'desc')
+            ->orderBy('start_date', 'desc')
+            ->get();
+
+        return response()->json($periods);
     }
 
     public function processUserUpload(Request $request)
