@@ -1,6 +1,6 @@
 import React from 'react';
 import { Head, Link } from '@inertiajs/react';
-import TeacherLayout from '../../TeacherLayout';
+import TeacherLayout from '@/pages/Teacher/TeacherLayout';
 
 interface StudentHonor {
     id: number;
