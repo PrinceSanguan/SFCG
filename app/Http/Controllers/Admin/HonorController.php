@@ -26,8 +26,8 @@ class HonorController extends Controller
 
     public function index(Request $request)
     {
-        // Get honor criteria
-        $honorCriteria = HonorCriterion::orderBy('minimum_grade', 'desc')->paginate(20);
+        // Get honor criteria with academic level relationship
+        $honorCriteria = HonorCriterion::with('academicLevel')->orderBy('minimum_grade', 'desc')->paginate(20);
 
         // Get recent honors
         $recentHonors = StudentHonor::with(['student.studentProfile', 'honorCriterion', 'academicPeriod'])
@@ -45,40 +45,198 @@ class HonorController extends Controller
         // Get academic levels
         $academicLevels = AcademicLevel::orderBy('name')->get();
 
+        // Get rankings by academic level
+        $rankingsByLevel = $this->getHonorRankingsByLevel();
+
+        // Get the period with the most honor students for default links
+        $periodWithMostHonors = StudentHonor::select('academic_period_id')
+            ->where('is_active', true)
+            ->where('is_approved', true)
+            ->groupBy('academic_period_id')
+            ->orderByRaw('COUNT(*) DESC')
+            ->first();
+        
+        $defaultPeriodId = null;
+        if ($periodWithMostHonors) {
+            $defaultPeriodId = $periodWithMostHonors->academic_period_id;
+        } else {
+            // Fallback to active period or most recent
+            $currentPeriod = AcademicPeriod::where('is_active', true)->first();
+            if (!$currentPeriod) {
+                $currentPeriod = AcademicPeriod::orderBy('created_at', 'desc')->first();
+            }
+            $defaultPeriodId = $currentPeriod?->id;
+        }
+
         return Inertia::render('Admin/Honors/Index', [
             'honorCriteria' => $honorCriteria,
             'recentHonors' => $recentHonors,
             'stats' => $stats,
             'academicPeriods' => $academicPeriods,
-            'academicLevels' => $academicLevels
+            'academicLevels' => $academicLevels,
+            'rankingsByLevel' => $rankingsByLevel,
+            'currentPeriodId' => $defaultPeriodId
         ]);
+    }
+
+    private function getHonorRankingsByLevel()
+    {
+        $rankings = [];
+        $academicLevels = AcademicLevel::all();
+
+        foreach ($academicLevels as $level) {
+            $honors = StudentHonor::with(['student.studentProfile'])
+                ->whereHas('student.studentProfile', function ($query) use ($level) {
+                    $query->where('academic_level_id', $level->id);
+                })
+                ->where('is_active', true)
+                ->where('is_approved', true)
+                ->orderBy('gpa', 'desc')
+                ->orderBy('awarded_date', 'desc')
+                ->limit(10)
+                ->get();
+
+            $rankings[$level->name] = [
+                'level_id' => $level->id,
+                'level_name' => $level->name,
+                'total_honors' => $honors->count(),
+                'top_students' => $honors->take(5)->map(function ($honor) {
+                    return [
+                        'student_name' => $honor->student->name,
+                        'student_id' => $honor->student->studentProfile->student_id ?? 'N/A',
+                        'grade_level' => $honor->student->studentProfile->grade_level ?? 'N/A',
+                        'honor_type' => $honor->honor_type,
+                        'gpa' => $honor->gpa,
+                        'awarded_date' => $honor->awarded_date,
+                    ];
+                }),
+                'honor_distribution' => $honors->groupBy('honor_type')->map->count(),
+                'average_gpa' => $honors->avg('gpa') ? round($honors->avg('gpa'), 2) : 0,
+                'highest_gpa' => $honors->max('gpa') ? round($honors->max('gpa'), 2) : 0,
+            ];
+        }
+
+        return $rankings;
     }
 
     public function honorRoll(Request $request)
     {
         $academicPeriodId = $request->get('academic_period_id');
+        $academicLevelId = $request->get('level');
         
         if (!$academicPeriodId) {
-            $currentPeriod = AcademicPeriod::where('is_active', true)->first();
-            $academicPeriodId = $currentPeriod?->id;
+            // Try to find the period with the most honor students
+            $periodWithMostHonors = StudentHonor::select('academic_period_id')
+                ->where('is_active', true)
+                ->where('is_approved', true)
+                ->groupBy('academic_period_id')
+                ->orderByRaw('COUNT(*) DESC')
+                ->first();
+            
+            if ($periodWithMostHonors) {
+                $academicPeriodId = $periodWithMostHonors->academic_period_id;
+            } else {
+                // Fallback to active period or most recent
+                $currentPeriod = AcademicPeriod::where('is_active', true)->first();
+                if (!$currentPeriod) {
+                    $currentPeriod = AcademicPeriod::orderBy('created_at', 'desc')->first();
+                }
+                $academicPeriodId = $currentPeriod?->id;
+            }
         }
 
         $honorRoll = [];
         $stats = [];
+        $selectedLevel = null;
 
         if ($academicPeriodId) {
-            $honorRoll = $this->honorCalculationService->getHonorRollByPeriod($academicPeriodId);
+            $honorRoll = $this->getDetailedHonorRoll($academicPeriodId, $academicLevelId);
             $stats = $this->honorCalculationService->generateHonorStatistics($academicPeriodId);
+            
+            if ($academicLevelId) {
+                $selectedLevel = AcademicLevel::find($academicLevelId);
+            }
         }
 
         $academicPeriods = AcademicPeriod::orderBy('name')->get();
+        $academicLevels = AcademicLevel::orderBy('name')->get();
 
         return Inertia::render('Admin/Honors/HonorRoll', [
             'honorRoll' => $honorRoll,
             'stats' => $stats,
             'academicPeriods' => $academicPeriods,
-            'selectedPeriodId' => $academicPeriodId
+            'academicLevels' => $academicLevels,
+            'selectedPeriodId' => $academicPeriodId,
+            'selectedLevelId' => $academicLevelId,
+            'selectedLevel' => $selectedLevel
         ]);
+    }
+
+    private function getDetailedHonorRoll($academicPeriodId, $academicLevelId = null)
+    {
+        $query = StudentHonor::with(['student.studentProfile.academicLevel', 'honorCriterion', 'academicPeriod'])
+            ->where('academic_period_id', $academicPeriodId)
+            ->where('is_active', true)
+            ->where('is_approved', true);
+
+        // Filter by academic level if specified
+        if ($academicLevelId) {
+            $query->whereHas('student.studentProfile', function ($q) use ($academicLevelId) {
+                $q->where('academic_level_id', $academicLevelId);
+            });
+        }
+
+        $honors = $query->orderBy('gpa', 'desc')
+            ->orderBy('awarded_date', 'desc')
+            ->get();
+
+        // Group by academic level for better organization
+        $groupedHonors = $honors->groupBy(function ($honor) {
+            return $honor->student->studentProfile->academicLevel->name ?? 'Unknown';
+        });
+
+        // Transform the data for frontend consumption
+        $result = [];
+        foreach ($groupedHonors as $levelName => $levelHonors) {
+            $result[$levelName] = [
+                'level_name' => $levelName,
+                'total_students' => $levelHonors->count(),
+                'average_gpa' => round($levelHonors->avg('gpa'), 2),
+                'highest_gpa' => round($levelHonors->max('gpa'), 2),
+                'students' => $levelHonors->map(function ($honor, $index) {
+                    return [
+                        'rank' => $index + 1,
+                        'student_id' => $honor->student->studentProfile->student_id ?? 'N/A',
+                        'student_name' => $honor->student->name,
+                        'grade_level' => $honor->student->studentProfile->grade_level ?? 'N/A',
+                        'honor_type' => $honor->honor_type,
+                        'honor_display' => $this->getHonorDisplayName($honor->honor_type),
+                        'gpa' => $honor->gpa,
+                        'awarded_date' => $honor->awarded_date,
+                        'certificate_title' => $honor->certificate_title,
+                    ];
+                }),
+                'honor_distribution' => $levelHonors->groupBy('honor_type')->map->count(),
+            ];
+        }
+
+        return $result;
+    }
+
+    private function getHonorDisplayName($honorType)
+    {
+        $displayNames = [
+            'with_honors' => 'With Honors',
+            'with_high_honors' => 'With High Honors',
+            'with_highest_honors' => 'With Highest Honors',
+            'deans_list' => "Dean's List",
+            'cum_laude' => 'Cum Laude',
+            'magna_cum_laude' => 'Magna Cum Laude',
+            'summa_cum_laude' => 'Summa Cum Laude',
+            'college_honors' => 'College Honors',
+        ];
+
+        return $displayNames[$honorType] ?? ucwords(str_replace('_', ' ', $honorType));
     }
 
     public function criteria()
@@ -220,7 +378,8 @@ class HonorController extends Controller
         ]);
 
         try {
-            $processed = $this->honorCalculationService->calculateAllStudentHonors($request->academic_period_id);
+            $academicPeriod = AcademicPeriod::findOrFail($request->academic_period_id);
+            $processed = $this->honorCalculationService->calculateAllStudentHonors($academicPeriod);
 
             ActivityLog::logActivity(
                 Auth::user(),

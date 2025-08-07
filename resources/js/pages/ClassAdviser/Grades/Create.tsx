@@ -1,46 +1,31 @@
-import React, { useState, useEffect } from 'react';
-import { Head, useForm, Link } from '@inertiajs/react';
+import React, { useState } from 'react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import ClassAdviserLayout from '../ClassAdviserLayout';
 
 interface Student {
     id: number;
     name: string;
     email: string;
-    student_id?: string;
-    section?: string;
-    studentProfile: {
+    student_profile: {
         student_id: string;
-        academicLevel: {
-            name: string;
-        };
-        year_level: string;
+        grade_level: string;
         section: string;
     };
-}
-
-interface Assignment {
-    id: number;
-    academicLevel: {
-        id: number;
-        name: string;
-        code: string;
-    };
-    academicPeriod: {
-        id: number;
-        name: string;
-        school_year: string;
-    };
-    year_level: string;
-    section: string;
 }
 
 interface Subject {
     id: number;
     name: string;
     code: string;
-    academicLevel: {
+    academic_level: {
         name: string;
     };
+}
+
+interface AcademicPeriod {
+    id: number;
+    name: string;
+    school_year: string;
 }
 
 interface Props {
@@ -49,462 +34,320 @@ interface Props {
         name: string;
         role_display: string;
     };
-    assignments: Assignment[];
     assignedStudents: Student[];
     subjects: Subject[];
+    academicPeriods: AcademicPeriod[];
 }
 
-const ClassAdviserGradesCreate: React.FC<Props> = ({ assignedStudents, subjects }) => {
+const Create: React.FC<Props> = ({ adviser, assignedStudents, subjects, academicPeriods }) => {
+    const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
     const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
-    const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
-    const [loadingStudents, setLoadingStudents] = useState(false);
+    const [quarterlyGrades, setQuarterlyGrades] = useState({
+        first: '',
+        second: '',
+        third: '',
+        fourth: ''
+    });
 
-    const { data, setData, post, processing, errors, reset } = useForm({
+    const { data, setData, post, processing, errors } = useForm({
         student_id: '',
         subject_id: '',
         academic_period_id: '',
         section: '',
-        first_grading: '',
-        second_grading: '',
-        third_grading: '',
-        fourth_grading: '',
-        first_semester_midterm: '',
-        first_semester_pre_final: '',
-        second_semester_midterm: '',
-        second_semester_pre_final: '',
-        overall_grade: '',
+        quarterly_grades: [] as Array<{
+            quarter: number;
+            grade: number;
+            weight: number;
+        }>,
+        final_grade: 0,
         remarks: '',
     });
 
-    // Load students when subject changes using API
-    useEffect(() => {
-        if (selectedSubject) {
-            setLoadingStudents(true);
-            // Get the first assigned student's section as default
-            const defaultSection = assignedStudents.length > 0 ? assignedStudents[0].studentProfile.section : '';
-            
-            fetch(`/class-adviser/api/students-for-subject?subject_id=${selectedSubject.id}&academic_period_id=1&section=${defaultSection}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) {
-                        console.error('API Error:', data.error);
-                        setFilteredStudents([]);
-                    } else {
-                        setFilteredStudents(data.students || []);
-                    }
-                    setLoadingStudents(false);
-                })
-                .catch(error => {
-                    console.error('Error loading students:', error);
-                    setFilteredStudents([]);
-                    setLoadingStudents(false);
-                });
-        } else {
-            setFilteredStudents([]);
-        }
-    }, [selectedSubject, assignedStudents]);
+    const handleStudentChange = (studentId: string) => {
+        const student = assignedStudents.find(s => s.id.toString() === studentId);
+        setSelectedStudent(student || null);
+        setData('student_id', studentId);
+        setData('section', student?.student_profile?.section || '');
+    };
 
     const handleSubjectChange = (subjectId: string) => {
         const subject = subjects.find(s => s.id.toString() === subjectId);
         setSelectedSubject(subject || null);
-        
-        if (subject) {
-            setData({
-                ...data,
-                subject_id: subject.id.toString(),
-                academic_period_id: '1', // Default to first period, can be made dynamic
-                section: '', // Will be set when student is selected
-            });
-        } else {
-            setData({
-                ...data,
-                subject_id: '',
-                academic_period_id: '',
-                section: '',
-            });
-        }
+        setData('subject_id', subjectId);
     };
 
-    const handleStudentChange = (studentId: string) => {
-        const student = filteredStudents.find(s => s.id.toString() === studentId);
+    const handleQuarterlyGradeChange = (quarter: string, value: string) => {
+        const numValue = parseFloat(value) || 0;
+        setQuarterlyGrades(prev => ({
+            ...prev,
+            [quarter]: value
+        }));
+
+        // Update quarterly grades array
+        const updatedGrades = [];
+        if (quarterlyGrades.first) updatedGrades.push({ quarter: 1, grade: parseFloat(quarterlyGrades.first), weight: 25 });
+        if (quarterlyGrades.second) updatedGrades.push({ quarter: 2, grade: parseFloat(quarterlyGrades.second), weight: 25 });
+        if (quarterlyGrades.third) updatedGrades.push({ quarter: 3, grade: parseFloat(quarterlyGrades.third), weight: 25 });
+        if (quarterlyGrades.fourth) updatedGrades.push({ quarter: 4, grade: parseFloat(quarterlyGrades.fourth), weight: 25 });
         
-        if (student) {
-            setData({
-                ...data,
-                student_id: student.id.toString(),
-                section: student.studentProfile.section,
-            });
-        } else {
-            setData({
-                ...data,
-                student_id: '',
-                section: '',
-            });
+        if (quarter === 'first') {
+            if (value) updatedGrades.push({ quarter: 1, grade: numValue, weight: 25 });
+        } else if (quarter === 'second') {
+            if (value) updatedGrades.push({ quarter: 2, grade: numValue, weight: 25 });
+        } else if (quarter === 'third') {
+            if (value) updatedGrades.push({ quarter: 3, grade: numValue, weight: 25 });
+        } else if (quarter === 'fourth') {
+            if (value) updatedGrades.push({ quarter: 4, grade: numValue, weight: 25 });
+        }
+
+        setData('quarterly_grades', updatedGrades);
+
+        // Calculate final grade
+        const validGrades = updatedGrades.filter(g => g.grade > 0);
+        if (validGrades.length > 0) {
+            const totalGrade = validGrades.reduce((sum, g) => sum + g.grade, 0);
+            const finalGrade = totalGrade / validGrades.length;
+            setData('final_grade', Math.round(finalGrade * 100) / 100);
         }
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        post('/class-adviser/grades', {
+        
+        post('/class-adviser/grading/store', {
             onSuccess: () => {
-                reset();
-                setSelectedSubject(null);
-                setFilteredStudents([]);
-            },
+                router.visit('/class-adviser/grading');
+            }
         });
     };
 
     return (
         <>
-            <Head title="Create Grade - Class Adviser" />
+            <Head title="Add Grade - Class Adviser" />
             <ClassAdviserLayout>
-                <div className="max-w-4xl mx-auto">
-                    {/* Header */}
-                    <div className="mb-8">
-                        <div className="flex justify-between items-center">
-                            <div>
-                                <h1 className="text-3xl font-bold text-gray-900">Create New Grade</h1>
-                                <p className="text-gray-600 mt-2">Add a new grade entry for a student.</p>
-                            </div>
-                            <Link
-                                href="/class-adviser/grades"
-                                className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
-                            >
-                                ← Back to Grades
-                            </Link>
+                <div className="p-6">
+                    <div className="flex items-center space-x-3 mb-4">
+                        <Link
+                            href="/class-adviser/grading"
+                            className="text-blue-600 hover:text-blue-800 font-medium"
+                        >
+                            ← Back to Grading
+                        </Link>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3 mb-6">
+                        <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <span className="text-2xl">✏️</span>
+                        </div>
+                        <div>
+                            <h1 className="text-3xl font-bold text-gray-900">Add Grade</h1>
+                            <p className="text-gray-600">Add a new grade for your assigned student</p>
                         </div>
                     </div>
 
-                    {/* Grade Form */}
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                        <div className="p-6 border-b border-gray-200">
-                            <h2 className="text-lg font-semibold text-gray-900">Grade Information</h2>
-                            <p className="text-sm text-gray-600 mt-1">Select the subject assignment and student, then enter the grades.</p>
-                        </div>
-                        <div className="p-6">
-                            {/* Debug Information */}
-                            <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                                <h4 className="text-sm font-medium text-gray-700 mb-2">Debug Information</h4>
-                                <div className="text-xs text-gray-600 space-y-1">
-                                    <p>📚 Available Subjects: {subjects.length}</p>
-                                    <p>👥 Assigned Students: {assignedStudents.length}</p>
-                                    <p>📋 Selected Subject: {selectedSubject ? `${selectedSubject.name} (${selectedSubject.academicLevel.name})` : 'None'}</p>
-                                    <p>🎯 Filtered Students: {filteredStudents.length} {loadingStudents ? '(Loading...)' : ''}</p>
-                                    {subjects.length === 0 && (
-                                        <p className="text-orange-600 font-medium">⚠️ No subjects available. Check your class adviser assignments.</p>
-                                    )}
-                                    {assignedStudents.length === 0 && (
-                                        <p className="text-orange-600 font-medium">⚠️ No students assigned to you. Contact the administrator.</p>
-                                    )}
+                    <div className="max-w-2xl">
+                        <form onSubmit={handleSubmit} className="space-y-6">
+                            {/* Student Selection */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Student *
+                                </label>
+                                <select
+                                    value={data.student_id}
+                                    onChange={(e) => handleStudentChange(e.target.value)}
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    required
+                                >
+                                    <option value="">Select a student</option>
+                                    {assignedStudents.map((student) => (
+                                        <option key={student.id} value={student.id}>
+                                            {student.name} - {student.student_profile.student_id} (Grade {student.student_profile.grade_level} - {student.student_profile.section})
+                                        </option>
+                                    ))}
+                                </select>
+                                {errors.student_id && (
+                                    <p className="mt-1 text-sm text-red-600">{errors.student_id}</p>
+                                )}
+                            </div>
+
+                            {/* Subject Selection */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Subject *
+                                </label>
+                                <select
+                                    value={data.subject_id}
+                                    onChange={(e) => handleSubjectChange(e.target.value)}
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    required
+                                >
+                                    <option value="">Select a subject</option>
+                                    {subjects.map((subject) => (
+                                        <option key={subject.id} value={subject.id}>
+                                            {subject.name} ({subject.code}) - {subject.academic_level.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                {errors.subject_id && (
+                                    <p className="mt-1 text-sm text-red-600">{errors.subject_id}</p>
+                                )}
+                            </div>
+
+                            {/* Academic Period */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Academic Period *
+                                </label>
+                                <select
+                                    value={data.academic_period_id}
+                                    onChange={(e) => setData('academic_period_id', e.target.value)}
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    required
+                                >
+                                    <option value="">Select an academic period</option>
+                                    {academicPeriods.map((period) => (
+                                        <option key={period.id} value={period.id}>
+                                            {period.name} ({period.school_year})
+                                        </option>
+                                    ))}
+                                </select>
+                                {errors.academic_period_id && (
+                                    <p className="mt-1 text-sm text-red-600">{errors.academic_period_id}</p>
+                                )}
+                            </div>
+
+                            {/* Section */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Section
+                                </label>
+                                <input
+                                    type="text"
+                                    value={data.section}
+                                    onChange={(e) => setData('section', e.target.value)}
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    readOnly
+                                />
+                                {errors.section && (
+                                    <p className="mt-1 text-sm text-red-600">{errors.section}</p>
+                                )}
+                            </div>
+
+                            {/* Quarterly Grades */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Quarterly Grades
+                                </label>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">1st Quarter</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            step="0.01"
+                                            value={quarterlyGrades.first}
+                                            onChange={(e) => handleQuarterlyGradeChange('first', e.target.value)}
+                                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            placeholder="0.00"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">2nd Quarter</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            step="0.01"
+                                            value={quarterlyGrades.second}
+                                            onChange={(e) => handleQuarterlyGradeChange('second', e.target.value)}
+                                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            placeholder="0.00"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">3rd Quarter</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            step="0.01"
+                                            value={quarterlyGrades.third}
+                                            onChange={(e) => handleQuarterlyGradeChange('third', e.target.value)}
+                                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            placeholder="0.00"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">4th Quarter</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            step="0.01"
+                                            value={quarterlyGrades.fourth}
+                                            onChange={(e) => handleQuarterlyGradeChange('fourth', e.target.value)}
+                                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            placeholder="0.00"
+                                        />
+                                    </div>
                                 </div>
                             </div>
-                            
-                            <form onSubmit={handleSubmit} className="space-y-6">
-                                {/* Subject Assignment Selection */}
-                                <div>
-                                    <label htmlFor="subject" className="block text-sm font-medium text-gray-700">
-                                        Subject *
-                                    </label>
-                                    <select
-                                        id="subject"
-                                        value={selectedSubject?.id || ''}
-                                        onChange={(e) => handleSubjectChange(e.target.value)}
-                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                                        required
-                                    >
-                                        <option value="">Select a subject</option>
-                                        {subjects.length > 0 ? (
-                                            subjects.filter(subject => subject.academicLevel).map((subject) => (
-                                                <option key={subject.id} value={subject.id}>
-                                                    {subject.name} ({subject.code}) - {subject.academicLevel.name}
-                                                </option>
-                                            ))
-                                        ) : (
-                                            <option value="" disabled>No subjects available for your assignments</option>
-                                        )}
-                                    </select>
-                                    {subjects.length === 0 && (
-                                        <p className="mt-1 text-sm text-orange-600">
-                                            ⚠️ No subjects are available. Please contact the administrator to assign subjects to your academic levels.
-                                        </p>
-                                    )}
-                                    {errors.subject_id && (
-                                        <p className="mt-1 text-sm text-red-600">{errors.subject_id}</p>
-                                    )}
-                                </div>
 
-                                {/* Student Selection */}
-                                <div>
-                                    <label htmlFor="student_id" className="block text-sm font-medium text-gray-700">
-                                        Student *
-                                    </label>
-                                    <select
-                                        id="student_id"
-                                        value={data.student_id}
-                                        onChange={(e) => handleStudentChange(e.target.value)}
-                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                                        required
-                                        disabled={!selectedSubject || loadingStudents || filteredStudents.length === 0}
-                                    >
-                                        <option value="">
-                                            {!selectedSubject ? 'Please select a subject first' : 
-                                             loadingStudents ? 'Loading students...' :
-                                             filteredStudents.length === 0 ? 'No students found for this subject' : 'Select a student'}
-                                        </option>
-                                        {filteredStudents.map((student) => (
-                                            <option key={student.id} value={student.id}>
-                                                {student.name} ({student.student_id || student.email}) - {student.section || student.studentProfile.section}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    {!selectedSubject && (
-                                        <p className="mt-1 text-sm text-blue-600">
-                                            💡 Please select a subject first to see available students.
-                                        </p>
-                                    )}
-                                    {selectedSubject && loadingStudents && (
-                                        <p className="mt-1 text-sm text-blue-600">
-                                            🔄 Loading students for {selectedSubject.academicLevel.name}...
-                                        </p>
-                                    )}
-                                    {selectedSubject && !loadingStudents && filteredStudents.length === 0 && (
-                                        <p className="mt-1 text-sm text-orange-600">
-                                            ⚠️ No students found for {selectedSubject.academicLevel.name}. Please check if students are assigned to your class.
-                                        </p>
-                                    )}
-                                    {selectedSubject && !loadingStudents && filteredStudents.length > 0 && (
-                                        <p className="mt-1 text-sm text-green-600">
-                                            ✅ Found {filteredStudents.length} student(s) for {selectedSubject.academicLevel.name}.
-                                        </p>
-                                    )}
-                                    {errors.student_id && (
-                                        <p className="mt-1 text-sm text-red-600">{errors.student_id}</p>
-                                    )}
-                                </div>
+                            {/* Final Grade */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Final Grade
+                                </label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="0.01"
+                                    value={data.final_grade}
+                                    onChange={(e) => setData('final_grade', parseFloat(e.target.value) || 0)}
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                                    readOnly
+                                />
+                                <p className="mt-1 text-sm text-gray-500">
+                                    Automatically calculated from quarterly grades
+                                </p>
+                            </div>
 
-                                {/* Quarterly Grades */}
-                                <div>
-                                    <h3 className="text-md font-medium text-gray-900 mb-4">Quarterly Grades</h3>
-                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-                                        <div>
-                                            <label htmlFor="first_grading" className="block text-sm font-medium text-gray-700">
-                                                1st Grading
-                                            </label>
-                                            <input
-                                                type="number"
-                                                id="first_grading"
-                                                step="0.01"
-                                                min="0"
-                                                max="100"
-                                                value={data.first_grading}
-                                                onChange={(e) => setData('first_grading', e.target.value)}
-                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                                                placeholder="0.00"
-                                            />
-                                            {errors.first_grading && (
-                                                <p className="mt-1 text-sm text-red-600">{errors.first_grading}</p>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <label htmlFor="second_grading" className="block text-sm font-medium text-gray-700">
-                                                2nd Grading
-                                            </label>
-                                            <input
-                                                type="number"
-                                                id="second_grading"
-                                                step="0.01"
-                                                min="0"
-                                                max="100"
-                                                value={data.second_grading}
-                                                onChange={(e) => setData('second_grading', e.target.value)}
-                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                                                placeholder="0.00"
-                                            />
-                                            {errors.second_grading && (
-                                                <p className="mt-1 text-sm text-red-600">{errors.second_grading}</p>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <label htmlFor="third_grading" className="block text-sm font-medium text-gray-700">
-                                                3rd Grading
-                                            </label>
-                                            <input
-                                                type="number"
-                                                id="third_grading"
-                                                step="0.01"
-                                                min="0"
-                                                max="100"
-                                                value={data.third_grading}
-                                                onChange={(e) => setData('third_grading', e.target.value)}
-                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                                                placeholder="0.00"
-                                            />
-                                            {errors.third_grading && (
-                                                <p className="mt-1 text-sm text-red-600">{errors.third_grading}</p>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <label htmlFor="fourth_grading" className="block text-sm font-medium text-gray-700">
-                                                4th Grading
-                                            </label>
-                                            <input
-                                                type="number"
-                                                id="fourth_grading"
-                                                step="0.01"
-                                                min="0"
-                                                max="100"
-                                                value={data.fourth_grading}
-                                                onChange={(e) => setData('fourth_grading', e.target.value)}
-                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                                                placeholder="0.00"
-                                            />
-                                            {errors.fourth_grading && (
-                                                <p className="mt-1 text-sm text-red-600">{errors.fourth_grading}</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
+                            {/* Remarks */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Remarks
+                                </label>
+                                <textarea
+                                    value={data.remarks}
+                                    onChange={(e) => setData('remarks', e.target.value)}
+                                    rows={3}
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="Additional notes about the grade..."
+                                />
+                                {errors.remarks && (
+                                    <p className="mt-1 text-sm text-red-600">{errors.remarks}</p>
+                                )}
+                            </div>
 
-                                {/* Semester Grades */}
-                                <div>
-                                    <h3 className="text-md font-medium text-gray-900 mb-4">Semester Grades</h3>
-                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-                                        <div>
-                                            <label htmlFor="first_semester_midterm" className="block text-sm font-medium text-gray-700">
-                                                1st Sem Midterm
-                                            </label>
-                                            <input
-                                                type="number"
-                                                id="first_semester_midterm"
-                                                step="0.01"
-                                                min="0"
-                                                max="100"
-                                                value={data.first_semester_midterm}
-                                                onChange={(e) => setData('first_semester_midterm', e.target.value)}
-                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                                                placeholder="0.00"
-                                            />
-                                            {errors.first_semester_midterm && (
-                                                <p className="mt-1 text-sm text-red-600">{errors.first_semester_midterm}</p>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <label htmlFor="first_semester_pre_final" className="block text-sm font-medium text-gray-700">
-                                                1st Sem Pre-Final
-                                            </label>
-                                            <input
-                                                type="number"
-                                                id="first_semester_pre_final"
-                                                step="0.01"
-                                                min="0"
-                                                max="100"
-                                                value={data.first_semester_pre_final}
-                                                onChange={(e) => setData('first_semester_pre_final', e.target.value)}
-                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                                                placeholder="0.00"
-                                            />
-                                            {errors.first_semester_pre_final && (
-                                                <p className="mt-1 text-sm text-red-600">{errors.first_semester_pre_final}</p>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <label htmlFor="second_semester_midterm" className="block text-sm font-medium text-gray-700">
-                                                2nd Sem Midterm
-                                            </label>
-                                            <input
-                                                type="number"
-                                                id="second_semester_midterm"
-                                                step="0.01"
-                                                min="0"
-                                                max="100"
-                                                value={data.second_semester_midterm}
-                                                onChange={(e) => setData('second_semester_midterm', e.target.value)}
-                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                                                placeholder="0.00"
-                                            />
-                                            {errors.second_semester_midterm && (
-                                                <p className="mt-1 text-sm text-red-600">{errors.second_semester_midterm}</p>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <label htmlFor="second_semester_pre_final" className="block text-sm font-medium text-gray-700">
-                                                2nd Sem Pre-Final
-                                            </label>
-                                            <input
-                                                type="number"
-                                                id="second_semester_pre_final"
-                                                step="0.01"
-                                                min="0"
-                                                max="100"
-                                                value={data.second_semester_pre_final}
-                                                onChange={(e) => setData('second_semester_pre_final', e.target.value)}
-                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                                                placeholder="0.00"
-                                            />
-                                            {errors.second_semester_pre_final && (
-                                                <p className="mt-1 text-sm text-red-600">{errors.second_semester_pre_final}</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Overall Grade */}
-                                <div>
-                                    <label htmlFor="overall_grade" className="block text-sm font-medium text-gray-700">
-                                        Overall Grade
-                                    </label>
-                                    <input
-                                        type="number"
-                                        id="overall_grade"
-                                        step="0.01"
-                                        min="0"
-                                        max="100"
-                                        value={data.overall_grade}
-                                        onChange={(e) => setData('overall_grade', e.target.value)}
-                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                                        placeholder="0.00"
-                                    />
-                                    {errors.overall_grade && (
-                                        <p className="mt-1 text-sm text-red-600">{errors.overall_grade}</p>
-                                    )}
-                                </div>
-
-                                {/* Remarks */}
-                                <div>
-                                    <label htmlFor="remarks" className="block text-sm font-medium text-gray-700">
-                                        Remarks
-                                    </label>
-                                    <textarea
-                                        id="remarks"
-                                        rows={3}
-                                        value={data.remarks}
-                                        onChange={(e) => setData('remarks', e.target.value)}
-                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                                        placeholder="Additional comments or remarks..."
-                                    />
-                                    {errors.remarks && (
-                                        <p className="mt-1 text-sm text-red-600">{errors.remarks}</p>
-                                    )}
-                                </div>
-
-                                {/* Submit Buttons */}
-                                <div className="flex justify-end space-x-3">
-                                    <Link
-                                        href="/class-adviser/grades"
-                                        className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
-                                    >
-                                        Cancel
-                                    </Link>
-                                    <button
-                                        type="submit"
-                                        disabled={processing}
-                                        className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
-                                    >
-                                        {processing ? 'Creating...' : 'Create Grade'}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
+                            {/* Submit Button */}
+                            <div className="flex justify-end space-x-3">
+                                <Link
+                                    href="/class-adviser/grading"
+                                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+                                >
+                                    Cancel
+                                </Link>
+                                <button
+                                    type="submit"
+                                    disabled={processing}
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                                >
+                                    {processing ? 'Adding...' : 'Add Grade'}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             </ClassAdviserLayout>
@@ -512,4 +355,4 @@ const ClassAdviserGradesCreate: React.FC<Props> = ({ assignedStudents, subjects 
     );
 };
 
-export default ClassAdviserGradesCreate; 
+export default Create;

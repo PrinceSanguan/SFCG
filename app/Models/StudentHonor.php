@@ -13,6 +13,7 @@ class StudentHonor extends Model
         'student_id',
         'academic_period_id',
         'honor_type',
+        'certificate_title',
         'honor_criterion_id',
         'gpa',
         'is_approved',
@@ -20,6 +21,7 @@ class StudentHonor extends Model
         'approved_at',
         'is_active',
         'awarded_date',
+        'remarks',
     ];
 
     protected $casts = [
@@ -83,8 +85,23 @@ class StudentHonor extends Model
             'with_honors' => 'With Honors',
             'with_high_honors' => 'With High Honors',
             'with_highest_honors' => 'With Highest Honors',
+            'deans_list' => "Dean's List",
+            'cum_laude' => 'Cum Laude',
+            'magna_cum_laude' => 'Magna Cum Laude',
+            'summa_cum_laude' => 'Summa Cum Laude',
+            'college_honors' => 'College Honors',
             default => 'Honor'
         };
+    }
+
+    public function getCertificateTitle()
+    {
+        return $this->certificate_title;
+    }
+
+    public function hasCertificate()
+    {
+        return !empty($this->certificate_title);
     }
 
     public function canBeApproved()

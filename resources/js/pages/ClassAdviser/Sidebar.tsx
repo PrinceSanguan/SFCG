@@ -20,12 +20,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         if (url.startsWith('/class-adviser/profile')) {
             currentSections.push('account');
         }
-        if (url.startsWith('/class-adviser/grades')) {
-            currentSections.push('grades');
+        if (url.startsWith('/class-adviser/grading')) {
+            currentSections.push('grading');
         }
-        if (url.startsWith('/class-adviser/honors')) {
-            currentSections.push('honors');
-        }
+
 
         // Merge with existing expanded sections to keep user's manual expansions
         setExpandedSections(prev => {
@@ -74,23 +72,15 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             ]
         },
         {
-            name: 'Grade Management',
-            icon: '📝',
-            section: 'grades',
+            name: 'Grading',
+            icon: '📊',
+            section: 'grading',
             items: [
-                { name: 'Input grades', href: '/class-adviser/grades', icon: '✏️' },
-                { name: 'Edit submitted grades', href: '/class-adviser/grades/edit', icon: '🔄' },
-                { name: 'Upload student grades via CSV', href: '/class-adviser/grades/upload', icon: '📁' }
+                { name: 'Grade Management', href: '/class-adviser/grading', icon: '📝' },
+                { name: 'Add Grade', href: '/class-adviser/grading/create', icon: '✏️' }
             ]
         },
-        {
-            name: 'Honor Tracking',
-            icon: '🏆',
-            section: 'honors',
-            items: [
-                { name: 'View honor results of students', href: '/class-adviser/honors', icon: '👀' }
-            ]
-        }
+
     ];
 
     return (

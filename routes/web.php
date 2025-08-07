@@ -437,25 +437,11 @@ Route::middleware([ClassAdviserMiddleware::class])->group(function () {
   Route::put('class-adviser/profile', [ClassAdviserController::class, 'updateProfile'])->name('class-adviser.profile.update');
   Route::put('class-adviser/password', [ClassAdviserController::class, 'updatePassword'])->name('class-adviser.password.update');
 
-  // 5.2. Grade Management
-  Route::get('class-adviser/grades', [ClassAdviserController::class, 'grades'])->name('class-adviser.grades');
-  Route::get('class-adviser/grades/create', [ClassAdviserController::class, 'createGrade'])->name('class-adviser.grades.create');
-  Route::post('class-adviser/grades', [ClassAdviserController::class, 'storeGrade'])->name('class-adviser.grades.store');
-  Route::get('class-adviser/grades/{grade}/edit', [ClassAdviserController::class, 'editGrade'])->name('class-adviser.grades.edit');
-  Route::put('class-adviser/grades/{grade}', [ClassAdviserController::class, 'updateGrade'])->name('class-adviser.grades.update');
+  // Grading System
+  Route::get('class-adviser/grading', [ClassAdviserController::class, 'grading'])->name('class-adviser.grading');
+  Route::get('class-adviser/grading/create', [ClassAdviserController::class, 'createGrading'])->name('class-adviser.grading.create');
+  Route::post('class-adviser/grading/store', [ClassAdviserController::class, 'storeGrading'])->name('class-adviser.grading.store');
 
-  // Student Management
-  Route::get('class-adviser/students', [ClassAdviserController::class, 'students'])->name('class-adviser.students');
-
-  // Grade input helpers
-  Route::get('class-adviser/api/students-for-subject', [ClassAdviserController::class, 'getStudentsForSubject'])->name('class-adviser.api.students-for-subject');
-
-  // 5.2.3. Upload student grades via CSV
-  Route::get('class-adviser/grades/upload', [ClassAdviserController::class, 'uploadGradesPage'])->name('class-adviser.grades.upload');
-  Route::post('class-adviser/grades/upload', [ClassAdviserController::class, 'processGradeUpload'])->name('class-adviser.grades.upload.process');
-
-  // 5.3.1. View honor results of students
-  Route::get('class-adviser/honors', [ClassAdviserController::class, 'honors'])->name('class-adviser.honors');
 });
 
 /*

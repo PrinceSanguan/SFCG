@@ -1137,7 +1137,7 @@ class RegistrarController extends Controller
         $academicPeriod = AcademicPeriod::where('is_active', true)->first();
         
         if ($academicPeriod) {
-            $service->calculateAllStudentHonors($academicPeriod->id);
+            $service->calculateAllStudentHonors($academicPeriod);
         }
 
         return redirect()->route('registrar.honors.index')
