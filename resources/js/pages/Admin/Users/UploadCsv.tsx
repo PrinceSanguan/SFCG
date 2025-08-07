@@ -73,6 +73,7 @@ const UploadCsv: React.FC = () => {
         { value: 'class_adviser', label: 'Class Advisers', description: 'Class advisers for students' },
         { value: 'chairperson', label: 'Chairpersons', description: 'Department chairpersons' },
         { value: 'principal', label: 'Principals', description: 'School principals' },
+        { value: 'registrar', label: 'Registrars', description: 'School registrars' },
         { value: 'student', label: 'Students', description: 'Student accounts with profiles' },
         { value: 'parent', label: 'Parents', description: 'Parent/guardian accounts' },
     ];

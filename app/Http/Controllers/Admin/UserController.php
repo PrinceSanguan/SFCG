@@ -490,6 +490,103 @@ class UserController extends Controller
         return redirect()->back()->with('success', 'Principal deleted successfully.');
     }
 
+    // ==================== REGISTRARS ====================
+    
+    public function registrars()
+    {
+        $registrars = User::where('user_role', 'registrar')
+            ->orderBy('name')
+            ->get();
+        
+        return Inertia::render('Admin/Users/Registrars', [
+            'registrars' => $registrars
+        ]);
+    }
+
+    public function storeRegistrar(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|string|min:8',
+            'contact_number' => 'nullable|string|max:255',
+            'department' => 'nullable|string|max:255',
+        ]);
+
+        $registrar = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+            'user_role' => 'registrar',
+            'contact_number' => $request->contact_number,
+            'department' => $request->department,
+        ]);
+
+        ActivityLog::logActivity(
+            Auth::user(),
+            'created',
+            'User',
+            $registrar->id,
+            null,
+            $registrar->toArray()
+        );
+
+        return redirect()->back()->with('success', 'Registrar created successfully.');
+    }
+
+    public function updateRegistrar(Request $request, User $registrar)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,' . $registrar->id,
+            'password' => 'nullable|string|min:8',
+            'contact_number' => 'nullable|string|max:255',
+            'department' => 'nullable|string|max:255',
+        ]);
+
+        $oldValues = $registrar->toArray();
+        
+        $updateData = [
+            'name' => $request->name,
+            'email' => $request->email,
+            'contact_number' => $request->contact_number,
+            'department' => $request->department,
+        ];
+
+        if ($request->filled('password')) {
+            $updateData['password'] = Hash::make($request->password);
+        }
+
+        $registrar->update($updateData);
+
+        ActivityLog::logActivity(
+            Auth::user(),
+            'updated',
+            'User',
+            $registrar->id,
+            $oldValues,
+            $registrar->fresh()->toArray()
+        );
+
+        return redirect()->back()->with('success', 'Registrar updated successfully.');
+    }
+
+    public function destroyRegistrar(User $registrar)
+    {
+        ActivityLog::logActivity(
+            Auth::user(),
+            'deleted',
+            'User',
+            $registrar->id,
+            $registrar->toArray(),
+            null
+        );
+
+        $registrar->delete();
+
+        return redirect()->back()->with('success', 'Registrar deleted successfully.');
+    }
+
     // ==================== STUDENTS ====================
     
     public function students()
@@ -537,6 +634,205 @@ class UserController extends Controller
             'academicStrands' => $academicStrands,
             'collegeCourses' => $collegeCourses,
             'classAdvisers' => $classAdvisers,
+            'academicLevel' => null, // General view
+        ]);
+    }
+
+    public function elementaryStudents()
+    {
+        $students = User::where('user_role', 'student')
+            ->with([
+                'studentProfile.academicLevel',
+                'studentProfile.academicStrand', 
+                'studentProfile.collegeCourse',
+                'studentProfile.classAdviser'
+            ])
+            ->whereHas('studentProfile.academicLevel', function ($query) {
+                $query->where('code', 'ELEM');
+            })
+            ->orderBy('name')
+            ->get();
+
+        $academicLevels = AcademicLevel::active()->get();
+        $academicStrands = AcademicStrand::active()->get();
+        $collegeCourses = CollegeCourse::active()->get();
+        
+        $classAdvisers = User::where('user_role', 'class_adviser')
+            ->whereHas('classAdviserAssignments', function($query) {
+                $query->where('is_active', true);
+            })
+            ->with(['classAdviserAssignments.academicLevel', 'classAdviserAssignments.academicPeriod'])
+            ->orderBy('name')
+            ->get()
+            ->map(function($adviser) {
+                $adviser->assignments = $adviser->classAdviserAssignments->map(function($assignment) {
+                    return [
+                        'id' => $assignment->id,
+                        'academic_level' => $assignment->academicLevel->name,
+                        'year_level' => $assignment->year_level,
+                        'section' => $assignment->section,
+                        'strand' => $assignment->strand ? $assignment->strand->name : null,
+                        'display_name' => $assignment->getDisplayName(),
+                    ];
+                });
+                return $adviser;
+            });
+        
+        return Inertia::render('Admin/Users/Students', [
+            'students' => $students,
+            'academicLevels' => $academicLevels,
+            'academicStrands' => $academicStrands,
+            'collegeCourses' => $collegeCourses,
+            'classAdvisers' => $classAdvisers,
+            'academicLevel' => 'ELEM',
+        ]);
+    }
+
+    public function juniorHighStudents()
+    {
+        $students = User::where('user_role', 'student')
+            ->with([
+                'studentProfile.academicLevel',
+                'studentProfile.academicStrand', 
+                'studentProfile.collegeCourse',
+                'studentProfile.classAdviser'
+            ])
+            ->whereHas('studentProfile.academicLevel', function ($query) {
+                $query->where('code', 'JHS');
+            })
+            ->orderBy('name')
+            ->get();
+
+        $academicLevels = AcademicLevel::active()->get();
+        $academicStrands = AcademicStrand::active()->get();
+        $collegeCourses = CollegeCourse::active()->get();
+        
+        $classAdvisers = User::where('user_role', 'class_adviser')
+            ->whereHas('classAdviserAssignments', function($query) {
+                $query->where('is_active', true);
+            })
+            ->with(['classAdviserAssignments.academicLevel', 'classAdviserAssignments.academicPeriod'])
+            ->orderBy('name')
+            ->get()
+            ->map(function($adviser) {
+                $adviser->assignments = $adviser->classAdviserAssignments->map(function($assignment) {
+                    return [
+                        'id' => $assignment->id,
+                        'academic_level' => $assignment->academicLevel->name,
+                        'year_level' => $assignment->year_level,
+                        'section' => $assignment->section,
+                        'strand' => $assignment->strand ? $assignment->strand->name : null,
+                        'display_name' => $assignment->getDisplayName(),
+                    ];
+                });
+                return $adviser;
+            });
+        
+        return Inertia::render('Admin/Users/Students', [
+            'students' => $students,
+            'academicLevels' => $academicLevels,
+            'academicStrands' => $academicStrands,
+            'collegeCourses' => $collegeCourses,
+            'classAdvisers' => $classAdvisers,
+            'academicLevel' => 'JHS',
+        ]);
+    }
+
+    public function seniorHighStudents()
+    {
+        $students = User::where('user_role', 'student')
+            ->with([
+                'studentProfile.academicLevel',
+                'studentProfile.academicStrand', 
+                'studentProfile.collegeCourse',
+                'studentProfile.classAdviser'
+            ])
+            ->whereHas('studentProfile.academicLevel', function ($query) {
+                $query->where('code', 'SHS');
+            })
+            ->orderBy('name')
+            ->get();
+
+        $academicLevels = AcademicLevel::active()->get();
+        $academicStrands = AcademicStrand::active()->get();
+        $collegeCourses = CollegeCourse::active()->get();
+        
+        $classAdvisers = User::where('user_role', 'class_adviser')
+            ->whereHas('classAdviserAssignments', function($query) {
+                $query->where('is_active', true);
+            })
+            ->with(['classAdviserAssignments.academicLevel', 'classAdviserAssignments.academicPeriod'])
+            ->orderBy('name')
+            ->get()
+            ->map(function($adviser) {
+                $adviser->assignments = $adviser->classAdviserAssignments->map(function($assignment) {
+                    return [
+                        'id' => $assignment->id,
+                        'academic_level' => $assignment->academicLevel->name,
+                        'year_level' => $assignment->year_level,
+                        'section' => $assignment->section,
+                        'strand' => $assignment->strand ? $assignment->strand->name : null,
+                        'display_name' => $assignment->getDisplayName(),
+                    ];
+                });
+                return $adviser;
+            });
+        
+        return Inertia::render('Admin/Users/Students', [
+            'students' => $students,
+            'academicLevels' => $academicLevels,
+            'academicStrands' => $academicStrands,
+            'collegeCourses' => $collegeCourses,
+            'classAdvisers' => $classAdvisers,
+            'academicLevel' => 'SHS',
+        ]);
+    }
+
+    public function collegeStudents()
+    {
+        $students = User::where('user_role', 'student')
+            ->with([
+                'studentProfile.academicLevel',
+                'studentProfile.academicStrand', 
+                'studentProfile.collegeCourse',
+                'studentProfile.classAdviser'
+            ])
+            ->whereHas('studentProfile.collegeCourse')
+            ->orderBy('name')
+            ->get();
+
+        $academicLevels = AcademicLevel::active()->get();
+        $academicStrands = AcademicStrand::active()->get();
+        $collegeCourses = CollegeCourse::active()->get();
+        
+        $classAdvisers = User::where('user_role', 'class_adviser')
+            ->whereHas('classAdviserAssignments', function($query) {
+                $query->where('is_active', true);
+            })
+            ->with(['classAdviserAssignments.academicLevel', 'classAdviserAssignments.academicPeriod'])
+            ->orderBy('name')
+            ->get()
+            ->map(function($adviser) {
+                $adviser->assignments = $adviser->classAdviserAssignments->map(function($assignment) {
+                    return [
+                        'id' => $assignment->id,
+                        'academic_level' => $assignment->academicLevel->name,
+                        'year_level' => $assignment->year_level,
+                        'section' => $assignment->section,
+                        'strand' => $assignment->strand ? $assignment->strand->name : null,
+                        'display_name' => $assignment->getDisplayName(),
+                    ];
+                });
+                return $adviser;
+            });
+        
+        return Inertia::render('Admin/Users/Students', [
+            'students' => $students,
+            'academicLevels' => $academicLevels,
+            'academicStrands' => $academicStrands,
+            'collegeCourses' => $collegeCourses,
+            'classAdvisers' => $classAdvisers,
+            'academicLevel' => 'COL',
         ]);
     }
 

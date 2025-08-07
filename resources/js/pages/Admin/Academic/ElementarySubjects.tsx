@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Head, router, useForm, Link } from '@inertiajs/react';
 import AdminLayout from '@/pages/Admin/AdminLayout';
 
@@ -135,10 +135,21 @@ const ElementarySubjects: React.FC<Props> = ({ subjects, levels, advisers, acade
         reset();
     };
 
-    // Filter elementary levels
+    // Filter elementary levels and get the elementary level
     const elementaryLevels = levels.filter(level => 
         level.name.toLowerCase().includes('elementary') || level.code === 'ELEM'
     );
+    
+    const elementaryLevel = elementaryLevels.find(level => 
+        level.name.toLowerCase().includes('elementary') || level.code === 'ELEM'
+    );
+
+    // Set elementary level as default when component loads
+    useEffect(() => {
+        if (elementaryLevel && !data.academic_level_id) {
+            setData('academic_level_id', elementaryLevel.id.toString());
+        }
+    }, [elementaryLevel, data.academic_level_id, setData]);
 
     return (
         <>
@@ -381,19 +392,17 @@ const ElementarySubjects: React.FC<Props> = ({ subjects, levels, advisers, acade
                                         <label className="block text-sm font-medium text-gray-700 mb-2">
                                             Academic Level
                                         </label>
-                                        <select
+                                        <input
+                                            type="text"
+                                            value="Elementary"
+                                            disabled
+                                            className="w-full rounded-md border-gray-300 bg-gray-100 text-gray-600 shadow-sm cursor-not-allowed"
+                                        />
+                                        <input
+                                            type="hidden"
+                                            name="academic_level_id"
                                             value={data.academic_level_id}
-                                            onChange={(e) => setData('academic_level_id', e.target.value)}
-                                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-                                            required
-                                        >
-                                            <option value="">Select Level</option>
-                                            {elementaryLevels.map((level) => (
-                                                <option key={level.id} value={level.id}>
-                                                    {level.name}
-                                                </option>
-                                            ))}
-                                        </select>
+                                        />
                                         {errors.academic_level_id && (
                                             <p className="text-red-600 text-sm mt-1">{errors.academic_level_id}</p>
                                         )}

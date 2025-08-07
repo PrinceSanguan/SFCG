@@ -83,7 +83,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
                 { title: 'Advisers', href: '/admin/users/advisers', icon: '🧑‍🏫' },
                 { title: 'Chairpersons', href: '/admin/users/chairpersons', icon: '👔' },
                 { title: 'Principals', href: '/admin/users/principals', icon: '🏫' },
-                { title: 'Students', href: '/admin/users/students', icon: '👨‍🎓' },
+                { title: 'Registrars', href: '/admin/users/registrars', icon: '📋' },
+                { title: 'All Students', href: '/admin/users/students', icon: '👨‍🎓' },
+                { title: 'Elementary Students', href: '/admin/users/students/elementary', icon: '🎒' },
+                { title: 'Junior High Students', href: '/admin/users/students/junior-high', icon: '📚' },
+                { title: 'Senior High Students', href: '/admin/users/students/senior-high', icon: '🎓' },
+                { title: 'College Students', href: '/admin/users/students/college', icon: '🎓' },
                 { title: 'Parents', href: '/admin/users/parents', icon: '👨‍👩‍👧' },
                 { title: 'Upload CSV', href: '/admin/users/upload', icon: '📤' }
             ]

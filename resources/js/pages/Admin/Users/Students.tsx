@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { router, useForm } from '@inertiajs/react';
 import AdminLayout from '@/pages/Admin/AdminLayout';
 
@@ -70,9 +70,10 @@ interface Props {
     academicStrands: AcademicStrand[];
     collegeCourses: CollegeCourse[];
     classAdvisers: ClassAdviser[];
+    academicLevel?: string | null; // 'ELEM', 'JHS', 'SHS', 'COL', or null for general view
 }
 
-const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, collegeCourses, classAdvisers }) => {
+const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, collegeCourses, classAdvisers, academicLevel }) => {
     const [selectedLevel, setSelectedLevel] = useState<string>('all');
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showCsvModal, setShowCsvModal] = useState(false);
@@ -82,6 +83,7 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
     const [editingStudent, setEditingStudent] = useState<Student | null>(null);
     const [studentType, setStudentType] = useState<'k12' | 'college'>('k12');
     const [filteredStrands, setFilteredStrands] = useState<AcademicStrand[]>([]);
+
 
     const { data, setData, post, put, processing, errors, reset } = useForm({
         name: '',
@@ -107,10 +109,79 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
         semester: '',
     });
 
+    // Auto-select academic level based on route context
+    useEffect(() => {
+        if (academicLevel && !data.academic_level_id) {
+            const level = academicLevels.find(l => l.code === academicLevel);
+            if (level) {
+                setData('academic_level_id', level.id.toString());
+                
+                // Update filtered strands for the academic level
+                const levelStrands = academicStrands.filter(s => s.academic_level_id === level.id);
+                setFilteredStrands(levelStrands);
+                
+                // Set student type based on academic level
+                if (academicLevel === 'COL') {
+                    setData('student_type', 'college');
+                } else {
+                    setData('student_type', 'k12');
+                }
+            }
+        }
+    }, [academicLevel, academicLevels, academicStrands]);
+
     const { data: csvData, setData: setCsvData, post: postCsv, processing: csvProcessing, errors: csvErrors, reset: resetCsv } = useForm({
         csv_file: null as File | null,
         academic_level: '',
     });
+
+    // Helper functions for grade levels and sections
+    const getSelectedLevel = () => {
+        return academicLevels.find(level => level.id.toString() === data.academic_level_id);
+    };
+
+
+
+
+
+    // Function to get grade levels based on selected academic level
+    const getGradeLevelsForAcademicLevel = () => {
+        const selectedLevel = getSelectedLevel();
+        if (!selectedLevel) return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]; // Default to all grades
+        
+        switch (selectedLevel.code) {
+            case 'ELEM':
+                return [1, 2, 3, 4, 5, 6];
+            case 'JHS':
+                return [7, 8, 9, 10];
+            case 'SHS':
+                return [11, 12];
+            default:
+                return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+        }
+    };
+
+    const getSectionsForLevel = () => {
+        const selectedLevel = getSelectedLevel();
+        if (!selectedLevel) return ['A', 'B', 'C', 'D', 'E'];
+        
+        switch (selectedLevel.code) {
+            case 'ELEM':
+                return ['A', 'B', 'C', 'D', 'E', 'F'];
+            case 'JHS':
+                return ['A', 'B', 'C', 'D', 'E'];
+            case 'SHS': {
+                // Include strand-specific sections for SHS
+                const selectedStrand = academicStrands.find(strand => strand.id.toString() === data.academic_strand_id);
+                if (selectedStrand) {
+                    return [`${selectedStrand.code}-1`, `${selectedStrand.code}-2`, `${selectedStrand.code}-3`];
+                }
+                return ['STEM-1', 'STEM-2', 'ABM-1', 'ABM-2', 'HUMSS-1', 'HUMSS-2', 'GAS-1', 'GAS-2'];
+            }
+            default:
+                return ['A', 'B', 'C', 'D', 'E'];
+        }
+    };
 
     // Filter students by academic level
     const getStudentsByLevel = (levelCode: string) => {
@@ -262,17 +333,9 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
         setStudentType('k12');
     };
 
-    const handleLevelChange = (levelId: string) => {
-        setData('academic_level_id', levelId);
-        setData('academic_strand_id', '');
-        
-        if (levelId) {
-            const levelStrands = academicStrands.filter(s => s.academic_level_id === parseInt(levelId));
-            setFilteredStrands(levelStrands);
-        } else {
-            setFilteredStrands([]);
-        }
-    };
+
+
+
 
     const handleStudentTypeChange = (type: 'k12' | 'college') => {
         setStudentType(type);
@@ -892,6 +955,23 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
                                     <div className="grid grid-cols-3 gap-4">
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Academic Level
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value="College"
+                                                disabled
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600"
+                                            />
+                                            <input
+                                                type="hidden"
+                                                name="academic_level_id"
+                                                value={data.academic_level_id}
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
                                                 College Course
                                             </label>
                                             <select
@@ -928,24 +1008,6 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
                                             </select>
                                             {errors.year_level && <p className="text-red-500 text-xs mt-1">{errors.year_level}</p>}
                                         </div>
-
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Semester
-                                            </label>
-                                            <select
-                                                value={data.semester}
-                                                onChange={(e) => setData('semester', e.target.value)}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                required
-                                            >
-                                                <option value="">Select Semester</option>
-                                                <option value="1st">1st Semester</option>
-                                                <option value="2nd">2nd Semester</option>
-                                                <option value="summer">Summer</option>
-                                            </select>
-                                            {errors.semester && <p className="text-red-500 text-xs mt-1">{errors.semester}</p>}
-                                        </div>
                                     </div>
                                 ) : (
                                     <div className="grid grid-cols-3 gap-4">
@@ -953,40 +1015,66 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                                 Academic Level
                                             </label>
-                                            <select
-                                                value={data.academic_level_id}
-                                                onChange={(e) => handleLevelChange(e.target.value)}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                required
-                                            >
-                                                <option value="">Select Academic Level</option>
-                                                {academicLevels.filter(level => level.code !== 'COL').map((level) => (
-                                                    <option key={level.id} value={level.id}>
-                                                        {level.name} ({level.code})
-                                                    </option>
-                                                ))}
-                                            </select>
+                                            {academicLevel ? (
+                                                <>
+                                                    <input
+                                                        type="text"
+                                                        value={getSelectedLevel()?.name || ''}
+                                                        disabled
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600"
+                                                    />
+                                                    <input
+                                                        type="hidden"
+                                                        name="academic_level_id"
+                                                        value={data.academic_level_id}
+                                                    />
+                                                </>
+                                            ) : (
+                                                <>
+                                                    {/* Check if the selected academic level is any K-12 level (Elementary, Junior High, or Senior High) */}
+                                                    {data.academic_level_id && (getSelectedLevel()?.code === 'ELEM' || getSelectedLevel()?.code === 'JHS' || getSelectedLevel()?.code === 'SHS') ? (
+                                                        <>
+                                                            <input
+                                                                type="text"
+                                                                value={getSelectedLevel()?.name || ''}
+                                                                disabled
+                                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600"
+                                                            />
+                                                            <input
+                                                                type="hidden"
+                                                                name="academic_level_id"
+                                                                value={data.academic_level_id}
+                                                            />
+                                                        </>
+                                                    ) : (
+                                                        <select
+                                                            value={data.academic_level_id}
+                                                            onChange={(e) => {
+                                                                setData('academic_level_id', e.target.value);
+                                                                setData('year_level', ''); // Reset grade level when academic level changes
+                                                                setData('academic_strand_id', ''); // Reset strand
+                                                                
+                                                                if (e.target.value) {
+                                                                    const levelStrands = academicStrands.filter(s => s.academic_level_id === parseInt(e.target.value));
+                                                                    setFilteredStrands(levelStrands);
+                                                                } else {
+                                                                    setFilteredStrands([]);
+                                                                }
+                                                            }}
+                                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                            required
+                                                        >
+                                                            <option value="">Select Academic Level</option>
+                                                            {academicLevels.filter(level => level.code !== 'COL').map((level) => (
+                                                                <option key={level.id} value={level.id}>
+                                                                    {level.name}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    )}
+                                                </>
+                                            )}
                                             {errors.academic_level_id && <p className="text-red-500 text-xs mt-1">{errors.academic_level_id}</p>}
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Academic Strand (Optional)
-                                            </label>
-                                            <select
-                                                value={data.academic_strand_id}
-                                                onChange={(e) => setData('academic_strand_id', e.target.value)}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                disabled={!data.academic_level_id}
-                                            >
-                                                <option value="">General (All Strands)</option>
-                                                {filteredStrands.map((strand) => (
-                                                    <option key={strand.id} value={strand.id}>
-                                                        {strand.name} ({strand.code})
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            {errors.academic_strand_id && <p className="text-red-500 text-xs mt-1">{errors.academic_strand_id}</p>}
                                         </div>
 
                                         <div>
@@ -998,15 +1086,39 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
                                                 onChange={(e) => setData('year_level', e.target.value)}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                                 required
+                                                disabled={!data.academic_level_id}
                                             >
                                                 <option value="">Select Grade Level</option>
-                                                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((grade) => (
+                                                {getGradeLevelsForAcademicLevel().map((grade: number) => (
                                                     <option key={grade} value={grade}>
                                                         Grade {grade}
                                                     </option>
                                                 ))}
                                             </select>
                                             {errors.year_level && <p className="text-red-500 text-xs mt-1">{errors.year_level}</p>}
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Academic Strand {getSelectedLevel()?.code === 'SHS' ? '(Required)' : '(Optional)'}
+                                            </label>
+                                            <select
+                                                value={data.academic_strand_id}
+                                                onChange={(e) => setData('academic_strand_id', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                disabled={!data.academic_level_id}
+                                                required={getSelectedLevel()?.code === 'SHS'}
+                                            >
+                                                <option value="">
+                                                    {getSelectedLevel()?.code === 'SHS' ? 'Select Strand' : 'General (All Strands)'}
+                                                </option>
+                                                {filteredStrands.map((strand) => (
+                                                    <option key={strand.id} value={strand.id}>
+                                                        {strand.name} ({strand.code})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            {errors.academic_strand_id && <p className="text-red-500 text-xs mt-1">{errors.academic_strand_id}</p>}
                                         </div>
                                     </div>
                                 )}
@@ -1015,31 +1127,48 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Grade Level
+                                            Section
                                         </label>
-                                        <input
-                                            type="text"
-                                            value={data.grade_level}
-                                            onChange={(e) => setData('grade_level', e.target.value)}
+                                        <select
+                                            value={data.section}
+                                            onChange={(e) => setData('section', e.target.value)}
                                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            placeholder={studentType === 'college' ? 'e.g., 1st Year' : 'e.g., Grade 11'}
-                                            required
-                                        />
-                                        {errors.grade_level && <p className="text-red-500 text-xs mt-1">{errors.grade_level}</p>}
+                                        >
+                                            <option value="">Select Section</option>
+                                            {getSectionsForLevel().map((section) => (
+                                                <option key={section} value={section}>
+                                                    {section}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {errors.section && <p className="text-red-500 text-xs mt-1">{errors.section}</p>}
                                     </div>
 
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Section
+                                            Semester
                                         </label>
-                                        <input
-                                            type="text"
-                                            value={data.section}
-                                            onChange={(e) => setData('section', e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            placeholder="e.g., A, B, STEM-1"
-                                        />
-                                        {errors.section && <p className="text-red-500 text-xs mt-1">{errors.section}</p>}
+                                        {studentType === 'college' ? (
+                                            <select
+                                                value={data.semester}
+                                                onChange={(e) => setData('semester', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                required
+                                            >
+                                                <option value="">Select Semester</option>
+                                                <option value="1st">1st Semester</option>
+                                                <option value="2nd">2nd Semester</option>
+                                                <option value="summer">Summer</option>
+                                            </select>
+                                        ) : (
+                                            <input
+                                                type="text"
+                                                value="N/A"
+                                                disabled
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600"
+                                            />
+                                        )}
+                                        {errors.semester && <p className="text-red-500 text-xs mt-1">{errors.semester}</p>}
                                     </div>
                                 </div>
 
@@ -1122,111 +1251,8 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
                                     {errors.enrollment_status && <p className="text-red-500 text-xs mt-1">{errors.enrollment_status}</p>}
                                 </div>
 
-                                {/* CSV Upload Section */}
-                                <div className="border-t border-gray-200 pt-6 mt-6">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h4 className="text-lg font-medium text-gray-900">
-                                            📁 Bulk Upload Students
-                                        </h4>
-                                        <button
-                                            type="button"
-                                            onClick={() => downloadTemplate(
-                                                data.student_type === 'college' ? 'college' : 
-                                                data.academic_level_id ? 
-                                                    academicLevels.find(l => l.id.toString() === data.academic_level_id)?.code === 'ELEM' ? 'elementary' : 'junior_high'
-                                                : 'elementary'
-                                            )}
-                                            className="text-sm text-green-600 hover:text-green-700 font-medium"
-                                        >
-                                            📥 Download Template
-                                        </button>
-                                    </div>
-                                    
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Upload CSV File
-                                            </label>
-                                            <input
-                                                type="file"
-                                                accept=".csv,.txt"
-                                                onChange={handleFileChange}
-                                                className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                                            />
-                                            {csvErrors.csv_file && (
-                                                <p className="text-red-500 text-sm mt-1">{csvErrors.csv_file}</p>
-                                            )}
-                                        </div>
-
-                                        <div className="flex space-x-3">
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    if (!csvData.csv_file) {
-                                                        alert('Please select a CSV file first.');
-                                                        return;
-                                                    }
-                                                    
-                                                    const level = data.student_type === 'college' ? 'college' : 
-                                                        data.academic_level_id ? 
-                                                            academicLevels.find(l => l.id.toString() === data.academic_level_id)?.code === 'ELEM' ? 'elementary' : 'junior_high'
-                                                        : 'elementary';
-                                                    
-                                                    console.log('CSV Upload Debug:', {
-                                                        file: csvData.csv_file,
-                                                        level: level,
-                                                        formData: csvData
-                                                    });
-                                                    
-                                                    // Set the academic level in the CSV form data
-                                                    setCsvData('academic_level', level);
-                                                    
-                                                    // Submit the CSV form
-                                                    postCsv(route('admin.users.upload.by-level'), {
-                                                        onSuccess: () => {
-                                                            console.log('CSV upload successful');
-                                                            // Reset CSV form
-                                                            setCsvData('csv_file', null);
-                                                            resetCsv();
-                                                        },
-                                                        onError: (errors) => {
-                                                            console.error('CSV upload errors:', errors);
-                                                            // Handle specific validation errors
-                                                            if (errors.csv_file) {
-                                                                alert('CSV File Error: ' + errors.csv_file);
-                                                            } else if (errors.academic_level) {
-                                                                alert('Academic Level Error: ' + errors.academic_level);
-                                                            } else {
-                                                                alert('Upload failed. Please check your CSV file and try again.');
-                                                            }
-                                                        },
-                                                    });
-                                                }}
-                                                disabled={csvProcessing || !csvData.csv_file}
-                                                className="flex-1 bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors disabled:opacity-50"
-                                            >
-                                                {csvProcessing ? 'Uploading...' : 'Upload CSV'}
-                                            </button>
-                                        </div>
-
-                                        <div className="p-3 bg-blue-50 rounded-md">
-                                            <h5 className="font-medium text-blue-900 mb-2">CSV Upload Info:</h5>
-                                            <ul className="text-sm text-blue-800 space-y-1">
-                                                <li>• Upload multiple students at once</li>
-                                                <li>• Students will be created with current form settings</li>
-                                                <li>• Academic level: <span className="font-medium">
-                                                    {data.student_type === 'college' ? 'College' : 
-                                                     data.academic_level_id ? 
-                                                         academicLevels.find(l => l.id.toString() === data.academic_level_id)?.name || 'Not selected'
-                                                     : 'Not selected'}
-                                                </span></li>
-                                                <li>• Download template for exact format</li>
-                                            </ul>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="flex justify-end space-x-3 pt-4">
+                                {/* Form Actions */}
+                                <div className="flex justify-end space-x-3 pt-6">
                                     <button
                                         type="button"
                                         onClick={closeModal}
@@ -1239,7 +1265,7 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
                                         disabled={processing}
                                         className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
                                     >
-                                        {processing ? 'Saving...' : (editingStudent ? 'Update' : `Create ${academicLevels.find(l => l.id.toString() === data.academic_level_id)?.name || (data.student_type === 'college' ? 'College' : 'K-12')} Student`)}
+                                        {processing ? 'Saving...' : (editingStudent ? 'Update' : `Create ${getSelectedLevel()?.name || (data.student_type === 'college' ? 'College' : 'K-12')} Student`)}
                                     </button>
                                 </div>
                             </form>
@@ -1247,6 +1273,8 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
                     </div>
                 </div>
             )}
+
+            {/* Remove the old bulk upload modal content */}
 
             {/* CSV Upload Modal */}
             {showCsvModal && (

@@ -105,8 +105,18 @@ Route::middleware([AdminMiddleware::class])->group(function () {
   Route::put('admin/users/principals/{principal}', [UserController::class, 'updatePrincipal'])->name('admin.users.principals.update');
   Route::delete('admin/users/principals/{principal}', [UserController::class, 'destroyPrincipal'])->name('admin.users.principals.destroy');
 
+  // User Management - Registrars
+  Route::get('admin/users/registrars', [UserController::class, 'registrars'])->name('admin.users.registrars');
+  Route::post('admin/users/registrars', [UserController::class, 'storeRegistrar'])->name('admin.users.registrars.store');
+  Route::put('admin/users/registrars/{registrar}', [UserController::class, 'updateRegistrar'])->name('admin.users.registrars.update');
+  Route::delete('admin/users/registrars/{registrar}', [UserController::class, 'destroyRegistrar'])->name('admin.users.registrars.destroy');
+
   // User Management - Students
   Route::get('admin/users/students', [UserController::class, 'students'])->name('admin.users.students');
+  Route::get('admin/users/students/elementary', [UserController::class, 'elementaryStudents'])->name('admin.users.students.elementary');
+  Route::get('admin/users/students/junior-high', [UserController::class, 'juniorHighStudents'])->name('admin.users.students.junior-high');
+  Route::get('admin/users/students/senior-high', [UserController::class, 'seniorHighStudents'])->name('admin.users.students.senior-high');
+  Route::get('admin/users/students/college', [UserController::class, 'collegeStudents'])->name('admin.users.students.college');
   Route::post('admin/users/students', [UserController::class, 'storeStudent'])->name('admin.users.students.store');
   Route::put('admin/users/students/{student}', [UserController::class, 'updateStudent'])->name('admin.users.students.update');
   Route::delete('admin/users/students/{student}', [UserController::class, 'destroyStudent'])->name('admin.users.students.destroy');

@@ -68,6 +68,22 @@ const HighSchoolSubjects: React.FC<Props> = ({ subjects, levels, strands, levelT
         }
     });
 
+    // Get the specific level for this type
+    const currentLevel = relevantLevels.find(level => {
+        if (isJuniorHigh) {
+            return level.name.toLowerCase().includes('junior') || level.code === 'JHS';
+        } else {
+            return level.name.toLowerCase().includes('senior') || level.code === 'SHS';
+        }
+    });
+
+    // Set level as default when component loads
+    useEffect(() => {
+        if (currentLevel && !data.academic_level_id) {
+            setData('academic_level_id', currentLevel.id.toString());
+        }
+    }, [currentLevel, data.academic_level_id, setData]);
+
     // Update filtered strands when academic level changes
     useEffect(() => {
         if (data.academic_level_id) {
@@ -129,10 +145,7 @@ const HighSchoolSubjects: React.FC<Props> = ({ subjects, levels, strands, levelT
         setFilteredStrands([]);
     };
 
-    const handleLevelChange = (levelId: string) => {
-        setData('academic_level_id', levelId);
-        setData('academic_strand_id', ''); // Reset strand when level changes
-    };
+
 
     return (
         <>
@@ -373,19 +386,17 @@ const HighSchoolSubjects: React.FC<Props> = ({ subjects, levels, strands, levelT
                                         <label className="block text-sm font-medium text-gray-700 mb-2">
                                             Academic Level
                                         </label>
-                                        <select
+                                        <input
+                                            type="text"
+                                            value={titlePrefix}
+                                            disabled
+                                            className="w-full rounded-md border-gray-300 bg-gray-100 text-gray-600 shadow-sm cursor-not-allowed"
+                                        />
+                                        <input
+                                            type="hidden"
+                                            name="academic_level_id"
                                             value={data.academic_level_id}
-                                            onChange={(e) => handleLevelChange(e.target.value)}
-                                            className={`w-full rounded-md border-gray-300 shadow-sm focus:border-${colorTheme}-500 focus:ring-${colorTheme}-500`}
-                                            required
-                                        >
-                                            <option value="">Select Level</option>
-                                            {relevantLevels.map((level) => (
-                                                <option key={level.id} value={level.id}>
-                                                    {level.name}
-                                                </option>
-                                            ))}
-                                        </select>
+                                        />
                                         {errors.academic_level_id && (
                                             <p className="text-red-600 text-sm mt-1">{errors.academic_level_id}</p>
                                         )}
