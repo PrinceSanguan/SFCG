@@ -244,6 +244,11 @@ class User extends Authenticatable
         return $this->hasMany(InstructorSubjectAssignment::class, 'instructor_id');
     }
 
+    public function instructorAssignments(): HasMany
+    {
+        return $this->hasMany(InstructorSubjectAssignment::class, 'instructor_id');
+    }
+
     public function classAdviserAssignments(): HasMany
     {
         return $this->hasMany(ClassAdviserAssignment::class, 'adviser_id');

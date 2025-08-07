@@ -216,7 +216,13 @@ class UserController extends Controller
     public function advisers()
     {
         $advisers = User::where('user_role', 'class_adviser')
-            ->with(['advisedStudents.academicLevel', 'advisedStudents.academicStrand', 'advisedStudents.collegeCourse'])
+            ->with([
+                'advisedStudents.academicLevel', 
+                'advisedStudents.academicStrand', 
+                'advisedStudents.collegeCourse',
+                'instructorAssignments.subject',
+                'instructorAssignments.academicPeriod'
+            ])
             ->orderBy('name')
             ->get();
         

@@ -19,18 +19,13 @@ interface AcademicPeriod {
     name: string;
 }
 
-interface AcademicStrand {
-    id: number;
-    name: string;
-    code: string;
-}
+
 
 interface Assignment {
     id: number;
     adviser?: Adviser;
     academicLevel?: AcademicLevel;
     academicPeriod?: AcademicPeriod;
-    strand?: AcademicStrand;
     year_level?: string;
     section?: string;
     is_active: boolean;
@@ -41,14 +36,12 @@ interface Props {
     assignments: Assignment[];
     advisers: Adviser[];
     academicLevels: AcademicLevel[];
-    strands: AcademicStrand[];
 }
 
 const AdviserAssignments: React.FC<Props> = ({ 
     assignments = [], 
     advisers = [], 
-    academicLevels = [], 
-    strands = []
+    academicLevels = []
 }) => {
 
 
@@ -63,14 +56,11 @@ const AdviserAssignments: React.FC<Props> = ({
         academic_level_id: '',
         academic_period_id: '',
         section: '',
-        strand_id: '',
         year_level: '',
         is_active: true as boolean,
     });
 
-    // Check if selected level is for Senior High School (requires strand)
-    const isSeniorHighLevel = selectedLevel?.code === 'SHS' || 
-                             selectedLevel?.name?.includes('Senior High');
+
 
     // Fetch periods by academic level
     const fetchPeriodsByLevel = async (levelId: string) => {
@@ -102,10 +92,7 @@ const AdviserAssignments: React.FC<Props> = ({
         setData('academic_level_id', levelId);
         setData('academic_period_id', ''); // Clear selected period
         
-        // Clear strand if switching to non-SHS level
-        if (level && !(level.code === 'SHS' || level.name?.includes('Senior High'))) {
-            setData('strand_id', '');
-        }
+
 
         // Fetch periods for the selected level
         fetchPeriodsByLevel(levelId);
@@ -140,7 +127,6 @@ const AdviserAssignments: React.FC<Props> = ({
             academic_level_id: assignment.academicLevel?.id.toString() || '',
             academic_period_id: assignment.academicPeriod?.id.toString() || '',
             section: assignment.section || '',
-            strand_id: assignment.strand?.id.toString() || '',
             year_level: assignment.year_level || '',
             is_active: assignment.is_active,
         });
@@ -240,9 +226,7 @@ const AdviserAssignments: React.FC<Props> = ({
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Section
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Strand
-                                        </th>
+
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Academic Period
                                         </th>
@@ -276,9 +260,7 @@ const AdviserAssignments: React.FC<Props> = ({
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                 {assignment.section || 'N/A'}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                {assignment.strand?.name || 'N/A'}
-                                            </td>
+
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                 {assignment.academicPeriod?.name || 'N/A'}
                                             </td>
@@ -407,29 +389,7 @@ const AdviserAssignments: React.FC<Props> = ({
                                             )}
                                         </div>
 
-                                        {isSeniorHighLevel && (
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                    Strand
-                                                </label>
-                                                <select
-                                                    value={data.strand_id}
-                                                    onChange={(e) => setData('strand_id', e.target.value)}
-                                                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                    required={isSeniorHighLevel}
-                                                >
-                                                    <option value="">Select Strand</option>
-                                                    {strands.map((strand) => (
-                                                        <option key={strand.id} value={strand.id}>
-                                                            {strand.name}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                                {errors.strand_id && (
-                                                    <p className="text-red-500 text-sm mt-1">{errors.strand_id}</p>
-                                                )}
-                                            </div>
-                                        )}
+
 
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-1">

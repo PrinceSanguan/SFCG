@@ -549,18 +549,27 @@ class AcademicController extends Controller
 
     public function elementarySubjects()
     {
-        $elementaryLevels = AcademicLevel::whereIn('name', ['Elementary'])
-            ->orWhere('code', 'ELEM')
-            ->get();
+        $levels = AcademicLevel::orderBy('name')->get();
+        
+        // Get only elementary levels
+        $elementaryLevels = $levels->filter(function($level) {
+            return $level->name === 'Elementary' || $level->code === 'ELEM';
+        });
 
         $subjects = Subject::whereIn('academic_level_id', $elementaryLevels->pluck('id'))
-            ->with(['academicLevel'])
+            ->with(['academicLevel', 'instructorAssignments.instructor', 'instructorAssignments.academicPeriod'])
             ->orderBy('name')
             ->get();
-        
+
+        // Get advisers for elementary level
+        $advisers = User::where('user_role', 'class_adviser')->orderBy('name')->get();
+        $academicPeriods = AcademicPeriod::orderBy('name')->get();
+
         return Inertia::render('Admin/Academic/ElementarySubjects', [
             'subjects' => $subjects,
-            'levels' => $elementaryLevels,
+            'levels' => $levels,
+            'advisers' => $advisers, // Use advisers for elementary
+            'academicPeriods' => $academicPeriods,
         ]);
     }
 
@@ -571,16 +580,22 @@ class AcademicController extends Controller
             ->get();
 
         $subjects = Subject::whereIn('academic_level_id', $juniorHighLevels->pluck('id'))
-            ->with(['academicLevel', 'academicStrand'])
+            ->with(['academicLevel', 'academicStrand', 'instructorAssignments.instructor', 'instructorAssignments.academicPeriod'])
             ->orderBy('name')
             ->get();
 
         $strands = AcademicStrand::whereIn('academic_level_id', $juniorHighLevels->pluck('id'))->get();
         
+        // Get teachers for junior high level
+        $teachers = User::where('user_role', 'teacher')->orderBy('name')->get();
+        $academicPeriods = AcademicPeriod::orderBy('name')->get();
+        
         return Inertia::render('Admin/Academic/HighSchoolSubjects', [
             'subjects' => $subjects,
             'levels' => $juniorHighLevels,
             'strands' => $strands,
+            'teachers' => $teachers, // Add teachers for junior high
+            'academicPeriods' => $academicPeriods, // Add academic periods
             'levelType' => 'junior',
         ]);
     }
@@ -592,16 +607,22 @@ class AcademicController extends Controller
             ->get();
 
         $subjects = Subject::whereIn('academic_level_id', $seniorHighLevels->pluck('id'))
-            ->with(['academicLevel', 'academicStrand'])
+            ->with(['academicLevel', 'academicStrand', 'instructorAssignments.instructor', 'instructorAssignments.academicPeriod'])
             ->orderBy('name')
             ->get();
 
         $strands = AcademicStrand::whereIn('academic_level_id', $seniorHighLevels->pluck('id'))->get();
         
+        // Get instructors for senior high level
+        $instructors = User::where('user_role', 'instructor')->orderBy('name')->get();
+        $academicPeriods = AcademicPeriod::orderBy('name')->get();
+        
         return Inertia::render('Admin/Academic/HighSchoolSubjects', [
             'subjects' => $subjects,
             'levels' => $seniorHighLevels,
             'strands' => $strands,
+            'instructors' => $instructors, // Add instructors for senior high
+            'academicPeriods' => $academicPeriods, // Add academic periods
             'levelType' => 'senior',
         ]);
     }
@@ -609,21 +630,34 @@ class AcademicController extends Controller
     public function collegeSubjects()
     {
         $subjects = Subject::whereNotNull('college_course_id')
-            ->with(['collegeCourse'])
+            ->with(['collegeCourse', 'instructorAssignments.instructor', 'instructorAssignments.academicPeriod'])
             ->orderBy('name')
             ->get();
 
         $collegeCourses = CollegeCourse::active()->orderBy('name')->get();
         
+        // Get instructors for college level
+        $instructors = User::where('user_role', 'instructor')->orderBy('name')->get();
+        $academicPeriods = AcademicPeriod::orderBy('name')->get();
+        
         return Inertia::render('Admin/Academic/CollegeSubjects', [
             'subjects' => $subjects,
             'collegeCourses' => $collegeCourses,
+            'instructors' => $instructors, // Add instructors for college
+            'academicPeriods' => $academicPeriods, // Add academic periods
             'semesters' => CollegeCourse::getSemesters(),
         ]);
     }
 
     public function storeSubjects(Request $request)
     {
+        // Debug logging at the very beginning
+        Log::info('=== STORE SUBJECTS METHOD STARTED ===');
+        Log::info('All request data:', $request->all());
+        Log::info('Teacher ID:', ['teacher_id' => $request->teacher_id]);
+        Log::info('Academic Period ID:', ['academic_period_id' => $request->academic_period_id]);
+        Log::info('Section:', ['section' => $request->section]);
+        
         $rules = [
             'name' => 'required|string|max:255',
             'code' => 'required|string|max:20|unique:subjects,code',
@@ -642,7 +676,41 @@ class AcademicController extends Controller
             $rules['year_level'] = 'required|integer|min:1|max:12'; // Add grade level for K-12
         }
 
+        // Add assignment validation based on academic level
+        $academicLevel = AcademicLevel::find($request->academic_level_id);
+        $expectedRole = null;
+        
+        if ($academicLevel) {
+            if (str_contains(strtolower($academicLevel->name), 'elementary') || $academicLevel->code === 'ELEM') {
+                $expectedRole = 'class_adviser';
+            } elseif (str_contains(strtolower($academicLevel->name), 'junior') || $academicLevel->code === 'JHS') {
+                $expectedRole = 'teacher';
+            } elseif (str_contains(strtolower($academicLevel->name), 'senior') || $academicLevel->code === 'SHS') {
+                $expectedRole = 'instructor';
+            }
+        }
+        
+        // For college subjects (college_course_id is set)
+        if ($request->college_course_id) {
+            $expectedRole = 'instructor';
+        }
+        
+        if ($expectedRole) {
+            $rules['teacher_id'] = 'required|exists:users,id';
+            $rules['academic_period_id'] = 'required|exists:academic_periods,id';
+            $rules['section'] = 'required|string|max:50';
+        }
+
         $request->validate($rules);
+
+        // Debug logging
+        \Log::info('Subject creation request', [
+            'all_data' => $request->all(),
+            'academic_level_id' => $request->academic_level_id,
+            'teacher_id' => $request->teacher_id,
+            'academic_period_id' => $request->academic_period_id,
+            'section' => $request->section,
+        ]);
 
         $subjectData = [
             'name' => $request->name,
@@ -663,6 +731,66 @@ class AcademicController extends Controller
         }
 
         $subject = Subject::create($subjectData);
+
+        // Debug logging before teacher assignment
+        Log::info('=== SUBJECT CREATED ===');
+        Log::info('Subject ID:', ['subject_id' => $subject->id]);
+        Log::info('About to create assignment...');
+
+        // Create assignment based on academic level
+        if ($request->teacher_id && $request->academic_period_id && $request->section && $expectedRole) {
+            Log::info('Creating assignment', [
+                'teacher_id' => $request->teacher_id,
+                'subject_id' => $subject->id,
+                'academic_period_id' => $request->academic_period_id,
+                'section' => $request->section,
+                'year_level' => $request->year_level,
+                'expected_role' => $expectedRole,
+            ]);
+
+            // Verify the user has the expected role
+            $user = User::findOrFail($request->teacher_id);
+            if ($user->user_role !== $expectedRole) {
+                Log::error('Selected user does not have expected role', [
+                    'user_id' => $request->teacher_id, 
+                    'actual_role' => $user->user_role,
+                    'expected_role' => $expectedRole
+                ]);
+                return redirect()->back()->with('error', "Selected user is not a {$expectedRole}.");
+            }
+
+            // Check if assignment already exists
+            $existingAssignment = InstructorSubjectAssignment::where([
+                'instructor_id' => $request->teacher_id,
+                'subject_id' => $subject->id,
+                'academic_period_id' => $request->academic_period_id,
+                'section' => $request->section,
+            ])->first();
+
+            if (!$existingAssignment) {
+                $assignment = InstructorSubjectAssignment::create([
+                    'instructor_id' => $request->teacher_id,
+                    'subject_id' => $subject->id,
+                    'academic_period_id' => $request->academic_period_id,
+                    'section' => $request->section,
+                    'year_level' => $request->year_level,
+                    'is_active' => true,
+                ]);
+                Log::info('Assignment created successfully', [
+                    'assignment_id' => $assignment->id,
+                    'role' => $expectedRole
+                ]);
+            } else {
+                Log::info('Assignment already exists', ['assignment_id' => $existingAssignment->id]);
+            }
+        } else {
+            Log::warning('Assignment data missing', [
+                'teacher_id' => $request->teacher_id,
+                'academic_period_id' => $request->academic_period_id,
+                'section' => $request->section,
+                'expected_role' => $expectedRole,
+            ]);
+        }
 
         // Only log activity if user is authenticated
         if (Auth::check()) {
@@ -700,6 +828,16 @@ class AcademicController extends Controller
             $rules['year_level'] = 'required|integer|min:1|max:12'; // Add grade level for K-12
         }
 
+        // Add teacher assignment validation for elementary subjects
+        if ($request->academic_level_id) {
+            $academicLevel = AcademicLevel::find($request->academic_level_id);
+            if ($academicLevel && ($academicLevel->name === 'Elementary' || $academicLevel->code === 'ELEM')) {
+                $rules['teacher_id'] = 'required|exists:users,id';
+                $rules['academic_period_id'] = 'required|exists:academic_periods,id';
+                $rules['section'] = 'required|string|max:50';
+            }
+        }
+
         $request->validate($rules);
 
         $oldValues = $subject->toArray();
@@ -729,6 +867,34 @@ class AcademicController extends Controller
         }
 
         $subject->update($subjectData);
+
+        // Handle teacher assignment for elementary subjects
+        if ($request->teacher_id && $request->academic_period_id && $request->section) {
+            // Verify the teacher is actually a teacher
+            $teacher = User::findOrFail($request->teacher_id);
+            if ($teacher->user_role !== 'teacher') {
+                return redirect()->back()->with('error', 'Selected user is not a teacher.');
+            }
+
+            // Check if assignment already exists
+            $existingAssignment = InstructorSubjectAssignment::where([
+                'instructor_id' => $request->teacher_id,
+                'subject_id' => $subject->id,
+                'academic_period_id' => $request->academic_period_id,
+                'section' => $request->section,
+            ])->first();
+
+            if (!$existingAssignment) {
+                InstructorSubjectAssignment::create([
+                    'instructor_id' => $request->teacher_id,
+                    'subject_id' => $subject->id,
+                    'academic_period_id' => $request->academic_period_id,
+                    'section' => $request->section,
+                    'year_level' => $request->year_level,
+                    'is_active' => true,
+                ]);
+            }
+        }
 
         ActivityLog::logActivity(
             Auth::user(),
@@ -1125,14 +1291,12 @@ class AcademicController extends Controller
 
 
         $academicPeriods = AcademicPeriod::orderBy('name')->get();
-        $strands = AcademicStrand::active()->orderBy('name')->get();
 
         return Inertia::render('Admin/Assignments/Advisers', [
             'assignments' => $assignments,
             'advisers' => $advisers,
             'academicLevels' => $k12Levels,
             'academicPeriods' => $academicPeriods,
-            'strands' => $strands
         ]);
     }
 
@@ -1142,7 +1306,6 @@ class AcademicController extends Controller
             'adviser_id' => 'required|exists:users,id',
             'academic_level_id' => 'required|exists:academic_levels,id',
             'academic_period_id' => 'required|exists:academic_periods,id',
-            'strand_id' => 'nullable|exists:academic_strands,id',
             'year_level' => 'required|string|max:20',
             'section' => 'nullable|string|max:255',
         ]);
@@ -1163,20 +1326,11 @@ class AcademicController extends Controller
             return redirect()->back()->with('error', 'Academic level must be Elementary, Junior High School, or Senior High School.');
         }
 
-        // Check if strand is required for Senior High School
-        $isSeniorHigh = $academicLevel->code === 'SHS' || 
-                       str_contains($academicLevel->name, 'Senior High');
-        
-        if ($isSeniorHigh && empty($request->strand_id)) {
-            return redirect()->back()->with('error', 'Strand is required for Senior High School level.');
-        }
-
         // Check for existing assignment
         $existingAssignment = ClassAdviserAssignment::where([
             'adviser_id' => $request->adviser_id,
             'academic_level_id' => $request->academic_level_id,
             'academic_period_id' => $request->academic_period_id,
-            'strand_id' => $request->strand_id,
             'year_level' => $request->year_level,
             'section' => $request->section,
         ])->first();
@@ -1189,7 +1343,6 @@ class AcademicController extends Controller
             'adviser_id' => $request->adviser_id,
             'academic_level_id' => $request->academic_level_id,
             'academic_period_id' => $request->academic_period_id,
-            'strand_id' => $request->strand_id,
             'year_level' => $request->year_level,
             'section' => $request->section,
             'is_active' => true,
@@ -1213,7 +1366,6 @@ class AcademicController extends Controller
             'adviser_id' => 'required|exists:users,id',
             'academic_level_id' => 'required|exists:academic_levels,id',
             'academic_period_id' => 'required|exists:academic_periods,id',
-            'strand_id' => 'nullable|exists:academic_strands,id',
             'year_level' => 'required|string|max:20',
             'section' => 'nullable|string|max:255',
             'is_active' => 'boolean',
@@ -1235,21 +1387,12 @@ class AcademicController extends Controller
             return redirect()->back()->with('error', 'Academic level must be Elementary, Junior High School, or Senior High School.');
         }
 
-        // Check if strand is required for Senior High School
-        $isSeniorHigh = $academicLevel->code === 'SHS' || 
-                       str_contains($academicLevel->name, 'Senior High');
-        
-        if ($isSeniorHigh && empty($request->strand_id)) {
-            return redirect()->back()->with('error', 'Strand is required for Senior High School level.');
-        }
-
         $oldValues = $assignment->toArray();
 
         $assignment->update([
             'adviser_id' => $request->adviser_id,
             'academic_level_id' => $request->academic_level_id,
             'academic_period_id' => $request->academic_period_id,
-            'strand_id' => $request->strand_id,
             'year_level' => $request->year_level,
             'section' => $request->section,
             'is_active' => $request->is_active,

@@ -103,7 +103,7 @@ interface FormData {
     final_grade: string;
     remarks: string;
     status: string;
-    [key: string]: unknown;
+    [key: string]: string | number | boolean | undefined | Array<{quarter?: number; grade?: number; weight?: number; semester?: number; first_grading?: number; second_grading?: number; third_grading?: number; fourth_grading?: number; midterm?: number; pre_final?: number; final?: number}>;
 }
 
 interface Props {
@@ -123,14 +123,14 @@ const GradingEdit: React.FC<Props> = ({
 }) => {
     // Determine student type based on the grade data
     const determineStudentType = (grade: Grade): 'elementary' | 'junior_high' | 'senior_high' | 'college' => {
-        if (grade.student.student_profile?.college_course) {
+        if (grade.student?.student_profile?.college_course) {
             return 'college';
         }
         
-        const academicLevel = grade.student.student_profile?.academic_level;
+        const academicLevel = grade.student?.student_profile?.academic_level;
         if (!academicLevel) return 'elementary';
         
-        const levelCode = academicLevel.code.toUpperCase();
+        const levelCode = academicLevel.code?.toUpperCase() || '';
         
         if (levelCode.includes('ELEM') || levelCode.includes('ELEMENTARY')) {
             return 'elementary';
@@ -148,14 +148,14 @@ const GradingEdit: React.FC<Props> = ({
     // Initialize form data based on student type
     const getInitialFormData = () => {
         const baseData = {
-            student_id: grade.student.id.toString(),
-            subject_id: grade.subject.id.toString(),
-            academic_period_id: grade.academic_period.id.toString(),
-            instructor_id: grade.instructor.id.toString(),
-            section: grade.section,
-            final_grade: grade.final_grade.toString(),
+            student_id: grade.student?.id?.toString() || '',
+            subject_id: grade.subject?.id?.toString() || '',
+            academic_period_id: grade.academic_period?.id?.toString() || '',
+            instructor_id: grade.instructor?.id?.toString() || '',
+            section: grade.section || '',
+            final_grade: grade.final_grade?.toString() || '0',
             remarks: grade.remarks || '',
-            status: grade.status
+            status: grade.status || 'draft'
         };
 
         // Add grade structure based on student type
@@ -192,7 +192,7 @@ const GradingEdit: React.FC<Props> = ({
 
     const { data, setData, put, processing, errors } = useForm<FormData>(getInitialFormData());
 
-    const [selectedStudent, setSelectedStudent] = useState<Student>(grade.student);
+    const [selectedStudent, setSelectedStudent] = useState<Student>(grade.student || {} as Student);
     const [searchTerm, setSearchTerm] = useState<string>('');
     const [filterGradeLevel, setFilterGradeLevel] = useState<string>('');
     const [filterSection, setFilterSection] = useState<string>('');
@@ -285,7 +285,7 @@ const GradingEdit: React.FC<Props> = ({
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        put(`/admin/grading/${grade.id}`);
+        put(`/admin/grading/${grade.id || ''}`);
     };
 
     // Filter students based on search and filters
@@ -322,7 +322,7 @@ const GradingEdit: React.FC<Props> = ({
 
     return (
         <>
-            <Head title={`Edit Grade - ${grade.student.name}`} />
+            <Head title={`Edit Grade - ${grade.student?.name || 'Unknown Student'}`} />
             <div className="flex min-h-screen bg-gray-50">
                 <Sidebar />
                 <div className="flex flex-1 flex-col">
@@ -333,7 +333,7 @@ const GradingEdit: React.FC<Props> = ({
                             <div className="flex items-center justify-between">
                                 <div>
                                     <h1 className="text-3xl font-bold text-gray-900">Edit Grade</h1>
-                                    <p className="text-gray-600 mt-2">Update grade information for {grade.student.name}</p>
+                                    <p className="text-gray-600 mt-2">Update grade information for {grade.student?.name || 'Unknown Student'}</p>
                                 </div>
                                 <div className="flex space-x-3">
                                     <Link
@@ -343,7 +343,7 @@ const GradingEdit: React.FC<Props> = ({
                                         ← Back to Grading
                                     </Link>
                                     <Link
-                                        href={`/admin/grading/${grade.id}`}
+                                        href={`/admin/grading/${grade.id || ''}`}
                                         className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
                                     >
                                         View Grade
@@ -423,10 +423,10 @@ const GradingEdit: React.FC<Props> = ({
                                         {errors.academic_period_id && <p className="text-red-500 text-xs mt-1">{errors.academic_period_id}</p>}
                                     </div>
 
-                                    {/* Instructor */}
+                                    {/* Class Adviser */}
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Instructor *
+                                            Class Adviser *
                                         </label>
                                         <select
                                             value={data.instructor_id || ''}
@@ -434,7 +434,7 @@ const GradingEdit: React.FC<Props> = ({
                                             className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                             required
                                         >
-                                            <option value="">Select Instructor</option>
+                                            <option value="">Select Class Adviser</option>
                                             {instructors.map((instructor) => (
                                                 <option key={instructor.id} value={instructor.id}>
                                                     {instructor.name}
@@ -698,7 +698,7 @@ const GradingEdit: React.FC<Props> = ({
                                 {/* Submit Button */}
                                 <div className="mt-8 flex justify-end space-x-3">
                                     <Link
-                                        href={`/admin/grading/${grade.id}`}
+                                        href={`/admin/grading/${grade.id || ''}`}
                                         className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
                                     >
                                         Cancel

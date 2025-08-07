@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import AdminLayout from '@/pages/Admin/AdminLayout';
 
 interface Student {
@@ -49,12 +49,12 @@ const CreateElementary: React.FC<Props> = ({ students, subjects, academicPeriods
         instructor_id: '',
         section: '',
         quarterly_grades: [
-            { quarter: 1, grade: '', weight: 25, label: '1st Grading' },
-            { quarter: 2, grade: '', weight: 25, label: '2nd Grading' },
-            { quarter: 3, grade: '', weight: 25, label: '3rd Grading' },
-            { quarter: 4, grade: '', weight: 25, label: '4th Grading' }
+            { quarter: 1, grade: 0, weight: 25, label: '1st Grading' },
+            { quarter: 2, grade: 0, weight: 25, label: '2nd Grading' },
+            { quarter: 3, grade: 0, weight: 25, label: '3rd Grading' },
+            { quarter: 4, grade: 0, weight: 25, label: '4th Grading' }
         ],
-        final_grade: '',
+        final_grade: '0.00',
         remarks: '',
         status: 'draft'
     });
@@ -72,9 +72,10 @@ const CreateElementary: React.FC<Props> = ({ students, subjects, academicPeriods
 
     const handleQuarterlyGradeChange = (index: number, field: 'grade' | 'weight', value: string) => {
         const newQuarterlyGrades = [...data.quarterly_grades];
+        const numericValue = parseFloat(value) || 0;
         newQuarterlyGrades[index] = {
             ...newQuarterlyGrades[index],
-            [field]: field === 'weight' ? parseFloat(value) || 0 : parseFloat(value) || 0
+            [field]: numericValue
         };
         setData('quarterly_grades', newQuarterlyGrades);
 

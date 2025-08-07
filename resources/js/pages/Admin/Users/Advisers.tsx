@@ -17,6 +17,22 @@ interface Adviser {
         academic_strand?: { name: string };
         college_course?: { name: string };
     }>;
+    instructor_assignments?: Array<{
+        id: number;
+        subject: {
+            id: number;
+            name: string;
+            code: string;
+        };
+        academic_period: {
+            id: number;
+            name: string;
+            school_year: string;
+        };
+        section: string;
+        year_level: string;
+        is_active: boolean;
+    }>;
 }
 
 interface Props {
@@ -112,6 +128,7 @@ const Advisers: React.FC<Props> = ({ advisers }) => {
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned Students</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned Subjects</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Joined</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                         </tr>
@@ -158,6 +175,27 @@ const Advisers: React.FC<Props> = ({ advisers }) => {
                                                         </div>
                                                     ) : (
                                                         <span className="text-sm text-gray-500">No students assigned</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    {adviser.instructor_assignments && adviser.instructor_assignments.length > 0 ? (
+                                                        <div className="space-y-1">
+                                                            {adviser.instructor_assignments.slice(0, 3).map((assignment, index) => (
+                                                                <div key={index} className="text-sm text-gray-900">
+                                                                    {assignment.subject.name} ({assignment.subject.code})
+                                                                    {assignment.academic_period && (
+                                                                        <span className="text-xs text-gray-500 ml-1">- {assignment.academic_period.name}</span>
+                                                                    )}
+                                                                </div>
+                                                            ))}
+                                                            {adviser.instructor_assignments.length > 3 && (
+                                                                <div className="text-xs text-gray-500">
+                                                                    +{adviser.instructor_assignments.length - 3} more subjects
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-sm text-gray-500">No subjects assigned</span>
                                                     )}
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

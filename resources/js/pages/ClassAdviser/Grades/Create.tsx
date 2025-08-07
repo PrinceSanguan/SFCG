@@ -6,25 +6,41 @@ interface Student {
     id: number;
     name: string;
     email: string;
-    student_profile?: {
+    student_id?: string;
+    section?: string;
+    studentProfile: {
         student_id: string;
+        academicLevel: {
+            name: string;
+        };
+        year_level: string;
         section: string;
     };
 }
 
 interface Assignment {
     id: number;
-    subject: {
+    academicLevel: {
         id: number;
         name: string;
         code: string;
     };
-    academic_period: {
+    academicPeriod: {
         id: number;
         name: string;
         school_year: string;
     };
+    year_level: string;
     section: string;
+}
+
+interface Subject {
+    id: number;
+    name: string;
+    code: string;
+    academicLevel: {
+        name: string;
+    };
 }
 
 interface Props {
@@ -34,11 +50,13 @@ interface Props {
         role_display: string;
     };
     assignments: Assignment[];
+    assignedStudents: Student[];
+    subjects: Subject[];
 }
 
-const ClassAdviserGradesCreate: React.FC<Props> = ({ adviser, assignments }) => {
-    const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
-    const [students, setStudents] = useState<Student[]>([]);
+const ClassAdviserGradesCreate: React.FC<Props> = ({ assignedStudents, subjects }) => {
+    const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
+    const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
     const [loadingStudents, setLoadingStudents] = useState(false);
 
     const { data, setData, post, processing, errors, reset } = useForm({
@@ -58,35 +76,44 @@ const ClassAdviserGradesCreate: React.FC<Props> = ({ adviser, assignments }) => 
         remarks: '',
     });
 
-    // Load students when assignment changes
+    // Load students when subject changes using API
     useEffect(() => {
-        if (selectedAssignment) {
+        if (selectedSubject) {
             setLoadingStudents(true);
-            fetch(`/class-adviser/api/students-for-subject?subject_id=${selectedAssignment.subject.id}&academic_period_id=${selectedAssignment.academic_period.id}&section=${selectedAssignment.section}`)
+            // Get the first assigned student's section as default
+            const defaultSection = assignedStudents.length > 0 ? assignedStudents[0].studentProfile.section : '';
+            
+            fetch(`/class-adviser/api/students-for-subject?subject_id=${selectedSubject.id}&academic_period_id=1&section=${defaultSection}`)
                 .then(response => response.json())
                 .then(data => {
-                    setStudents(data.students || []);
+                    if (data.error) {
+                        console.error('API Error:', data.error);
+                        setFilteredStudents([]);
+                    } else {
+                        setFilteredStudents(data.students || []);
+                    }
                     setLoadingStudents(false);
                 })
                 .catch(error => {
                     console.error('Error loading students:', error);
+                    setFilteredStudents([]);
                     setLoadingStudents(false);
                 });
         } else {
-            setStudents([]);
+            setFilteredStudents([]);
         }
-    }, [selectedAssignment]);
+    }, [selectedSubject, assignedStudents]);
 
-    const handleAssignmentChange = (assignmentId: string) => {
-        const assignment = assignments.find(a => a.id.toString() === assignmentId);
-        setSelectedAssignment(assignment || null);
+    const handleSubjectChange = (subjectId: string) => {
+        const subject = subjects.find(s => s.id.toString() === subjectId);
+        setSelectedSubject(subject || null);
         
-        if (assignment) {
+        if (subject) {
             setData({
                 ...data,
-                subject_id: assignment.subject.id.toString(),
-                academic_period_id: assignment.academic_period.id.toString(),
-                section: assignment.section,
+                subject_id: subject.id.toString(),
+                academic_period_id: '1', // Default to first period, can be made dynamic
+                section: '', // Will be set when student is selected
             });
         } else {
             setData({
@@ -98,13 +125,31 @@ const ClassAdviserGradesCreate: React.FC<Props> = ({ adviser, assignments }) => 
         }
     };
 
+    const handleStudentChange = (studentId: string) => {
+        const student = filteredStudents.find(s => s.id.toString() === studentId);
+        
+        if (student) {
+            setData({
+                ...data,
+                student_id: student.id.toString(),
+                section: student.studentProfile.section,
+            });
+        } else {
+            setData({
+                ...data,
+                student_id: '',
+                section: '',
+            });
+        }
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         post('/class-adviser/grades', {
             onSuccess: () => {
                 reset();
-                setSelectedAssignment(null);
-                setStudents([]);
+                setSelectedSubject(null);
+                setFilteredStudents([]);
             },
         });
     };
@@ -137,26 +182,52 @@ const ClassAdviserGradesCreate: React.FC<Props> = ({ adviser, assignments }) => 
                             <p className="text-sm text-gray-600 mt-1">Select the subject assignment and student, then enter the grades.</p>
                         </div>
                         <div className="p-6">
+                            {/* Debug Information */}
+                            <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                <h4 className="text-sm font-medium text-gray-700 mb-2">Debug Information</h4>
+                                <div className="text-xs text-gray-600 space-y-1">
+                                    <p>📚 Available Subjects: {subjects.length}</p>
+                                    <p>👥 Assigned Students: {assignedStudents.length}</p>
+                                    <p>📋 Selected Subject: {selectedSubject ? `${selectedSubject.name} (${selectedSubject.academicLevel.name})` : 'None'}</p>
+                                    <p>🎯 Filtered Students: {filteredStudents.length} {loadingStudents ? '(Loading...)' : ''}</p>
+                                    {subjects.length === 0 && (
+                                        <p className="text-orange-600 font-medium">⚠️ No subjects available. Check your class adviser assignments.</p>
+                                    )}
+                                    {assignedStudents.length === 0 && (
+                                        <p className="text-orange-600 font-medium">⚠️ No students assigned to you. Contact the administrator.</p>
+                                    )}
+                                </div>
+                            </div>
+                            
                             <form onSubmit={handleSubmit} className="space-y-6">
                                 {/* Subject Assignment Selection */}
                                 <div>
-                                    <label htmlFor="assignment" className="block text-sm font-medium text-gray-700">
-                                        Subject Assignment *
+                                    <label htmlFor="subject" className="block text-sm font-medium text-gray-700">
+                                        Subject *
                                     </label>
                                     <select
-                                        id="assignment"
-                                        value={selectedAssignment?.id || ''}
-                                        onChange={(e) => handleAssignmentChange(e.target.value)}
+                                        id="subject"
+                                        value={selectedSubject?.id || ''}
+                                        onChange={(e) => handleSubjectChange(e.target.value)}
                                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                                         required
                                     >
-                                        <option value="">Select a subject assignment</option>
-                                        {assignments.map((assignment) => (
-                                            <option key={assignment.id} value={assignment.id}>
-                                                {assignment.subject.name} ({assignment.subject.code}) - {assignment.section} - {assignment.academic_period.name}
-                                            </option>
-                                        ))}
+                                        <option value="">Select a subject</option>
+                                        {subjects.length > 0 ? (
+                                            subjects.filter(subject => subject.academicLevel).map((subject) => (
+                                                <option key={subject.id} value={subject.id}>
+                                                    {subject.name} ({subject.code}) - {subject.academicLevel.name}
+                                                </option>
+                                            ))
+                                        ) : (
+                                            <option value="" disabled>No subjects available for your assignments</option>
+                                        )}
                                     </select>
+                                    {subjects.length === 0 && (
+                                        <p className="mt-1 text-sm text-orange-600">
+                                            ⚠️ No subjects are available. Please contact the administrator to assign subjects to your academic levels.
+                                        </p>
+                                    )}
                                     {errors.subject_id && (
                                         <p className="mt-1 text-sm text-red-600">{errors.subject_id}</p>
                                     )}
@@ -170,23 +241,42 @@ const ClassAdviserGradesCreate: React.FC<Props> = ({ adviser, assignments }) => 
                                     <select
                                         id="student_id"
                                         value={data.student_id}
-                                        onChange={(e) => setData('student_id', e.target.value)}
+                                        onChange={(e) => handleStudentChange(e.target.value)}
                                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                                         required
-                                        disabled={!selectedAssignment || loadingStudents}
+                                        disabled={!selectedSubject || loadingStudents || filteredStudents.length === 0}
                                     >
                                         <option value="">
-                                            {loadingStudents ? 'Loading students...' : 'Select a student'}
+                                            {!selectedSubject ? 'Please select a subject first' : 
+                                             loadingStudents ? 'Loading students...' :
+                                             filteredStudents.length === 0 ? 'No students found for this subject' : 'Select a student'}
                                         </option>
-                                        {students.map((student) => (
+                                        {filteredStudents.map((student) => (
                                             <option key={student.id} value={student.id}>
-                                                {student.name} ({student.email})
+                                                {student.name} ({student.student_id || student.email}) - {student.section || student.studentProfile.section}
                                             </option>
                                         ))}
                                     </select>
-                                    <p className="mt-1 text-sm text-blue-600">
-                                        💡 Only Junior High School students are displayed for this subject.
-                                    </p>
+                                    {!selectedSubject && (
+                                        <p className="mt-1 text-sm text-blue-600">
+                                            💡 Please select a subject first to see available students.
+                                        </p>
+                                    )}
+                                    {selectedSubject && loadingStudents && (
+                                        <p className="mt-1 text-sm text-blue-600">
+                                            🔄 Loading students for {selectedSubject.academicLevel.name}...
+                                        </p>
+                                    )}
+                                    {selectedSubject && !loadingStudents && filteredStudents.length === 0 && (
+                                        <p className="mt-1 text-sm text-orange-600">
+                                            ⚠️ No students found for {selectedSubject.academicLevel.name}. Please check if students are assigned to your class.
+                                        </p>
+                                    )}
+                                    {selectedSubject && !loadingStudents && filteredStudents.length > 0 && (
+                                        <p className="mt-1 text-sm text-green-600">
+                                            ✅ Found {filteredStudents.length} student(s) for {selectedSubject.academicLevel.name}.
+                                        </p>
+                                    )}
                                     {errors.student_id && (
                                         <p className="mt-1 text-sm text-red-600">{errors.student_id}</p>
                                     )}

@@ -8,12 +8,33 @@ interface Assignment {
         id: number;
         name: string;
         code: string;
+        academicLevel: {
+            id: number;
+            name: string;
+            code: string;
+        };
     };
-    academic_period: {
+    academicPeriod: {
+        id: number;
         name: string;
         school_year: string;
     };
     section: string;
+    is_active: boolean;
+}
+
+interface Student {
+    id: number;
+    name: string;
+    email: string;
+    studentProfile: {
+        student_id: string;
+        academicLevel: {
+            name: string;
+        };
+        year_level: string;
+        section: string;
+    };
 }
 
 interface Activity {
@@ -39,6 +60,7 @@ interface Props {
         role_display: string;
     };
     assignments: Assignment[];
+    assignedStudents: Student[];
     stats: Stats;
     recentActivities: Activity[];
     currentPeriod: {
@@ -50,6 +72,7 @@ interface Props {
 const ClassAdviserDashboard: React.FC<Props> = ({ 
     adviser, 
     assignments = [], 
+    assignedStudents = [],
     stats, 
     recentActivities = [], 
     currentPeriod 
@@ -138,32 +161,32 @@ const ClassAdviserDashboard: React.FC<Props> = ({
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Subject Assignments */}
+                    {/* Class Assignments */}
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
                         <div className="p-6 border-b border-gray-200">
-                            <h2 className="text-lg font-semibold text-gray-900">Your Subject Assignments</h2>
-                            <p className="text-sm text-gray-600 mt-1">Subjects you are currently teaching</p>
+                            <h2 className="text-lg font-semibold text-gray-900">Your Class Assignments</h2>
+                            <p className="text-sm text-gray-600 mt-1">Classes you are currently advising</p>
                         </div>
                         <div className="p-6">
                             {assignments.length > 0 ? (
                                 <div className="space-y-4">
-                                    {assignments.map((assignment) => (
+                                    {assignments.filter(assignment => assignment.subject && assignment.academicPeriod).map((assignment) => (
                                         <div key={assignment.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                                             <div>
-                                                <h3 className="font-medium text-gray-900">{assignment.subject.name}</h3>
+                                                <h3 className="font-medium text-gray-900">{assignment.subject?.name || 'Unknown Subject'}</h3>
                                                 <p className="text-sm text-gray-600">
-                                                    {assignment.subject.code} • {assignment.section}
+                                                    {assignment.subject?.code || 'N/A'} • {assignment.section}
                                                 </p>
                                                 <p className="text-xs text-gray-500">
-                                                    {assignment.academic_period.name} ({assignment.academic_period.school_year})
+                                                    {assignment.subject?.academicLevel?.name || 'Unknown Level'} • {assignment.academicPeriod?.name || 'Unknown Period'} ({assignment.academicPeriod?.school_year || 'Unknown Year'})
                                                 </p>
                                             </div>
                                             <div className="text-right">
                                                 <a
-                                                    href={`/class-adviser/grades?subject=${assignment.subject.id}&section=${assignment.section}`}
+                                                    href={`/class-adviser/grades?subject=${assignment.subject?.id}`}
                                                     className="text-blue-600 hover:text-blue-700 text-sm font-medium"
                                                 >
-                                                    View Grades →
+                                                    Add Grades →
                                                 </a>
                                             </div>
                                         </div>
@@ -171,43 +194,94 @@ const ClassAdviserDashboard: React.FC<Props> = ({
                                 </div>
                             ) : (
                                 <div className="text-center py-8">
-                                    <div className="text-gray-400 text-6xl mb-4">📚</div>
-                                    <h3 className="text-lg font-medium text-gray-900 mb-2">No Subject Assignments</h3>
-                                    <p className="text-gray-600">You haven't been assigned to any subjects yet.</p>
+                                    <div className="text-gray-400 text-6xl mb-4">👥</div>
+                                    <h3 className="text-lg font-medium text-gray-900 mb-2">No Class Assignments</h3>
+                                    <p className="text-gray-600">You haven't been assigned to any classes yet.</p>
                                 </div>
                             )}
                         </div>
                     </div>
 
-                    {/* Recent Activities */}
+                    {/* Assigned Students */}
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
                         <div className="p-6 border-b border-gray-200">
-                            <h2 className="text-lg font-semibold text-gray-900">Recent Activities</h2>
-                            <p className="text-sm text-gray-600 mt-1">Your latest actions in the system</p>
+                            <h2 className="text-lg font-semibold text-gray-900">Your Assigned Students</h2>
+                            <p className="text-sm text-gray-600 mt-1">Students under your advisory</p>
                         </div>
                         <div className="p-6">
-                            {recentActivities.length > 0 ? (
+                            {assignedStudents.length > 0 ? (
                                 <div className="space-y-4">
-                                    {recentActivities.map((activity) => (
-                                        <div key={activity.id} className="flex items-start space-x-3">
-                                            <div className="flex-shrink-0">
-                                                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
+                                    {assignedStudents.filter(student => student.studentProfile?.academicLevel).slice(0, 5).map((student) => (
+                                        <div key={student.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                            <div>
+                                                <h3 className="font-medium text-gray-900">{student.name}</h3>
+                                                <p className="text-sm text-gray-600">
+                                                    {student.studentProfile?.student_id || 'N/A'} • {student.studentProfile?.section || 'N/A'}
+                                                </p>
+                                                <p className="text-xs text-gray-500">
+                                                    {student.studentProfile?.academicLevel?.name || 'Unknown Level'} - {student.studentProfile?.year_level || 'N/A'}
+                                                </p>
                                             </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm text-gray-900">{activity.action}</p>
-                                                <p className="text-xs text-gray-500">{activity.time}</p>
+                                            <div className="text-right">
+                                                <a
+                                                    href={`/class-adviser/grades/create?student=${student.id}`}
+                                                    className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                                                >
+                                                    Add Grades →
+                                                </a>
                                             </div>
                                         </div>
                                     ))}
+                                    {assignedStudents.length > 5 && (
+                                        <div className="text-center pt-4">
+                                            <a
+                                                href="/class-adviser/students"
+                                                className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                                            >
+                                                View All {assignedStudents.length} Students →
+                                            </a>
+                                        </div>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="text-center py-8">
-                                    <div className="text-gray-400 text-6xl mb-4">📊</div>
-                                    <h3 className="text-lg font-medium text-gray-900 mb-2">No Recent Activities</h3>
-                                    <p className="text-gray-600">Your activities will appear here.</p>
+                                    <div className="text-gray-400 text-6xl mb-4">👥</div>
+                                    <h3 className="text-lg font-medium text-gray-900 mb-2">No Assigned Students</h3>
+                                    <p className="text-gray-600">No students have been assigned to you yet.</p>
                                 </div>
                             )}
                         </div>
+                    </div>
+                </div>
+
+                {/* Recent Activities */}
+                <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200">
+                    <div className="p-6 border-b border-gray-200">
+                        <h2 className="text-lg font-semibold text-gray-900">Recent Activities</h2>
+                        <p className="text-sm text-gray-600 mt-1">Your latest actions in the system</p>
+                    </div>
+                    <div className="p-6">
+                        {recentActivities.length > 0 ? (
+                            <div className="space-y-4">
+                                {recentActivities.map((activity) => (
+                                    <div key={activity.id} className="flex items-start space-x-3">
+                                        <div className="flex-shrink-0">
+                                            <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm text-gray-900">{activity.action}</p>
+                                            <p className="text-xs text-gray-500">{activity.time}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-8">
+                                <div className="text-gray-400 text-6xl mb-4">📊</div>
+                                <h3 className="text-lg font-medium text-gray-900 mb-2">No Recent Activities</h3>
+                                <p className="text-gray-600">Your activities will appear here.</p>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -220,28 +294,28 @@ const ClassAdviserDashboard: React.FC<Props> = ({
                     <div className="p-6">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <a
-                                href="/class-adviser/grades/create"
+                                href="/class-adviser/students"
                                 className="flex items-center p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
                             >
                                 <div className="p-2 bg-blue-100 rounded-lg mr-4">
-                                    <span className="text-xl">✏️</span>
+                                    <span className="text-xl">👥</span>
                                 </div>
                                 <div>
-                                    <h3 className="font-medium text-blue-900">Input Grades</h3>
-                                    <p className="text-sm text-blue-700">Add grades for your students</p>
+                                    <h3 className="font-medium text-blue-900">View Students</h3>
+                                    <p className="text-sm text-blue-700">View all your assigned students</p>
                                 </div>
                             </a>
 
                             <a
-                                href="/class-adviser/grades/upload"
+                                href="/class-adviser/grades/create"
                                 className="flex items-center p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
                             >
                                 <div className="p-2 bg-green-100 rounded-lg mr-4">
-                                    <span className="text-xl">📁</span>
+                                    <span className="text-xl">✏️</span>
                                 </div>
                                 <div>
-                                    <h3 className="font-medium text-green-900">Upload Grades</h3>
-                                    <p className="text-sm text-green-700">Upload grades via CSV file</p>
+                                    <h3 className="font-medium text-green-900">Add Grades</h3>
+                                    <p className="text-sm text-green-700">Add grades for your students</p>
                                 </div>
                             </a>
 

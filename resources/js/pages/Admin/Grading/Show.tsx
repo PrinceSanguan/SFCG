@@ -137,11 +137,11 @@ const GradingShow: React.FC<Props> = ({ grade }) => {
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700">Student ID</label>
-                                                <p className="mt-1 text-sm text-gray-900">{grade.student.student_profile.student_id}</p>
+                                                <p className="mt-1 text-sm text-gray-900">{grade.student.student_profile?.student_id || 'N/A'}</p>
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700">Grade Level</label>
-                                                <p className="mt-1 text-sm text-gray-900">{grade.student.student_profile.grade_level}</p>
+                                                <p className="mt-1 text-sm text-gray-900">{grade.student.student_profile?.grade_level || 'N/A'}</p>
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700">Section</label>
@@ -167,8 +167,8 @@ const GradingShow: React.FC<Props> = ({ grade }) => {
                                                 <p className="mt-1 text-sm text-gray-900">{grade.academic_period.name}</p>
                                             </div>
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-700">Instructor</label>
-                                                <p className="mt-1 text-sm text-gray-900">{grade.instructor.name}</p>
+                                                <label className="block text-sm font-medium text-gray-700">Class Adviser</label>
+                                                <p className="mt-1 text-sm text-gray-900">{grade.instructor?.name || 'N/A'}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -187,24 +187,32 @@ const GradingShow: React.FC<Props> = ({ grade }) => {
                                                     </tr>
                                                 </thead>
                                                 <tbody className="bg-white divide-y divide-gray-200">
-                                                    {grade.quarterly_grades.map((quarterlyGrade, index) => (
-                                                        <tr key={index}>
-                                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                                Quarter {quarterlyGrade.quarter}
-                                                            </td>
-                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                                <span className={`font-semibold ${getGradeColor(quarterlyGrade.grade)}`}>
-                                                                    {quarterlyGrade.grade}
-                                                                </span>
-                                                            </td>
-                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                                {quarterlyGrade.weight}%
-                                                            </td>
-                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                                {((quarterlyGrade.grade * quarterlyGrade.weight) / 100).toFixed(2)}
+                                                    {grade.quarterly_grades && grade.quarterly_grades.length > 0 ? (
+                                                        grade.quarterly_grades.map((quarterlyGrade, index) => (
+                                                            <tr key={index}>
+                                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                                    Quarter {quarterlyGrade.quarter}
+                                                                </td>
+                                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                                    <span className={`font-semibold ${getGradeColor(quarterlyGrade.grade)}`}>
+                                                                        {quarterlyGrade.grade}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                                    {quarterlyGrade.weight}%
+                                                                </td>
+                                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                                    {((quarterlyGrade.grade * quarterlyGrade.weight) / 100).toFixed(2)}
+                                                                </td>
+                                                            </tr>
+                                                        ))
+                                                    ) : (
+                                                        <tr>
+                                                            <td colSpan={4} className="px-6 py-4 text-center text-gray-500">
+                                                                No quarterly grades available
                                                             </td>
                                                         </tr>
-                                                    ))}
+                                                    )}
                                                 </tbody>
                                             </table>
                                         </div>

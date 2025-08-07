@@ -22,7 +22,7 @@ class GradingController extends Controller
     public function index(Request $request)
     {
         // Get academic levels for categorization
-        $elementaryLevels = AcademicLevel::whereIn('name', ['Elementary'])
+        $elementaryLevels = AcademicLevel::where('name', 'Elementary')
             ->orWhere('code', 'ELEM')
             ->pluck('id');
             
@@ -60,7 +60,7 @@ class GradingController extends Controller
 
     public function elementaryGrading(Request $request)
     {
-        $elementaryLevels = AcademicLevel::whereIn('name', ['Elementary'])
+        $elementaryLevels = AcademicLevel::where('name', 'Elementary')
             ->orWhere('code', 'ELEM')
             ->pluck('id');
 
@@ -101,8 +101,7 @@ class GradingController extends Controller
         $subjects = Subject::whereHas('academicLevel', function($q) use ($elementaryLevels) {
             $q->whereIn('id', $elementaryLevels);
         })->orderBy('name')->get();
-        $instructors = User::where('user_role', 'instructor')
-                          ->orWhere('user_role', 'teacher')
+        $instructors = User::where('user_role', 'class_adviser')
                           ->orderBy('name')
                           ->get();
 
@@ -402,7 +401,7 @@ class GradingController extends Controller
 
     public function createElementary()
     {
-        $elementaryLevels = AcademicLevel::whereIn('name', ['Elementary'])
+        $elementaryLevels = AcademicLevel::where('name', 'Elementary')
             ->orWhere('code', 'ELEM')
             ->pluck('id');
 
@@ -451,6 +450,8 @@ class GradingController extends Controller
 
         $academicPeriods = AcademicPeriod::where('is_active', true)->orderBy('name')->get();
         $instructors = User::where('user_role', 'class_adviser')
+                          ->orWhere('user_role', 'teacher')
+                          ->orWhere('user_role', 'instructor')
                           ->orderBy('name')
                           ->get();
 

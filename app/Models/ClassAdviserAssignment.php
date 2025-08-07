@@ -15,7 +15,6 @@ class ClassAdviserAssignment extends Model
         'academic_period_id',
         'year_level',
         'section',
-        'strand_id',
         'is_active',
     ];
 
@@ -39,10 +38,7 @@ class ClassAdviserAssignment extends Model
         return $this->belongsTo(AcademicPeriod::class);
     }
 
-    public function strand()
-    {
-        return $this->belongsTo(AcademicStrand::class);
-    }
+
 
     // Scopes
     public function scopeActive($query)
@@ -56,9 +52,6 @@ class ClassAdviserAssignment extends Model
         $display = "{$this->academicLevel->name} - {$this->year_level}";
         if ($this->section) {
             $display .= " ({$this->section})";
-        }
-        if ($this->strand) {
-            $display .= " - {$this->strand->name}";
         }
         return $display;
     }

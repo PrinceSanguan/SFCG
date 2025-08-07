@@ -104,11 +104,11 @@ const ElementaryGrading: React.FC<Props> = ({
     };
 
     const handleSelectAll = () => {
-        if (selectedGrades.length === grades.data.length) {
+        if (selectedGrades.length === (grades.data?.length || 0)) {
             setSelectedGrades([]);
             setShowBulkActions(false);
         } else {
-            setSelectedGrades(grades.data.map(grade => grade.id));
+            setSelectedGrades((grades.data || []).map(grade => grade.id));
             setShowBulkActions(true);
         }
     };
@@ -233,7 +233,7 @@ const ElementaryGrading: React.FC<Props> = ({
                                     className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
                                 >
                                     <option value="">All Periods</option>
-                                    {academicPeriods.map((period) => (
+                                    {academicPeriods && academicPeriods.map((period) => (
                                         <option key={period.id} value={period.id}>
                                             {period.name}
                                         </option>
@@ -248,7 +248,7 @@ const ElementaryGrading: React.FC<Props> = ({
                                     className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
                                 >
                                     <option value="">All Subjects</option>
-                                    {subjects.map((subject) => (
+                                    {subjects && subjects.map((subject) => (
                                         <option key={subject.id} value={subject.id}>
                                             {subject.name}
                                         </option>
@@ -256,14 +256,14 @@ const ElementaryGrading: React.FC<Props> = ({
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Instructor</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Class Adviser</label>
                                 <select
                                     value={data.instructor_id}
                                     onChange={(e) => setData('instructor_id', e.target.value)}
                                     className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
                                 >
-                                    <option value="">All Instructors</option>
-                                    {instructors.map((instructor) => (
+                                    <option value="">All Class Advisers</option>
+                                    {instructors && instructors.map((instructor) => (
                                         <option key={instructor.id} value={instructor.id}>
                                             {instructor.name}
                                         </option>
@@ -278,7 +278,7 @@ const ElementaryGrading: React.FC<Props> = ({
                                     className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
                                 >
                                     <option value="">All Sections</option>
-                                    {sections.map((section) => (
+                                    {sections && sections.map((section) => (
                                         <option key={section} value={section}>
                                             {section}
                                         </option>
@@ -362,7 +362,7 @@ const ElementaryGrading: React.FC<Props> = ({
                         </div>
                     </div>
                         
-                        {grades.data.length === 0 ? (
+                        {!grades.data || grades.data.length === 0 ? (
                             <div className="p-12 text-center text-gray-500">
                                 <div className="text-6xl mb-4">📝</div>
                                 <h3 className="text-lg font-medium text-gray-900 mb-2">No elementary grades found</h3>
@@ -388,6 +388,7 @@ const ElementaryGrading: React.FC<Props> = ({
                                             </th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class Adviser</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quarterly Grades (1st-4th)</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Final Grade</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
@@ -395,7 +396,7 @@ const ElementaryGrading: React.FC<Props> = ({
                                         </tr>
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
-                                        {grades.data.map((grade) => (
+                                        {grades.data && grades.data.map((grade) => (
                                             <tr key={grade.id} className="hover:bg-gray-50">
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <input
@@ -429,19 +430,31 @@ const ElementaryGrading: React.FC<Props> = ({
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="text-sm font-medium text-gray-900">
+                                                        {grade.instructor?.name || 'N/A'}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
                                                     <div className="flex space-x-2">
-                                                        {grade.quarterly_grades.map((qg, index) => (
-                                                            <div key={index} className="text-center">
-                                                                <div className="text-xs text-gray-500">
-                                                                    {qg.quarter === 1 ? '1st' : 
-                                                                     qg.quarter === 2 ? '2nd' : 
-                                                                     qg.quarter === 3 ? '3rd' : '4th'} Grading
+                                                        {grade.quarterly_grades && grade.quarterly_grades.length > 0 ? (
+                                                            grade.quarterly_grades.map((qg, index) => (
+                                                                <div key={index} className="text-center">
+                                                                    <div className="text-xs text-gray-500">
+                                                                        {qg.quarter === 1 ? '1st' : 
+                                                                         qg.quarter === 2 ? '2nd' : 
+                                                                         qg.quarter === 3 ? '3rd' : '4th'} Grading
+                                                                    </div>
+                                                                    <div className={`text-sm font-medium ${getGradeColor(qg.grade)}`}>
+                                                                        {qg.grade}
+                                                                    </div>
                                                                 </div>
-                                                                <div className={`text-sm font-medium ${getGradeColor(qg.grade)}`}>
-                                                                    {qg.grade}
-                                                                </div>
+                                                            ))
+                                                        ) : (
+                                                            <div className="text-center text-gray-500">
+                                                                <div className="text-xs">No grades</div>
+                                                                <div className="text-sm">-</div>
                                                             </div>
-                                                        ))}
+                                                        )}
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">

@@ -8,6 +8,15 @@ interface AcademicLevel {
     code: string;
 }
 
+interface InstructorAssignment {
+    id: number;
+    instructor: Teacher;
+    academic_period: AcademicPeriod; // Changed from academicPeriod
+    section: string;
+    year_level: string;
+    is_active: boolean;
+}
+
 interface Subject {
     id: number;
     name: string;
@@ -19,14 +28,35 @@ interface Subject {
     is_active: boolean;
     created_at: string;
     academic_level?: AcademicLevel;
+    instructor_assignments?: InstructorAssignment[]; // Changed from instructorAssignments
+}
+
+interface Teacher {
+    id: number;
+    name: string;
+    email: string;
+}
+
+interface AcademicPeriod {
+    id: number;
+    name: string;
+    school_year: string;
+}
+
+interface Adviser {
+    id: number;
+    name: string;
+    email: string;
 }
 
 interface Props {
     subjects: Subject[];
     levels: AcademicLevel[];
+    advisers: Adviser[]; // Use advisers for elementary
+    academicPeriods: AcademicPeriod[];
 }
 
-const ElementarySubjects: React.FC<Props> = ({ subjects, levels }) => {
+const ElementarySubjects: React.FC<Props> = ({ subjects, levels, advisers, academicPeriods }) => {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
 
@@ -37,6 +67,9 @@ const ElementarySubjects: React.FC<Props> = ({ subjects, levels }) => {
         units: 1,
         academic_level_id: '',
         year_level: '',
+        teacher_id: '',
+        academic_period_id: '',
+        section: '',
         is_active: true as boolean,
     });
 
@@ -49,6 +82,8 @@ const ElementarySubjects: React.FC<Props> = ({ subjects, levels }) => {
                     setEditingSubject(null);
                     setShowCreateModal(false);
                     reset();
+                    // Refresh the page to show updated data
+                    window.location.reload();
                 }
             });
         } else {
@@ -56,12 +91,22 @@ const ElementarySubjects: React.FC<Props> = ({ subjects, levels }) => {
                 onSuccess: () => {
                     setShowCreateModal(false);
                     reset();
+                    // Refresh the page to show new data
+                    window.location.reload();
+                },
+                onError: (errors) => {
+                    console.error('Form submission errors:', errors);
                 }
             });
         }
     };
 
     const handleEdit = (subject: Subject) => {
+        // Get the first teacher assignment if it exists
+        const firstAssignment = subject.instructor_assignments && subject.instructor_assignments.length > 0 
+            ? subject.instructor_assignments[0] 
+            : null;
+
         setData({
             name: subject.name,
             code: subject.code,
@@ -69,6 +114,9 @@ const ElementarySubjects: React.FC<Props> = ({ subjects, levels }) => {
             units: subject.units,
             academic_level_id: subject.academic_level_id?.toString() || '',
             year_level: subject.year_level?.toString() || '',
+            teacher_id: firstAssignment?.instructor?.id?.toString() || '',
+            academic_period_id: firstAssignment?.academic_period?.id?.toString() || '',
+            section: firstAssignment?.section || '',
             is_active: subject.is_active,
         });
         setEditingSubject(subject);
@@ -201,6 +249,7 @@ const ElementarySubjects: React.FC<Props> = ({ subjects, levels }) => {
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Units</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level & Grade</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Adviser Assignment</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -225,6 +274,26 @@ const ElementarySubjects: React.FC<Props> = ({ subjects, levels }) => {
                                                 <div className="text-xs text-gray-500">
                                                     {subject.year_level && `Grade ${subject.year_level}`}
                                                 </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                {subject.instructor_assignments && subject.instructor_assignments.length > 0 ? (
+                                                    <div className="space-y-1">
+                                                        {subject.instructor_assignments.map((assignment, index) => (
+                                                            <div key={assignment.id} className="text-sm">
+                                                                <div className="font-medium text-gray-900">
+                                                                    {assignment.instructor.name}
+                                                                </div>
+                                                                <div className="text-xs text-gray-500">
+                                                                    {assignment.academic_period.name} • {assignment.section}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-sm text-gray-400 italic">
+                                                        No adviser assigned
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4 max-w-xs">
                                                 <div className="text-sm text-gray-900 truncate">
@@ -398,6 +467,74 @@ const ElementarySubjects: React.FC<Props> = ({ subjects, levels }) => {
                                         <label htmlFor="is_active" className="ml-2 block text-sm text-gray-900">
                                             Active
                                         </label>
+                                    </div>
+
+                                    {/* Teacher Assignment Section */}
+                                    <div className="border-t pt-4 mt-4">
+                                        <h4 className="text-sm font-medium text-gray-700 mb-3">Teacher Assignment</h4>
+                                        
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Assign Adviser *
+                                                </label>
+                                                <select
+                                                    value={data.teacher_id}
+                                                    onChange={(e) => setData('teacher_id', e.target.value)}
+                                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                                                    required
+                                                >
+                                                    <option value="">Select Adviser</option>
+                                                    {advisers.map((adviser) => (
+                                                        <option key={adviser.id} value={adviser.id}>
+                                                            {adviser.name} ({adviser.email})
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                {errors.teacher_id && (
+                                                    <p className="text-red-600 text-sm mt-1">{errors.teacher_id}</p>
+                                                )}
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Academic Period *
+                                                </label>
+                                                <select
+                                                    value={data.academic_period_id}
+                                                    onChange={(e) => setData('academic_period_id', e.target.value)}
+                                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                                                    required
+                                                >
+                                                    <option value="">Select Period</option>
+                                                    {academicPeriods.map((period) => (
+                                                        <option key={period.id} value={period.id}>
+                                                            {period.name} ({period.school_year})
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                {errors.academic_period_id && (
+                                                    <p className="text-red-600 text-sm mt-1">{errors.academic_period_id}</p>
+                                                )}
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Section *
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={data.section}
+                                                    onChange={(e) => setData('section', e.target.value)}
+                                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                                                    placeholder="e.g., Section A, Grade 1-A"
+                                                    required
+                                                />
+                                                {errors.section && (
+                                                    <p className="text-red-600 text-sm mt-1">{errors.section}</p>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <div className="flex justify-end space-x-3 pt-4">

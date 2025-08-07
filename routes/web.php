@@ -188,6 +188,12 @@ Route::middleware([AdminMiddleware::class])->group(function () {
   Route::post('admin/academic/subjects', [AcademicController::class, 'storeSubjects'])->name('admin.academic.subjects.store');
   Route::put('admin/academic/subjects/{subject}', [AcademicController::class, 'updateSubjects'])->name('admin.academic.subjects.update');
   Route::delete('admin/academic/subjects/{subject}', [AcademicController::class, 'destroySubjects'])->name('admin.academic.subjects.destroy');
+  
+  // Debug route for testing form data
+  Route::post('admin/debug/form-data', function(Request $request) {
+      Log::info('Debug form data', $request->all());
+      return response()->json(['message' => 'Data logged', 'data' => $request->all()]);
+  })->name('admin.debug.form-data');
 
   // Assignment Pages
   Route::get('admin/assignments/instructors', [AcademicController::class, 'instructorAssignments'])->name('admin.assignments.instructors');
@@ -438,11 +444,13 @@ Route::middleware([ClassAdviserMiddleware::class])->group(function () {
   Route::get('class-adviser/grades/{grade}/edit', [ClassAdviserController::class, 'editGrade'])->name('class-adviser.grades.edit');
   Route::put('class-adviser/grades/{grade}', [ClassAdviserController::class, 'updateGrade'])->name('class-adviser.grades.update');
 
+  // Student Management
+  Route::get('class-adviser/students', [ClassAdviserController::class, 'students'])->name('class-adviser.students');
+
   // Grade input helpers
   Route::get('class-adviser/api/students-for-subject', [ClassAdviserController::class, 'getStudentsForSubject'])->name('class-adviser.api.students-for-subject');
 
   // 5.2.3. Upload student grades via CSV
-  Route::get('class-adviser/grades/edit', [ClassAdviserController::class, 'editGrades'])->name('class-adviser.grades.edit');
   Route::get('class-adviser/grades/upload', [ClassAdviserController::class, 'uploadGradesPage'])->name('class-adviser.grades.upload');
   Route::post('class-adviser/grades/upload', [ClassAdviserController::class, 'processGradeUpload'])->name('class-adviser.grades.upload.process');
 
