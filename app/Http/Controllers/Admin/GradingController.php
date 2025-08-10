@@ -385,7 +385,10 @@ class GradingController extends Controller
                        ->get();
 
         $subjects = Subject::orderBy('name')->get();
-        $academicPeriods = AcademicPeriod::where('is_active', true)->orderBy('name')->get();
+        // All active periods for generic create page
+        $academicPeriods = AcademicPeriod::where('is_active', true)
+            ->orderBy('name')
+            ->get();
         $instructors = User::where('user_role', 'instructor')
                           ->orWhere('user_role', 'teacher')
                           ->orderBy('name')
@@ -417,7 +420,11 @@ class GradingController extends Controller
             $q->whereIn('id', $elementaryLevels);
         })->orderBy('name')->get();
 
-        $academicPeriods = AcademicPeriod::where('is_active', true)->orderBy('name')->get();
+        // Only periods for Elementary
+        $academicPeriods = AcademicPeriod::where('is_active', true)
+            ->whereIn('academic_level_id', $elementaryLevels)
+            ->orderBy('name')
+            ->get();
         $instructors = User::where('user_role', 'class_adviser')
                           ->orderBy('name')
                           ->get();
@@ -448,7 +455,11 @@ class GradingController extends Controller
             $q->whereIn('id', $juniorHighLevels);
         })->orderBy('name')->get();
 
-        $academicPeriods = AcademicPeriod::where('is_active', true)->orderBy('name')->get();
+        // Only periods for Junior High
+        $academicPeriods = AcademicPeriod::where('is_active', true)
+            ->whereIn('academic_level_id', $juniorHighLevels)
+            ->orderBy('name')
+            ->get();
         $instructors = User::where('user_role', 'class_adviser')
                           ->orWhere('user_role', 'teacher')
                           ->orWhere('user_role', 'instructor')
@@ -481,7 +492,13 @@ class GradingController extends Controller
             $q->whereIn('id', $seniorHighLevels);
         })->orderBy('name')->get();
 
-        $academicPeriods = AcademicPeriod::where('is_active', true)->orderBy('name')->get();
+        // Only periods for College
+        $academicPeriods = AcademicPeriod::where('is_active', true)
+            ->whereHas('academicLevel', function($q) {
+                $q->where('code', 'COL')->orWhere('name', 'like', '%college%')->orWhere('name', 'like', '%university%');
+            })
+            ->orderBy('name')
+            ->get();
         $instructors = User::where('user_role', 'class_adviser')
                           ->orWhere('user_role', 'teacher')
                           ->orderBy('name')

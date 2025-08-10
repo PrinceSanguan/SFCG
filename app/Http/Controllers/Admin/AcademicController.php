@@ -761,31 +761,27 @@ class AcademicController extends Controller
             $rules['year_level'] = 'required|integer|min:1|max:12'; // Add grade level for K-12
         }
 
-        // Add assignment validation based on academic level
-        $academicLevel = AcademicLevel::find($request->academic_level_id);
+        // Assignment fields are optional during subject creation. If any of them are supplied,
+        // require and validate the full set and verify role. Otherwise, skip assignment.
+        $rules['section'] = 'nullable|string|max:50';
+
+        // Trigger assignment only when both teacher and period are supplied
+        $assignNow = $request->filled('teacher_id') && $request->filled('academic_period_id');
         $expectedRole = null;
-        
-        if ($academicLevel) {
-            $code = $academicLevel->code;
-            // Role policy: Adviser → Grades 1-6 (ELEM), Teacher → Grades 7-10 (JHS), Instructor → Grades 11-12 (SHS) & College
-            if ($code === 'ELEM') {
-                $expectedRole = 'class_adviser';
-            } elseif ($code === 'JHS') {
-                $expectedRole = 'teacher';
-            } elseif ($code === 'SHS') {
-                $expectedRole = 'instructor';
-            }
-        }
-        
-        // For college subjects (college_course_id is set)
-        if ($request->college_course_id) {
-            $expectedRole = 'instructor';
-        }
-        
-        if ($expectedRole) {
+        if ($assignNow) {
             $rules['teacher_id'] = 'required|exists:users,id';
             $rules['academic_period_id'] = 'required|exists:academic_periods,id';
-            $rules['section'] = 'required|string|max:50';
+
+            // Determine expected role for validation
+            $academicLevel = AcademicLevel::find($request->academic_level_id);
+            if ($request->college_course_id) {
+                $expectedRole = 'instructor';
+            } elseif ($academicLevel) {
+                $code = $academicLevel->code;
+                if ($code === 'ELEM') { $expectedRole = 'class_adviser'; }
+                elseif ($code === 'JHS') { $expectedRole = 'teacher'; }
+                elseif ($code === 'SHS') { $expectedRole = 'instructor'; }
+            }
         }
 
         $request->validate($rules);
@@ -825,7 +821,7 @@ class AcademicController extends Controller
         \Log::info('About to create assignment...');
 
         // Create assignment based on academic level
-        if ($request->teacher_id && $request->academic_period_id && $request->section && $expectedRole) {
+        if ($assignNow && $request->teacher_id && $request->academic_period_id && $expectedRole) {
             \Log::info('Creating assignment', [
                 'teacher_id' => $request->teacher_id,
                 'subject_id' => $subject->id,
@@ -870,7 +866,7 @@ class AcademicController extends Controller
             } else {
                 \Log::info('Assignment already exists', ['assignment_id' => $existingAssignment->id]);
             }
-        } else {
+        } else if ($assignNow) {
             \Log::warning('Assignment data missing', [
                 'teacher_id' => $request->teacher_id,
                 'academic_period_id' => $request->academic_period_id,

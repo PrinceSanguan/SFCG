@@ -66,14 +66,16 @@ const HighSchoolSubjects: React.FC<Props> = ({ subjects, levels, strands, levelT
     const iconEmoji = isJuniorHigh ? '📚' : '🎓';
     const colorTheme = isJuniorHigh ? 'blue' : 'purple';
 
-    // Filter levels for current type
-    const relevantLevels = levels.filter(level => {
-        if (isJuniorHigh) {
-            return level.name.toLowerCase().includes('junior') || level.code === 'JHS';
-        } else {
-            return level.name.toLowerCase().includes('senior') || level.code === 'SHS';
-        }
-    });
+    // Filter levels for current type (memoized to avoid re-creating array each render)
+    const relevantLevels = useMemo(() => {
+        return levels.filter(level => {
+            if (isJuniorHigh) {
+                return level.name.toLowerCase().includes('junior') || level.code === 'JHS';
+            } else {
+                return level.name.toLowerCase().includes('senior') || level.code === 'SHS';
+            }
+        });
+    }, [levels, isJuniorHigh]);
 
     // Get the specific level for this type
     const currentLevel = relevantLevels.find(level => {
