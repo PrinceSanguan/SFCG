@@ -16,7 +16,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Log as FacadesLog;
 use App\Models\ClassAdviserAssignment;
 
 class AcademicController extends Controller
@@ -649,14 +649,99 @@ class AcademicController extends Controller
         ]);
     }
 
+    // Dynamic sections by academic level and year level
+    public function getSectionsByLevelYear(Request $request)
+    {
+        $levelCode = strtoupper((string)$request->query('level')); // ELEM, JHS, SHS, COL
+        $yearParam = $request->query('year'); // could be "7", "Grade 7", "1st Year"
+        $courseId = $request->query('course_id'); // for college
+
+        // Helper to normalize year into integer (e.g., "Grade 7" => 7, "1st Year" => 1)
+        $normalizeYear = function ($value) {
+            if ($value === null) return null;
+            if (is_numeric($value)) return (int)$value;
+            if (is_string($value)) {
+                if (preg_match('/(\d{1,2})/', $value, $m)) {
+                    return (int)$m[1];
+                }
+            }
+            return null;
+        };
+
+        $normalizedYear = $normalizeYear($yearParam);
+
+        // Build query from StudentProfile to get distinct sections
+        $query = StudentProfile::query()
+            ->select('section')
+            ->whereNotNull('section')
+            ->where('section', '<>', '')
+            ->distinct();
+
+        if (in_array($levelCode, ['ELEM', 'JHS', 'SHS'])) {
+            // Resolve academic level ids for the given code/name
+            $levelIds = AcademicLevel::where('code', $levelCode)
+                ->orWhere('name', 'like', match($levelCode) {
+                    'ELEM' => '%Elementary%','JHS' => '%Junior High%', 'SHS' => '%Senior High%', default => '%'
+                })
+                ->pluck('id');
+
+            if ($levelIds->isEmpty()) {
+                return response()->json(['sections' => []]);
+            }
+
+            $query->whereIn('academic_level_id', $levelIds);
+
+            if (!is_null($normalizedYear)) {
+                $query->where(function ($q) use ($normalizedYear) {
+                    $q->where('year_level', $normalizedYear)
+                      ->orWhere('grade_level', 'like', 'Grade ' . $normalizedYear . '%')
+                      ->orWhere('grade_level', (string)$normalizedYear);
+                });
+            }
+        } elseif ($levelCode === 'COL') {
+            // College: require course and year to narrow down, but allow missing to return all
+            $query->whereNotNull('college_course_id');
+            if ($courseId) {
+                $query->where('college_course_id', $courseId);
+            }
+            if (!is_null($normalizedYear)) {
+                $query->where('year_level', $normalizedYear);
+            }
+        }
+
+        $dbSections = $query->orderBy('section')->pluck('section')->unique()->values();
+
+        // Fallback if no sections found in DB
+        if ($dbSections->isEmpty()) {
+            $defaultSections = ['A','B','C','D','E','F'];
+            $sections = collect($defaultSections)->map(function ($s) use ($normalizedYear) {
+                return [
+                    'value' => "Section {$s}",
+                    'label' => "Section {$s}",
+                    'year' => $normalizedYear,
+                ];
+            });
+        } else {
+            $sections = $dbSections->map(function ($sec) use ($normalizedYear) {
+                return [
+                    'value' => $sec,
+                    'label' => $sec,
+                    'year' => $normalizedYear,
+                ];
+            });
+        }
+
+        return response()->json(['sections' => $sections]);
+    }
+
     public function storeSubjects(Request $request)
     {
         // Debug logging at the very beginning
-        Log::info('=== STORE SUBJECTS METHOD STARTED ===');
-        Log::info('All request data:', $request->all());
-        Log::info('Teacher ID:', ['teacher_id' => $request->teacher_id]);
-        Log::info('Academic Period ID:', ['academic_period_id' => $request->academic_period_id]);
-        Log::info('Section:', ['section' => $request->section]);
+        \Log::info('=== STORE SUBJECTS METHOD STARTED ===');
+        \Log::info('All request data:', $request->all());
+        \Log::info('Teacher ID:', ['teacher_id' => $request->teacher_id]);
+        \Log::info('Academic Period ID:', ['academic_period_id' => $request->academic_period_id]);
+        \Log::info('Section:', ['section' => $request->section]);
         
         $rules = [
             'name' => 'required|string|max:255',
@@ -681,11 +766,13 @@ class AcademicController extends Controller
         $expectedRole = null;
         
         if ($academicLevel) {
-            if (str_contains(strtolower($academicLevel->name), 'elementary') || $academicLevel->code === 'ELEM') {
+            $code = $academicLevel->code;
+            // Role policy: Adviser → Grades 1-6 (ELEM), Teacher → Grades 7-10 (JHS), Instructor → Grades 11-12 (SHS) & College
+            if ($code === 'ELEM') {
                 $expectedRole = 'class_adviser';
-            } elseif (str_contains(strtolower($academicLevel->name), 'junior') || $academicLevel->code === 'JHS') {
+            } elseif ($code === 'JHS') {
                 $expectedRole = 'teacher';
-            } elseif (str_contains(strtolower($academicLevel->name), 'senior') || $academicLevel->code === 'SHS') {
+            } elseif ($code === 'SHS') {
                 $expectedRole = 'instructor';
             }
         }
@@ -733,13 +820,13 @@ class AcademicController extends Controller
         $subject = Subject::create($subjectData);
 
         // Debug logging before teacher assignment
-        Log::info('=== SUBJECT CREATED ===');
-        Log::info('Subject ID:', ['subject_id' => $subject->id]);
-        Log::info('About to create assignment...');
+        \Log::info('=== SUBJECT CREATED ===');
+        \Log::info('Subject ID:', ['subject_id' => $subject->id]);
+        \Log::info('About to create assignment...');
 
         // Create assignment based on academic level
         if ($request->teacher_id && $request->academic_period_id && $request->section && $expectedRole) {
-            Log::info('Creating assignment', [
+            \Log::info('Creating assignment', [
                 'teacher_id' => $request->teacher_id,
                 'subject_id' => $subject->id,
                 'academic_period_id' => $request->academic_period_id,
@@ -751,7 +838,7 @@ class AcademicController extends Controller
             // Verify the user has the expected role
             $user = User::findOrFail($request->teacher_id);
             if ($user->user_role !== $expectedRole) {
-                Log::error('Selected user does not have expected role', [
+                \Log::error('Selected user does not have expected role', [
                     'user_id' => $request->teacher_id, 
                     'actual_role' => $user->user_role,
                     'expected_role' => $expectedRole
@@ -776,15 +863,15 @@ class AcademicController extends Controller
                     'year_level' => $request->year_level,
                     'is_active' => true,
                 ]);
-                Log::info('Assignment created successfully', [
+                \Log::info('Assignment created successfully', [
                     'assignment_id' => $assignment->id,
                     'role' => $expectedRole
                 ]);
             } else {
-                Log::info('Assignment already exists', ['assignment_id' => $existingAssignment->id]);
+                \Log::info('Assignment already exists', ['assignment_id' => $existingAssignment->id]);
             }
         } else {
-            Log::warning('Assignment data missing', [
+            \Log::warning('Assignment data missing', [
                 'teacher_id' => $request->teacher_id,
                 'academic_period_id' => $request->academic_period_id,
                 'section' => $request->section,
@@ -828,13 +915,16 @@ class AcademicController extends Controller
             $rules['year_level'] = 'required|integer|min:1|max:12'; // Add grade level for K-12
         }
 
-        // Add teacher assignment validation for elementary subjects
+        // Add assignment validation per role policy
         if ($request->academic_level_id) {
             $academicLevel = AcademicLevel::find($request->academic_level_id);
-            if ($academicLevel && ($academicLevel->name === 'Elementary' || $academicLevel->code === 'ELEM')) {
-                $rules['teacher_id'] = 'required|exists:users,id';
-                $rules['academic_period_id'] = 'required|exists:academic_periods,id';
-                $rules['section'] = 'required|string|max:50';
+            if ($academicLevel) {
+                $code = $academicLevel->code;
+                if (in_array($code, ['ELEM', 'JHS', 'SHS'])) {
+                    $rules['teacher_id'] = 'required|exists:users,id';
+                    $rules['academic_period_id'] = 'required|exists:academic_periods,id';
+                    $rules['section'] = 'required|string|max:50';
+                }
             }
         }
 

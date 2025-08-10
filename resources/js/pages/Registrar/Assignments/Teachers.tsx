@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, router, useForm } from '@inertiajs/react';
 import RegistrarLayout from '@/pages/Registrar/RegistrarLayout';
 
 interface Teacher {
@@ -65,6 +65,8 @@ const Teachers: React.FC<Props> = ({
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(null);
     const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
+    const [sectionOptions, setSectionOptions] = useState<Array<{ value: string; label: string }>>([]);
+    const [loadingSections, setLoadingSections] = useState(false);
 
     const { data, setData, post, put, processing, errors, reset } = useForm({
         teacher_id: '',
@@ -133,6 +135,32 @@ const Teachers: React.FC<Props> = ({
             router.delete(`/registrar/assignments/teachers/${assignment.id}`);
         }
     };
+
+    const getLevelCode = (subject: Subject | null): string => {
+        if (!subject) return '';
+        const code = subject.academicLevel?.code;
+        if (code) return code;
+        const name = subject.academicLevel?.name?.toLowerCase() || '';
+        if (name.includes('junior')) return 'JHS';
+        if (name.includes('senior')) return 'SHS';
+        if (name.includes('elementary')) return 'ELEM';
+        return '';
+    };
+
+    React.useEffect(() => {
+        const levelCode = getLevelCode(selectedSubject);
+        const year = data.year_level;
+        if (!levelCode || !year) {
+            setSectionOptions([]);
+            return;
+        }
+        setLoadingSections(true);
+        fetch(`/admin/api/sections-by-level-year?level=${encodeURIComponent(levelCode)}&year=${encodeURIComponent(year)}`)
+            .then(res => res.json())
+            .then((json: { sections?: Array<{ value: string; label: string }> }) => setSectionOptions((json?.sections || []).map((s) => ({ value: s.value, label: s.label }))))
+            .catch(() => setSectionOptions([]))
+            .finally(() => setLoadingSections(false));
+    }, [selectedSubject, data.year_level]);
 
     const closeModal = () => {
         setShowCreateModal(false);
@@ -349,13 +377,17 @@ const Teachers: React.FC<Props> = ({
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
                                         Section (Optional)
                                     </label>
-                                    <input
-                                        type="text"
+                                    <select
                                         value={data.section}
                                         onChange={(e) => setData('section', e.target.value)}
                                         className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        placeholder="e.g., Section A"
-                                    />
+                                        disabled={loadingSections || !sectionOptions.length}
+                                    >
+                                        <option value="">{loadingSections ? 'Loading sections...' : 'Select Section'}</option>
+                                        {sectionOptions.map(opt => (
+                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                        ))}
+                                    </select>
                                     {errors.section && (
                                         <p className="text-red-500 text-sm mt-1">{errors.section}</p>
                                     )}

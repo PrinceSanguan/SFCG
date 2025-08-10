@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Head, router, useForm } from '@inertiajs/react';
 import Header from '@/pages/Admin/Header';
 import Sidebar from '@/pages/Admin/Sidebar';
@@ -94,6 +94,8 @@ interface Props {
 const InstructorAssignments: React.FC<Props> = ({ assignments, instructors, subjects, periods, collegeCourses }) => {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [editingAssignment, setEditingAssignment] = useState<InstructorAssignment | null>(null);
+    const [sectionOptions, setSectionOptions] = useState<Array<{ value: string; label: string }>>([]);
+    const [loadingSections, setLoadingSections] = useState(false);
     const [filterInstructor, setFilterInstructor] = useState('');
     const [filterSubject, setFilterSubject] = useState('');
     const [filterPeriod, setFilterPeriod] = useState('');
@@ -164,6 +166,21 @@ const InstructorAssignments: React.FC<Props> = ({ assignments, instructors, subj
         }
         return subject.name;
     };
+
+    // Load sections for college based on selected course and year level
+    useEffect(() => {
+        if (!data.college_course_id || !data.year_level) {
+            setSectionOptions([]);
+            return;
+        }
+        setLoadingSections(true);
+        const params = new URLSearchParams({ level: 'COL', year: String(data.year_level), course_id: String(data.college_course_id) });
+        fetch(`/admin/api/sections-by-level-year?${params.toString()}`)
+            .then(res => res.json())
+            .then(json => setSectionOptions((json?.sections || []).map((s: any) => ({ value: s.value, label: s.label }))))
+            .catch(() => setSectionOptions([]))
+            .finally(() => setLoadingSections(false));
+    }, [data.college_course_id, data.year_level]);
 
     return (
         <>
@@ -521,14 +538,18 @@ const InstructorAssignments: React.FC<Props> = ({ assignments, instructors, subj
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                                 Section
                                             </label>
-                                            <input
-                                                type="text"
+                                            <select
                                                 value={data.section}
                                                 onChange={(e) => setData('section', e.target.value)}
                                                 className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                                placeholder="e.g., A, B, C"
                                                 required
-                                            />
+                                                disabled={loadingSections || !sectionOptions.length}
+                                            >
+                                                <option value="">{loadingSections ? 'Loading sections...' : 'Select Section'}</option>
+                                                {sectionOptions.map(opt => (
+                                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                                ))}
+                                            </select>
                                             {errors.section && (
                                                 <p className="text-red-600 text-sm mt-1">{errors.section}</p>
                                             )}

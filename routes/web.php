@@ -233,6 +233,7 @@ Route::middleware([AdminMiddleware::class])->group(function () {
   Route::get('admin/api/year-levels-by-course', [AcademicController::class, 'getYearLevelsByCourse'])->name('admin.api.year-levels-by-course');
   Route::get('admin/api/periods-by-level', [AcademicController::class, 'getPeriodsByLevel'])->name('admin.api.periods-by-level');
   Route::get('admin/api/academic-data', [AcademicController::class, 'getAcademicData'])->name('admin.api.academic-data');
+  Route::get('admin/api/sections-by-level-year', [AcademicController::class, 'getSectionsByLevelYear'])->name('admin.api.sections-by-level-year');
 
   // Grading System
   Route::get('admin/grading', [GradingController::class, 'index'])->name('admin.grading.index');

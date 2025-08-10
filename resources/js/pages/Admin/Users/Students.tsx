@@ -159,9 +159,10 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
     });
 
     // Helper functions for grade levels and sections
-    const getSelectedLevel = () => {
+    const [sectionOptions, setSectionOptions] = useState<string[]>([]);
+    const getSelectedLevel = React.useCallback(() => {
         return academicLevels.find(level => level.id.toString() === data.academic_level_id);
-    };
+    }, [academicLevels, data.academic_level_id]);
 
 
 
@@ -184,26 +185,55 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
         }
     };
 
-    const getSectionsForLevel = () => {
-        const selectedLevel = getSelectedLevel();
-        if (!selectedLevel) return ['A', 'B', 'C', 'D', 'E'];
-        
-        switch (selectedLevel.code) {
-            case 'ELEM':
-                return ['A', 'B', 'C', 'D', 'E', 'F'];
-            case 'JHS':
-                return ['A', 'B', 'C', 'D', 'E'];
-            case 'SHS': {
-                // Include strand-specific sections for SHS
-                const selectedStrand = academicStrands.find(strand => strand.id.toString() === data.academic_strand_id);
-                if (selectedStrand) {
-                    return [`${selectedStrand.code}-1`, `${selectedStrand.code}-2`, `${selectedStrand.code}-3`];
-                }
-                return ['STEM-1', 'STEM-2', 'ABM-1', 'ABM-2', 'HUMSS-1', 'HUMSS-2', 'GAS-1', 'GAS-2'];
+    // Helper to compute grade_level string the backend requires
+    const computeGradeLevelLabel = (levelCode: string | undefined, yearValue: string | number): string => {
+        const y = typeof yearValue === 'string' ? parseInt(yearValue, 10) : yearValue;
+        if (!levelCode) {
+            if (!isNaN(y as number)) {
+                return `Grade ${y}`;
             }
-            default:
-                return ['A', 'B', 'C', 'D', 'E'];
+            return '';
         }
+        if (levelCode === 'COL') {
+            const n = Number(y);
+            if (n === 1) return '1st Year';
+            if (n === 2) return '2nd Year';
+            if (n === 3) return '3rd Year';
+            if (n >= 4) return `${n}th Year`;
+            return '';
+        }
+        return `Grade ${y}`;
+    };
+
+    // Dynamic sections fetcher: uses existing student profiles to provide distinct sections
+    useEffect(() => {
+        const selectedLevel = getSelectedLevel();
+        const year = data.year_level;
+        if (!selectedLevel || !year) {
+            setSectionOptions([]);
+            return;
+        }
+        const levelCode = selectedLevel.code;
+        const params = new URLSearchParams();
+        params.set('level', levelCode);
+        params.set('year', String(year));
+        // For college include course id if present on the form data
+        const maybeData = data as unknown as { college_course_id?: string | number };
+        if (levelCode === 'COL' && maybeData.college_course_id) {
+            params.set('course_id', String(maybeData.college_course_id));
+        }
+        fetch(`/admin/api/sections-by-level-year?${params.toString()}`)
+            .then(res => res.json())
+            .then((json: { sections?: Array<{ value: string; label: string }> }) => {
+                const items = (json?.sections || []).map((s) => s.value);
+                setSectionOptions(items.filter(Boolean));
+            })
+            .catch(() => setSectionOptions([]))
+            .finally(() => void 0);
+    }, [data, getSelectedLevel]);
+
+    const getSectionsForLevel = () => {
+        return sectionOptions.length ? sectionOptions : ['Section A','Section B','Section C','Section D','Section E','Section F'];
     };
 
     // Filter students by academic level
@@ -1105,7 +1135,11 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
                                             </label>
                                             <select
                                                 value={data.year_level}
-                                                onChange={(e) => setData('year_level', e.target.value)}
+                                                onChange={(e) => {
+                                                    setData('year_level', e.target.value);
+                                                    const lvl = getSelectedLevel();
+                                                    setData('grade_level', computeGradeLevelLabel(lvl?.code, e.target.value));
+                                                }}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                                 required
                                             >
@@ -1192,7 +1226,11 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
                                             </label>
                                             <select
                                                 value={data.year_level}
-                                                onChange={(e) => setData('year_level', e.target.value)}
+                                                onChange={(e) => {
+                                                    setData('year_level', e.target.value);
+                                                    const lvl = getSelectedLevel();
+                                                    setData('grade_level', computeGradeLevelLabel(lvl?.code, e.target.value));
+                                                }}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                                 required
                                                 disabled={!data.academic_level_id}

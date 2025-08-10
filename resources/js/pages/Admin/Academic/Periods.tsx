@@ -39,6 +39,9 @@ const Periods: React.FC<Props> = ({ periodsByLevel, levels }) => {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [editingPeriod, setEditingPeriod] = useState<AcademicPeriod | null>(null);
     const [selectedLevel, setSelectedLevel] = useState<number | null>(null);
+    const [searchByLevel, setSearchByLevel] = useState<Record<number, string>>({});
+    const [typeFilterByLevel, setTypeFilterByLevel] = useState<Record<number, string>>({});
+    const [statusFilterByLevel, setStatusFilterByLevel] = useState<Record<number, string>>({});
 
     const { data, setData, post, put, processing, errors, reset } = useForm({
         name: '',
@@ -117,7 +120,20 @@ const Periods: React.FC<Props> = ({ periodsByLevel, levels }) => {
             </div>
 
             {/* Education Level Sections */}
-            {Object.values(periodsByLevel).map(({ level, periods }) => (
+            {Object.values(periodsByLevel).map(({ level, periods }) => {
+                const search = searchByLevel[level.id] || '';
+                const typeFilter = typeFilterByLevel[level.id] || '';
+                const statusFilter = statusFilterByLevel[level.id] || '';
+                const filtered = periods.filter((p: AcademicPeriod) => {
+                    const matchesSearch = !search || (
+                        p.name.toLowerCase().includes(search.toLowerCase()) ||
+                        p.school_year.toLowerCase().includes(search.toLowerCase())
+                    );
+                    const matchesType = !typeFilter || p.type === typeFilter;
+                    const matchesStatus = !statusFilter || (statusFilter === 'active' ? p.is_active : !p.is_active);
+                    return matchesSearch && matchesType && matchesStatus;
+                });
+                return (
                 <div key={level.id} className="mb-8">
                     <div className="flex justify-between items-center mb-4">
                         <div>
@@ -137,9 +153,38 @@ const Periods: React.FC<Props> = ({ periodsByLevel, levels }) => {
                     <div className="bg-white shadow-sm rounded-lg border border-gray-200">
                         <div className="px-6 py-4 border-b border-gray-200">
                             <h3 className="text-lg font-semibold text-gray-900">{level.name} Periods List</h3>
+                            {/* Search & Filters */}
+                            <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <input
+                                    type="text"
+                                    placeholder="Search by period name or school year"
+                                    value={search}
+                                    onChange={(e) => setSearchByLevel(prev => ({ ...prev, [level.id]: e.target.value }))}
+                                    className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                <select
+                                    value={typeFilter}
+                                    onChange={(e) => setTypeFilterByLevel(prev => ({ ...prev, [level.id]: e.target.value }))}
+                                    className="px-3 py-2 border border-gray-300 rounded-lg"
+                                >
+                                    <option value="">All Types</option>
+                                    <option value="semester">Semester</option>
+                                    <option value="quarter">Quarter</option>
+                                    <option value="trimester">Trimester</option>
+                                </select>
+                                <select
+                                    value={statusFilter}
+                                    onChange={(e) => setStatusFilterByLevel(prev => ({ ...prev, [level.id]: e.target.value }))}
+                                    className="px-3 py-2 border border-gray-300 rounded-lg"
+                                >
+                                    <option value="">All Status</option>
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                </select>
+                            </div>
                         </div>
                         
-                        {periods.length === 0 ? (
+                        {filtered.length === 0 ? (
                             <div className="p-6 text-center text-gray-500">
                                 No academic periods found for {level.name}. Create your first period to get started.
                             </div>
@@ -157,7 +202,7 @@ const Periods: React.FC<Props> = ({ periodsByLevel, levels }) => {
                                         </tr>
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
-                                        {periods.map((period) => (
+                                        {filtered.map((period: AcademicPeriod) => (
                                             <tr key={period.id} className="hover:bg-gray-50">
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <div className="text-sm font-medium text-gray-900">{period.name}</div>
@@ -208,7 +253,8 @@ const Periods: React.FC<Props> = ({ periodsByLevel, levels }) => {
                         )}
                     </div>
                 </div>
-            ))}
+                );
+            })}
 
             {/* Create/Edit Modal */}
             {(showCreateModal || editingPeriod) && (
@@ -225,19 +271,31 @@ const Periods: React.FC<Props> = ({ periodsByLevel, levels }) => {
                                         <label className="block text-sm font-medium text-gray-700 mb-2">
                                             Education Level
                                         </label>
-                                        <select
-                                            value={data.academic_level_id}
-                                            onChange={(e) => setData('academic_level_id', e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            required
-                                        >
-                                            <option value="">Select Education Level</option>
-                                            {levels.map((level) => (
-                                                <option key={level.id} value={level.id}>
-                                                    {level.name}
-                                                </option>
-                                            ))}
-                                        </select>
+                                        {selectedLevel ? (
+                                            <>
+                                                <input
+                                                    type="text"
+                                                    value={levels.find(l => l.id === selectedLevel)?.name || ''}
+                                                    disabled
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
+                                                />
+                                                <input type="hidden" name="academic_level_id" value={data.academic_level_id} />
+                                            </>
+                                        ) : (
+                                            <select
+                                                value={data.academic_level_id}
+                                                onChange={(e) => setData('academic_level_id', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                required
+                                            >
+                                                <option value="">Select Education Level</option>
+                                                {levels.map((level) => (
+                                                    <option key={level.id} value={level.id}>
+                                                        {level.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        )}
                                         {errors.academic_level_id && <p className="text-red-500 text-xs mt-1">{errors.academic_level_id}</p>}
                                     </div>
                                 )}

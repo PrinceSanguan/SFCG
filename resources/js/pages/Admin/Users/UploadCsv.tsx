@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useForm } from '@inertiajs/react';
 import Header from '@/pages/Admin/Header';
 import Sidebar from '@/pages/Admin/Sidebar';
@@ -11,6 +11,21 @@ const UploadCsv: React.FC = () => {
         csv_file: null as File | null,
         user_type: 'student',
     });
+
+    // Lock user type based on ?type= param
+    const lockedType = useMemo(() => {
+        const params = new URLSearchParams(window.location.search);
+        const t = (params.get('type') || '').trim();
+        const allowed = ['instructor','teacher','class_adviser','chairperson','principal','registrar','student','parent'];
+        return allowed.includes(t) ? t : '';
+    }, []);
+
+    useEffect(() => {
+        if (lockedType) {
+            setData('user_type', lockedType as any);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [lockedType]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -113,18 +128,27 @@ const UploadCsv: React.FC = () => {
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                         User Type
                                     </label>
-                                    <select
-                                        value={data.user_type}
-                                        onChange={(e) => setData('user_type', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        required
-                                    >
-                                        {userTypes.map((type) => (
-                                            <option key={type.value} value={type.value}>
-                                                {type.label} - {type.description}
-                                            </option>
-                                        ))}
-                                    </select>
+                                    {lockedType ? (
+                                        <input
+                                            type="text"
+                                            value={userTypes.find(u => u.value === lockedType)?.label || ''}
+                                            disabled
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
+                                        />
+                                    ) : (
+                                        <select
+                                            value={data.user_type}
+                                            onChange={(e) => setData('user_type', e.target.value)}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            required
+                                        >
+                                            {userTypes.map((type) => (
+                                                <option key={type.value} value={type.value}>
+                                                    {type.label} - {type.description}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    )}
                                     {errors.user_type && <p className="text-red-500 text-xs mt-1">{errors.user_type}</p>}
                                 </div>
 

@@ -28,6 +28,7 @@ interface Props {
 const Teachers: React.FC<Props> = ({ teachers }) => {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
 
     const { data, setData, post, put, processing, errors, reset } = useForm({
         name: '',
@@ -85,8 +86,8 @@ const Teachers: React.FC<Props> = ({ teachers }) => {
                         <p className="text-gray-600">Manage K-12 teachers and their assignments</p>
                     </div>
 
-                    {/* Create Button */}
-                    <div className="mb-6">
+                    {/* Actions: Add + Upload CSV */}
+                    <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:space-x-3 space-y-3 sm:space-y-0">
                         <button
                             onClick={() => setShowCreateModal(true)}
                             className="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700 focus:bg-blue-700 active:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150"
@@ -94,6 +95,13 @@ const Teachers: React.FC<Props> = ({ teachers }) => {
                             <span className="mr-2">➕</span>
                             Add Teacher
                         </button>
+                        <a
+                            href="/admin/users/upload?type=teacher"
+                            className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-800 border border-gray-300 rounded-md text-xs font-semibold uppercase tracking-widest hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                        >
+                            <span className="mr-2">📁</span>
+                            Upload CSV
+                        </a>
                     </div>
 
                     {/* Teachers List */}
@@ -108,6 +116,19 @@ const Teachers: React.FC<Props> = ({ teachers }) => {
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
+                                {/* Search */}
+                                <div className="p-4">
+                                    <div className="max-w-md">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                                        <input
+                                            type="text"
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            placeholder="Search by name or email"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+                                </div>
                                 <table className="min-w-full divide-y divide-gray-200">
                                     <thead className="bg-gray-50">
                                         <tr>
@@ -119,7 +140,16 @@ const Teachers: React.FC<Props> = ({ teachers }) => {
                                         </tr>
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
-                                        {teachers.map((teacher) => (
+                                        {teachers
+                                            .filter(t => {
+                                                const q = searchQuery.trim().toLowerCase();
+                                                if (!q) return true;
+                                                return (
+                                                    t.name.toLowerCase().includes(q) ||
+                                                    t.email.toLowerCase().includes(q)
+                                                );
+                                            })
+                                            .map((teacher) => (
                                             <tr key={teacher.id} className="hover:bg-gray-50">
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <div className="flex items-center">

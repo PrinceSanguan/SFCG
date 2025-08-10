@@ -67,7 +67,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
           ]
         },
         { title: 'Parents', href: '/admin/users/parents', icon: '👨‍👩‍👧' },
-        { title: 'Upload CSV', href: '/admin/users/upload', icon: '📤' },
       ]
     },
     {
@@ -76,7 +75,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
         { title: 'Academic Periods', href: '/admin/academic/periods', icon: '📅' },
         { title: 'Academic Strands', href: '/admin/academic/strands', icon: '🎯' },
         { title: 'Course Programs', href: '/admin/academic/college-courses', icon: '🎓' },
-        { title: 'Higher Education Subjects', href: '/admin/academic/college-subjects', icon: '📖' },
         { title: 'All Subjects', href: '/admin/academic/subjects', icon: '📚' },
       ]
     },

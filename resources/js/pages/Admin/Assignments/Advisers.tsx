@@ -60,6 +60,8 @@ const AdviserAssignments: React.FC<Props> = ({
         is_active: true as boolean,
     });
 
+    const [sectionOptions, setSectionOptions] = useState<Array<{ value: string; label: string }>>([]);
+    const [loadingSections, setLoadingSections] = useState(false);
 
 
     // Fetch periods by academic level
@@ -97,6 +99,21 @@ const AdviserAssignments: React.FC<Props> = ({
         // Fetch periods for the selected level
         fetchPeriodsByLevel(levelId);
     };
+
+    // Load sections when level code and year level available
+    React.useEffect(() => {
+        if (!data.year_level) {
+            setSectionOptions([]);
+            return;
+        }
+        const levelCode = selectedLevel?.code || '';
+        setLoadingSections(true);
+        fetch(`/admin/api/sections-by-level-year?level=${encodeURIComponent(levelCode)}&year=${encodeURIComponent(data.year_level)}`)
+            .then(res => res.json())
+            .then((json: { sections?: Array<{ value: string; label: string }> }) => setSectionOptions((json?.sections || []).map((s) => ({ value: s.value, label: s.label }))))
+            .catch(() => setSectionOptions([]))
+            .finally(() => setLoadingSections(false));
+    }, [selectedLevel, data.year_level]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -377,13 +394,16 @@ const AdviserAssignments: React.FC<Props> = ({
                                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                                 Section (Optional)
                                             </label>
-                                            <input
-                                                type="text"
+                                            <select
                                                 value={data.section}
                                                 onChange={(e) => setData('section', e.target.value)}
                                                 className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                placeholder="e.g., Section A"
-                                            />
+                                            >
+                                                <option value="">{loadingSections ? 'Loading sections...' : 'Select Section'}</option>
+                                                {(sectionOptions.length ? sectionOptions : ['Section A','Section B','Section C','Section D','Section E','Section F'].map(s => ({ value: s, label: s }))).map(opt => (
+                                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                                ))}
+                                            </select>
                                             {errors.section && (
                                                 <p className="text-red-500 text-sm mt-1">{errors.section}</p>
                                             )}

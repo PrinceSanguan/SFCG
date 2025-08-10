@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { router, useForm } from '@inertiajs/react';
 import AdminLayout from '@/pages/Admin/AdminLayout';
 
@@ -28,6 +28,9 @@ interface Props {
 const Strands: React.FC<Props> = ({ strands, levels }) => {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [editingStrand, setEditingStrand] = useState<AcademicStrand | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [levelFilter, setLevelFilter] = useState<string>('');
+    const [statusFilter, setStatusFilter] = useState<string>('');
 
     const { data, setData, post, put, processing, errors, reset } = useForm({
         name: '',
@@ -78,6 +81,29 @@ const Strands: React.FC<Props> = ({ strands, levels }) => {
         reset();
     };
 
+    const filteredStrands = useMemo(() => {
+        return strands.filter((s) => {
+            const q = searchQuery.trim().toLowerCase();
+            const matchesQ = !q || [s.name, s.code, s.description || '', s.academic_level.name].some(v => (v || '').toLowerCase().includes(q));
+            const matchesLevel = !levelFilter || String(s.academic_level_id) === levelFilter;
+            const matchesStatus = !statusFilter || (statusFilter === 'active' ? s.is_active : !s.is_active);
+            return matchesQ && matchesLevel && matchesStatus;
+        });
+    }, [strands, searchQuery, levelFilter, statusFilter]);
+
+    // Default SHS level id for creation
+    const shsLevelId = useMemo(() => {
+        const shs = levels.find(l => l.code === 'SHS');
+        return shs ? String(shs.id) : '';
+    }, [levels]);
+
+    // Lock list to SHS – set the filter once levels are loaded
+    useEffect(() => {
+        if (shsLevelId) {
+            setLevelFilter(shsLevelId);
+        }
+    }, [shsLevelId]);
+
     return (
         <AdminLayout>
                     <div className="mb-8">
@@ -88,7 +114,13 @@ const Strands: React.FC<Props> = ({ strands, levels }) => {
                     {/* Create Button */}
                     <div className="mb-6">
                         <button
-                            onClick={() => setShowCreateModal(true)}
+                            onClick={() => {
+                                // Preselect SHS level in the form
+                                if (!editingStrand) {
+                                    setData('academic_level_id', shsLevelId);
+                                }
+                                setShowCreateModal(true);
+                            }}
                             className="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700 focus:bg-blue-700 active:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150"
                         >
                             <span className="mr-2">➕</span>
@@ -100,9 +132,35 @@ const Strands: React.FC<Props> = ({ strands, levels }) => {
                     <div className="bg-white shadow-sm rounded-lg border border-gray-200">
                         <div className="px-6 py-4 border-b border-gray-200">
                             <h2 className="text-lg font-semibold text-gray-900">Academic Strands List</h2>
+                            {/* Search & Filters */}
+                            <div className="mt-3 flex flex-col md:flex-row md:items-center md:space-x-3 space-y-3 md:space-y-0">
+                                <input
+                                    type="text"
+                                    placeholder="Search by name, code, description"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                {/* Level filter locked to SHS */}
+                                <input
+                                    type="text"
+                                    value={levels.find(l => String(l.id) === levelFilter)?.name || 'Senior High School'}
+                                    disabled
+                                    className="md:w-56 px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
+                                />
+                                <select
+                                    value={statusFilter}
+                                    onChange={(e) => setStatusFilter(e.target.value)}
+                                    className="md:w-40 px-3 py-2 border border-gray-300 rounded-lg"
+                                >
+                                    <option value="">All Status</option>
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                </select>
+                            </div>
                         </div>
                         
-                        {strands.length === 0 ? (
+                        {filteredStrands.length === 0 ? (
                             <div className="p-6 text-center text-gray-500">
                                 No academic strands found. Create your first academic strand to get started.
                             </div>
@@ -121,7 +179,7 @@ const Strands: React.FC<Props> = ({ strands, levels }) => {
                                         </tr>
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
-                                        {strands.map((strand) => (
+                                        {filteredStrands.map((strand) => (
                                             <tr key={strand.id} className="hover:bg-gray-50">
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <div className="text-sm font-medium text-gray-900">{strand.name}</div>
@@ -188,32 +246,28 @@ const Strands: React.FC<Props> = ({ strands, levels }) => {
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                                 Academic Level
                                             </label>
-                                            <select
-                                                value={data.academic_level_id}
-                                                onChange={(e) => setData('academic_level_id', e.target.value)}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                required
-                                            >
-                                                <option value="">Select Academic Level</option>
-                                                {levels.map((level) => (
-                                                    <option key={level.id} value={level.id}>
-                                                        {level.name} ({level.code})
-                                                    </option>
-                                                ))}
-                                            </select>
+                                            {/* Lock to SHS and make unchangeable */}
+                                            <input
+                                                type="text"
+                                                value={levels.find(l => String(l.id) === (data.academic_level_id || shsLevelId))?.name || 'Senior High School'}
+                                                disabled
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
+                                            />
+                                            {/* Hidden value submitted with the form */}
+                                            <input type="hidden" name="academic_level_id" value={data.academic_level_id || shsLevelId} />
                                             {errors.academic_level_id && <p className="text-red-500 text-xs mt-1">{errors.academic_level_id}</p>}
                                         </div>
 
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Strand Name
+                                                Strand / Track Name (SHS)
                                             </label>
                                             <input
                                                 type="text"
                                                 value={data.name}
                                                 onChange={(e) => setData('name', e.target.value)}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                placeholder="e.g., Science, Technology, Engineering and Mathematics"
+                                                placeholder="e.g., STEM, HUMSS, ABM"
                                                 required
                                             />
                                             {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}

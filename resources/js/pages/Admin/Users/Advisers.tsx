@@ -99,8 +99,8 @@ const Advisers: React.FC<Props> = ({ advisers }) => {
                         <p className="text-gray-600">Manage class advisers and their assigned students</p>
                     </div>
 
-                    {/* Create Button */}
-                    <div className="mb-6">
+                    {/* Actions: Add + Upload CSV */}
+                    <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:space-x-3 space-y-3 sm:space-y-0">
                         <button
                             onClick={() => setShowCreateModal(true)}
                             className="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700 focus:bg-blue-700 active:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150"
@@ -108,6 +108,13 @@ const Advisers: React.FC<Props> = ({ advisers }) => {
                             <span className="mr-2">➕</span>
                             Add Class Adviser
                         </button>
+                        <a
+                            href="/admin/users/upload?type=class_adviser"
+                            className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-800 border border-gray-300 rounded-md text-xs font-semibold uppercase tracking-widest hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                        >
+                            <span className="mr-2">📁</span>
+                            Upload CSV
+                        </a>
                     </div>
 
                     {/* Advisers List */}

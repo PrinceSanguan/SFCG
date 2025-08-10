@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Head, router, useForm, Link } from '@inertiajs/react';
 import AdminLayout from '@/pages/Admin/AdminLayout';
 
@@ -23,16 +23,33 @@ interface Subject {
     college_course?: CollegeCourse;
 }
 
+interface Instructor {
+    id: number;
+    name: string;
+    email: string;
+}
+
+interface AcademicPeriod {
+    id: number;
+    name: string;
+    school_year: string;
+}
+
 interface Props {
     subjects: Subject[];
     collegeCourses: CollegeCourse[];
     semesters: Record<string, string>;
+    instructors: Instructor[];
+    academicPeriods: AcademicPeriod[];
 }
 
-const CollegeSubjects: React.FC<Props> = ({ subjects, collegeCourses, semesters }) => {
+const CollegeSubjects: React.FC<Props> = ({ subjects, collegeCourses, semesters, instructors, academicPeriods }) => {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
     const [availableYearLevels, setAvailableYearLevels] = useState<Record<number, string>>({});
+    const [searchQuery, setSearchQuery] = useState('');
+    const [courseFilter, setCourseFilter] = useState<string>('');
+    const [statusFilter, setStatusFilter] = useState<string>('');
 
     const { data, setData, post, put, processing, errors, reset } = useForm({
         name: '',
@@ -44,7 +61,13 @@ const CollegeSubjects: React.FC<Props> = ({ subjects, collegeCourses, semesters 
         semester: '',
         is_active: true as boolean,
         subject_type: 'college' as string,
+        teacher_id: '',
+        academic_period_id: '',
+        section: '',
     });
+
+    const [sectionOptions, setSectionOptions] = useState<Array<{ value: string; label: string }>>([]);
+    const [loadingSections, setLoadingSections] = useState(false);
 
     // Update available year levels when college course changes
     useEffect(() => {
@@ -61,6 +84,21 @@ const CollegeSubjects: React.FC<Props> = ({ subjects, collegeCourses, semesters 
             setAvailableYearLevels({});
         }
     }, [data.college_course_id, collegeCourses]);
+
+    // Load sections dynamically for College
+    useEffect(() => {
+        if (!data.college_course_id || !data.year_level) {
+            setSectionOptions([]);
+            return;
+        }
+        setLoadingSections(true);
+        const params = new URLSearchParams({ level: 'COL', course_id: String(data.college_course_id), year: String(data.year_level) });
+        fetch(`/admin/api/sections-by-level-year?${params.toString()}`)
+            .then(res => res.json())
+            .then((json: { sections?: Array<{ value: string; label: string }> }) => setSectionOptions((json?.sections || []).map((s) => ({ value: s.value, label: s.label }))))
+            .catch(() => setSectionOptions([]))
+            .finally(() => setLoadingSections(false));
+    }, [data.college_course_id, data.year_level]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -97,6 +135,9 @@ const CollegeSubjects: React.FC<Props> = ({ subjects, collegeCourses, semesters 
             semester: subject.semester || '',
             is_active: subject.is_active,
             subject_type: 'college',
+            teacher_id: '',
+            academic_period_id: '',
+            section: '',
         });
         setEditingSubject(subject);
         setShowCreateModal(true);
@@ -119,6 +160,17 @@ const CollegeSubjects: React.FC<Props> = ({ subjects, collegeCourses, semesters 
         setData('college_course_id', courseId);
         setData('year_level', ''); // Reset year level when course changes
     };
+
+    const filteredSubjects = useMemo(() => {
+        return subjects.filter((s) => {
+            const q = searchQuery.trim().toLowerCase();
+            const matchesQ = !q || [s.name, s.code, s.description || '', s.college_course?.name || '', s.college_course?.code || '']
+                .some(v => (v || '').toLowerCase().includes(q));
+            const matchesCourse = !courseFilter || String(s.college_course_id || '') === courseFilter;
+            const matchesStatus = !statusFilter || (statusFilter === 'active' ? s.is_active : !s.is_active);
+            return matchesQ && matchesCourse && matchesStatus;
+        });
+    }, [subjects, searchQuery, courseFilter, statusFilter]);
 
     return (
         <>
@@ -216,6 +268,34 @@ const CollegeSubjects: React.FC<Props> = ({ subjects, collegeCourses, semesters 
                 <div className="bg-white shadow-sm rounded-lg border border-gray-200">
                     <div className="px-6 py-4 border-b border-gray-200">
                         <h2 className="text-lg font-semibold text-gray-900">College Subjects</h2>
+                        <div className="mt-3 flex flex-col md:flex-row md:items-center md:space-x-3 space-y-3 md:space-y-0">
+                            <input
+                                type="text"
+                                placeholder="Search by name, code, description, course"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            />
+                            <select
+                                value={courseFilter}
+                                onChange={(e) => setCourseFilter(e.target.value)}
+                                className="md:w-64 px-3 py-2 border border-gray-300 rounded-lg"
+                            >
+                                <option value="">All Courses</option>
+                                {collegeCourses.map(c => (
+                                    <option key={c.id} value={String(c.id)}>{c.name}</option>
+                                ))}
+                            </select>
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                className="md:w-40 px-3 py-2 border border-gray-300 rounded-lg"
+                            >
+                                <option value="">All Status</option>
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                            </select>
+                        </div>
                     </div>
                     
                     {subjects.length === 0 ? (
@@ -249,7 +329,7 @@ const CollegeSubjects: React.FC<Props> = ({ subjects, collegeCourses, semesters 
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {subjects.map((subject) => (
+                                    {filteredSubjects.map((subject) => (
                                         <tr key={subject.id} className="hover:bg-gray-50">
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="text-sm font-medium text-gray-900">{subject.name}</div>
@@ -458,6 +538,77 @@ const CollegeSubjects: React.FC<Props> = ({ subjects, collegeCourses, semesters 
                                         {errors.description && (
                                             <p className="text-red-600 text-sm mt-1">{errors.description}</p>
                                         )}
+                                    </div>
+
+                                    {/* Instructor Assignment */}
+                                    <div className="border-t pt-4 mt-4">
+                                        <h4 className="text-sm font-medium text-gray-700 mb-3">Instructor Assignment</h4>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Assign Instructor *
+                                                </label>
+                                                <select
+                                                    value={data.teacher_id}
+                                                    onChange={(e) => setData('teacher_id', e.target.value)}
+                                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+                                                    required
+                                                >
+                                                    <option value="">Select Instructor</option>
+                                                    {instructors.map((ins) => (
+                                                        <option key={ins.id} value={ins.id}>
+                                                            {ins.name} ({ins.email})
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                {errors.teacher_id && (
+                                                    <p className="text-red-600 text-sm mt-1">{errors.teacher_id}</p>
+                                                )}
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Academic Period *
+                                                </label>
+                                                <select
+                                                    value={data.academic_period_id}
+                                                    onChange={(e) => setData('academic_period_id', e.target.value)}
+                                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+                                                    required
+                                                >
+                                                    <option value="">Select Period</option>
+                                                    {academicPeriods.map((p) => (
+                                                        <option key={p.id} value={p.id}>
+                                                            {p.name} ({p.school_year})
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                {errors.academic_period_id && (
+                                                    <p className="text-red-600 text-sm mt-1">{errors.academic_period_id}</p>
+                                                )}
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Section *
+                                                </label>
+                                                <select
+                                                    value={data.section}
+                                                    onChange={(e) => setData('section', e.target.value)}
+                                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+                                                    required
+                                                    disabled={loadingSections || !sectionOptions.length}
+                                                >
+                                                    <option value="">{loadingSections ? 'Loading sections...' : 'Select Section'}</option>
+                                                    {sectionOptions.map(opt => (
+                                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                                    ))}
+                                                </select>
+                                                {errors.section && (
+                                                    <p className="text-red-600 text-sm mt-1">{errors.section}</p>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <div className="flex items-center">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Head, router, useForm, Link } from '@inertiajs/react';
 import AdminLayout from '@/pages/Admin/AdminLayout';
 
@@ -41,6 +41,10 @@ const HighSchoolSubjects: React.FC<Props> = ({ subjects, levels, strands, levelT
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
     const [filteredStrands, setFilteredStrands] = useState<AcademicStrand[]>([]);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [gradeFilter, setGradeFilter] = useState<string>('');
+    const [strandFilter, setStrandFilter] = useState<string>('');
+    const [statusFilter, setStatusFilter] = useState<string>('');
 
     const { data, setData, post, put, processing, errors, reset } = useForm({
         name: '',
@@ -52,6 +56,9 @@ const HighSchoolSubjects: React.FC<Props> = ({ subjects, levels, strands, levelT
         year_level: '',
         is_active: true as boolean,
     });
+
+    const [sectionOptions, setSectionOptions] = useState<Array<{ value: string; label: string }>>([]);
+    const [loadingSections, setLoadingSections] = useState(false);
 
     const isJuniorHigh = levelType === 'junior';
     const titlePrefix = isJuniorHigh ? 'Junior High School' : 'Senior High School';
@@ -95,6 +102,26 @@ const HighSchoolSubjects: React.FC<Props> = ({ subjects, levels, strands, levelT
             setFilteredStrands([]);
         }
     }, [data.academic_level_id, strands]);
+
+    // Load sections dynamically based on JHS/SHS and year level
+    useEffect(() => {
+        if (!data.academic_level_id || !data.year_level) {
+            setSectionOptions([]);
+            return;
+        }
+        const level = relevantLevels.find(l => l.id.toString() === data.academic_level_id);
+        const levelCode = level?.code || (level?.name?.toLowerCase().includes('junior') ? 'JHS' : level?.name?.toLowerCase().includes('senior') ? 'SHS' : '');
+        if (!levelCode) {
+            setSectionOptions([]);
+            return;
+        }
+        setLoadingSections(true);
+        fetch(`/admin/api/sections-by-level-year?level=${encodeURIComponent(levelCode)}&year=${encodeURIComponent(data.year_level)}`)
+            .then(res => res.json())
+            .then((json: { sections?: Array<{ value: string; label: string }> }) => setSectionOptions((json?.sections || []).map((s) => ({ value: s.value, label: s.label }))))
+            .catch(() => setSectionOptions([]))
+            .finally(() => setLoadingSections(false));
+    }, [data.academic_level_id, data.year_level, relevantLevels]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -144,6 +171,19 @@ const HighSchoolSubjects: React.FC<Props> = ({ subjects, levels, strands, levelT
         reset();
         setFilteredStrands([]);
     };
+
+  // Derived filtered rows for table
+  const filteredRows = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return subjects.filter((s) => {
+      const matchesQ = !q || [s.name, s.code, s.description || '', s.academic_strand?.name || '']
+        .some(v => (v || '').toLowerCase().includes(q));
+      const matchesGrade = !gradeFilter || String(s.year_level || '') === gradeFilter;
+      const matchesStrand = isJuniorHigh || !strandFilter || String(s.academic_strand_id || '') === strandFilter;
+      const matchesStatus = !statusFilter || (statusFilter === 'active' ? s.is_active : !s.is_active);
+      return matchesQ && matchesGrade && matchesStrand && matchesStatus;
+    });
+  }, [subjects, searchQuery, gradeFilter, strandFilter, statusFilter, isJuniorHigh]);
 
 
 
@@ -243,6 +283,46 @@ const HighSchoolSubjects: React.FC<Props> = ({ subjects, levels, strands, levelT
                 <div className="bg-white shadow-sm rounded-lg border border-gray-200">
                     <div className="px-6 py-4 border-b border-gray-200">
                         <h2 className="text-lg font-semibold text-gray-900">{titlePrefix} Subjects</h2>
+                        <div className="mt-3 flex flex-col md:flex-row md:items-center md:space-x-3 space-y-3 md:space-y-0">
+                            <input
+                                type="text"
+                                placeholder={`Search by name, code, description${isJuniorHigh ? '' : ', strand/track'}`}
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className={`flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-${colorTheme}-500`}
+                            />
+                            <select
+                                value={gradeFilter}
+                                onChange={(e) => setGradeFilter(e.target.value)}
+                                className="md:w-40 px-3 py-2 border border-gray-300 rounded-lg"
+                            >
+                                <option value="">All Grades</option>
+                                {(isJuniorHigh ? [7,8,9,10] : [11,12]).map(g => (
+                                    <option key={g} value={String(g)}>Grade {g}</option>
+                                ))}
+                            </select>
+                            {!isJuniorHigh && (
+                                <select
+                                    value={strandFilter}
+                                    onChange={(e) => setStrandFilter(e.target.value)}
+                                    className="md:w-56 px-3 py-2 border border-gray-300 rounded-lg"
+                                >
+                                    <option value="">All Strands/Tracks</option>
+                                    {filteredStrands.map(s => (
+                                        <option key={s.id} value={String(s.id)}>{s.name}</option>
+                                    ))}
+                                </select>
+                            )}
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                className="md:w-40 px-3 py-2 border border-gray-300 rounded-lg"
+                            >
+                                <option value="">All Status</option>
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                            </select>
+                        </div>
                     </div>
                     
                     {subjects.length === 0 ? (
@@ -276,7 +356,7 @@ const HighSchoolSubjects: React.FC<Props> = ({ subjects, levels, strands, levelT
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {subjects.map((subject) => (
+                                    {filteredRows.map((subject) => (
                                         <tr key={subject.id} className="hover:bg-gray-50">
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="text-sm font-medium text-gray-900">{subject.name}</div>
@@ -471,6 +551,24 @@ const HighSchoolSubjects: React.FC<Props> = ({ subjects, levels, strands, levelT
                                         {errors.units && (
                                             <p className="text-red-600 text-sm mt-1">{errors.units}</p>
                                         )}
+                                    </div>
+
+                                    {/* Section dropdown shown when creating with assignment details in other flows; kept here for consistency if needed */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Section (Optional)
+                                        </label>
+                                        <select
+                                            value={(data as unknown as { section?: string }).section || ''}
+                                            onChange={(e) => setData('section' as unknown as keyof typeof data, e.target.value)}
+                                            className={`w-full rounded-md border-gray-300 shadow-sm focus:border-${colorTheme}-500 focus:ring-${colorTheme}-500`}
+                                            disabled={loadingSections || !sectionOptions.length}
+                                        >
+                                            <option value="">{loadingSections ? 'Loading sections...' : 'Select Section'}</option>
+                                            {sectionOptions.map(opt => (
+                                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                            ))}
+                                        </select>
                                     </div>
 
                                     <div>

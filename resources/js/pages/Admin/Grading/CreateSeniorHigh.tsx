@@ -235,15 +235,24 @@ const CreateSeniorHigh: React.FC<Props> = ({ students, subjects, academicPeriods
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                         Section <span className="text-red-500">*</span>
                                     </label>
-                                    <input
-                                        type="text"
+                                    <select
                                         value={data.section}
                                         onChange={(e) => setData('section', e.target.value)}
                                         className={`w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 ${
                                             errors.section ? 'border-red-500' : 'border-gray-300'
                                         }`}
-                                        placeholder="e.g., A, B, C"
-                                    />
+                                    >
+                                        <option value="">Select Section</option>
+                                        {selectedStudent?.student_profile?.section ? (
+                                            <option value={selectedStudent.student_profile.section}>
+                                                {selectedStudent.student_profile.section}
+                                            </option>
+                                        ) : (
+                                            ['Section A','Section B','Section C','Section D','Section E','Section F'].map(s => (
+                                                <option key={s} value={s}>{s}</option>
+                                            ))
+                                        )}
+                                    </select>
                                     {errors.section && (
                                         <p className="text-red-500 text-sm mt-1">{errors.section}</p>
                                     )}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Head, router, useForm, Link } from '@inertiajs/react';
 import AdminLayout from '@/pages/Admin/AdminLayout';
 
@@ -59,6 +59,9 @@ interface Props {
 const ElementarySubjects: React.FC<Props> = ({ subjects, levels, advisers, academicPeriods }) => {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [gradeFilter, setGradeFilter] = useState<string>('');
+    const [statusFilter, setStatusFilter] = useState<string>('');
 
     const { data, setData, post, put, processing, errors, reset } = useForm({
         name: '',
@@ -72,6 +75,9 @@ const ElementarySubjects: React.FC<Props> = ({ subjects, levels, advisers, acade
         section: '',
         is_active: true as boolean,
     });
+
+    const [sectionOptions, setSectionOptions] = useState<Array<{ value: string; label: string }>>([]);
+    const [loadingSections, setLoadingSections] = useState(false);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -150,6 +156,20 @@ const ElementarySubjects: React.FC<Props> = ({ subjects, levels, advisers, acade
             setData('academic_level_id', elementaryLevel.id.toString());
         }
     }, [elementaryLevel, data.academic_level_id, setData]);
+
+    // Load sections dynamically for Elementary (ELEM)
+    useEffect(() => {
+        if (!data.year_level) {
+            setSectionOptions([]);
+            return;
+        }
+        setLoadingSections(true);
+        fetch(`/admin/api/sections-by-level-year?level=ELEM&year=${encodeURIComponent(data.year_level)}`)
+            .then(res => res.json())
+            .then(json => setSectionOptions((json?.sections || []).map((s: any) => ({ value: s.value, label: s.label }))))
+            .catch(() => setSectionOptions([]))
+            .finally(() => setLoadingSections(false));
+    }, [data.year_level]);
 
     return (
         <>
@@ -234,6 +254,34 @@ const ElementarySubjects: React.FC<Props> = ({ subjects, levels, advisers, acade
                 <div className="bg-white shadow-sm rounded-lg border border-gray-200">
                     <div className="px-6 py-4 border-b border-gray-200">
                         <h2 className="text-lg font-semibold text-gray-900">Elementary Subjects</h2>
+                        <div className="mt-3 flex flex-col md:flex-row md:items-center md:space-x-3 space-y-3 md:space-y-0">
+                            <input
+                                type="text"
+                                placeholder="Search by name, code, description, adviser"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                            />
+                            <select
+                                value={gradeFilter}
+                                onChange={(e) => setGradeFilter(e.target.value)}
+                                className="md:w-40 px-3 py-2 border border-gray-300 rounded-lg"
+                            >
+                                <option value="">All Grades</option>
+                                {[1,2,3,4,5,6].map(g => (
+                                    <option key={g} value={String(g)}>Grade {g}</option>
+                                ))}
+                            </select>
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                className="md:w-40 px-3 py-2 border border-gray-300 rounded-lg"
+                            >
+                                <option value="">All Status</option>
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                            </select>
+                        </div>
                     </div>
                     
                     {subjects.length === 0 ? (
@@ -267,7 +315,14 @@ const ElementarySubjects: React.FC<Props> = ({ subjects, levels, advisers, acade
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {subjects.map((subject) => (
+                                    {useMemo(() => subjects.filter((s) => {
+                                        const q = searchQuery.trim().toLowerCase();
+                                        const matchesQ = !q || [s.name, s.code, s.description || '', s.instructor_assignments?.[0]?.instructor?.name || '']
+                                            .some(v => (v || '').toLowerCase().includes(q));
+                                        const matchesGrade = !gradeFilter || String(s.year_level || '') === gradeFilter;
+                                        const matchesStatus = !statusFilter || (statusFilter === 'active' ? s.is_active : !s.is_active);
+                                        return matchesQ && matchesGrade && matchesStatus;
+                                    }), [subjects, searchQuery, gradeFilter, statusFilter]).map((subject) => (
                                         <tr key={subject.id} className="hover:bg-gray-50">
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="text-sm font-medium text-gray-900">{subject.name}</div>
@@ -531,14 +586,18 @@ const ElementarySubjects: React.FC<Props> = ({ subjects, levels, advisers, acade
                                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                                     Section *
                                                 </label>
-                                                <input
-                                                    type="text"
+                                                <select
                                                     value={data.section}
                                                     onChange={(e) => setData('section', e.target.value)}
                                                     className="w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-                                                    placeholder="e.g., Section A, Grade 1-A"
                                                     required
-                                                />
+                                                    disabled={loadingSections || !sectionOptions.length}
+                                                >
+                                                    <option value="">{loadingSections ? 'Loading sections...' : 'Select Section'}</option>
+                                                    {sectionOptions.map(opt => (
+                                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                                    ))}
+                                                </select>
                                                 {errors.section && (
                                                     <p className="text-red-600 text-sm mt-1">{errors.section}</p>
                                                 )}
