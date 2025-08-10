@@ -797,7 +797,12 @@ class UserController extends Controller
                 'studentProfile.collegeCourse',
                 'studentProfile.classAdviser'
             ])
-            ->whereHas('studentProfile.collegeCourse')
+            // Include students whose academic level is College, even if course is not set yet
+            ->whereHas('studentProfile', function ($q) {
+                $q->whereHas('academicLevel', function ($l) {
+                    $l->where('code', 'COL');
+                });
+            })
             ->orderBy('name')
             ->get();
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { router, useForm } from '@inertiajs/react';
 import AdminLayout from '@/pages/Admin/AdminLayout';
 
@@ -83,6 +83,10 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
     const [editingStudent, setEditingStudent] = useState<Student | null>(null);
     const [studentType, setStudentType] = useState<'k12' | 'college'>('k12');
     const [filteredStrands, setFilteredStrands] = useState<AcademicStrand[]>([]);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [gradeFilter, setGradeFilter] = useState<string>('');
+    const [sectionFilter, setSectionFilter] = useState<string>('');
+    const [courseFilter, setCourseFilter] = useState<string>('');
 
 
     const { data, setData, post, put, processing, errors, reset } = useForm({
@@ -128,7 +132,26 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
                 }
             }
         }
-    }, [academicLevel, academicLevels, academicStrands]);
+        // We intentionally skip including setData in deps to avoid reopening modal loops
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [academicLevel, academicLevels, academicStrands, data.academic_level_id]);
+
+    // Auto-open Add Student modal when ?add=1 is in the URL
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('add') === '1') {
+            // If route pre-filtered by level, ensure the modal defaults match
+            if (academicLevel === 'COL') {
+                setStudentType('college');
+                setData('student_type', 'college');
+            } else if (academicLevel) {
+                const lvl = academicLevels.find(l => l.code === academicLevel);
+                if (lvl) setData('academic_level_id', lvl.id.toString());
+            }
+            setShowCreateModal(true);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const { data: csvData, setData: setCsvData, post: postCsv, processing: csvProcessing, errors: csvErrors, reset: resetCsv } = useForm({
         csv_file: null as File | null,
@@ -184,17 +207,38 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
     };
 
     // Filter students by academic level
-    const getStudentsByLevel = (levelCode: string) => {
+    const getStudentsByLevel = useCallback((levelCode: string) => {
         if (levelCode === 'all') return students;
-        
         if (levelCode === 'COL') {
-            return students.filter(student => student.student_profile?.college_course);
-        } else {
-            return students.filter(student => 
-                student.student_profile?.academic_level?.code === levelCode
-            );
+            return students.filter(student => student.student_profile?.academic_level?.code === 'COL');
         }
-    };
+        return students.filter(student => student.student_profile?.academic_level?.code === levelCode);
+    }, [students]);
+
+    // Derived filtered list with search and filters
+    const filteredStudents = useMemo(() => {
+        const base = getStudentsByLevel(selectedLevel);
+        const q = searchQuery.trim().toLowerCase();
+        return base.filter(s => {
+            const profile = s.student_profile;
+            if (!profile) return false;
+            const matchesQuery = !q || [
+                s.name,
+                s.email,
+                profile.student_id,
+                profile.first_name,
+                profile.last_name,
+                String(profile.grade_level || ''),
+                profile.section || '',
+                profile.college_course?.name || ''
+            ].some(val => (val || '').toLowerCase().includes(q));
+
+            const matchesGrade = !gradeFilter || String(profile.year_level || '').toString() === gradeFilter;
+            const matchesSection = !sectionFilter || (profile.section || '').toLowerCase() === sectionFilter.toLowerCase();
+            const matchesCourse = selectedLevel === 'COL' ? (!courseFilter || String(profile.college_course?.id || '') === courseFilter) : true;
+            return matchesQuery && matchesGrade && matchesSection && matchesCourse;
+        });
+    }, [selectedLevel, searchQuery, gradeFilter, sectionFilter, courseFilter, getStudentsByLevel]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -650,7 +694,7 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
                     </div>
                 </div>
                 
-                {getStudentsByLevel(selectedLevel).length === 0 ? (
+                {filteredStudents.length === 0 ? (
                     <div className="p-6 text-center text-gray-500">
                         {selectedLevel === 'all' ? (
                             'No students found. Use the "Add Student" buttons above to create new students.'
@@ -660,6 +704,71 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
+                        {/* Search & Filters */}
+                        <div className="p-4 flex flex-col md:flex-row md:items-end md:space-x-4 space-y-3 md:space-y-0">
+                            <div className="flex-1">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                                <input
+                                    type="text"
+                                    placeholder="Search by name, email, ID, section, course"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{selectedLevel === 'COL' ? 'Year Level' : 'Grade Level'}</label>
+                                <select
+                                    value={gradeFilter}
+                                    onChange={(e) => setGradeFilter(e.target.value)}
+                                    className="w-40 px-3 py-2 border border-gray-300 rounded-lg"
+                                >
+                                    <option value="">All</option>
+                                    {(selectedLevel === 'COL' ? [1,2,3,4] :
+                                        selectedLevel === 'ELEM' ? [1,2,3,4,5,6] :
+                                        selectedLevel === 'JHS' ? [7,8,9,10] :
+                                        selectedLevel === 'SHS' ? [11,12] : []
+                                    ).map(g => (
+                                        <option key={g} value={String(g)}>{selectedLevel === 'COL' ? `${g} Year` : `Grade ${g}`}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            {selectedLevel !== 'COL' && selectedLevel !== 'all' && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Section</label>
+                                    <input
+                                        type="text"
+                                        value={sectionFilter}
+                                        onChange={(e) => setSectionFilter(e.target.value)}
+                                        placeholder="e.g., A"
+                                        className="w-24 px-3 py-2 border border-gray-300 rounded-lg"
+                                    />
+                                </div>
+                            )}
+                            {selectedLevel === 'COL' && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Course</label>
+                                    <select
+                                        value={courseFilter}
+                                        onChange={(e) => setCourseFilter(e.target.value)}
+                                        className="w-56 px-3 py-2 border border-gray-300 rounded-lg"
+                                    >
+                                        <option value="">All</option>
+                                        {collegeCourses.map(c => (
+                                            <option key={c.id} value={String(c.id)}>{c.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+                            {(searchQuery || gradeFilter || sectionFilter || courseFilter) && (
+                                <button
+                                    onClick={() => { setSearchQuery(''); setGradeFilter(''); setSectionFilter(''); setCourseFilter(''); }}
+                                    className="px-3 py-2 text-sm bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200"
+                                >
+                                    Clear
+                                </button>
+                            )}
+                        </div>
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
@@ -673,7 +782,7 @@ const Students: React.FC<Props> = ({ students, academicLevels, academicStrands, 
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {getStudentsByLevel(selectedLevel).map((student) => (
+                                {filteredStudents.map((student) => (
                                     <tr 
                                         key={student.id} 
                                         className="hover:bg-gray-50 cursor-pointer"
