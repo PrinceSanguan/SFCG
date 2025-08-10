@@ -415,12 +415,14 @@ class HonorCalculationService
      */
     public function getHonorRollByPeriod($academicPeriodId)
     {
-        return StudentHonor::with(['student.studentProfile', 'academicPeriod'])
-            ->where('academic_period_id', $academicPeriodId)
-            ->where('is_approved', true)
-            ->orderBy('gpa', 'desc')
-            ->get()
-            ->groupBy('honor_type');
+        $query = StudentHonor::with(['student.studentProfile', 'academicPeriod'])
+            ->orderBy('gpa', 'desc');
+
+        if ($academicPeriodId) {
+            $query->where('academic_period_id', $academicPeriodId);
+        }
+
+        return $query->get()->groupBy('honor_type');
     }
 
     /**

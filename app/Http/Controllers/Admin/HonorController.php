@@ -36,17 +36,20 @@ class HonorController extends Controller
                                    ->limit(10)
                                    ->get();
 
-        // Get statistics
-        $stats = $this->honorCalculationService->generateHonorStatistics();
+        // Get statistics (scope to selected period if provided)
+        $stats = $this->honorCalculationService->generateHonorStatistics($request->get('academic_period_id'));
 
-        // Get academic periods
-        $academicPeriods = AcademicPeriod::orderBy('name')->get();
+        // Get academic periods with level for clearer UI grouping (avoid duplicate-looking names)
+        $academicPeriods = AcademicPeriod::with('academicLevel')
+            ->orderBy('school_year', 'desc')
+            ->orderBy('name')
+            ->get();
 
         // Get academic levels
         $academicLevels = AcademicLevel::orderBy('name')->get();
 
-        // Get rankings by academic level
-        $rankingsByLevel = $this->getHonorRankingsByLevel();
+        // Get rankings by academic level (respect selected period if provided)
+        $rankingsByLevel = $this->getHonorRankingsByLevel($request->get('academic_period_id'));
 
         // Get the period with the most honor students for default links
         $periodWithMostHonors = StudentHonor::select('academic_period_id')
@@ -79,7 +82,7 @@ class HonorController extends Controller
         ]);
     }
 
-    private function getHonorRankingsByLevel()
+    private function getHonorRankingsByLevel($academicPeriodId = null)
     {
         $rankings = [];
         $academicLevels = AcademicLevel::all();
@@ -90,7 +93,10 @@ class HonorController extends Controller
                     $query->where('academic_level_id', $level->id);
                 })
                 ->where('is_active', true)
-                ->where('is_approved', true)
+                // Show calculated honors regardless of approval so admins can review
+                ->when($academicPeriodId, function ($q) use ($academicPeriodId) {
+                    $q->where('academic_period_id', $academicPeriodId);
+                })
                 ->orderBy('gpa', 'desc')
                 ->orderBy('awarded_date', 'desc')
                 ->limit(10)
@@ -123,42 +129,36 @@ class HonorController extends Controller
     {
         $academicPeriodId = $request->get('academic_period_id');
         $academicLevelId = $request->get('level');
+        $approvedOnly = $request->boolean('approved_only', false);
         
-        if (!$academicPeriodId) {
-            // Try to find the period with the most honor students
-            $periodWithMostHonors = StudentHonor::select('academic_period_id')
-                ->where('is_active', true)
-                ->where('is_approved', true)
-                ->groupBy('academic_period_id')
-                ->orderByRaw('COUNT(*) DESC')
-                ->first();
-            
-            if ($periodWithMostHonors) {
-                $academicPeriodId = $periodWithMostHonors->academic_period_id;
-            } else {
-                // Fallback to active period or most recent
-                $currentPeriod = AcademicPeriod::where('is_active', true)->first();
-                if (!$currentPeriod) {
-                    $currentPeriod = AcademicPeriod::orderBy('created_at', 'desc')->first();
-                }
-                $academicPeriodId = $currentPeriod?->id;
-            }
-        }
+        // If no period selected, we aggregate across all periods
 
         $honorRoll = [];
         $stats = [];
         $selectedLevel = null;
 
+        // If a period is chosen and there are no honors yet for it, compute now for convenience
         if ($academicPeriodId) {
-            $honorRoll = $this->getDetailedHonorRoll($academicPeriodId, $academicLevelId);
-            $stats = $this->honorCalculationService->generateHonorStatistics($academicPeriodId);
-            
-            if ($academicLevelId) {
-                $selectedLevel = AcademicLevel::find($academicLevelId);
+            $existingCount = StudentHonor::where('academic_period_id', $academicPeriodId)->count();
+            if ($existingCount === 0) {
+                $period = AcademicPeriod::find($academicPeriodId);
+                if ($period) {
+                    $this->honorCalculationService->calculateAllStudentHonors($period);
+                }
             }
         }
 
-        $academicPeriods = AcademicPeriod::orderBy('name')->get();
+        // Build honor roll. Null period aggregates across all periods.
+        $honorRoll = $this->getDetailedHonorRoll($academicPeriodId, $academicLevelId, $approvedOnly);
+        $stats = $this->honorCalculationService->generateHonorStatistics($academicPeriodId);
+        if ($academicLevelId) {
+            $selectedLevel = AcademicLevel::find($academicLevelId);
+        }
+
+        $academicPeriods = AcademicPeriod::with('academicLevel')
+            ->orderBy('school_year', 'desc')
+            ->orderBy('name')
+            ->get();
         $academicLevels = AcademicLevel::orderBy('name')->get();
 
         return Inertia::render('Admin/Honors/HonorRoll', [
@@ -168,16 +168,23 @@ class HonorController extends Controller
             'academicLevels' => $academicLevels,
             'selectedPeriodId' => $academicPeriodId,
             'selectedLevelId' => $academicLevelId,
-            'selectedLevel' => $selectedLevel
+            'selectedLevel' => $selectedLevel,
+            'approvedOnly' => $approvedOnly,
         ]);
     }
 
-    private function getDetailedHonorRoll($academicPeriodId, $academicLevelId = null)
+    private function getDetailedHonorRoll($academicPeriodId, $academicLevelId = null, $approvedOnly = false)
     {
         $query = StudentHonor::with(['student.studentProfile.academicLevel', 'honorCriterion', 'academicPeriod'])
-            ->where('academic_period_id', $academicPeriodId)
-            ->where('is_active', true)
-            ->where('is_approved', true);
+            ->where('is_active', true);
+
+        if ($academicPeriodId) {
+            $query->where('academic_period_id', $academicPeriodId);
+        }
+
+        if ($approvedOnly) {
+            $query->where('is_approved', true);
+        }
 
         // Filter by academic level if specified
         if ($academicLevelId) {
@@ -390,7 +397,9 @@ class HonorController extends Controller
                 ['academic_period_id' => $request->academic_period_id, 'students_processed' => $processed]
             );
 
-            return redirect()->back()->with('success', "Honor calculation completed. Processed {$processed} students.");
+            // Redirect back to honors index with the selected period applied as a filter
+            return redirect()->route('admin.honors.index', ['academic_period_id' => $request->academic_period_id])
+                ->with('success', "Honor calculation completed. Processed {$processed} students.");
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Honor calculation failed: ' . $e->getMessage());
         }

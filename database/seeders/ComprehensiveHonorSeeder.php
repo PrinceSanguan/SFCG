@@ -35,6 +35,9 @@ class ComprehensiveHonorSeeder extends Seeder
             
             // 3. Create students with realistic data
             $students = $this->createStudents($academicData);
+
+            // 3.1 Assign class advisers and instructors to sections/courses so UI dropdowns populate
+            $this->seedAssignments($academicData, $subjects, $students);
             
             // 4. Create grades for each student
             $this->createGrades($students, $subjects, $academicData['currentPeriod']);
@@ -65,20 +68,45 @@ class ComprehensiveHonorSeeder extends Seeder
             ['name' => 'Elementary', 'description' => 'Elementary Education', 'is_active' => true]
         );
         
+        $juniorHigh = AcademicLevel::firstOrCreate(
+            ['code' => 'JHS'],
+            ['name' => 'Junior High School', 'description' => 'Junior High Education', 'is_active' => true]
+        );
+
+        $seniorHigh = AcademicLevel::firstOrCreate(
+            ['code' => 'SHS'],
+            ['name' => 'Senior High School', 'description' => 'Senior High Education', 'is_active' => true]
+        );
+
         $college = AcademicLevel::firstOrCreate(
             ['code' => 'COL'],
             ['name' => 'College', 'description' => 'College Education', 'is_active' => true]
         );
 
-        // Create current academic period
+        // Create current academic period (semester for HS/College, quarter for Elem)
         $currentPeriod = AcademicPeriod::firstOrCreate(
             ['school_year' => '2024-2025', 'name' => '1st Semester'],
             [
                 'type' => 'semester',
                 'start_date' => '2024-08-01',
                 'end_date' => '2024-12-20',
-                'is_active' => true
+                'is_active' => true,
+                'academic_level_id' => $college->id,
             ]
+        );
+
+        // Ensure periods exist per level for UI filtering
+        AcademicPeriod::firstOrCreate(
+            ['school_year' => '2024-2025', 'name' => '1st Quarter', 'academic_level_id' => $elementary->id],
+            ['type' => 'quarter', 'start_date' => '2024-06-01', 'end_date' => '2024-08-31', 'is_active' => true]
+        );
+        AcademicPeriod::firstOrCreate(
+            ['school_year' => '2024-2025', 'name' => '1st Quarter', 'academic_level_id' => $juniorHigh->id],
+            ['type' => 'quarter', 'start_date' => '2024-06-01', 'end_date' => '2024-08-31', 'is_active' => true]
+        );
+        AcademicPeriod::firstOrCreate(
+            ['school_year' => '2024-2025', 'name' => '1st Semester', 'academic_level_id' => $seniorHigh->id],
+            ['type' => 'semester', 'start_date' => '2024-06-01', 'end_date' => '2024-10-31', 'is_active' => true]
         );
 
         // Create college course
@@ -95,6 +123,8 @@ class ComprehensiveHonorSeeder extends Seeder
 
         return [
             'elementary' => $elementary,
+            'juniorHigh' => $juniorHigh,
+            'seniorHigh' => $seniorHigh,
             'college' => $college,
             'currentPeriod' => $currentPeriod,
             'collegeCourse' => $collegeCourse
@@ -121,6 +151,43 @@ class ComprehensiveHonorSeeder extends Seeder
             ], [
                 'name' => $subjectData['name'],
                 'description' => $subjectData['name'] . ' for Elementary',
+                'units' => 1,
+                'is_active' => true,
+            ]);
+        }
+
+        // JHS subjects (basic for demo)
+        $jhsSubjects = [
+            ['name' => 'Mathematics', 'code' => 'MATH_JHS_SEED'],
+            ['name' => 'Science', 'code' => 'SCI_JHS_SEED'],
+            ['name' => 'English', 'code' => 'ENG_JHS_SEED'],
+        ];
+
+        foreach ($jhsSubjects as $subjectData) {
+            $subjects['jhs'][] = Subject::firstOrCreate([
+                'code' => $subjectData['code'],
+                'academic_level_id' => $academicData['juniorHigh']->id,
+            ], [
+                'name' => $subjectData['name'],
+                'description' => $subjectData['name'] . ' for Junior High',
+                'units' => 1,
+                'is_active' => true,
+            ]);
+        }
+
+        // SHS subjects (core only for demo)
+        $shsSubjects = [
+            ['name' => 'General Mathematics', 'code' => 'GENM_SHS_SEED'],
+            ['name' => 'Oral Communication', 'code' => 'ORAL_SHS_SEED'],
+        ];
+
+        foreach ($shsSubjects as $subjectData) {
+            $subjects['shs'][] = Subject::firstOrCreate([
+                'code' => $subjectData['code'],
+                'academic_level_id' => $academicData['seniorHigh']->id,
+            ], [
+                'name' => $subjectData['name'],
+                'description' => $subjectData['name'] . ' for Senior High',
                 'units' => 1,
                 'is_active' => true,
             ]);
@@ -154,7 +221,7 @@ class ComprehensiveHonorSeeder extends Seeder
 
         $students = [];
 
-        // Define student scenarios for each honor type
+        // Define student scenarios for each honor type across levels (incl. Magna)
         $studentScenarios = [
             [
                 'name' => 'Maria Santos',
@@ -163,6 +230,22 @@ class ComprehensiveHonorSeeder extends Seeder
                 'grade_level' => 'Grade 6',
                 'expected_honor' => 'With Highest Honors',
                 'target_grades' => [98, 99, 97] // GPA: 98.0, no grade < 93
+            ],
+            [
+                'name' => 'Jose Cruz',
+                'email' => 'jose.cruz@student.sfcg.edu.ph',
+                'academic_level' => $academicData['juniorHigh'],
+                'grade_level' => 'Grade 10',
+                'expected_honor' => 'With High Honors',
+                'target_grades' => [96, 95, 97] // GPA 96.x, none < 90
+            ],
+            [
+                'name' => 'Andrea Reyes',
+                'email' => 'andrea.reyes@student.sfcg.edu.ph',
+                'academic_level' => $academicData['seniorHigh'],
+                'grade_level' => 'Grade 12',
+                'expected_honor' => 'With Honors',
+                'target_grades' => [92, 90, 91]
             ],
             [
                 'name' => 'Carlos Mendoza',
@@ -221,6 +304,8 @@ class ComprehensiveHonorSeeder extends Seeder
                 'grade_level' => $scenario['grade_level'],
                 'enrollment_status' => 'active',
                 'college_course_id' => $scenario['academic_level']->name === 'College' ? $academicData['collegeCourse']->id : null,
+                'section' => $scenario['academic_level']->name === 'College' ? null : 'Section ' . chr(64 + rand(1,3)),
+                'year_level' => $scenario['academic_level']->name === 'College' ? (int) filter_var($scenario['grade_level'], FILTER_SANITIZE_NUMBER_INT) : (int) filter_var($scenario['grade_level'], FILTER_SANITIZE_NUMBER_INT),
             ]);
 
             $students[] = [
@@ -257,6 +342,10 @@ class ComprehensiveHonorSeeder extends Seeder
             $levelSubjects = [];
             if ($academicLevel->name === 'Elementary') {
                 $levelSubjects = $subjects['elementary'];
+            } elseif ($academicLevel->name === 'Junior High School') {
+                $levelSubjects = $subjects['jhs'];
+            } elseif ($academicLevel->name === 'Senior High School') {
+                $levelSubjects = $subjects['shs'];
             } elseif ($academicLevel->name === 'College') {
                 $levelSubjects = $subjects['college'];
             }
@@ -273,8 +362,48 @@ class ComprehensiveHonorSeeder extends Seeder
                     'final_grade' => $targetGrade,
                     'overall_grade' => $targetGrade,
                     'status' => 'finalized',
+                    'section' => $studentData['profile']->section ?? null,
                 ]);
             }
+        }
+    }
+
+    private function seedAssignments($academicData, $subjects, $students)
+    {
+        // Create one adviser per K-10 level to connect section dropdowns
+        $adviser = User::firstOrCreate(
+            ['email' => 'seed.adviser@sfcg.edu.ph'],
+            ['name' => 'Seed Adviser', 'password' => Hash::make('password123'), 'user_role' => 'class_adviser']
+        );
+
+        $period = AcademicPeriod::where('school_year', '2024-2025')->first();
+
+        foreach (['elementary' => 6, 'jhs' => 10] as $group => $max) {
+            for ($g = $group === 'elementary' ? 1 : 7; $g <= $max; $g++) {
+                \App\Models\ClassAdviserAssignment::firstOrCreate([
+                    'adviser_id' => $adviser->id,
+                    'academic_level_id' => $group === 'elementary' ? $academicData['elementary']->id : $academicData['juniorHigh']->id,
+                    'academic_period_id' => $period?->id,
+                    'year_level' => $g,
+                    'section' => 'Section A',
+                ], ['is_active' => true]);
+            }
+        }
+
+        // Create one instructor assignment per sample college subject/year
+        $instructor = User::firstOrCreate(
+            ['email' => 'seed.instructor@sfcg.edu.ph'],
+            ['name' => 'Seed Instructor', 'password' => Hash::make('password123'), 'user_role' => 'instructor']
+        );
+
+        foreach ($subjects['college'] as $subject) {
+            \App\Models\InstructorSubjectAssignment::firstOrCreate([
+                'instructor_id' => $instructor->id,
+                'subject_id' => $subject->id,
+                'academic_period_id' => $period?->id,
+                'year_level' => rand(1,4),
+                'semester' => rand(1,2),
+            ], ['is_active' => true]);
         }
     }
 

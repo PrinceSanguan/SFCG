@@ -16,14 +16,23 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Run Account Seeder to create initial user accounts
+            // Core accounts
         $this->call(AccountSeeder::class);
-        
-        // Seed Academic Levels if they don't exist
-        $this->seedAcademicLevels();
-        
-        // Seed some test students
-        $this->seedTestStudents();
+
+        // Foundational academic data (levels and periods)
+        $this->call(AcademicPeriodSeeder::class);
+
+        // Subjects, strands, courses, educators and assignments
+        $this->call(EducatorsAndSubjectsSeeder::class);
+
+        // Honor criteria per level
+        $this->call(HonorSystemSeeder::class);
+
+        // Realistic honor scenarios with students and grades
+        $this->call(ComprehensiveHonorSeeder::class);
+
+        // Optional: demo-only console output for honors (no DB writes)
+        // $this->call(HonorSystemDemoSeeder::class);
     }
     
     public function seedAcademicLevels()

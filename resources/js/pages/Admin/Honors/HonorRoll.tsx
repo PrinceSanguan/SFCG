@@ -26,6 +26,8 @@ interface LevelHonorRoll {
 interface AcademicPeriod {
     id: number;
     name: string;
+    school_year?: string;
+    academicLevel?: { id: number; name: string; code: string } | null;
 }
 
 interface AcademicLevel {
@@ -48,6 +50,7 @@ interface Props {
     selectedPeriodId?: number;
     selectedLevelId?: number;
     selectedLevel?: AcademicLevel;
+    approvedOnly?: boolean;
 }
 
 const HonorRoll: React.FC<Props> = ({ 
@@ -57,10 +60,12 @@ const HonorRoll: React.FC<Props> = ({
     academicLevels, 
     selectedPeriodId, 
     selectedLevelId, 
-    selectedLevel 
+    selectedLevel, 
+    approvedOnly,
 }) => {
     const [selectedPeriod, setSelectedPeriod] = useState(selectedPeriodId?.toString() || '');
     const [selectedAcademicLevel, setSelectedAcademicLevel] = useState(selectedLevelId?.toString() || '');
+    const [onlyApproved, setOnlyApproved] = useState(approvedOnly ?? false);
 
     // Helper function to safely format GPA values
     const formatGPA = (gpa: any): string => {
@@ -101,6 +106,7 @@ const HonorRoll: React.FC<Props> = ({
         const params = new URLSearchParams();
         if (selectedPeriod) params.set('academic_period_id', selectedPeriod);
         if (selectedAcademicLevel) params.set('level', selectedAcademicLevel);
+        if (onlyApproved) params.set('approved_only', '1');
         
         router.get('/admin/honors/roll', Object.fromEntries(params));
     };
@@ -146,33 +152,17 @@ const HonorRoll: React.FC<Props> = ({
                                 className="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm min-w-[180px]"
                             >
                                 <option value="">📅 All Academic Periods</option>
-                                <optgroup label="📚 Semesters">
-                                    {academicPeriods
-                                        .filter(period => period.name.includes('Semester'))
-                                        .map((period) => (
-                                            <option key={period.id} value={period.id}>
-                                                {period.name}
-                                            </option>
-                                        ))}
-                                </optgroup>
-                                <optgroup label="📖 Quarters">
-                                    {academicPeriods
-                                        .filter(period => period.name.includes('Quarter'))
-                                        .map((period) => (
-                                            <option key={period.id} value={period.id}>
-                                                {period.name}
-                                            </option>
-                                        ))}
-                                </optgroup>
-                                <optgroup label="☀️ Special Periods">
-                                    {academicPeriods
-                                        .filter(period => !period.name.includes('Quarter') && !period.name.includes('Semester'))
-                                        .map((period) => (
-                                            <option key={period.id} value={period.id}>
-                                                {period.name}
-                                            </option>
-                                        ))}
-                                </optgroup>
+                                {['Elementary','Junior High School','Senior High School','College'].map((lvl) => (
+                                    <optgroup key={lvl} label={lvl}>
+                                        {academicPeriods
+                                            .filter(p => (p.academicLevel?.name ?? '') === lvl)
+                                            .map((period) => (
+                                                <option key={period.id} value={period.id}>
+                                                    {period.name} • {period.school_year}
+                                                </option>
+                                            ))}
+                                    </optgroup>
+                                ))}
                             </select>
                         </div>
                         
@@ -208,13 +198,19 @@ const HonorRoll: React.FC<Props> = ({
                             </select>
                         </div>
                         
-                        <button
+                        <div className="flex items-center gap-3">
+                            <label className="flex items-center gap-2 text-sm text-gray-700">
+                                <input type="checkbox" checked={onlyApproved} onChange={(e) => setOnlyApproved(e.target.checked)} />
+                                Only approved honors
+                            </label>
+                            <button
                             onClick={handleFilterChange}
                             className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm flex items-center gap-2"
                         >
                             <span>🔍</span>
                             <span>Apply Filters</span>
-                        </button>
+                            </button>
+                        </div>
                     </div>
                 </div>
 

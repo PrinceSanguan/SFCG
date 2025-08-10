@@ -37,6 +37,8 @@ interface RecentHonor {
 interface AcademicPeriod {
     id: number;
     name: string;
+    school_year?: string;
+    academicLevel?: { id: number; name: string; code: string } | null;
 }
 
 interface AcademicLevel {
@@ -84,7 +86,7 @@ interface Props {
     currentPeriodId?: number;
 }
 
-const HonorsIndex: React.FC<Props> = ({ honorCriteria, recentHonors, stats, academicPeriods, academicLevels, rankingsByLevel, currentPeriodId }) => {
+const HonorsIndex: React.FC<Props> = ({ honorCriteria, recentHonors, stats, academicPeriods, academicLevels, rankingsByLevel }) => {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [editingCriterion, setEditingCriterion] = useState<HonorCriterion | null>(null);
     const [selectedPeriod, setSelectedPeriod] = useState('');
@@ -222,7 +224,7 @@ const HonorsIndex: React.FC<Props> = ({ honorCriteria, recentHonors, stats, acad
 
                 {/* Action Button */}
                 <Link
-                    href={`/admin/honors/roll?level=${ranking.level_id}${currentPeriodId ? `&academic_period_id=${currentPeriodId}` : ''}`}
+                    href={`/admin/honors/roll?level=${ranking.level_id}`}
                     className={`block w-full text-center py-3 px-4 rounded-lg font-medium text-sm bg-gradient-to-r ${config.bgColor} text-white hover:opacity-90 transition-opacity duration-200`}
                 >
                     View Full {levelName} Rankings
@@ -453,33 +455,17 @@ const HonorsIndex: React.FC<Props> = ({ honorCriteria, recentHonors, stats, acad
                                             className="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm min-w-[200px]"
                                         >
                                             <option value="">All Academic Periods</option>
-                                            <optgroup label="Semesters">
-                                                {academicPeriods
-                                                    .filter(period => period.name.includes('Semester'))
-                                                    .map((period) => (
-                                                        <option key={period.id} value={period.id}>
-                                                            {period.name}
-                                                        </option>
-                                                    ))}
-                                            </optgroup>
-                                            <optgroup label="Quarters">
-                                                {academicPeriods
-                                                    .filter(period => period.name.includes('Quarter'))
-                                                    .map((period) => (
-                                                        <option key={period.id} value={period.id}>
-                                                            {period.name}
-                                                        </option>
-                                                    ))}
-                                            </optgroup>
-                                            <optgroup label="Special Periods">
-                                                {academicPeriods
-                                                    .filter(period => !period.name.includes('Quarter') && !period.name.includes('Semester'))
-                                                    .map((period) => (
-                                                        <option key={period.id} value={period.id}>
-                                                            {period.name}
-                                                        </option>
-                                                    ))}
-                                            </optgroup>
+                                            {['Elementary','Junior High School','Senior High School','College'].map((lvl) => (
+                                                <optgroup key={lvl} label={lvl}>
+                                                    {academicPeriods
+                                                        .filter(p => (p.academicLevel?.name ?? '') === lvl)
+                                                        .map((period) => (
+                                                            <option key={period.id} value={period.id}>
+                                                                {period.name} • {period.school_year}
+                                                            </option>
+                                                        ))}
+                                                </optgroup>
+                                            ))}
                                         </select>
                                     </div>
                                     <button
