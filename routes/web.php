@@ -663,6 +663,7 @@ Route::middleware([RegistrarMiddleware::class])->group(function () {
 
   // 2.5. Reports and Archiving
   Route::get('registrar/reports', [RegistrarController::class, 'reports'])->name('registrar.reports.index');
+  Route::get('registrar/reports/generate', [RegistrarController::class, 'generateReport'])->name('registrar.reports.generate.get');
   Route::post('registrar/reports/generate', [RegistrarController::class, 'generateReport'])->name('registrar.reports.generate');
   Route::get('registrar/reports/export', [RegistrarController::class, 'export'])->name('registrar.reports.export');
 });

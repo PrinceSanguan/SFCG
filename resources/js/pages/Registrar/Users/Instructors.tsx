@@ -6,11 +6,12 @@ interface Instructor {
     id: number;
     name: string;
     email: string;
-    contact_number?: string;
-    department?: string;
-    specialization?: string;
-    is_active: boolean;
     created_at: string;
+    subject_assignments?: Array<{
+        id: number;
+        subject: { name: string; code: string };
+        academic_period: { name: string; school_year: string };
+    }>;
 }
 
 interface Props {
@@ -56,10 +57,7 @@ const Instructors: React.FC<Props> = ({ instructors }) => {
     const handleEdit = (instructor: Instructor) => {
         setData('name', instructor.name);
         setData('email', instructor.email);
-        setData('contact_number', instructor.contact_number || '');
-        setData('department', instructor.department || '');
-        setData('specialization', instructor.specialization || '');
-        setData('is_active', instructor.is_active);
+        // keep only supported fields
         setEditingInstructor(instructor);
     };
 
@@ -75,11 +73,14 @@ const Instructors: React.FC<Props> = ({ instructors }) => {
         reset();
     };
 
-    const filteredInstructors = instructors.filter(instructor =>
-        instructor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        instructor.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (instructor.department && instructor.department.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    const filteredInstructors = instructors.filter((instructor) => {
+        const q = searchTerm.trim().toLowerCase();
+        if (!q) return true;
+        return (
+            instructor.name.toLowerCase().includes(q) ||
+            instructor.email.toLowerCase().includes(q)
+        );
+    });
 
     return (
         <RegistrarLayout>
@@ -128,11 +129,10 @@ const Instructors: React.FC<Props> = ({ instructors }) => {
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Instructor</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Specialization</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject Assignments</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Joined</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
@@ -140,47 +140,42 @@ const Instructors: React.FC<Props> = ({ instructors }) => {
                                 {filteredInstructors.map((instructor) => (
                                     <tr key={instructor.id} className="hover:bg-gray-50">
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm font-medium text-gray-900">{instructor.name}</div>
-                                            <div className="text-xs text-gray-500">{instructor.email}</div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm text-gray-900">
-                                                {instructor.contact_number || 'N/A'}
+                                            <div className="flex items-center">
+                                                <div className="flex-shrink-0 h-10 w-10">
+                                                    <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                                        <span className="text-sm font-medium text-blue-600">{instructor.name.charAt(0).toUpperCase()}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="ml-4">
+                                                    <div className="text-sm font-medium text-gray-900">{instructor.name}</div>
+                                                </div>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm text-gray-900">
-                                                {instructor.department || 'N/A'}
-                                            </div>
+                                            <div className="text-sm text-gray-900">{instructor.email}</div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm text-gray-900">
-                                                {instructor.specialization || 'N/A'}
-                                            </div>
+                                        <td className="px-6 py-4">
+                                            {instructor.subject_assignments && instructor.subject_assignments.length > 0 ? (
+                                                <div className="space-y-1">
+                                                    {instructor.subject_assignments.slice(0, 2).map((assignment, index) => (
+                                                        <div key={index} className="text-sm text-gray-900">
+                                                            {assignment.subject.name} ({assignment.subject.code})
+                                                            <span className="text-xs text-gray-500 ml-1">- {assignment.academic_period.name} {assignment.academic_period.school_year}</span>
+                                                        </div>
+                                                    ))}
+                                                    {instructor.subject_assignments.length > 2 && (
+                                                        <div className="text-xs text-gray-500">+{instructor.subject_assignments.length - 2} more</div>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <span className="text-sm text-gray-500">No assignments</span>
+                                            )}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                                instructor.is_active
-                                                    ? 'bg-green-100 text-green-800' 
-                                                    : 'bg-red-100 text-red-800'
-                                            }`}>
-                                                {instructor.is_active ? 'Active' : 'Inactive'}
-                                            </span>
-                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(instructor.created_at).toLocaleDateString()}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                             <div className="flex space-x-2">
-                                                <button
-                                                    onClick={() => handleEdit(instructor)}
-                                                    className="text-indigo-600 hover:text-indigo-900"
-                                                >
-                                                    Edit
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(instructor)}
-                                                    className="text-red-600 hover:text-red-900"
-                                                >
-                                                    Delete
-                                                </button>
+                                                <button onClick={() => handleEdit(instructor)} className="text-indigo-600 hover:text-indigo-900">Edit</button>
+                                                <button onClick={() => handleDelete(instructor)} className="text-red-600 hover:text-red-900">Delete</button>
                                             </div>
                                         </td>
                                     </tr>
@@ -245,59 +240,7 @@ const Instructors: React.FC<Props> = ({ instructors }) => {
                                     </div>
                                 )}
 
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Contact Number
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={data.contact_number}
-                                        onChange={(e) => setData('contact_number', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
-                                    {errors.contact_number && <p className="text-red-500 text-xs mt-1">{errors.contact_number}</p>}
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Department
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={data.department}
-                                        onChange={(e) => setData('department', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
-                                    {errors.department && <p className="text-red-500 text-xs mt-1">{errors.department}</p>}
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Specialization
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={data.specialization}
-                                        onChange={(e) => setData('specialization', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
-                                    {errors.specialization && <p className="text-red-500 text-xs mt-1">{errors.specialization}</p>}
-                                </div>
-
-                                {editingInstructor && (
-                                    <div className="flex items-center">
-                                        <input
-                                            type="checkbox"
-                                            id="is_active"
-                                            checked={data.is_active}
-                                            onChange={(e) => setData('is_active', e.target.checked)}
-                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                        />
-                                        <label htmlFor="is_active" className="ml-2 block text-sm text-gray-900">
-                                            Active
-                                        </label>
-                                    </div>
-                                )}
+                                {/* Admin-like simplified form: only name, email, password */}
 
                                 <div className="flex justify-end space-x-3 pt-4">
                                     <button

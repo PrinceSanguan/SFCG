@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Head, router, useForm } from '@inertiajs/react';
 import RegistrarLayout from '@/pages/Registrar/RegistrarLayout';
 
@@ -82,6 +82,10 @@ const StudentsIndex: React.FC<Props> = ({ students, academicLevels, academicStra
     const [editingStudent, setEditingStudent] = useState<Student | null>(null);
     const [studentType, setStudentType] = useState<'k12' | 'college'>('k12');
     const [filteredStrands, setFilteredStrands] = useState<AcademicStrand[]>([]);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [gradeFilter, setGradeFilter] = useState<string>('');
+    const [sectionFilter, setSectionFilter] = useState<string>('');
+    const [courseFilter, setCourseFilter] = useState<string>('');
 
     const { data, setData, post, put, processing, errors, reset } = useForm({
         name: '',
@@ -112,18 +116,102 @@ const StudentsIndex: React.FC<Props> = ({ students, academicLevels, academicStra
         academic_level: '',
     });
 
-    // Filter students by academic level
-    const getStudentsByLevel = (levelCode: string) => {
-        if (levelCode === 'all') return students;
-        
-        if (levelCode === 'COL') {
-            return students.filter(student => student.student_profile?.college_course);
-        } else {
-            return students.filter(student => 
-                student.student_profile?.academic_level?.code === levelCode
-            );
+    // Helper functions for dynamic sections and grades (mirror Admin behavior)
+    const [sectionOptions, setSectionOptions] = useState<string[]>([]);
+    const getSelectedLevel = useCallback(() => {
+        return academicLevels.find(level => level.id.toString() === data.academic_level_id);
+    }, [academicLevels, data.academic_level_id]);
+
+    const getGradeLevelsForAcademicLevel = () => {
+        const selected = getSelectedLevel();
+        if (!selected) return [1,2,3,4,5,6,7,8,9,10,11,12];
+        switch (selected.code) {
+            case 'ELEM': return [1,2,3,4,5,6];
+            case 'JHS': return [7,8,9,10];
+            case 'SHS': return [11,12];
+            default: return [1,2,3,4,5,6,7,8,9,10,11,12];
         }
     };
+
+    const computeGradeLevelLabel = (levelCode: string | undefined, yearValue: string | number): string => {
+        const y = typeof yearValue === 'string' ? parseInt(yearValue, 10) : yearValue;
+        if (!levelCode) {
+            if (!isNaN(y as number)) return `Grade ${y}`;
+            return '';
+        }
+        if (levelCode === 'COL') {
+            const n = Number(y);
+            if (n === 1) return '1st Year';
+            if (n === 2) return '2nd Year';
+            if (n === 3) return '3rd Year';
+            if (n >= 4) return `${n}th Year`;
+            return '';
+        }
+        return `Grade ${y}`;
+    };
+
+    // Dynamic sections fetch
+    useEffect(() => {
+        const selected = getSelectedLevel();
+        const year = data.year_level;
+        if (!selected || !year) {
+            setSectionOptions([]);
+            return;
+        }
+        const levelCode = selected.code;
+        const params = new URLSearchParams();
+        params.set('level', levelCode);
+        params.set('year', String(year));
+        const maybeData = data as unknown as { college_course_id?: string | number };
+        if (levelCode === 'COL' && maybeData.college_course_id) {
+            params.set('course_id', String(maybeData.college_course_id));
+        }
+        fetch(`/admin/api/sections-by-level-year?${params.toString()}`)
+            .then(res => res.json())
+            .then((json: { sections?: Array<{ value: string; label: string }> }) => {
+                const items = (json?.sections || []).map((s) => s.value);
+                setSectionOptions(items.filter(Boolean));
+            })
+            .catch(() => setSectionOptions([]));
+    }, [data, getSelectedLevel]);
+
+    const getSectionsForLevel = () => {
+        return sectionOptions.length ? sectionOptions : ['Section A','Section B','Section C','Section D','Section E','Section F'];
+    };
+
+    // Filter students by academic level
+    const getStudentsByLevel = useCallback((levelCode: string) => {
+        if (levelCode === 'all') return students;
+        if (levelCode === 'COL') {
+            return students.filter(student => student.student_profile?.academic_level?.code === 'COL');
+        }
+        return students.filter(student => student.student_profile?.academic_level?.code === levelCode);
+    }, [students]);
+
+    // Derived filtered list with search and filters (mirror Admin)
+    const filteredStudents = useMemo(() => {
+        const base = getStudentsByLevel(selectedLevel);
+        const q = searchQuery.trim().toLowerCase();
+        return base.filter(s => {
+            const profile = s.student_profile;
+            if (!profile) return false;
+            const matchesQuery = !q || [
+                s.name,
+                s.email,
+                profile.student_id,
+                profile.first_name,
+                profile.last_name,
+                String(profile.grade_level || ''),
+                profile.section || '',
+                profile.college_course?.name || ''
+            ].some(val => (val || '').toLowerCase().includes(q));
+
+            const matchesGrade = !gradeFilter || String(profile.year_level || '').toString() === gradeFilter;
+            const matchesSection = !sectionFilter || (profile.section || '').toLowerCase() === sectionFilter.toLowerCase();
+            const matchesCourse = selectedLevel === 'COL' ? (!courseFilter || String(profile.college_course?.id || '') === courseFilter) : true;
+            return matchesQuery && matchesGrade && matchesSection && matchesCourse;
+        });
+    }, [selectedLevel, searchQuery, gradeFilter, sectionFilter, courseFilter, getStudentsByLevel]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -281,11 +369,12 @@ const StudentsIndex: React.FC<Props> = ({ students, academicLevels, academicStra
     const getStudentInfo = (student: Student) => {
         const profile = student.student_profile;
         if (!profile) return 'No profile';
-        
         if (profile.college_course) {
-            return `${profile.college_course.name} - Year ${profile.year_level || 'N/A'}`;
+            return `${profile.college_course.name} - ${profile.grade_level}`;
         } else {
-            return `${profile.academic_level?.name || 'N/A'} - ${profile.grade_level || 'N/A'}`;
+            const strand = profile.academic_strand ? ` - ${profile.academic_strand.name}` : '';
+            const section = profile.section ? ` - ${profile.section}` : '';
+            return `${profile.academic_level?.name}${strand}${section}`;
         }
     };
 
@@ -572,7 +661,7 @@ const StudentsIndex: React.FC<Props> = ({ students, academicLevels, academicStra
                     </div>
                 </div>
                 
-                {getStudentsByLevel(selectedLevel).length === 0 ? (
+                {filteredStudents.length === 0 ? (
                     <div className="p-6 text-center text-gray-500">
                         {selectedLevel === 'all' ? (
                             'No students found. Use the "Add Student" buttons above to create new students.'
@@ -582,33 +671,105 @@ const StudentsIndex: React.FC<Props> = ({ students, academicLevels, academicStra
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
+                        {/* Search & Filters (mirror Admin) */}
+                        <div className="p-4 flex flex-col md:flex-row md:items-end md:space-x-4 space-y-3 md:space-y-0">
+                            <div className="flex-1">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                                <input
+                                    type="text"
+                                    placeholder="Search by name, email, ID, section, course"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{selectedLevel === 'COL' ? 'Year Level' : 'Grade Level'}</label>
+                                <select
+                                    value={gradeFilter}
+                                    onChange={(e) => setGradeFilter(e.target.value)}
+                                    className="w-40 px-3 py-2 border border-gray-300 rounded-lg"
+                                >
+                                    <option value="">All</option>
+                                    {(selectedLevel === 'COL' ? [1,2,3,4] :
+                                        selectedLevel === 'ELEM' ? [1,2,3,4,5,6] :
+                                        selectedLevel === 'JHS' ? [7,8,9,10] :
+                                        selectedLevel === 'SHS' ? [11,12] : []
+                                    ).map(g => (
+                                        <option key={g} value={String(g)}>{selectedLevel === 'COL' ? `${g} Year` : `Grade ${g}`}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            {selectedLevel !== 'COL' && selectedLevel !== 'all' && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Section</label>
+                                    <input
+                                        type="text"
+                                        value={sectionFilter}
+                                        onChange={(e) => setSectionFilter(e.target.value)}
+                                        placeholder="e.g., A"
+                                        className="w-24 px-3 py-2 border border-gray-300 rounded-lg"
+                                    />
+                                </div>
+                            )}
+                            {selectedLevel === 'COL' && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Course</label>
+                                    <select
+                                        value={courseFilter}
+                                        onChange={(e) => setCourseFilter(e.target.value)}
+                                        className="w-56 px-3 py-2 border border-gray-300 rounded-lg"
+                                    >
+                                        <option value="">All</option>
+                                        {collegeCourses.map(c => (
+                                            <option key={c.id} value={String(c.id)}>{c.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+                            {(searchQuery || gradeFilter || sectionFilter || courseFilter) && (
+                                <button
+                                    onClick={() => { setSearchQuery(''); setGradeFilter(''); setSectionFilter(''); setCourseFilter(''); }}
+                                    className="px-3 py-2 text-sm bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200"
+                                >
+                                    Clear
+                                </button>
+                            )}
+                        </div>
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student ID</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Program/Level</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Academic Info</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class Adviser</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {getStudentsByLevel(selectedLevel).map((student) => (
+                                {filteredStudents.map((student) => (
                                     <tr 
                                         key={student.id} 
                                         className="hover:bg-gray-50 cursor-pointer"
                                         onClick={() => openStudentDetailModal(student)}
                                     >
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm font-medium text-gray-900">{student.name}</div>
-                                            <div className="text-xs text-gray-500">{student.email}</div>
+                                            <div className="flex items-center">
+                                                <div className="flex-shrink-0 h-10 w-10">
+                                                    <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
+                                                        <span className="text-sm font-medium text-green-600">{student.name.charAt(0).toUpperCase()}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="ml-4">
+                                                    <div className="text-sm font-medium text-gray-900">{student.name}</div>
+                                                    <div className="text-sm text-gray-500">{student.email}</div>
+                                                </div>
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                {student.student_profile?.student_id || 'N/A'}
-                                            </span>
+                                            <div className="text-sm text-gray-900">{student.student_profile?.student_id || 'N/A'}</div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -625,22 +786,26 @@ const StudentsIndex: React.FC<Props> = ({ students, academicLevels, academicStra
                                                 {getStudentType(student)}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-6 py-4">
                                             <div className="text-sm text-gray-900">{getStudentInfo(student)}</div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm text-gray-900">
-                                                {student.student_profile?.contact_number || 'N/A'}
-                                            </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                                                 student.student_profile?.enrollment_status === 'active'
-                                                    ? 'bg-green-100 text-green-800' 
+                                                    ? 'bg-green-100 text-green-800'
+                                                    : student.student_profile?.enrollment_status === 'inactive'
+                                                    ? 'bg-yellow-100 text-yellow-800'
+                                                    : student.student_profile?.enrollment_status === 'graduated'
+                                                    ? 'bg-blue-100 text-blue-800'
                                                     : 'bg-red-100 text-red-800'
                                             }`}>
-                                                {student.student_profile?.enrollment_status || 'Unknown'}
+                                                {student.student_profile?.enrollment_status?.toUpperCase() || 'UNKNOWN'}
                                             </span>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="text-sm text-gray-900">
+                                                {student.student_profile?.class_adviser?.name || 'Not assigned'}
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                             <div className="flex space-x-2">
@@ -890,20 +1055,30 @@ const StudentsIndex: React.FC<Props> = ({ students, academicLevels, academicStra
                                                 {errors.academic_level_id && <p className="text-red-500 text-xs mt-1">{errors.academic_level_id}</p>}
                                             </div>
 
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                    Grade Level
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={data.grade_level}
-                                                    onChange={(e) => setData('grade_level', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                    placeholder="e.g., Grade 7, Grade 11"
-                                                    required
-                                                />
-                                                {errors.grade_level && <p className="text-red-500 text-xs mt-1">{errors.grade_level}</p>}
-                                            </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Grade Level
+                                        </label>
+                                        <select
+                                            value={data.year_level}
+                                            onChange={(e) => {
+                                                setData('year_level', e.target.value);
+                                                const lvl = getSelectedLevel();
+                                                setData('grade_level', computeGradeLevelLabel(lvl?.code, e.target.value));
+                                            }}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            required
+                                            disabled={!data.academic_level_id}
+                                        >
+                                            <option value="">Select Grade Level</option>
+                                            {getGradeLevelsForAcademicLevel().map((grade: number) => (
+                                                <option key={grade} value={grade}>
+                                                    Grade {grade}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {errors.year_level && <p className="text-red-500 text-xs mt-1">{errors.year_level}</p>}
+                                    </div>
                                         </div>
 
                                         {filteredStrands.length > 0 && (
@@ -932,13 +1107,18 @@ const StudentsIndex: React.FC<Props> = ({ students, academicLevels, academicStra
                                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                                     Section
                                                 </label>
-                                                <input
-                                                    type="text"
+                                                <select
                                                     value={data.section}
                                                     onChange={(e) => setData('section', e.target.value)}
                                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                    placeholder="e.g., Section A"
-                                                />
+                                                >
+                                                    <option value="">Select Section</option>
+                                                    {getSectionsForLevel().map((section) => (
+                                                        <option key={section} value={section}>
+                                                            {section}
+                                                        </option>
+                                                    ))}
+                                                </select>
                                                 {errors.section && <p className="text-red-500 text-xs mt-1">{errors.section}</p>}
                                             </div>
 
@@ -1046,7 +1226,7 @@ const StudentsIndex: React.FC<Props> = ({ students, academicLevels, academicStra
                                         <option value="active">Active</option>
                                         <option value="inactive">Inactive</option>
                                         <option value="graduated">Graduated</option>
-                                        <option value="transferred">Transferred</option>
+                                        <option value="dropped">Dropped</option>
                                     </select>
                                     {errors.enrollment_status && <p className="text-red-500 text-xs mt-1">{errors.enrollment_status}</p>}
                                 </div>

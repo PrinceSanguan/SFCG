@@ -351,7 +351,7 @@ const HonorsIndex: React.FC<Props> = ({
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {honor.gpa.toFixed(2)}
+                                            {Number.isFinite(Number(honor.gpa)) ? Number(honor.gpa).toFixed(2) : '0.00'}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                             {new Date(honor.awarded_date).toLocaleDateString()}

@@ -85,7 +85,7 @@ class RegistrarController extends Controller
         ]);
 
         $user = Auth::user();
-        if ($user) {
+        if ($user instanceof User) {
             $user->update($request->only(['name', 'email']));
         }
 
@@ -100,7 +100,7 @@ class RegistrarController extends Controller
         ]);
 
         $user = Auth::user();
-        if ($user) {
+        if ($user instanceof User) {
             $user->update([
                 'password' => Hash::make($request->password),
             ]);
@@ -259,34 +259,102 @@ class RegistrarController extends Controller
 
     public function updateStudent(Request $request, User $student)
     {
-        $request->validate([
+        $rules = [
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,' . $student->id,
-            'student_id' => 'required|string|max:50',
-            'grade_level' => 'required|string|max:50',
-            'section' => 'required|string|max:50',
-            'academic_level_id' => 'required|exists:academic_levels,id',
-            'college_course_id' => 'nullable|exists:college_courses,id',
-            'academic_strand_id' => 'nullable|exists:academic_strands,id',
-        ]);
+            'password' => 'nullable|string|min:8',
+            'student_id' => 'required|string|unique:student_profiles,student_id,' . ($student->studentProfile->id ?? 0),
+            'first_name' => 'required|string|max:255',
+            'middle_name' => 'nullable|string|max:255',
+            'last_name' => 'required|string|max:255',
+            'birth_date' => 'required|date',
+            'gender' => 'required|in:Male,Female',
+            'address' => 'required|string',
+            'contact_number' => 'nullable|string',
+            'enrollment_status' => 'required|in:active,inactive,graduated,dropped',
+            'section' => 'nullable|string|max:255',
+            'class_adviser_id' => 'nullable|exists:users,id',
+            'student_type' => 'required|in:k12,college',
+            'grade_level' => 'required|string|max:255',
+        ];
 
-        $student->update($request->only(['name', 'email']));
+        if ($request->student_type === 'college') {
+            $rules['college_course_id'] = 'required|exists:college_courses,id';
+            $rules['year_level'] = 'required|integer|min:1|max:10';
+            $rules['semester'] = 'required|in:1st,2nd,summer';
+        } else {
+            $rules['academic_level_id'] = 'required|exists:academic_levels,id';
+            $rules['academic_strand_id'] = 'nullable|exists:academic_strands,id';
+            $rules['year_level'] = 'required|integer|min:1|max:12';
+        }
 
-        $student->studentProfile()->update([
-            'student_id' => $request->student_id,
-            'grade_level' => $request->grade_level,
-            'section' => $request->section,
-            'academic_level_id' => $request->academic_level_id,
-            'college_course_id' => $request->college_course_id,
-            'academic_strand_id' => $request->academic_strand_id,
-        ]);
+        $request->validate($rules);
+
+        DB::transaction(function () use ($request, $student) {
+            $updateData = [
+                'name' => $request->name,
+                'email' => $request->email,
+            ];
+            if ($request->filled('password')) {
+                $updateData['password'] = Hash::make($request->password);
+            }
+            $student->update($updateData);
+
+            $profileData = [
+                'student_id' => $request->student_id,
+                'first_name' => $request->first_name,
+                'middle_name' => $request->middle_name,
+                'last_name' => $request->last_name,
+                'birth_date' => $request->birth_date,
+                'gender' => $request->gender,
+                'address' => $request->address,
+                'contact_number' => $request->contact_number,
+                'grade_level' => $request->grade_level,
+                'section' => $request->section,
+                'enrollment_status' => $request->enrollment_status,
+                'class_adviser_id' => $request->class_adviser_id ?: null,
+            ];
+
+            if ($request->student_type === 'college') {
+                $collegeLevel = AcademicLevel::where('code', 'COL')->first();
+                $profileData['college_course_id'] = $request->college_course_id;
+                $profileData['academic_level_id'] = $collegeLevel ? $collegeLevel->id : null;
+                $profileData['academic_strand_id'] = null;
+                $profileData['year_level'] = $request->year_level;
+                $profileData['semester'] = $request->semester;
+            } else {
+                $profileData['academic_level_id'] = $request->academic_level_id;
+                $profileData['academic_strand_id'] = $request->academic_strand_id ?: null;
+                $profileData['college_course_id'] = null;
+                $profileData['year_level'] = $request->year_level;
+                $profileData['semester'] = null;
+            }
+
+            if ($student->studentProfile) {
+                $student->studentProfile->update($profileData);
+            } else {
+                $profileData['user_id'] = $student->id;
+                StudentProfile::create($profileData);
+            }
+        });
 
         return redirect()->route('registrar.students.index')->with('success', 'Student updated successfully.');
     }
 
     public function destroyStudent(User $student)
     {
-        $student->delete();
+        if ($student->receivedGrades()->count() > 0 || $student->honors()->count() > 0) {
+            return redirect()->back()->with('error', 'Cannot delete student with existing grades or honors.');
+        }
+
+        DB::transaction(function () use ($student) {
+            if ($student->studentProfile) {
+                $student->studentProfile->delete();
+            }
+            ParentStudentLink::where('student_id', $student->id)->delete();
+            $student->delete();
+        });
+
         return redirect()->route('registrar.students.index')->with('success', 'Student deleted successfully.');
     }
 
@@ -1409,7 +1477,7 @@ class RegistrarController extends Controller
             'image_description' => $request->image_description,
             'template_image_path' => $imagePath,
             'is_active' => $request->is_active,
-            'created_by' => auth()->id(),
+            'created_by' => Auth::id(),
         ]);
 
         return redirect()->back()->with('success', 'Certificate template created successfully.');
@@ -2408,8 +2476,9 @@ class RegistrarController extends Controller
     public function instructors()
     {
         $instructors = User::where('user_role', 'instructor')
-                          ->orderBy('name')
-                          ->get();
+            ->with(['subjectAssignments.subject', 'subjectAssignments.academicPeriod'])
+            ->orderBy('name')
+            ->get();
 
         return Inertia::render('Registrar/Users/Instructors', [
             'instructors' => $instructors,
@@ -2472,8 +2541,9 @@ class RegistrarController extends Controller
     public function teachers()
     {
         $teachers = User::where('user_role', 'teacher')
-                       ->orderBy('name')
-                       ->get();
+            ->with(['subjectAssignments.subject', 'subjectAssignments.academicPeriod'])
+            ->orderBy('name')
+            ->get();
 
         return Inertia::render('Registrar/Users/Teachers', [
             'teachers' => $teachers,
@@ -2536,8 +2606,15 @@ class RegistrarController extends Controller
     public function advisers()
     {
         $advisers = User::where('user_role', 'class_adviser')
-                       ->orderBy('name')
-                       ->get();
+            ->with([
+                'advisedStudents.academicLevel',
+                'advisedStudents.academicStrand',
+                'advisedStudents.collegeCourse',
+                'instructorAssignments.subject',
+                'instructorAssignments.academicPeriod',
+            ])
+            ->orderBy('name')
+            ->get();
 
         return Inertia::render('Registrar/Users/Advisers', [
             'advisers' => $advisers,

@@ -25,7 +25,7 @@ const ReportsIndex: React.FC<Props> = ({
 }) => {
     const [isGenerating, setIsGenerating] = useState(false);
 
-    const { data, setData, post, processing } = useForm({
+    const { data, setData, processing } = useForm({
         report_type: '',
         academic_period_id: '',
         academic_level_id: '',
@@ -37,31 +37,31 @@ const ReportsIndex: React.FC<Props> = ({
     const handleGenerateReport = (e: React.FormEvent) => {
         e.preventDefault();
         setIsGenerating(true);
-
-        post('/registrar/reports/generate', {
-            onSuccess: () => {
-                setIsGenerating(false);
-            },
-            onError: () => {
-                setIsGenerating(false);
-            }
+        if (data.format === 'view') {
+            router.get('/registrar/reports/generate', data);
+            setIsGenerating(false);
+            return;
+        }
+        const params = new URLSearchParams();
+        Object.entries(data).forEach(([key, value]) => {
+            if (value) params.set(key, String(value));
         });
+        window.location.href = `/registrar/reports/generate?${params.toString()}`;
+        setIsGenerating(false);
     };
 
     const handleQuickReport = (reportType: string, format: string = 'view') => {
         setIsGenerating(true);
-        
-        router.post('/registrar/reports/generate', {
-            report_type: reportType,
-            format: format,
-        }, {
-            onSuccess: () => {
-                setIsGenerating(false);
-            },
-            onError: () => {
-                setIsGenerating(false);
-            }
-        });
+        if (format === 'view') {
+            router.get('/registrar/reports/generate', { report_type: reportType, format });
+            setIsGenerating(false);
+            return;
+        }
+        const params = new URLSearchParams();
+        params.set('report_type', reportType);
+        params.set('format', format);
+        window.location.href = `/registrar/reports/generate?${params.toString()}`;
+        setIsGenerating(false);
     };
 
     const reportCards = [
