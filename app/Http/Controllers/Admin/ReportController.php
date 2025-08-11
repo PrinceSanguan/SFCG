@@ -134,7 +134,7 @@ class ReportController extends Controller
     private function generateStudentGradesReport(Request $request)
     {
         $query = Grade::with(['student.studentProfile.academicLevel', 'subject', 'academicPeriod', 'instructor'])
-                     ->where('status', 'approved');
+                     ->whereIn('status', ['approved', 'finalized']);
 
         if ($request->academic_period_id) {
             $query->where('academic_period_id', $request->academic_period_id);
@@ -286,6 +286,7 @@ class ReportController extends Controller
     {
         $instructors = User::whereIn('user_role', ['instructor', 'teacher'])
                           ->withCount(['assignedGrades' => function ($query) use ($request) {
+                              $query->whereIn('status', ['approved', 'finalized']);
                               if ($request->academic_period_id) {
                                   $query->where('academic_period_id', $request->academic_period_id);
                               }
@@ -297,7 +298,7 @@ class ReportController extends Controller
                               }
                           }])
                           ->with(['assignedGrades' => function ($query) use ($request) {
-                              $query->where('status', 'approved');
+                              $query->whereIn('status', ['approved', 'finalized']);
                               if ($request->academic_period_id) {
                                   $query->where('academic_period_id', $request->academic_period_id);
                               }
@@ -353,7 +354,7 @@ class ReportController extends Controller
         $totalStudents = User::where('user_role', 'student')->count();
         $totalInstructors = User::whereIn('user_role', ['instructor', 'teacher'])->count();
         $totalSubjects = Subject::count();
-        $totalGrades = Grade::where('status', 'approved')->count();
+        $totalGrades = Grade::whereIn('status', ['approved', 'finalized'])->count();
         $totalHonors = StudentHonor::where('is_active', true)->count();
 
         // Get grade and honor distributions
@@ -361,8 +362,8 @@ class ReportController extends Controller
         $honorDistribution = $this->getHonorDistribution($request->academic_period_id);
 
         // Calculate additional metrics
-        $averageGrade = Grade::where('status', 'approved')->avg('overall_grade');
-        $passingRate = Grade::where('status', 'approved')->where('overall_grade', '>=', 75)->count() / max(Grade::where('status', 'approved')->count(), 1) * 100;
+        $averageGrade = Grade::whereIn('status', ['approved', 'finalized'])->avg('overall_grade');
+        $passingRate = Grade::whereIn('status', ['approved', 'finalized'])->where('overall_grade', '>=', 75)->count() / max(Grade::whereIn('status', ['approved', 'finalized'])->count(), 1) * 100;
 
         // Enrollment trends
         $recentEnrollments = User::where('user_role', 'student')
@@ -644,21 +645,7 @@ class ReportController extends Controller
             $query->where('academic_period_id', $academicPeriodId);
         }
 
-        return $query->selectRaw('
-            CASE 
-                WHEN final_grade >= 97 THEN "A+" 
-                WHEN final_grade >= 93 THEN "A"
-                WHEN final_grade >= 90 THEN "A-"
-                WHEN final_grade >= 87 THEN "B+"
-                WHEN final_grade >= 83 THEN "B"
-                WHEN final_grade >= 80 THEN "B-"
-                WHEN final_grade >= 77 THEN "C+"
-                WHEN final_grade >= 73 THEN "C"
-                WHEN final_grade >= 70 THEN "C-"
-                ELSE "Below C-"
-            END as grade_letter,
-            COUNT(*) as count
-        ')
+        return $query->selectRaw("\n            CASE \n                WHEN final_grade >= 97 THEN 'A+' \n                WHEN final_grade >= 93 THEN 'A'\n                WHEN final_grade >= 90 THEN 'A-'\n                WHEN final_grade >= 87 THEN 'B+'\n                WHEN final_grade >= 83 THEN 'B'\n                WHEN final_grade >= 80 THEN 'B-'\n                WHEN final_grade >= 77 THEN 'C+'\n                WHEN final_grade >= 73 THEN 'C'\n                WHEN final_grade >= 70 THEN 'C-'\n                ELSE 'Below C-'\n            END as grade_letter,\n            COUNT(*) as count\n        ")
         ->groupBy('grade_letter')
         ->pluck('count', 'grade_letter');
     }

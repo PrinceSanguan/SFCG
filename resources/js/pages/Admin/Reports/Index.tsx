@@ -34,31 +34,28 @@ const ReportsIndex: React.FC<Props> = ({ reportTypes, academicPeriods, academicL
     const handleGenerateReport = (e: React.FormEvent) => {
         e.preventDefault();
         setIsGenerating(true);
-
-        post('/admin/reports/generate', {
-            onSuccess: () => {
-                setIsGenerating(false);
-            },
-            onError: () => {
-                setIsGenerating(false);
-            }
-        });
+        if (data.format === 'view') {
+            router.get('/admin/reports/generate', data);
+            setIsGenerating(false);
+            return;
+        }
+        const params = new URLSearchParams(data as any);
+        window.location.href = `/admin/reports/generate?${params.toString()}`;
+        setIsGenerating(false);
     };
 
     const handleQuickReport = (reportType: string, format: string = 'view') => {
         setIsGenerating(true);
-        
-        router.post('/admin/reports/generate', {
-            report_type: reportType,
-            format: format,
-        }, {
-            onSuccess: () => {
-                setIsGenerating(false);
-            },
-            onError: () => {
-                setIsGenerating(false);
-            }
-        });
+        if (format === 'view') {
+            router.get('/admin/reports/generate', { report_type: reportType, format });
+            setIsGenerating(false);
+            return;
+        }
+        const params = new URLSearchParams();
+        params.set('report_type', reportType);
+        params.set('format', format);
+        window.location.href = `/admin/reports/generate?${params.toString()}`;
+        setIsGenerating(false);
     };
 
     const reportCards = [

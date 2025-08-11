@@ -23,12 +23,15 @@ interface Props {
 }
 
 const ReportsView: React.FC<Props> = ({ reportData, reportType, filters }) => {
-    const formatDate = (date: string) => {
-        return new Date(date).toLocaleDateString();
+    const formatDate = (date: string | undefined | null) => {
+        if (!date) return '-';
+        const d = new Date(date);
+        return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString();
     };
 
-    const formatNumber = (num: number) => {
-        return num?.toFixed(2) || '0.00';
+    const formatNumber = (value: unknown) => {
+        const n = typeof value === 'number' ? value : (value !== undefined && value !== null ? parseFloat(String(value)) : NaN);
+        return Number.isFinite(n) ? n.toFixed(2) : '0.00';
     };
 
     const renderStudentGradesReport = () => (

@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Artisan;
 use Inertia\Inertia;
 use App\Models\ActivityLog;
 use App\Models\User;
@@ -425,7 +426,11 @@ class SystemController extends Controller
                 $this->createDatabaseBackup($backupPath);
                 break;
             case 'files':
-                $this->createFilesBackup($backupPath);
+                // Ensure files backup has proper extension
+                $filesBackupPath = str_replace('.sql', '_files.tar.gz', $backupPath);
+                $this->createFilesBackup($filesBackupPath);
+                $backupPath = $filesBackupPath;
+                $filename = basename($backupPath);
                 break;
             case 'full':
                 $this->createFullBackup($backupPath);
@@ -442,12 +447,24 @@ class SystemController extends Controller
 
     private function createDatabaseBackup($backupPath)
     {
-        $databaseName = config('database.connections.mysql.database');
-        $username = config('database.connections.mysql.username');
-        $password = config('database.connections.mysql.password');
-        $host = config('database.connections.mysql.host');
+        $driver = config('database.default');
+        if ($driver === 'pgsql') {
+            $databaseName = config('database.connections.pgsql.database');
+            $username = config('database.connections.pgsql.username');
+            $password = config('database.connections.pgsql.password');
+            $host = config('database.connections.pgsql.host');
+            $port = config('database.connections.pgsql.port');
 
-        $command = "mysqldump --user={$username} --password={$password} --host={$host} {$databaseName} > {$backupPath}";
+            $env = "PGPASSWORD={$password}";
+            $command = "$env pg_dump -h {$host} -p {$port} -U {$username} -d {$databaseName} -F p -f {$backupPath}";
+        } else {
+            $databaseName = config('database.connections.mysql.database');
+            $username = config('database.connections.mysql.username');
+            $password = config('database.connections.mysql.password');
+            $host = config('database.connections.mysql.host');
+            $command = "mysqldump --user={$username} --password={$password} --host={$host} {$databaseName} > {$backupPath}";
+        }
+
         exec($command, $output, $returnCode);
 
         if ($returnCode !== 0) {
@@ -497,12 +514,23 @@ class SystemController extends Controller
 
     private function restoreDatabase($backupPath)
     {
-        $databaseName = config('database.connections.mysql.database');
-        $username = config('database.connections.mysql.username');
-        $password = config('database.connections.mysql.password');
-        $host = config('database.connections.mysql.host');
+        $driver = config('database.default');
+        if ($driver === 'pgsql') {
+            $databaseName = config('database.connections.pgsql.database');
+            $username = config('database.connections.pgsql.username');
+            $password = config('database.connections.pgsql.password');
+            $host = config('database.connections.pgsql.host');
+            $port = config('database.connections.pgsql.port');
+            $env = "PGPASSWORD={$password}";
+            $command = "$env psql -h {$host} -p {$port} -U {$username} -d {$databaseName} -f {$backupPath}";
+        } else {
+            $databaseName = config('database.connections.mysql.database');
+            $username = config('database.connections.mysql.username');
+            $password = config('database.connections.mysql.password');
+            $host = config('database.connections.mysql.host');
+            $command = "mysql --user={$username} --password={$password} --host={$host} {$databaseName} < {$backupPath}";
+        }
 
-        $command = "mysql --user={$username} --password={$password} --host={$host} {$databaseName} < {$backupPath}";
         exec($command, $output, $returnCode);
 
         if ($returnCode !== 0) {
@@ -536,10 +564,10 @@ class SystemController extends Controller
     {
         switch ($task) {
             case 'clear_cache':
-                \Artisan::call('cache:clear');
-                \Artisan::call('config:clear');
-                \Artisan::call('route:clear');
-                \Artisan::call('view:clear');
+                Artisan::call('cache:clear');
+                Artisan::call('config:clear');
+                Artisan::call('route:clear');
+                Artisan::call('view:clear');
                 return 'Cache cleared successfully';
 
             case 'clear_logs':
@@ -552,6 +580,10 @@ class SystemController extends Controller
                 return 'Old log files cleared';
 
             case 'optimize_db':
+                if (config('database.default') === 'pgsql') {
+                    DB::statement('VACUUM ANALYZE');
+                    return 'PostgreSQL VACUUM ANALYZE executed';
+                }
                 DB::statement('OPTIMIZE TABLE ' . implode(',', $this->getAllTableNames()));
                 return 'Database tables optimized';
 
@@ -589,6 +621,11 @@ class SystemController extends Controller
 
     private function getDatabaseSize()
     {
+        $driver = config('database.default');
+        if ($driver === 'pgsql') {
+            $result = DB::select("SELECT pg_database_size(current_database()) as size");
+            return $this->formatBytes($result[0]->size ?? 0);
+        }
         $result = DB::select('SELECT SUM(data_length + index_length) as size FROM information_schema.tables WHERE table_schema = ?', [config('database.connections.mysql.database')]);
         return $this->formatBytes($result[0]->size ?? 0);
     }
@@ -657,6 +694,12 @@ class SystemController extends Controller
 
     private function getAllTableNames()
     {
+        $driver = config('database.default');
+        if ($driver === 'pgsql') {
+            return collect(DB::select("SELECT tablename FROM pg_tables WHERE schemaname = 'public'"))
+                ->pluck('tablename')
+                ->toArray();
+        }
         return DB::select('SHOW TABLES');
     }
 

@@ -315,9 +315,12 @@ Route::get('certificate-templates/by-education-level', [CertificateController::c
 
   // Reports & Data Export
   Route::get('admin/reports', [ReportController::class, 'index'])->name('admin.reports.index');
+  Route::get('admin/reports/generate', [ReportController::class, 'generate'])->name('admin.reports.generate.get');
   Route::post('admin/reports/generate', [ReportController::class, 'generate'])->name('admin.reports.generate');
   Route::get('admin/reports/export', [ReportController::class, 'export'])->name('admin.reports.export');
   Route::post('admin/reports/export-data', [ReportController::class, 'exportData'])->name('admin.reports.export-data');
+  // GET variant to allow direct file downloads from the browser (Inertia-safe)
+  Route::get('admin/reports/export-data', [ReportController::class, 'exportData'])->name('admin.reports.export-data.get');
 
   // System Management
   Route::get('admin/system/logs', [SystemController::class, 'logs'])->name('admin.system.logs');

@@ -1,8 +1,14 @@
 import Header from '@/pages/Admin/Header';
 import Sidebar from '@/pages/Admin/Sidebar';
 import React from 'react';
+import { useForm } from '@inertiajs/react';
 
 const Restore: React.FC = () => {
+    const { data, setData, post, processing } = useForm({
+        backup_file: '',
+        restore_type: 'database',
+        confirmation: false,
+    });
     const availableBackups = [
         { id: 1, name: 'Full System Backup', date: '2024-01-20 02:00:00', size: '2.5 GB', type: 'Complete System' },
         { id: 2, name: 'Database Backup', date: '2024-01-19 02:00:00', size: '1.2 GB', type: 'Database Only' },
@@ -38,15 +44,48 @@ const Restore: React.FC = () => {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                             <h2 className="text-lg font-semibold text-gray-900 mb-4">Upload Backup File</h2>
-                            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center mb-4">
-                                <div className="mb-4">
-                                    <span className="text-4xl">📁</span>
+                            <form
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    post('/admin/system/restore');
+                                }}
+                            >
+                                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center mb-4">
+                                    <div className="mb-4">
+                                        <span className="text-4xl">📁</span>
+                                    </div>
+                                    <p className="text-gray-600 mb-4">Enter backup filename from the list to restore</p>
+                                    <input
+                                        type="text"
+                                        className="w-full border px-3 py-2 rounded"
+                                        placeholder="backup_database_2024-01-20_02-00-00.sql"
+                                        value={data.backup_file}
+                                        onChange={(e) => setData('backup_file', e.target.value)}
+                                        required
+                                    />
                                 </div>
-                                <p className="text-gray-600 mb-4">Upload a backup file to restore</p>
-                                <button className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">
-                                    Choose Backup File
-                                </button>
-                            </div>
+                                <div className="space-y-4">
+                                    <label className="flex items-center">
+                                        <input type="checkbox" className="form-checkbox h-4 w-4 text-blue-600" checked={data.restore_type === 'database'} onChange={() => setData('restore_type', 'database')} />
+                                        <span className="ml-2 text-sm text-gray-700">Restore Database</span>
+                                    </label>
+                                    <label className="flex items-center">
+                                        <input type="checkbox" className="form-checkbox h-4 w-4 text-blue-600" checked={data.restore_type === 'files'} onChange={() => setData('restore_type', 'files')} />
+                                        <span className="ml-2 text-sm text-gray-700">Restore User Files</span>
+                                    </label>
+                                    <label className="flex items-center">
+                                        <input type="checkbox" className="form-checkbox h-4 w-4 text-blue-600" checked={data.restore_type === 'full'} onChange={() => setData('restore_type', 'full')} />
+                                        <span className="ml-2 text-sm text-gray-700">Full Restore</span>
+                                    </label>
+                                    <label className="flex items-center">
+                                        <input type="checkbox" className="form-checkbox h-4 w-4 text-blue-600" checked={!!data.confirmation} onChange={(e) => setData('confirmation', e.target.checked)} />
+                                        <span className="ml-2 text-sm text-gray-700">I understand this will overwrite data</span>
+                                    </label>
+                                    <button disabled={processing} className="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700">
+                                        {processing ? 'Restoring...' : 'Start Restore'}
+                                    </button>
+                                </div>
+                            </form>
                             <div className="text-sm text-gray-500">
                                 <p>Supported formats: .sql, .zip, .tar.gz</p>
                                 <p>Maximum file size: 5GB</p>

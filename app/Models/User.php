@@ -263,6 +263,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Grades assigned by this educator (alias used in reporting)
+     */
+    public function assignedGrades(): HasMany
+    {
+        return $this->hasMany(Grade::class, 'instructor_id');
+    }
+
+    /**
      * Grades received by this student
      */
     public function receivedGrades(): HasMany
