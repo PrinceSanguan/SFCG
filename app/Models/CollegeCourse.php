@@ -53,6 +53,15 @@ class CollegeCourse extends Model
     }
 
     // Helper methods
+    public function setDegreeTypeAttribute($value): void
+    {
+        if (is_string($value)) {
+            $this->attributes['degree_type'] = strtolower($value);
+            return;
+        }
+        $this->attributes['degree_type'] = $value;
+    }
+
     public function getDisplayNameAttribute(): string
     {
         return "{$this->name} ({$this->code})";

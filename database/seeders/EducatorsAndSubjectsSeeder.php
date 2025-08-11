@@ -75,7 +75,7 @@ class EducatorsAndSubjectsSeeder extends Seeder
                 'name' => 'Bachelor of Science in Computer Science', 
                 'code' => 'BSCS', 
                 'description' => 'Four-year program focusing on computing and software development',
-                'degree_type' => 'Bachelor',
+                'degree_type' => 'bachelor',
                 'years_duration' => 4,
                 'department' => 'Computer Science'
             ],
@@ -83,7 +83,7 @@ class EducatorsAndSubjectsSeeder extends Seeder
                 'name' => 'Bachelor of Science in Information Technology', 
                 'code' => 'BSIT', 
                 'description' => 'Four-year program focusing on IT systems and applications',
-                'degree_type' => 'Bachelor',
+                'degree_type' => 'bachelor',
                 'years_duration' => 4,
                 'department' => 'Information Technology'
             ],
@@ -91,7 +91,7 @@ class EducatorsAndSubjectsSeeder extends Seeder
                 'name' => 'Bachelor of Elementary Education', 
                 'code' => 'BEED', 
                 'description' => 'Four-year program for elementary school teachers',
-                'degree_type' => 'Bachelor',
+                'degree_type' => 'bachelor',
                 'years_duration' => 4,
                 'department' => 'Education'
             ],
@@ -99,7 +99,7 @@ class EducatorsAndSubjectsSeeder extends Seeder
                 'name' => 'Bachelor of Secondary Education', 
                 'code' => 'BSED', 
                 'description' => 'Four-year program for secondary school teachers',
-                'degree_type' => 'Bachelor',
+                'degree_type' => 'bachelor',
                 'years_duration' => 4,
                 'department' => 'Education'
             ],
@@ -107,7 +107,7 @@ class EducatorsAndSubjectsSeeder extends Seeder
                 'name' => 'Bachelor of Science in Business Administration', 
                 'code' => 'BSBA', 
                 'description' => 'Four-year program in business management',
-                'degree_type' => 'Bachelor',
+                'degree_type' => 'bachelor',
                 'years_duration' => 4,
                 'department' => 'Business Administration'
             ],
