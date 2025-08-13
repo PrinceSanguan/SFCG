@@ -39,7 +39,7 @@ const UploadCsv: React.FC = () => {
     const userTypes: Array<{ value: string; label: string; description: string }> = [
         { value: 'instructor', label: 'Instructors', description: 'College-level instructors' },
         { value: 'teacher', label: 'Teachers', description: 'K-12 teachers' },
-        { value: 'adviser', label: 'Advisers', description: 'Class advisers' },
+        { value: 'class_adviser', label: 'Class Advisers', description: 'Class advisers' },
         { value: 'chairperson', label: 'Chairpersons', description: 'Department chairpersons' },
         { value: 'principal', label: 'Principals', description: 'School principals' },
     ];

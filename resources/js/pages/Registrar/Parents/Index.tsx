@@ -145,57 +145,45 @@ const ParentsIndex: React.FC<Props> = ({
             <RegistrarLayout>
                 {/* Header */}
                 <div className="mb-8">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <h1 className="text-3xl font-bold text-gray-900">Parents</h1>
-                            <p className="text-gray-600 mt-2">Manage parent accounts and student linkages</p>
-                        </div>
-                        <div className="flex space-x-3">
-                            <button
-                                onClick={() => setShowCreateModal(true)}
-                                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                            >
-                                <span className="mr-2">➕</span>
-                                Add Parent
-                            </button>
-                        </div>
-                    </div>
+                    <h1 className="text-3xl font-bold text-gray-900">Parents</h1>
+                    <p className="text-gray-600 mt-2">Manage parent/guardian accounts and their linked students</p>
                 </div>
 
-                {/* Statistics */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                        <h3 className="text-lg font-medium text-gray-900">Total Parents</h3>
-                        <p className="text-3xl font-bold text-blue-600">{parents.length}</p>
-                    </div>
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                        <h3 className="text-lg font-medium text-gray-900">Linked Parents</h3>
-                        <p className="text-3xl font-bold text-green-600">
-                            {parents.filter(p => p.linked_students && p.linked_students.length > 0).length}
-                        </p>
-                    </div>
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                        <h3 className="text-lg font-medium text-gray-900">Total Students</h3>
-                        <p className="text-3xl font-bold text-yellow-600">{students.length}</p>
-                    </div>
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                        <h3 className="text-lg font-medium text-gray-900">Available Students</h3>
-                        <p className="text-3xl font-bold text-purple-600">
-                            {students.filter(s => !parents.some(p => 
-                                p.linked_students?.some(ls => ls.id === s.id)
-                            )).length}
-                        </p>
-                    </div>
+                {/* Actions: Add + Upload CSV (Admin-style) */}
+                <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:space-x-3 space-y-3 sm:space-y-0">
+                    <button
+                        onClick={() => setShowCreateModal(true)}
+                        className="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700 focus:bg-blue-700 active:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150"
+                    >
+                        <span className="mr-2">➕</span>
+                        Add Parent
+                    </button>
+                    <a
+                        href="/registrar/users/upload?type=parent"
+                        className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-800 border border-gray-300 rounded-md text-xs font-semibold uppercase tracking-widest hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                    >
+                        <span className="mr-2">📁</span>
+                        Upload CSV
+                    </a>
                 </div>
 
-                {/* Parents Table */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                {/* Parents List */}
+                <div className="bg-white shadow-sm rounded-lg border border-gray-200">
                     <div className="px-6 py-4 border-b border-gray-200">
-                        <h3 className="text-lg font-medium text-gray-900">
-                            Parents List ({parents.length})
-                        </h3>
+                        <h2 className="text-lg font-semibold text-gray-900">Parents List</h2>
                     </div>
-                    
+                    <div className="p-4">
+                        <div className="max-w-md">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                            <input
+                                type="text"
+                                placeholder="Search by name or email"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                onChange={() => { /* optional search hook; implement once API supports */ }}
+                            />
+                        </div>
+                    </div>
+
                     {parents.length === 0 ? (
                         <div className="p-6 text-center text-gray-500">
                             No parents found. Create your first parent to get started.

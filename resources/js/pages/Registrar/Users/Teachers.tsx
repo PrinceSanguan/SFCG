@@ -57,10 +57,6 @@ const Teachers: React.FC<Props> = ({ teachers }) => {
     const handleEdit = (teacher: Teacher) => {
         setData('name', teacher.name);
         setData('email', teacher.email);
-        setData('contact_number', teacher.contact_number || '');
-        setData('department', teacher.department || '');
-        setData('specialization', teacher.specialization || '');
-        setData('is_active', teacher.is_active);
         setEditingTeacher(teacher);
     };
 
@@ -92,17 +88,8 @@ const Teachers: React.FC<Props> = ({ teachers }) => {
                 <p className="text-gray-600 mt-2">Manage teacher accounts and information</p>
             </div>
 
-            {/* Search and Create */}
-            <div className="mb-6 flex flex-col sm:flex-row gap-4">
-                <div className="flex-1">
-                    <input
-                        type="text"
-                        placeholder="Search teachers..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                </div>
+            {/* Actions: Add + Upload CSV (Admin-style) */}
+            <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:space-x-3 space-y-3 sm:space-y-0">
                 <button
                     onClick={() => setShowCreateModal(true)}
                     className="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700 focus:bg-blue-700 active:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150"
@@ -110,14 +97,19 @@ const Teachers: React.FC<Props> = ({ teachers }) => {
                     <span className="mr-2">➕</span>
                     Add Teacher
                 </button>
+                <a
+                    href="/registrar/users/upload?type=teacher"
+                    className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-800 border border-gray-300 rounded-md text-xs font-semibold uppercase tracking-widest hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                >
+                    <span className="mr-2">📁</span>
+                    Upload CSV
+                </a>
             </div>
 
             {/* Teachers List */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200">
                 <div className="px-6 py-4 border-b border-gray-200">
-                    <h3 className="text-lg font-medium text-gray-900">
-                        Teachers List ({filteredTeachers.length})
-                    </h3>
+                    <h3 className="text-lg font-semibold text-gray-900">Teachers List</h3>
                 </div>
                 
                 {filteredTeachers.length === 0 ? (
@@ -126,6 +118,19 @@ const Teachers: React.FC<Props> = ({ teachers }) => {
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
+                        {/* Search inside card (Admin-style) */}
+                        <div className="p-4">
+                            <div className="max-w-md">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                                <input
+                                    type="text"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    placeholder="Search by name or email"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                        </div>
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>

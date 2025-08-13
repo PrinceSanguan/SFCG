@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
-import Header from '@/pages/Registrar/Header';
-import Sidebar from '@/pages/Registrar/Sidebar';
+import RegistrarLayout from '@/pages/Registrar/RegistrarLayout';
 
 interface User {
     id: number;
@@ -32,10 +31,10 @@ const UsersIndex: React.FC<Props> = ({ users, filters }) => {
     const { get } = useForm();
 
     const handleSearch = () => {
-        get('/registrar/users', {
-            search: searchTerm,
-            role: selectedRole,
-        });
+        const params = new URLSearchParams();
+        if (searchTerm) params.set('search', searchTerm);
+        if (selectedRole) params.set('role', selectedRole);
+        get(`/registrar/users?${params.toString()}`);
     };
 
     const clearFilters = () => {
@@ -67,14 +66,9 @@ const UsersIndex: React.FC<Props> = ({ users, filters }) => {
     };
 
     return (
-        <>
+        <RegistrarLayout>
             <Head title="Users - Registrar" />
-            <div className="min-h-screen bg-gray-50">
-                <Header />
-                <div className="flex">
-                    <Sidebar />
-                    <main className="flex-1 p-8">
-                        <div className="max-w-7xl mx-auto">
+            <div className="max-w-7xl mx-auto w-full">
                             {/* Header */}
                             <div className="mb-8">
                                 <h1 className="text-3xl font-bold text-gray-900">Users</h1>
@@ -231,11 +225,8 @@ const UsersIndex: React.FC<Props> = ({ users, filters }) => {
                                     </div>
                                 )}
                             </div>
-                        </div>
-                    </main>
-                </div>
             </div>
-        </>
+        </RegistrarLayout>
     );
 };
 

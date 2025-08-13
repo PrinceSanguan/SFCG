@@ -116,6 +116,43 @@ const StudentsIndex: React.FC<Props> = ({ students, academicLevels, academicStra
         academic_level: '',
     });
 
+    // Open create modal from query parameters (e.g., ?add=1&level=elementary)
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const shouldAdd = params.get('add');
+        const levelParam = (params.get('level') || '').toLowerCase();
+        if (shouldAdd === '1') {
+            const map: Record<string, 'ELEM' | 'JHS' | 'SHS' | 'COL'> = {
+                'elementary': 'ELEM',
+                'jhs': 'JHS',
+                'junior-high': 'JHS',
+                'shs': 'SHS',
+                'senior-high': 'SHS',
+                'college': 'COL',
+            };
+            const code = map[levelParam];
+            if (code) {
+                setSelectedLevel(code);
+                if (code === 'COL') {
+                    setStudentType('college');
+                    setData('student_type', 'college');
+                    setData('academic_level_id', '');
+                } else {
+                    setStudentType('k12');
+                    setData('student_type', 'k12');
+                    const level = academicLevels.find(l => l.code === code);
+                    if (level) setData('academic_level_id', String(level.id));
+                }
+            }
+            setShowCreateModal(true);
+            params.delete('add');
+            const newQuery = params.toString();
+            if (window.history && window.history.replaceState) {
+                window.history.replaceState({}, '', window.location.pathname + (newQuery ? `?${newQuery}` : ''));
+            }
+        }
+    }, [academicLevels]);
+
     // Helper functions for dynamic sections and grades (mirror Admin behavior)
     const [sectionOptions, setSectionOptions] = useState<string[]>([]);
     const getSelectedLevel = useCallback(() => {
