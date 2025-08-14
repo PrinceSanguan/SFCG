@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin\UserManagementController;
+use App\Http\Controllers\Admin\ParentManagementController;
 use App\Http\Controllers\Admin\ActivityLogController;
 
 /*
@@ -48,6 +49,39 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
         
         // Get user profile data for API calls
         Route::get('/{user}/profile', [UserManagementController::class, 'profile'])->name('profile');
+    });
+    
+    // Parent Management
+    Route::prefix('parents')->name('parents.')->group(function () {
+        // List all parents with filters and pagination
+        Route::get('/', [ParentManagementController::class, 'index'])->name('index');
+        
+        // Show create form
+        Route::get('/create', [ParentManagementController::class, 'create'])->name('create');
+        
+        // Store new parent
+        Route::post('/', [ParentManagementController::class, 'store'])->name('store');
+        
+        // Show specific parent details and linked students
+        Route::get('/{parent}', [ParentManagementController::class, 'show'])->name('show');
+        
+        // Show edit form
+        Route::get('/{parent}/edit', [ParentManagementController::class, 'edit'])->name('edit');
+        
+        // Update parent
+        Route::put('/{parent}', [ParentManagementController::class, 'update'])->name('update');
+        
+        // Delete parent
+        Route::delete('/{parent}', [ParentManagementController::class, 'destroy'])->name('destroy');
+        
+        // Reset parent password
+        Route::post('/{parent}/reset-password', [ParentManagementController::class, 'resetPassword'])->name('reset-password');
+        
+        // Link parent to student
+        Route::post('/{parent}/link-student', [ParentManagementController::class, 'linkStudent'])->name('link-student');
+        
+        // Unlink parent from student
+        Route::delete('/{parent}/unlink-student/{student}', [ParentManagementController::class, 'unlinkStudent'])->name('unlink-student');
     });
     
     // Activity Logs

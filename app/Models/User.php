@@ -5,6 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -118,5 +119,57 @@ class User extends Authenticatable
             'student' => 'Student',
             'parent' => 'Parent',
         ];
+    }
+
+    /**
+     * Get the parent-student relationships where this user is the parent.
+     */
+    public function parentRelationships(): HasMany
+    {
+        return $this->hasMany(ParentStudentRelationship::class, 'parent_id');
+    }
+
+    /**
+     * Get the parent-student relationships where this user is the student.
+     */
+    public function studentRelationships(): HasMany
+    {
+        return $this->hasMany(ParentStudentRelationship::class, 'student_id');
+    }
+
+    /**
+     * Get the students linked to this parent.
+     */
+    public function students(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'parent_student_relationships', 'parent_id', 'student_id')
+                    ->withPivot(['relationship_type', 'emergency_contact', 'notes'])
+                    ->withTimestamps();
+    }
+
+    /**
+     * Get the parents linked to this student.
+     */
+    public function parents(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'parent_student_relationships', 'student_id', 'parent_id')
+                    ->withPivot(['relationship_type', 'emergency_contact', 'notes'])
+                    ->withTimestamps();
+    }
+
+    /**
+     * Check if this user is a parent of the given student.
+     */
+    public function isParentOf(User $student): bool
+    {
+        return $this->students()->where('student_id', $student->id)->exists();
+    }
+
+    /**
+     * Check if this user is a student of the given parent.
+     */
+    public function isStudentOf(User $parent): bool
+    {
+        return $this->parents()->where('parent_id', $parent->id)->exists();
     }
 }
