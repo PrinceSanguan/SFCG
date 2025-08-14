@@ -90,6 +90,7 @@ class User extends Authenticatable
     {
         return match($this->user_role) {
             'admin' => 'Administrator',
+            'registrar' => 'Registrar',
             'instructor' => 'Instructor',
             'teacher' => 'Teacher',
             'adviser' => 'Adviser',
@@ -108,6 +109,7 @@ class User extends Authenticatable
     {
         return [
             'admin' => 'Administrator',
+            'registrar' => 'Registrar',
             'instructor' => 'Instructor',
             'teacher' => 'Teacher',
             'adviser' => 'Adviser',

@@ -4,8 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Link, router } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { ArrowLeft, Edit, RotateCcw, Activity, Calendar, Mail, UserCheck, Clock } from 'lucide-react';
+import { useState } from 'react';
+import PasswordResetModal from '@/components/admin/PasswordResetModal';
 
 interface User {
     id: number;
@@ -29,7 +31,7 @@ interface ActivityLog {
     user: User;
     target_user?: User;
     created_at: string;
-    details?: Record<string, any>;
+    details?: Record<string, unknown>;
     ip_address?: string;
 }
 
@@ -48,14 +50,19 @@ interface ViewProps {
 }
 
 export default function AccountManagementView({ user, targetUser, activityLogs }: ViewProps) {
+    const [showPasswordModal, setShowPasswordModal] = useState(false);
+    const { errors } = usePage().props;
+
     // Safety check for user data
     if (!user || !targetUser) {
         return <div>Loading...</div>;
     }
+
     const getRoleBadgeVariant = (role: string) => {
         switch (role) {
             case 'admin':
                 return 'default';
+            case 'registrar':
             case 'teacher':
             case 'instructor':
             case 'adviser':
@@ -73,6 +80,7 @@ export default function AccountManagementView({ user, targetUser, activityLogs }
     const getRoleDisplayName = (role: string) => {
         const roleMap: Record<string, string> = {
             'admin': 'Administrator',
+            'registrar': 'Registrar',
             'instructor': 'Instructor',
             'teacher': 'Teacher',
             'adviser': 'Adviser',
@@ -198,11 +206,7 @@ export default function AccountManagementView({ user, targetUser, activityLogs }
                                     <Button 
                                         variant="outline"
                                         className="flex items-center gap-2"
-                                        onClick={() => {
-                                            if (confirm('Are you sure you want to reset this user\'s password?')) {
-                                                router.post(route('admin.users.reset-password', targetUser.id));
-                                            }
-                                        }}
+                                        onClick={() => setShowPasswordModal(true)}
                                     >
                                         <RotateCcw className="h-4 w-4" />
                                         Reset Password
@@ -313,6 +317,14 @@ export default function AccountManagementView({ user, targetUser, activityLogs }
                     </div>
                 </main>
             </div>
+
+            {/* Password Reset Modal */}
+            <PasswordResetModal
+                user={targetUser}
+                isOpen={showPasswordModal}
+                onClose={() => setShowPasswordModal(false)}
+                errors={errors as Record<string, string>}
+            />
         </div>
     );
 }

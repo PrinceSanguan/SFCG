@@ -170,30 +170,33 @@ export default function AccountManagementCreate({ user, roles, errors }: CreateP
                                         <Alert>
                                             <AlertDescription>
                                                 <strong>Role Information:</strong>
-                                                {data.user_role === 'admin' && (
-                                                    <span> Administrators have full access to all system features including user management and system settings.</span>
-                                                )}
-                                                {data.user_role === 'teacher' && (
-                                                    <span> Teachers can manage their classes, students, and academic content.</span>
-                                                )}
-                                                {data.user_role === 'instructor' && (
-                                                    <span> Instructors can manage specific courses and student assessments.</span>
-                                                )}
-                                                {data.user_role === 'adviser' && (
-                                                    <span> Advisers can monitor and guide students in their academic journey.</span>
-                                                )}
-                                                {data.user_role === 'chairperson' && (
-                                                    <span> Chairpersons oversee departmental activities and faculty management.</span>
-                                                )}
-                                                {data.user_role === 'principal' && (
-                                                    <span> Principals have administrative access to school-wide operations and policies.</span>
-                                                )}
-                                                {data.user_role === 'student' && (
-                                                    <span> Students can access their courses, assignments, and academic progress.</span>
-                                                )}
-                                                {data.user_role === 'parent' && (
-                                                    <span> Parents can monitor their children's academic progress and school activities.</span>
-                                                )}
+                                                                                {data.user_role === 'admin' && (
+                                    <span> Administrators have full access to all system features including user management and system settings.</span>
+                                )}
+                                {data.user_role === 'registrar' && (
+                                    <span> Registrars manage student enrollment, academic records, and registration processes.</span>
+                                )}
+                                {data.user_role === 'teacher' && (
+                                    <span> Teachers can manage their classes, students, and academic content.</span>
+                                )}
+                                {data.user_role === 'instructor' && (
+                                    <span> Instructors can manage specific courses and student assessments.</span>
+                                )}
+                                {data.user_role === 'adviser' && (
+                                    <span> Advisers can monitor and guide students in their academic journey.</span>
+                                )}
+                                {data.user_role === 'chairperson' && (
+                                    <span> Chairpersons oversee departmental activities and faculty management.</span>
+                                )}
+                                {data.user_role === 'principal' && (
+                                    <span> Principals have administrative access to school-wide operations and policies.</span>
+                                )}
+                                {data.user_role === 'student' && (
+                                    <span> Students can access their courses, assignments, and academic progress.</span>
+                                )}
+                                {data.user_role === 'parent' && (
+                                    <span> Parents can monitor their children's academic progress and school activities.</span>
+                                )}
                                             </AlertDescription>
                                         </Alert>
                                     )}

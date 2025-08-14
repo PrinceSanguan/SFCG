@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Link, router, usePage } from '@inertiajs/react';
 import { Search, Plus, Edit, Eye, Trash2, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
+import PasswordResetModal from '@/components/admin/PasswordResetModal';
 
 interface User {
     id: number;
@@ -49,6 +50,8 @@ export default function AccountManagementList({ user, users, filters, roles }: L
     }
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
     const [selectedRole, setSelectedRole] = useState(filters.role || 'all');
+    const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
+    const { errors } = usePage().props;
 
     const handleSearch = () => {
         router.get(route('admin.users.index'), {
@@ -91,16 +94,15 @@ export default function AccountManagementList({ user, users, filters, roles }: L
         }
     };
 
-    const handleResetPassword = (userId: number) => {
-        if (confirm('Are you sure you want to reset this user\'s password?')) {
-            router.post(route('admin.users.reset-password', userId));
-        }
+    const handleResetPassword = (targetUser: User) => {
+        setResetPasswordUser(targetUser);
     };
 
     const getRoleBadgeVariant = (role: string) => {
         switch (role) {
             case 'admin':
                 return 'default';
+            case 'registrar':
             case 'teacher':
             case 'instructor':
             case 'adviser':
@@ -256,7 +258,7 @@ export default function AccountManagementList({ user, users, filters, roles }: L
                                                             <Button 
                                                                 variant="outline" 
                                                                 size="sm"
-                                                                onClick={() => handleResetPassword(tableUser.id)}
+                                                                onClick={() => handleResetPassword(tableUser)}
                                                             >
                                                                 <RotateCcw className="h-3 w-3" />
                                                             </Button>
@@ -311,6 +313,16 @@ export default function AccountManagementList({ user, users, filters, roles }: L
                     </div>
                 </main>
             </div>
+
+            {/* Password Reset Modal */}
+            {resetPasswordUser && (
+                <PasswordResetModal
+                    user={resetPasswordUser}
+                    isOpen={!!resetPasswordUser}
+                    onClose={() => setResetPasswordUser(null)}
+                    errors={errors as Record<string, string>}
+                />
+            )}
         </div>
     );
 }

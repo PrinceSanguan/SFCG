@@ -56,6 +56,7 @@ class LoginController extends Controller
             // Role-based redirect
             $roleRedirects = [
                 'admin' => route('admin.dashboard'),
+                'registrar' => route('registrar.dashboard'),
                 'instructor' => route('instructor.dashboard'),
                 'teacher' => route('teacher.dashboard'),
                 'adviser' => route('adviser.dashboard'),

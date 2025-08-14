@@ -30,6 +30,12 @@ class UserSeeder extends Seeder
                 'user_role' => 'admin',
             ],
             [
+                'name' => 'Maria Registrar',
+                'email' => 'registrar@school.edu',
+                'password' => bcrypt('registrar123'),
+                'user_role' => 'registrar',
+            ],
+            [
                 'name' => 'John Teacher',
                 'email' => 'teacher@school.edu',
                 'password' => bcrypt('teacher123'),

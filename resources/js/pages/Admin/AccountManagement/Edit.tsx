@@ -7,9 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Link, router, useForm } from '@inertiajs/react';
+import { Link, router, useForm, usePage } from '@inertiajs/react';
 import { ArrowLeft, Save, RotateCcw } from 'lucide-react';
-import { FormEvent } from 'react';
+import { FormEvent, useState } from 'react';
+import PasswordResetModal from '@/components/admin/PasswordResetModal';
 
 interface UserData {
     id: number;
@@ -28,15 +29,18 @@ interface EditProps {
 }
 
 export default function AccountManagementEdit({ user, targetUser, roles, errors }: EditProps) {
+    const { data, setData, put, processing } = useForm({
+        name: targetUser?.name || '',
+        email: targetUser?.email || '',
+        user_role: targetUser?.user_role || '',
+    });
+    const [showPasswordModal, setShowPasswordModal] = useState(false);
+    const { errors: pageErrors } = usePage().props;
+
     // Safety check for user data
     if (!user || !targetUser) {
         return <div>Loading...</div>;
     }
-    const { data, setData, put, processing } = useForm({
-        name: targetUser.name,
-        email: targetUser.email,
-        user_role: targetUser.user_role,
-    });
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
@@ -44,15 +48,14 @@ export default function AccountManagementEdit({ user, targetUser, roles, errors 
     };
 
     const handleResetPassword = () => {
-        if (confirm('Are you sure you want to reset this user\'s password? A new password will be generated.')) {
-            router.post(route('admin.users.reset-password', targetUser.id));
-        }
+        setShowPasswordModal(true);
     };
 
     const getRoleBadgeVariant = (role: string) => {
         switch (role) {
             case 'admin':
                 return 'default';
+            case 'registrar':
             case 'teacher':
             case 'instructor':
             case 'adviser':
@@ -279,6 +282,14 @@ export default function AccountManagementEdit({ user, targetUser, roles, errors 
                     </div>
                 </main>
             </div>
+
+            {/* Password Reset Modal */}
+            <PasswordResetModal
+                user={targetUser}
+                isOpen={showPasswordModal}
+                onClose={() => setShowPasswordModal(false)}
+                errors={pageErrors as Record<string, string>}
+            />
         </div>
     );
 }

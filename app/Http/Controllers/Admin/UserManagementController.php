@@ -6,11 +6,18 @@ use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 
+/**
+ * Admin User Management Controller
+ * 
+ * Handles CRUD operations for user accounts in the admin panel.
+ * All methods require admin authentication via EnsureAdmin middleware.
+ */
 class UserManagementController extends Controller
 {
     /**
@@ -21,6 +28,7 @@ class UserManagementController extends Controller
         $stats = [
             'total_users' => User::count(),
             'admin_count' => User::where('user_role', 'admin')->count(),
+            'registrar_count' => User::where('user_role', 'registrar')->count(),
             'instructor_count' => User::where('user_role', 'instructor')->count(),
             'teacher_count' => User::where('user_role', 'teacher')->count(),
             'adviser_count' => User::where('user_role', 'adviser')->count(),
@@ -37,7 +45,7 @@ class UserManagementController extends Controller
             ->get();
 
         return Inertia::render('Admin/Dashboard', [
-            'user' => auth()->user(),
+            'user' => Auth::user(),
             'stats' => $stats,
             'recentUsers' => $recentUsers,
             'recentActivities' => $recentActivities,
@@ -73,7 +81,7 @@ class UserManagementController extends Controller
         $users = $query->paginate(15)->withQueryString();
 
         return Inertia::render('Admin/AccountManagement/List', [
-            'user' => auth()->user(),
+            'user' => Auth::user(),
             'users' => $users,
             'filters' => $request->only(['search', 'role', 'sort_by', 'sort_direction']),
             'roles' => User::getAvailableRoles(),
@@ -86,7 +94,7 @@ class UserManagementController extends Controller
     public function create()
     {
         return Inertia::render('Admin/AccountManagement/Create', [
-            'user' => auth()->user(),
+            'user' => Auth::user(),
             'roles' => User::getAvailableRoles(),
         ]);
     }
@@ -99,7 +107,7 @@ class UserManagementController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
-            'user_role' => 'required|in:admin,instructor,teacher,adviser,chairperson,principal,student,parent',
+            'user_role' => 'required|in:admin,registrar,instructor,teacher,adviser,chairperson,principal,student,parent',
             'password' => 'required|string|min:8|confirmed',
         ]);
 
@@ -115,8 +123,9 @@ class UserManagementController extends Controller
         ]);
 
         // Log the activity
+        $currentUser = Auth::user();
         ActivityLog::create([
-            'user_id' => auth()->id(),
+            'user_id' => Auth::id(),
             'target_user_id' => $user->id,
             'action' => 'created_user',
             'entity_type' => 'user',
@@ -125,7 +134,7 @@ class UserManagementController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $user->user_role,
-                'created_by' => auth()->user()->name ?? 'System',
+                'created_by' => $currentUser ? $currentUser->name : 'System',
             ],
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
@@ -133,6 +142,7 @@ class UserManagementController extends Controller
 
         // Redirect based on role
         $roleRedirects = [
+            'registrar' => route('registrar.dashboard'),
             'instructor' => route('instructor.dashboard'),
             'teacher' => route('teacher.dashboard'),
             'adviser' => route('adviser.dashboard'),
@@ -163,7 +173,7 @@ class UserManagementController extends Controller
         ->paginate(20);
 
         return Inertia::render('Admin/AccountManagement/View', [
-            'user' => auth()->user(),
+            'user' => Auth::user(),
             'targetUser' => $user,
             'activityLogs' => $activityLogs,
         ]);
@@ -175,7 +185,7 @@ class UserManagementController extends Controller
     public function edit(User $user)
     {
         return Inertia::render('Admin/AccountManagement/Edit', [
-            'user' => auth()->user(),
+            'user' => Auth::user(),
             'targetUser' => $user,
             'roles' => User::getAvailableRoles(),
         ]);
@@ -189,7 +199,7 @@ class UserManagementController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
-            'user_role' => 'required|in:admin,instructor,teacher,adviser,chairperson,principal,student,parent',
+            'user_role' => 'required|in:admin,registrar,instructor,teacher,adviser,chairperson,principal,student,parent',
         ]);
 
         if ($validator->fails()) {
@@ -205,8 +215,9 @@ class UserManagementController extends Controller
         ]);
 
         // Log the activity
+        $currentUser = Auth::user();
         ActivityLog::create([
-            'user_id' => auth()->id(),
+            'user_id' => Auth::id(),
             'target_user_id' => $user->id,
             'action' => 'updated_user',
             'entity_type' => 'user',
@@ -214,7 +225,7 @@ class UserManagementController extends Controller
             'details' => [
                 'original' => $originalData,
                 'updated' => $user->toArray(),
-                'updated_by' => auth()->user()->name ?? 'System',
+                'updated_by' => $currentUser ? $currentUser->name : 'System',
             ],
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
@@ -229,22 +240,23 @@ class UserManagementController extends Controller
     public function destroy(User $user)
     {
         // Prevent self-deletion
-        if ($user->id === auth()->id()) {
+        if ($user->id === Auth::id()) {
             return back()->with('error', 'You cannot delete your own account.');
         }
 
         $userData = $user->toArray();
 
         // Log the activity before deletion
+        $currentUser = Auth::user();
         ActivityLog::create([
-            'user_id' => auth()->id(),
+            'user_id' => Auth::id(),
             'target_user_id' => $user->id,
             'action' => 'deleted_user',
             'entity_type' => 'user',
             'entity_id' => $user->id,
             'details' => [
                 'deleted_user' => $userData,
-                'deleted_by' => auth()->user()->name ?? 'System',
+                'deleted_by' => $currentUser ? $currentUser->name : 'System',
             ],
             'ip_address' => request()->ip(),
             'user_agent' => request()->userAgent(),
@@ -260,27 +272,35 @@ class UserManagementController extends Controller
      */
     public function resetPassword(Request $request, User $user)
     {
-        $newPassword = Str::random(12);
+        $validator = Validator::make($request->all(), [
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput();
+        }
+
         $user->update([
-            'password' => Hash::make($newPassword),
+            'password' => Hash::make($request->password),
         ]);
 
         // Log the activity
+        $currentUser = Auth::user();
         ActivityLog::create([
-            'user_id' => auth()->id(),
+            'user_id' => Auth::id(),
             'target_user_id' => $user->id,
             'action' => 'reset_password',
             'entity_type' => 'user',
             'entity_id' => $user->id,
             'details' => [
                 'target_user' => $user->name,
-                'reset_by' => auth()->user()->name ?? 'System',
+                'reset_by' => $currentUser ? $currentUser->name : 'System',
             ],
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
         ]);
 
-        return back()->with('success', "Password reset successfully! New password: {$newPassword}");
+        return back()->with('success', 'Password reset successfully!');
     }
 
     /**

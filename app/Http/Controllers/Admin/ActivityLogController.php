@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
 class ActivityLogController extends Controller
@@ -67,7 +68,7 @@ class ActivityLogController extends Controller
         $users = User::select('id', 'name', 'email')->orderBy('name')->get();
 
         return Inertia::render('Admin/ActivityLogs/Index', [
-            'user' => auth()->user(),
+            'user' => Auth::user(),
             'activityLogs' => $activityLogs,
             'filters' => $request->only(['action', 'user_id', 'date_from', 'date_to', 'search', 'sort_by', 'sort_direction']),
             'availableActions' => $availableActions,
@@ -102,7 +103,7 @@ class ActivityLogController extends Controller
         $activityLogs = $query->latest()->paginate(20)->withQueryString();
 
         return Inertia::render('Admin/ActivityLogs/UserLogs', [
-            'user' => auth()->user(),
+            'user' => Auth::user(),
             'targetUser' => $user,
             'activityLogs' => $activityLogs,
             'filters' => $request->only(['action', 'date_from', 'date_to']),

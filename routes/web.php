@@ -97,6 +97,13 @@ Route::middleware([UserMiddleware::class])->group(function () {
 |--------------------------------------------------------------------------
 */
 
+// Registrar Dashboard
+Route::middleware(['auth'])->group(function () {
+    Route::get('/registrar/dashboard', function () {
+        return Inertia::render('Welcome', ['message' => 'Welcome to Registrar Dashboard - Coming Soon!']);
+    })->name('registrar.dashboard');
+});
+
 // Instructor Dashboard
 Route::middleware(['auth'])->group(function () {
     Route::get('/instructor/dashboard', function () {

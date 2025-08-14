@@ -27,6 +27,7 @@ interface ActivityLog {
 interface Stats {
     total_users: number;
     admin_count: number;
+    registrar_count: number;
     instructor_count: number;
     teacher_count: number;
     adviser_count: number;
@@ -101,7 +102,7 @@ export default function AdminDashboard({ user, stats, recentUsers, recentActivit
                                 </CardHeader>
                                 <CardContent>
                                     <div className="text-2xl font-bold">
-                                        {stats.teacher_count + stats.instructor_count + stats.adviser_count + stats.chairperson_count + stats.principal_count}
+                                        {stats.registrar_count + stats.teacher_count + stats.instructor_count + stats.adviser_count + stats.chairperson_count + stats.principal_count}
                                     </div>
                                     <p className="text-xs text-muted-foreground">
                                         Teachers & Staff
@@ -132,6 +133,10 @@ export default function AdminDashboard({ user, stats, recentUsers, recentActivit
                                     <div className="flex items-center justify-between">
                                         <span className="text-sm">Admins</span>
                                         <Badge variant="default">{stats.admin_count}</Badge>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm">Registrars</span>
+                                        <Badge variant="secondary">{stats.registrar_count}</Badge>
                                     </div>
                                     <div className="flex items-center justify-between">
                                         <span className="text-sm">Teachers</span>
