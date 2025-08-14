@@ -72,112 +72,21 @@ Route::middleware([AdminMiddleware::class])->group(function () {
 
 /*
 |--------------------------------------------------------------------------
-| This controller handles All Student Logic
+| This controller handles All User Logic
 |--------------------------------------------------------------------------
 */
 
+use App\Http\Controllers\User\UserDashboardController;
+use App\Http\Controllers\User\UserSettingsController;
+use App\Http\Middleware\UserMiddleware;
 
-use App\Http\Controllers\StudentController;
-use App\Http\Middleware\StudentMiddleware;
-
-Route::middleware([StudentMiddleware::class])->group(function () {
-
-  // Dashboard
-  Route::get('student/dashboard', [StudentController::class, 'index'])->name('student.dashboard');
-});
-
-/*
-|--------------------------------------------------------------------------
-| This controller handles All Instructor Logic
-|--------------------------------------------------------------------------
-*/
-
-use App\Http\Controllers\InstructorController;
-use App\Http\Middleware\InstructorMiddleware;
-
-Route::middleware([InstructorMiddleware::class])->group(function () {
+Route::middleware([UserMiddleware::class])->group(function () {
 
   // Dashboard
-  Route::get('instructor/dashboard', [InstructorController::class, 'index'])->name('instructor.dashboard');
-});
+  Route::get('dashboard', [UserDashboardController::class, 'index'])->name('user.dashboard');
 
-
-/*
-|--------------------------------------------------------------------------
-| This controller handles All Chairperson Logic
-|--------------------------------------------------------------------------
-*/
-
-use App\Http\Controllers\ChairpersonController;
-use App\Http\Middleware\ChairpersonMiddleware;
-
-
-Route::middleware([ChairpersonMiddleware::class])->group(function () {
-
-  // Dashboard
-  Route::get('chairperson/dashboard', [ChairpersonController::class, 'index'])->name('chairperson.dashboard');
-});
-
-/*
-|--------------------------------------------------------------------------
-| This controller handles All Class Adviser Logic
-|--------------------------------------------------------------------------
-*/
-
-use App\Http\Controllers\ClassAdviserController;
-use App\Http\Middleware\ClassAdviserMiddleware;
-
-
-Route::middleware([ClassAdviserMiddleware::class])->group(function () {
-
-  // Dashboard
-  Route::get('class-adviser/dashboard', [ClassAdviserController::class, 'index'])->name('class-adviser.dashboard');
-});
-
-/*
-|--------------------------------------------------------------------------
-| This controller handles All Parent Logic
-|--------------------------------------------------------------------------
-*/
-
-use App\Http\Controllers\ParentController;
-use App\Http\Middleware\ParentMiddleware;
-
-
-Route::middleware([ParentMiddleware::class])->group(function () {
-
-  // Dashboard
-  Route::get('parent/dashboard', [ParentController::class, 'index'])->name('parent.dashboard');
-});
-
-/*
-|--------------------------------------------------------------------------
-| This controller handles All Principal Logic
-|--------------------------------------------------------------------------
-*/
-
-use App\Http\Controllers\PrincipalController;
-use App\Http\Middleware\PrincipalMiddleware;
-
-
-Route::middleware([PrincipalMiddleware::class])->group(function () {
-
-  // Dashboard
-  Route::get('principal/dashboard', [PrincipalController::class, 'index'])->name('principal.dashboard');
-});
-
-/*
-|--------------------------------------------------------------------------
-| This controller handles All Registrar Logic
-|--------------------------------------------------------------------------
-*/
-
-use App\Http\Controllers\RegistrarController;
-use App\Http\Middleware\RegistrarMiddleware;
-
-
-Route::middleware([RegistrarMiddleware::class])->group(function () {
-
-  // Dashboard
-  Route::get('registrar/dashboard', [RegistrarController::class, 'index'])->name('registrar.dashboard');
+  // Settings
+  Route::get('user/settings', [UserSettingsController::class, 'index'])->name('user.settings');
+  Route::put('user/settings/profile', [UserSettingsController::class, 'updateProfile'])->name('user.settings.updateProfile');
+  Route::put('user/settings/password', [UserSettingsController::class, 'updatePassword'])->name('user.settings.updatePassword');
 });

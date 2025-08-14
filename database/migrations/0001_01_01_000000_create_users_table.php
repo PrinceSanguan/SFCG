@@ -15,17 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('email')->unique();
-            $table->enum('user_role', [
-                'admin',
-                'instructor',
-                'class_adviser',
-                'chairperson',
-                'principal',
-                'registrar',
-                'student',
-                'parent',
-                'teacher',
-            ])->default('student');
+            $table->enum('user_role', ['admin', 'user'])->default('user');
             $table->string('google_id')->nullable();
             $table->timestamp('last_login_at')->nullable();
             $table->timestamp('email_verified_at')->nullable();

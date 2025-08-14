@@ -11,7 +11,6 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Run Account Seeder to create initial user accounts
-        $this->call(AccountSeeder::class);
+        $this->call(UserSeeder::class);
     }
 }
