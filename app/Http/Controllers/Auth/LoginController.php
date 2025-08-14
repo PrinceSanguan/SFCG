@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
@@ -36,12 +37,36 @@ class LoginController extends Controller
         if (Auth::attempt($credentials)) {
             $request->session()->regenerate();
 
-            // Check user role and redirect accordingly
-            if (Auth::user()->user_role === 'admin') {
-                return redirect()->route('admin.dashboard');
-            } else {
-                return redirect()->route('user.dashboard');
-            }
+            // Update last login timestamp
+            Auth::user()->update(['last_login_at' => now()]);
+
+            // Log login activity
+            ActivityLog::create([
+                'user_id' => Auth::id(),
+                'action' => 'login',
+                'entity_type' => 'auth',
+                'details' => [
+                    'login_time' => now(),
+                    'user_agent' => $request->userAgent(),
+                ],
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
+
+            // Role-based redirect
+            $roleRedirects = [
+                'admin' => route('admin.dashboard'),
+                'instructor' => route('instructor.dashboard'),
+                'teacher' => route('teacher.dashboard'),
+                'adviser' => route('adviser.dashboard'),
+                'chairperson' => route('chairperson.dashboard'),
+                'principal' => route('principal.dashboard'),
+                'student' => route('student.dashboard'),
+                'parent' => route('parent.dashboard'),
+            ];
+
+            $redirectUrl = $roleRedirects[Auth::user()->user_role] ?? route('user.dashboard');
+            return redirect($redirectUrl);
         }
 
         // Authentication failed

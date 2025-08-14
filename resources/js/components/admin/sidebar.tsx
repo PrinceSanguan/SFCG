@@ -9,7 +9,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Link, usePage } from '@inertiajs/react';
-import { BarChart, ChevronDown, CreditCard, LayoutDashboard, MessageSquare, Settings, Share, Users } from 'lucide-react';
+import { BarChart, ChevronDown, CreditCard, LayoutDashboard, Settings, Users } from 'lucide-react';
 
 interface User {
     name: string;
@@ -46,45 +46,46 @@ export function Sidebar({ user }: SidebarProps) {
                         </Button>
                     </Link>
 
-                    {/* New navigation items */}
+                    {/* Account Management */}
+                    <Link href={route('admin.users.index')} className="w-full">
+                        <Button
+                            variant={isActive('/admin/users') ? 'secondary' : 'ghost'}
+                            className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                        >
+                            <Users size={18} />
+                            Account Management
+                        </Button>
+                    </Link>
+
+                    {/* Disabled menu items with opacity */}
                     <Button
                         variant="ghost"
-                        className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                        disabled
+                        className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-gray-400 opacity-50 dark:text-gray-500"
                     >
-                        <Users size={18} />
-                        Users
+                        <Settings size={18} />
+                        System Settings
+                        <span className="ml-auto text-xs">(Soon)</span>
                     </Button>
 
                     <Button
                         variant="ghost"
-                        className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                        disabled
+                        className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-gray-400 opacity-50 dark:text-gray-500"
                     >
                         <BarChart size={18} />
-                        Analytics
+                        Data Management
+                        <span className="ml-auto text-xs">(Soon)</span>
                     </Button>
 
                     <Button
                         variant="ghost"
-                        className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                        disabled
+                        className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-gray-400 opacity-50 dark:text-gray-500"
                     >
                         <CreditCard size={18} />
-                        Billing
-                    </Button>
-
-                    <Button
-                        variant="ghost"
-                        className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-                    >
-                        <Share size={18} />
-                        Referral
-                    </Button>
-
-                    <Button
-                        variant="ghost"
-                        className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-                    >
-                        <MessageSquare size={18} />
-                        Feedback
+                        Reports
+                        <span className="ml-auto text-xs">(Soon)</span>
                     </Button>
                 </nav>
             </div>

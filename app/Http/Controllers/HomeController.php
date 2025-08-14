@@ -8,12 +8,12 @@ use Inertia\Inertia;
 class HomeController extends Controller
 {
     /**
-     * Display the homepage.
+     * Display the homepage - redirect to login.
      *
-     * @return \Inertia\Response
+     * @return \Illuminate\Http\RedirectResponse
      */
     public function index()
     {
-        return Inertia::render('Welcome');
+        return redirect()->route('auth.login');
     }
 }

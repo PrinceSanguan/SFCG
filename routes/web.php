@@ -90,3 +90,58 @@ Route::middleware([UserMiddleware::class])->group(function () {
   Route::put('user/settings/profile', [UserSettingsController::class, 'updateProfile'])->name('user.settings.updateProfile');
   Route::put('user/settings/password', [UserSettingsController::class, 'updatePassword'])->name('user.settings.updatePassword');
 });
+
+/*
+|--------------------------------------------------------------------------
+| Role-specific Dashboard Routes (Placeholders)
+|--------------------------------------------------------------------------
+*/
+
+// Instructor Dashboard
+Route::middleware(['auth'])->group(function () {
+    Route::get('/instructor/dashboard', function () {
+        return Inertia::render('Welcome', ['message' => 'Welcome to Instructor Dashboard - Coming Soon!']);
+    })->name('instructor.dashboard');
+});
+
+// Teacher Dashboard
+Route::middleware(['auth'])->group(function () {
+    Route::get('/teacher/dashboard', function () {
+        return Inertia::render('Welcome', ['message' => 'Welcome to Teacher Dashboard - Coming Soon!']);
+    })->name('teacher.dashboard');
+});
+
+// Adviser Dashboard
+Route::middleware(['auth'])->group(function () {
+    Route::get('/adviser/dashboard', function () {
+        return Inertia::render('Welcome', ['message' => 'Welcome to Adviser Dashboard - Coming Soon!']);
+    })->name('adviser.dashboard');
+});
+
+// Chairperson Dashboard
+Route::middleware(['auth'])->group(function () {
+    Route::get('/chairperson/dashboard', function () {
+        return Inertia::render('Welcome', ['message' => 'Welcome to Chairperson Dashboard - Coming Soon!']);
+    })->name('chairperson.dashboard');
+});
+
+// Principal Dashboard
+Route::middleware(['auth'])->group(function () {
+    Route::get('/principal/dashboard', function () {
+        return Inertia::render('Welcome', ['message' => 'Welcome to Principal Dashboard - Coming Soon!']);
+    })->name('principal.dashboard');
+});
+
+// Student Dashboard
+Route::middleware(['auth'])->group(function () {
+    Route::get('/student/dashboard', function () {
+        return Inertia::render('Welcome', ['message' => 'Welcome to Student Dashboard - Coming Soon!']);
+    })->name('student.dashboard');
+});
+
+// Parent Dashboard
+Route::middleware(['auth'])->group(function () {
+    Route::get('/parent/dashboard', function () {
+        return Inertia::render('Welcome', ['message' => 'Welcome to Parent Dashboard - Coming Soon!']);
+    })->name('parent.dashboard');
+});
