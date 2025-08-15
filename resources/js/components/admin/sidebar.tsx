@@ -9,7 +9,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Link, usePage } from '@inertiajs/react';
-import { BarChart, ChevronDown, CreditCard, LayoutDashboard, Settings, Users, UserCheck, ChevronRight } from 'lucide-react';
+import { BarChart, ChevronDown, CreditCard, LayoutDashboard, Settings, Users, UserCheck, ChevronRight, GraduationCap, BookOpen, UserCog, Crown, Building2, UserPlus } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 interface User {
@@ -23,20 +23,18 @@ interface SidebarProps {
 
 export function Sidebar({ user }: SidebarProps) {
     const { url } = usePage(); // Get the current route
-    const [isAccountManagementExpanded, setIsAccountManagementExpanded] = useState(false);
+    const [isAccountManagementExpanded, setIsAccountManagementExpanded] = useState(true); // Always start expanded
 
     // Function to check if the route matches
     const isActive = (path: string) => url.startsWith(path);
     
     // Check if any account management route is active
-    const isAccountManagementActive = isActive('/admin/users') || isActive('/admin/parents');
-    
-    // Auto-expand account management when on related pages
-    useEffect(() => {
-        if (isAccountManagementActive && !isAccountManagementExpanded) {
-            setIsAccountManagementExpanded(true);
-        }
-    }, [url, isAccountManagementActive, isAccountManagementExpanded]);
+    const isAccountManagementActive = isActive('/admin/users') || isActive('/admin/parents') || 
+                                    isActive('/admin/students') || isActive('/admin/faculty') || 
+                                    isActive('/admin/administrators') || isActive('/admin/registrars') ||
+                                    isActive('/admin/instructors') || isActive('/admin/teachers') ||
+                                    isActive('/admin/advisers') || isActive('/admin/chairpersons') ||
+                                    isActive('/admin/principals');
 
     return (
         <div className="hidden w-64 flex-col border-r bg-white md:flex dark:border-gray-700 dark:bg-gray-800">
@@ -77,30 +75,108 @@ export function Sidebar({ user }: SidebarProps) {
                             />
                         </Button>
                         
-                        {/* Account Management Submenu */}
-                        {isAccountManagementExpanded && (
-                            <div className="ml-6 mt-1 space-y-1">
-                                <Link href={route('admin.users.index')} className="w-full">
-                                    <Button
-                                        variant={isActive('/admin/users') ? 'secondary' : 'ghost'}
-                                        className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-                                    >
-                                        <Users size={16} />
-                                        All Users
-                                    </Button>
-                                </Link>
-                                
-                                <Link href={route('admin.parents.index')} className="w-full">
-                                    <Button
-                                        variant={isActive('/admin/parents') ? 'secondary' : 'ghost'}
-                                        className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-                                    >
-                                        <UserCheck size={16} />
-                                        Parent Accounts
-                                    </Button>
-                                </Link>
-                            </div>
-                        )}
+                        {/* Account Management Submenu - Always show for now */}
+                        <div className="ml-6 mt-1 space-y-1">
+                            <Link href={route('admin.users.index')} className="w-full">
+                                <Button
+                                    variant={isActive('/admin/users') ? 'secondary' : 'ghost'}
+                                    className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                                >
+                                    <Users size={16} />
+                                    All Users
+                                </Button>
+                            </Link>
+                            
+                            <Link href={route('admin.administrators.index')} className="w-full">
+                                <Button
+                                    variant={isActive('/admin/administrators') ? 'secondary' : 'ghost'}
+                                    className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                                >
+                                    <Crown size={16} />
+                                    Administrators
+                                </Button>
+                            </Link>
+
+                            <Link href={route('admin.registrars.index')} className="w-full">
+                                <Button
+                                    variant={isActive('/admin/registrars') ? 'secondary' : 'ghost'}
+                                    className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                                >
+                                    <Building2 size={16} />
+                                    Registrars
+                                </Button>
+                            </Link>
+
+                            <Link href={route('admin.principals.index')} className="w-full">
+                                <Button
+                                    variant={isActive('/admin/principals') ? 'secondary' : 'ghost'}
+                                    className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                                >
+                                    <Crown size={16} />
+                                    Principals
+                                </Button>
+                            </Link>
+
+                            <Link href={route('admin.chairpersons.index')} className="w-full">
+                                <Button
+                                    variant={isActive('/admin.chairpersons') ? 'secondary' : 'ghost'}
+                                    className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                                >
+                                    <UserCog size={16} />
+                                    Chairpersons
+                                </Button>
+                            </Link>
+
+                            <Link href={route('admin.teachers.index')} className="w-full">
+                                <Button
+                                    variant={isActive('/admin/teachers') ? 'secondary' : 'ghost'}
+                                    className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                                >
+                                    <BookOpen size={16} />
+                                    Teachers
+                                </Button>
+                            </Link>
+
+                            <Link href={route('admin.instructors.index')} className="w-full">
+                                <Button
+                                    variant={isActive('/admin.instructors') ? 'secondary' : 'ghost'}
+                                    className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                                >
+                                    <BookOpen size={16} />
+                                    Instructors
+                                </Button>
+                            </Link>
+
+                            <Link href={route('admin.advisers.index')} className="w-full">
+                                <Button
+                                    variant={isActive('/admin.advisers') ? 'secondary' : 'ghost'}
+                                    className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                                >
+                                    <UserPlus size={16} />
+                                    Advisers
+                                </Button>
+                            </Link>
+                            
+                            <Link href={route('admin.parents.index')} className="w-full">
+                                <Button
+                                    variant={isActive('/admin/parents') ? 'secondary' : 'ghost'}
+                                    className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                                >
+                                    <UserCheck size={16} />
+                                    Parent Accounts
+                                </Button>
+                            </Link>
+
+                            <Link href={route('admin.students.index')} className="w-full">
+                                <Button
+                                    variant={isActive('/admin/students') ? 'secondary' : 'ghost'}
+                                    className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                                >
+                                    <GraduationCap size={16} />
+                                    Students
+                                </Button>
+                            </Link>
+                        </div>
                     </div>
 
                     {/* Disabled menu items with opacity */}

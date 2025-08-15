@@ -50,6 +50,90 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
         // Get user profile data for API calls
         Route::get('/{user}/profile', [UserManagementController::class, 'profile'])->name('profile');
     });
+
+    // Administrator Management
+    Route::prefix('administrators')->name('administrators.')->group(function () {
+        Route::get('/', [UserManagementController::class, 'indexByRole'])->name('index');
+        Route::get('/create', [UserManagementController::class, 'createByRole'])->name('create');
+        Route::post('/', [UserManagementController::class, 'storeByRole'])->name('store');
+        Route::get('/{user}', [UserManagementController::class, 'showByRole'])->name('show');
+        Route::get('/{user}/edit', [UserManagementController::class, 'editByRole'])->name('edit');
+        Route::put('/{user}', [UserManagementController::class, 'updateByRole'])->name('update');
+        Route::delete('/{user}', [UserManagementController::class, 'destroyByRole'])->name('destroy');
+        Route::post('/{user}/reset-password', [UserManagementController::class, 'resetPasswordByRole'])->name('reset-password');
+    });
+
+    // Registrar Management
+    Route::prefix('registrars')->name('registrars.')->group(function () {
+        Route::get('/', [UserManagementController::class, 'indexByRole'])->name('index');
+        Route::get('/create', [UserManagementController::class, 'createByRole'])->name('create');
+        Route::post('/', [UserManagementController::class, 'storeByRole'])->name('store');
+        Route::get('/{user}', [UserManagementController::class, 'showByRole'])->name('show');
+        Route::get('/{user}/edit', [UserManagementController::class, 'editByRole'])->name('edit');
+        Route::put('/{user}', [UserManagementController::class, 'updateByRole'])->name('update');
+        Route::delete('/{user}', [UserManagementController::class, 'destroyByRole'])->name('destroy');
+        Route::post('/{user}/reset-password', [UserManagementController::class, 'resetPasswordByRole'])->name('reset-password');
+    });
+
+    // Principal Management
+    Route::prefix('principals')->name('principals.')->group(function () {
+        Route::get('/', [UserManagementController::class, 'indexByRole'])->name('index');
+        Route::get('/create', [UserManagementController::class, 'createByRole'])->name('create');
+        Route::post('/', [UserManagementController::class, 'storeByRole'])->name('store');
+        Route::get('/{user}', [UserManagementController::class, 'showByRole'])->name('show');
+        Route::get('/{user}/edit', [UserManagementController::class, 'editByRole'])->name('edit');
+        Route::put('/{user}', [UserManagementController::class, 'updateByRole'])->name('update');
+        Route::delete('/{user}', [UserManagementController::class, 'destroyByRole'])->name('destroy');
+        Route::post('/{user}/reset-password', [UserManagementController::class, 'resetPasswordByRole'])->name('reset-password');
+    });
+
+    // Chairperson Management
+    Route::prefix('chairpersons')->name('chairpersons.')->group(function () {
+        Route::get('/', [UserManagementController::class, 'indexByRole'])->name('index');
+        Route::get('/create', [UserManagementController::class, 'createByRole'])->name('create');
+        Route::post('/', [UserManagementController::class, 'storeByRole'])->name('store');
+        Route::get('/{user}', [UserManagementController::class, 'showByRole'])->name('show');
+        Route::get('/{user}/edit', [UserManagementController::class, 'editByRole'])->name('edit');
+        Route::put('/{user}', [UserManagementController::class, 'updateByRole'])->name('update');
+        Route::delete('/{user}', [UserManagementController::class, 'destroyByRole'])->name('destroy');
+        Route::post('/{user}/reset-password', [UserManagementController::class, 'resetPasswordByRole'])->name('reset-password');
+    });
+
+    // Teacher Management
+    Route::prefix('teachers')->name('teachers.')->group(function () {
+        Route::get('/', [UserManagementController::class, 'indexByRole'])->name('index');
+        Route::get('/create', [UserManagementController::class, 'createByRole'])->name('create');
+        Route::post('/', [UserManagementController::class, 'storeByRole'])->name('store');
+        Route::get('/{user}', [UserManagementController::class, 'showByRole'])->name('show');
+        Route::get('/{user}/edit', [UserManagementController::class, 'editByRole'])->name('edit');
+        Route::put('/{user}', [UserManagementController::class, 'updateByRole'])->name('update');
+        Route::delete('/{user}', [UserManagementController::class, 'destroyByRole'])->name('destroy');
+        Route::post('/{user}/reset-password', [UserManagementController::class, 'resetPasswordByRole'])->name('reset-password');
+    });
+
+    // Instructor Management
+    Route::prefix('instructors')->name('instructors.')->group(function () {
+        Route::get('/', [UserManagementController::class, 'indexByRole'])->name('index');
+        Route::get('/create', [UserManagementController::class, 'createByRole'])->name('create');
+        Route::post('/', [UserManagementController::class, 'storeByRole'])->name('store');
+        Route::get('/{user}', [UserManagementController::class, 'showByRole'])->name('show');
+        Route::get('/{user}/edit', [UserManagementController::class, 'editByRole'])->name('edit');
+        Route::put('/{user}', [UserManagementController::class, 'updateByRole'])->name('update');
+        Route::delete('/{user}', [UserManagementController::class, 'destroyByRole'])->name('destroy');
+        Route::post('/{user}/reset-password', [UserManagementController::class, 'resetPasswordByRole'])->name('reset-password');
+    });
+
+    // Adviser Management
+    Route::prefix('advisers')->name('advisers.')->group(function () {
+        Route::get('/', [UserManagementController::class, 'indexByRole'])->name('index');
+        Route::get('/create', [UserManagementController::class, 'createByRole'])->name('create');
+        Route::post('/', [UserManagementController::class, 'storeByRole'])->name('store');
+        Route::get('/{user}', [UserManagementController::class, 'showByRole'])->name('show');
+        Route::get('/{user}/edit', [UserManagementController::class, 'editByRole'])->name('edit');
+        Route::put('/{user}', [UserManagementController::class, 'updateByRole'])->name('update');
+        Route::delete('/{user}', [UserManagementController::class, 'destroyByRole'])->name('destroy');
+        Route::post('/{user}/reset-password', [UserManagementController::class, 'resetPasswordByRole'])->name('reset-password');
+    });
     
     // Parent Management
     Route::prefix('parents')->name('parents.')->group(function () {
@@ -82,6 +166,18 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
         
         // Unlink parent from student
         Route::delete('/{parent}/unlink-student/{student}', [ParentManagementController::class, 'unlinkStudent'])->name('unlink-student');
+    });
+
+    // Student Management
+    Route::prefix('students')->name('students.')->group(function () {
+        Route::get('/', [UserManagementController::class, 'indexByRole'])->name('index');
+        Route::get('/create', [UserManagementController::class, 'createByRole'])->name('create');
+        Route::post('/', [UserManagementController::class, 'storeByRole'])->name('store');
+        Route::get('/{user}', [UserManagementController::class, 'showByRole'])->name('show');
+        Route::get('/{user}/edit', [UserManagementController::class, 'editByRole'])->name('edit');
+        Route::put('/{user}', [UserManagementController::class, 'updateByRole'])->name('update');
+        Route::delete('/{user}', [UserManagementController::class, 'destroyByRole'])->name('destroy');
+        Route::post('/{user}/reset-password', [UserManagementController::class, 'resetPasswordByRole'])->name('reset-password');
     });
     
     // Activity Logs

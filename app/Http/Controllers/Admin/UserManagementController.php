@@ -354,4 +354,337 @@ class UserManagementController extends Controller
             'active_users' => User::whereDate('last_login_at', '>=', now()->subDays(30))->count(),
         ]);
     }
+
+    // Role-specific methods for different user types
+
+    /**
+     * Display a listing of users by role.
+     */
+    public function indexByRole(Request $request)
+    {
+        $role = $this->getRoleFromRoute();
+        $query = User::where('user_role', $role);
+
+        // Search functionality
+        if ($request->filled('search')) {
+            $search = $request->get('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%");
+            });
+        }
+
+        // Sort functionality
+        $sortBy = $request->get('sort_by', 'created_at');
+        $sortDirection = $request->get('sort_direction', 'desc');
+        $query->orderBy($sortBy, $sortDirection);
+
+        $users = $query->paginate(15)->withQueryString();
+
+        $folderName = $this->getRoleFolderName($role);
+
+        return Inertia::render('Admin/AccountManagement/' . $folderName . '/List', [
+            'user' => Auth::user(),
+            'users' => $users,
+            'filters' => $request->only(['search', 'sort_by', 'sort_direction']),
+            'role' => $role,
+            'roleDisplayName' => User::getAvailableRoles()[$role] ?? ucfirst($role),
+        ]);
+    }
+
+    /**
+     * Show the form for creating a new user by role.
+     */
+    public function createByRole()
+    {
+        $role = $this->getRoleFromRoute();
+        
+        $folderName = $this->getRoleFolderName($role);
+        
+        return Inertia::render('Admin/AccountManagement/' . $folderName . '/Create', [
+            'user' => Auth::user(),
+            'role' => $role,
+            'roleDisplayName' => User::getAvailableRoles()[$role] ?? ucfirst($role),
+        ]);
+    }
+
+    /**
+     * Store a newly created user by role.
+     */
+    public function storeByRole(Request $request)
+    {
+        $role = $this->getRoleFromRoute();
+        
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput();
+        }
+
+        $user = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'user_role' => $role,
+            'password' => Hash::make($request->password),
+        ]);
+
+        // Log the activity
+        $currentUser = Auth::user();
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'target_user_id' => $user->id,
+            'action' => 'created_user',
+            'entity_type' => 'user',
+            'entity_id' => $user->id,
+            'details' => [
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->user_role,
+                'created_by' => $currentUser ? $currentUser->name : 'System',
+            ],
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        return redirect()->route('admin.' . $role . 's.index')->with('success', ucfirst($role) . ' created successfully!');
+    }
+
+    /**
+     * Display the specified user by role.
+     */
+    public function showByRole(User $user)
+    {
+        $role = $this->getRoleFromRoute();
+        
+        // Ensure the user has the correct role
+        if ($user->user_role !== $role) {
+            abort(404);
+        }
+
+        $user->load(['activityLogs', 'targetActivityLogs.user']);
+
+        $activityLogs = ActivityLog::where(function ($query) use ($user) {
+            $query->where('user_id', $user->id)
+                  ->orWhere('target_user_id', $user->id);
+        })
+        ->with(['user', 'targetUser'])
+        ->latest()
+        ->paginate(20);
+
+        $folderName = $this->getRoleFolderName($role);
+
+        return Inertia::render('Admin/AccountManagement/' . $folderName . '/View', [
+            'user' => Auth::user(),
+            'targetUser' => $user,
+            'activityLogs' => $activityLogs,
+            'role' => $role,
+            'roleDisplayName' => User::getAvailableRoles()[$role] ?? ucfirst($role),
+        ]);
+    }
+
+    /**
+     * Show the form for editing the specified user by role.
+     */
+    public function editByRole(User $user)
+    {
+        $role = $this->getRoleFromRoute();
+        
+        // Ensure the user has the correct role
+        if ($user->user_role !== $role) {
+            abort(404);
+        }
+
+        $folderName = $this->getRoleFolderName($role);
+
+        return Inertia::render('Admin/AccountManagement/' . $folderName . '/Edit', [
+            'user' => Auth::user(),
+            'targetUser' => $user,
+            'role' => $role,
+            'roleDisplayName' => User::getAvailableRoles()[$role] ?? ucfirst($role),
+        ]);
+    }
+
+    /**
+     * Update the specified user by role.
+     */
+    public function updateByRole(Request $request, User $user)
+    {
+        $role = $this->getRoleFromRoute();
+        
+        // Ensure the user has the correct role
+        if ($user->user_role !== $role) {
+            abort(404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
+        ]);
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput();
+        }
+
+        $originalData = $user->toArray();
+
+        $user->update([
+            'name' => $request->name,
+            'email' => $request->email,
+        ]);
+
+        // Log the activity
+        $currentUser = Auth::user();
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'target_user_id' => $user->id,
+            'action' => 'updated_user',
+            'entity_type' => 'user',
+            'entity_id' => $user->id,
+            'details' => [
+                'original' => $originalData,
+                'updated' => $user->toArray(),
+                'updated_by' => $currentUser ? $currentUser->name : 'System',
+            ],
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        return redirect()->route('admin.' . $role . 's.index')->with('success', ucfirst($role) . ' updated successfully!');
+    }
+
+    /**
+     * Remove the specified user by role.
+     */
+    public function destroyByRole(User $user)
+    {
+        $role = $this->getRoleFromRoute();
+        
+        // Ensure the user has the correct role
+        if ($user->user_role !== $role) {
+            abort(404);
+        }
+
+        // Prevent self-deletion
+        if ($user->id === Auth::id()) {
+            return back()->with('error', 'You cannot delete your own account.');
+        }
+
+        $userData = $user->toArray();
+
+        // Log the activity before deletion
+        $currentUser = Auth::user();
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'target_user_id' => $user->id,
+            'action' => 'deleted_user',
+            'entity_type' => 'user',
+            'entity_id' => $user->id,
+            'details' => [
+                'deleted_user' => $userData,
+                'deleted_by' => $currentUser ? $currentUser->name : 'System',
+            ],
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+        ]);
+
+        $user->delete();
+
+        return redirect()->route('admin.' . $role . 's.index')->with('success', ucfirst($role) . ' deleted successfully!');
+    }
+
+    /**
+     * Reset user password by role.
+     */
+    public function resetPasswordByRole(Request $request, User $user)
+    {
+        $role = $this->getRoleFromRoute();
+        
+        // Ensure the user has the correct role
+        if ($user->user_role !== $role) {
+            abort(404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput();
+        }
+
+        $user->update([
+            'password' => Hash::make($request->password),
+        ]);
+
+        // Log the activity
+        $currentUser = Auth::user();
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'target_user_id' => $user->id,
+            'action' => 'reset_password',
+            'entity_type' => 'user',
+            'entity_id' => $user->id,
+            'details' => [
+                'target_user' => $user->name,
+                'reset_by' => $currentUser ? $currentUser->name : 'System',
+            ],
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        return back()->with('success', 'Password reset successfully!');
+    }
+
+    /**
+     * Get the role from the current route.
+     */
+    private function getRoleFromRoute(): string
+    {
+        $route = request()->route();
+        $segments = explode('/', $route->uri());
+        
+        // Map route segments to database role values
+        $routeToRoleMap = [
+            'administrators' => 'admin',
+            'registrars' => 'registrar',
+            'principals' => 'principal',
+            'chairpersons' => 'chairperson',
+            'teachers' => 'teacher',
+            'instructors' => 'instructor',
+            'advisers' => 'adviser',
+            'students' => 'student',
+        ];
+        
+        // Find the role from the route segments
+        foreach ($segments as $segment) {
+            if (isset($routeToRoleMap[$segment])) {
+                return $routeToRoleMap[$segment];
+            }
+        }
+        
+        return 'user'; // fallback
+    }
+
+    /**
+     * Get the folder name for a role (plural form for folder structure).
+     */
+    private function getRoleFolderName(string $role): string
+    {
+        $roleFolderMap = [
+            'admin' => 'Administrators',
+            'registrar' => 'Registrars',
+            'principal' => 'Principals',
+            'chairperson' => 'Chairpersons',
+            'teacher' => 'Teachers',
+            'instructor' => 'Instructors',
+            'adviser' => 'Advisers',
+            'student' => 'Students',
+        ];
+
+        return $roleFolderMap[$role] ?? ucfirst($role) . 's';
+    }
 }
