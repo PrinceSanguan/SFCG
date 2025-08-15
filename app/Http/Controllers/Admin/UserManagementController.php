@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -450,7 +451,7 @@ class UserManagementController extends Controller
             'user_agent' => $request->userAgent(),
         ]);
 
-        return redirect()->route('admin.' . $role . 's.index')->with('success', ucfirst($role) . ' created successfully!');
+        return redirect()->route($this->getRoleRouteName($role))->with('success', ucfirst($role) . ' created successfully!');
     }
 
     /**
@@ -503,6 +504,7 @@ class UserManagementController extends Controller
         return Inertia::render('Admin/AccountManagement/' . $folderName . '/Edit', [
             'user' => Auth::user(),
             'targetUser' => $user,
+            'roles' => User::getAvailableRoles(),
             'role' => $role,
             'roleDisplayName' => User::getAvailableRoles()[$role] ?? ucfirst($role),
         ]);
@@ -523,6 +525,7 @@ class UserManagementController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
+            'user_role' => 'required|in:admin,registrar,instructor,teacher,adviser,chairperson,principal,student,parent',
         ]);
 
         if ($validator->fails()) {
@@ -534,6 +537,7 @@ class UserManagementController extends Controller
         $user->update([
             'name' => $request->name,
             'email' => $request->email,
+            'user_role' => $request->user_role,
         ]);
 
         // Log the activity
@@ -553,7 +557,7 @@ class UserManagementController extends Controller
             'user_agent' => $request->userAgent(),
         ]);
 
-        return redirect()->route('admin.' . $role . 's.index')->with('success', ucfirst($role) . ' updated successfully!');
+        return redirect()->route($this->getRoleRouteName($role))->with('success', ucfirst($role) . ' updated successfully!');
     }
 
     /**
@@ -561,15 +565,20 @@ class UserManagementController extends Controller
      */
     public function destroyByRole(User $user)
     {
+        Log::info('destroyByRole called for user: ' . $user->id . ' with role: ' . $user->user_role);
+        
         $role = $this->getRoleFromRoute();
+        Log::info('Role from route: ' . $role);
         
         // Ensure the user has the correct role
         if ($user->user_role !== $role) {
+            Log::warning('Role mismatch: user role ' . $user->user_role . ' != route role ' . $role);
             abort(404);
         }
 
         // Prevent self-deletion
         if ($user->id === Auth::id()) {
+            Log::warning('Self-deletion attempted by user: ' . Auth::id());
             return back()->with('error', 'You cannot delete your own account.');
         }
 
@@ -591,9 +600,10 @@ class UserManagementController extends Controller
             'user_agent' => request()->userAgent(),
         ]);
 
+        Log::info('Deleting user: ' . $user->id);
         $user->delete();
 
-        return redirect()->route('admin.' . $role . 's.index')->with('success', ucfirst($role) . ' deleted successfully!');
+        return redirect()->route($this->getRoleRouteName($role))->with('success', ucfirst($role) . ' deleted successfully!');
     }
 
     /**
@@ -686,5 +696,24 @@ class UserManagementController extends Controller
         ];
 
         return $roleFolderMap[$role] ?? ucfirst($role) . 's';
+    }
+
+    /**
+     * Get the route name for a role's index page.
+     */
+    private function getRoleRouteName(string $role): string
+    {
+        $roleRouteMap = [
+            'admin' => 'admin.administrators.index',
+            'registrar' => 'admin.registrars.index',
+            'principal' => 'admin.principals.index',
+            'chairperson' => 'admin.chairpersons.index',
+            'teacher' => 'admin.teachers.index',
+            'instructor' => 'admin.instructors.index',
+            'adviser' => 'admin.advisers.index',
+            'student' => 'admin.students.index',
+        ];
+
+        return $roleRouteMap[$role] ?? 'admin.users.index';
     }
 }

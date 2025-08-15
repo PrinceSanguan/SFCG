@@ -74,8 +74,22 @@ export default function AdministratorList({ user, users, filters }: Administrato
     };
 
     const handleDelete = (userId: number) => {
+        console.log('Delete requested for user ID:', userId);
         if (confirm('Are you sure you want to delete this administrator account? This action cannot be undone.')) {
-            router.delete(route('admin.administrators.destroy', userId));
+            console.log('Delete confirmed, sending request...');
+            router.delete(route('admin.administrators.destroy', userId), {
+                onSuccess: () => {
+                    console.log('Delete successful');
+                },
+                onError: (errors) => {
+                    console.error('Delete failed:', errors);
+                },
+                onFinish: () => {
+                    console.log('Delete request finished');
+                }
+            });
+        } else {
+            console.log('Delete cancelled by user');
         }
     };
 
