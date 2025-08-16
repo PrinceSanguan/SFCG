@@ -14,11 +14,13 @@ class UserSeeder extends Seeder
     public function run(): void
     {
         // Create Admin account
-        User::factory()->create([
+        User::create([
             'name' => 'Admin Account',
             'email' => 'admin@gmail.com',
             'password' => bcrypt('admin123'),
             'user_role' => 'admin',
+            'email_verified_at' => now(),
+            'remember_token' => \Illuminate\Support\Str::random(10),
         ]);
 
         // Create additional test accounts for each role
@@ -80,20 +82,45 @@ class UserSeeder extends Seeder
         ];
 
         foreach ($testAccounts as $account) {
-            User::factory()->create($account);
+            User::create(array_merge($account, [
+                'email_verified_at' => now(),
+                'remember_token' => \Illuminate\Support\Str::random(10),
+            ]));
         }
 
-        // Create additional random users for testing
-        User::factory(10)->create([
-            'user_role' => 'student',
-        ]);
+        // Create additional hardcoded users for testing instead of random ones
+        $additionalUsers = [
+            // Additional students
+            ['name' => 'Student 1', 'email' => 'student1@school.edu', 'user_role' => 'student'],
+            ['name' => 'Student 2', 'email' => 'student2@school.edu', 'user_role' => 'student'],
+            ['name' => 'Student 3', 'email' => 'student3@school.edu', 'user_role' => 'student'],
+            ['name' => 'Student 4', 'email' => 'student4@school.edu', 'user_role' => 'student'],
+            ['name' => 'Student 5', 'email' => 'student5@school.edu', 'user_role' => 'student'],
+            ['name' => 'Student 6', 'email' => 'student6@school.edu', 'user_role' => 'student'],
+            ['name' => 'Student 7', 'email' => 'student7@school.edu', 'user_role' => 'student'],
+            ['name' => 'Student 8', 'email' => 'student8@school.edu', 'user_role' => 'student'],
+            ['name' => 'Student 9', 'email' => 'student9@school.edu', 'user_role' => 'student'],
+            ['name' => 'Student 10', 'email' => 'student10@school.edu', 'user_role' => 'student'],
+            
+            // Additional parents
+            ['name' => 'Parent 1', 'email' => 'parent1@school.edu', 'user_role' => 'parent'],
+            ['name' => 'Parent 2', 'email' => 'parent2@school.edu', 'user_role' => 'parent'],
+            ['name' => 'Parent 3', 'email' => 'parent3@school.edu', 'user_role' => 'parent'],
+            ['name' => 'Parent 4', 'email' => 'parent4@school.edu', 'user_role' => 'parent'],
+            ['name' => 'Parent 5', 'email' => 'parent5@school.edu', 'user_role' => 'parent'],
+            
+            // Additional teachers
+            ['name' => 'Teacher 1', 'email' => 'teacher1@school.edu', 'user_role' => 'teacher'],
+            ['name' => 'Teacher 2', 'email' => 'teacher2@school.edu', 'user_role' => 'teacher'],
+            ['name' => 'Teacher 3', 'email' => 'teacher3@school.edu', 'user_role' => 'teacher'],
+        ];
 
-        User::factory(5)->create([
-            'user_role' => 'parent',
-        ]);
-
-        User::factory(3)->create([
-            'user_role' => 'teacher',
-        ]);
+        foreach ($additionalUsers as $user) {
+            User::create(array_merge($user, [
+                'password' => bcrypt('password123'),
+                'email_verified_at' => now(),
+                'remember_token' => \Illuminate\Support\Str::random(10),
+            ]));
+        }
     }
 }

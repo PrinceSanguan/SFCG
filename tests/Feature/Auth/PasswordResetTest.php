@@ -23,7 +23,14 @@ class PasswordResetTest extends TestCase
     {
         Notification::fake();
 
-        $user = User::factory()->create();
+        $user = User::create([
+            'name' => 'Test User',
+            'email' => 'test@example.com',
+            'password' => bcrypt('password'),
+            'user_role' => 'student',
+            'email_verified_at' => now(),
+            'remember_token' => \Illuminate\Support\Str::random(10),
+        ]);
 
         $this->post('/forgot-password', ['email' => $user->email]);
 
@@ -34,7 +41,14 @@ class PasswordResetTest extends TestCase
     {
         Notification::fake();
 
-        $user = User::factory()->create();
+        $user = User::create([
+            'name' => 'Test User 2',
+            'email' => 'test2@example.com',
+            'password' => bcrypt('password'),
+            'user_role' => 'student',
+            'email_verified_at' => now(),
+            'remember_token' => \Illuminate\Support\Str::random(10),
+        ]);
 
         $this->post('/forgot-password', ['email' => $user->email]);
 
@@ -51,7 +65,14 @@ class PasswordResetTest extends TestCase
     {
         Notification::fake();
 
-        $user = User::factory()->create();
+        $user = User::create([
+            'name' => 'Test User 3',
+            'email' => 'test3@example.com',
+            'password' => bcrypt('password'),
+            'user_role' => 'student',
+            'email_verified_at' => now(),
+            'remember_token' => \Illuminate\Support\Str::random(10),
+        ]);
 
         $this->post('/forgot-password', ['email' => $user->email]);
 

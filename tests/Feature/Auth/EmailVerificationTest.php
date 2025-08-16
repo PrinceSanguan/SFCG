@@ -15,7 +15,14 @@ class EmailVerificationTest extends TestCase
 
     public function test_email_verification_screen_can_be_rendered()
     {
-        $user = User::factory()->unverified()->create();
+        $user = User::create([
+            'name' => 'Test User',
+            'email' => 'test@example.com',
+            'password' => bcrypt('password'),
+            'user_role' => 'student',
+            'email_verified_at' => null,
+            'remember_token' => \Illuminate\Support\Str::random(10),
+        ]);
 
         $response = $this->actingAs($user)->get('/verify-email');
 
@@ -24,7 +31,14 @@ class EmailVerificationTest extends TestCase
 
     public function test_email_can_be_verified()
     {
-        $user = User::factory()->unverified()->create();
+        $user = User::create([
+            'name' => 'Test User 2',
+            'email' => 'test2@example.com',
+            'password' => bcrypt('password'),
+            'user_role' => 'student',
+            'email_verified_at' => null,
+            'remember_token' => \Illuminate\Support\Str::random(10),
+        ]);
 
         Event::fake();
 
@@ -43,7 +57,14 @@ class EmailVerificationTest extends TestCase
 
     public function test_email_is_not_verified_with_invalid_hash()
     {
-        $user = User::factory()->unverified()->create();
+        $user = User::create([
+            'name' => 'Test User 3',
+            'email' => 'test3@example.com',
+            'password' => bcrypt('password'),
+            'user_role' => 'student',
+            'email_verified_at' => null,
+            'remember_token' => \Illuminate\Support\Str::random(10),
+        ]);
 
         $verificationUrl = URL::temporarySignedRoute(
             'verification.verify',

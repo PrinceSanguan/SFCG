@@ -12,7 +12,14 @@ class ProfileUpdateTest extends TestCase
 
     public function test_profile_page_is_displayed()
     {
-        $user = User::factory()->create();
+        $user = User::create([
+            'name' => 'Test User',
+            'email' => 'test@example.com',
+            'password' => bcrypt('password'),
+            'user_role' => 'student',
+            'email_verified_at' => now(),
+            'remember_token' => \Illuminate\Support\Str::random(10),
+        ]);
 
         $response = $this
             ->actingAs($user)
@@ -23,7 +30,14 @@ class ProfileUpdateTest extends TestCase
 
     public function test_profile_information_can_be_updated()
     {
-        $user = User::factory()->create();
+        $user = User::create([
+            'name' => 'Test User 2',
+            'email' => 'test2@example.com',
+            'password' => bcrypt('password'),
+            'user_role' => 'student',
+            'email_verified_at' => now(),
+            'remember_token' => \Illuminate\Support\Str::random(10),
+        ]);
 
         $response = $this
             ->actingAs($user)
@@ -45,7 +59,14 @@ class ProfileUpdateTest extends TestCase
 
     public function test_email_verification_status_is_unchanged_when_the_email_address_is_unchanged()
     {
-        $user = User::factory()->create();
+        $user = User::create([
+            'name' => 'Test User 3',
+            'email' => 'test3@example.com',
+            'password' => bcrypt('password'),
+            'user_role' => 'student',
+            'email_verified_at' => now(),
+            'remember_token' => \Illuminate\Support\Str::random(10),
+        ]);
 
         $response = $this
             ->actingAs($user)
@@ -63,7 +84,14 @@ class ProfileUpdateTest extends TestCase
 
     public function test_user_can_delete_their_account()
     {
-        $user = User::factory()->create();
+        $user = User::create([
+            'name' => 'Test User 4',
+            'email' => 'test4@example.com',
+            'password' => bcrypt('password'),
+            'user_role' => 'student',
+            'email_verified_at' => now(),
+            'remember_token' => \Illuminate\Support\Str::random(10),
+        ]);
 
         $response = $this
             ->actingAs($user)
@@ -81,7 +109,14 @@ class ProfileUpdateTest extends TestCase
 
     public function test_correct_password_must_be_provided_to_delete_account()
     {
-        $user = User::factory()->create();
+        $user = User::create([
+            'name' => 'Test User 5',
+            'email' => 'test5@example.com',
+            'password' => bcrypt('password'),
+            'user_role' => 'student',
+            'email_verified_at' => now(),
+            'remember_token' => \Illuminate\Support\Str::random(10),
+        ]);
 
         $response = $this
             ->actingAs($user)
