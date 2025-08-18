@@ -4,10 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Link, useForm, usePage } from '@inertiajs/react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Link, useForm } from '@inertiajs/react';
 import { ArrowLeft, Save } from 'lucide-react';
-import { FormEventHandler } from 'react';
-import InputError from '@/components/input-error';
+import { FormEvent } from 'react';
 
 interface User {
     id: number;
@@ -16,21 +17,22 @@ interface User {
     user_role: string;
 }
 
-interface CreateTeacherProps {
+interface CreateProps {
     user: User;
+    roles: Record<string, string>;
+    errors?: Record<string, string>;
 }
 
-export default function CreateTeacher({ user }: CreateTeacherProps) {
-    const { errors } = usePage().props;
-    
+export default function CreateTeacher({ user, roles, errors }: CreateProps) {
     const { data, setData, post, processing } = useForm({
         name: '',
         email: '',
+        user_role: '',
         password: '',
         password_confirmation: '',
     });
 
-    const submit: FormEventHandler = (e) => {
+    const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
         post(route('admin.teachers.store'));
     };
@@ -46,84 +48,160 @@ export default function CreateTeacher({ user }: CreateTeacherProps) {
                     <div className="flex flex-col gap-6">
                         <div className="flex items-center gap-4">
                             <Link href={route('admin.teachers.index')}>
-                                <Button variant="outline" size="sm">
-                                    <ArrowLeft className="h-4 w-4 mr-2" />
+                                <Button variant="outline" size="sm" className="flex items-center gap-2">
+                                    <ArrowLeft className="h-4 w-4" />
                                     Back to Teachers
                                 </Button>
                             </Link>
                             <div>
-                                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Create New Teacher Account</h1>
+                                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Create New Teacher</h1>
                                 <p className="text-gray-500 dark:text-gray-400">
-                                    Create a new teacher account for classroom management.
+                                    Add a new teacher to the school management system.
                                 </p>
                             </div>
                         </div>
 
-                        <Card className="max-w-2xl">
+                        <Card>
                             <CardHeader>
                                 <CardTitle>Teacher Information</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <form onSubmit={submit} className="space-y-6">
-                                    <div className="grid grid-cols-1 gap-6">
-                                        <div>
-                                            <Label htmlFor="name">Full Name</Label>
+                                <form onSubmit={handleSubmit} className="space-y-6">
+                                    <div className="grid gap-6 md:grid-cols-2">
+                                        {/* Name */}
+                                        <div className="space-y-2">
+                                            <Label htmlFor="name">Full Name *</Label>
                                             <Input
                                                 id="name"
                                                 type="text"
                                                 value={data.name}
                                                 onChange={(e) => setData('name', e.target.value)}
+                                                placeholder="Enter full name"
                                                 required
-                                                autoFocus
-                                                className="mt-1"
                                             />
-                                            <InputError message={errors.name} className="mt-2" />
+                                            {errors?.name && (
+                                                <Alert variant="destructive">
+                                                    <AlertDescription>{errors.name}</AlertDescription>
+                                                </Alert>
+                                            )}
                                         </div>
 
-                                        <div>
-                                            <Label htmlFor="email">Email Address</Label>
+                                        {/* Email */}
+                                        <div className="space-y-2">
+                                            <Label htmlFor="email">Email Address *</Label>
                                             <Input
                                                 id="email"
                                                 type="email"
                                                 value={data.email}
                                                 onChange={(e) => setData('email', e.target.value)}
+                                                placeholder="Enter email address"
                                                 required
-                                                className="mt-1"
                                             />
-                                            <InputError message={errors.email} className="mt-2" />
+                                            {errors?.email && (
+                                                <Alert variant="destructive">
+                                                    <AlertDescription>{errors.email}</AlertDescription>
+                                                </Alert>
+                                            )}
                                         </div>
 
-                                        <div>
-                                            <Label htmlFor="password">Password</Label>
+                                        {/* Role */}
+                                        <div className="space-y-2">
+                                            <Label htmlFor="user_role">User Role *</Label>
+                                            <Select value={data.user_role} onValueChange={(value) => setData('user_role', value)}>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select a role" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {roles && Object.entries(roles).map(([key, label]) => (
+                                                        <SelectItem key={key} value={key}>
+                                                            {label}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            {errors?.user_role && (
+                                                <Alert variant="destructive">
+                                                    <AlertDescription>{errors.user_role}</AlertDescription>
+                                                </Alert>
+                                            )}
+                                        </div>
+
+                                        {/* Empty space for grid alignment */}
+                                        <div></div>
+
+                                        {/* Password */}
+                                        <div className="space-y-2">
+                                            <Label htmlFor="password">Password *</Label>
                                             <Input
                                                 id="password"
                                                 type="password"
                                                 value={data.password}
                                                 onChange={(e) => setData('password', e.target.value)}
+                                                placeholder="Enter password"
                                                 required
-                                                className="mt-1"
                                             />
-                                            <InputError message={errors.password} className="mt-2" />
+                                            {errors?.password && (
+                                                <Alert variant="destructive">
+                                                    <AlertDescription>{errors.password}</AlertDescription>
+                                                </Alert>
+                                            )}
                                         </div>
 
-                                        <div>
-                                            <Label htmlFor="password_confirmation">Confirm Password</Label>
+                                        {/* Confirm Password */}
+                                        <div className="space-y-2">
+                                            <Label htmlFor="password_confirmation">Confirm Password *</Label>
                                             <Input
                                                 id="password_confirmation"
                                                 type="password"
                                                 value={data.password_confirmation}
                                                 onChange={(e) => setData('password_confirmation', e.target.value)}
+                                                placeholder="Confirm password"
                                                 required
-                                                className="mt-1"
                                             />
-                                            <InputError message={errors.password_confirmation} className="mt-2" />
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center gap-4 pt-4">
-                                        <Button type="submit" disabled={processing}>
-                                            <Save className="h-4 w-4 mr-2" />
-                                            {processing ? 'Creating...' : 'Create Teacher Account'}
+                                    {/* Role Information */}
+                                    {data.user_role && (
+                                        <Alert>
+                                            <AlertDescription>
+                                                <strong>Role Information:</strong>
+                                                {data.user_role === 'admin' && (
+                                                    <span> Administrators have full access to all system features including user management and system settings.</span>
+                                                )}
+                                                {data.user_role === 'registrar' && (
+                                                    <span> Registrars manage student enrollment, academic records, and registration processes.</span>
+                                                )}
+                                                {data.user_role === 'teacher' && (
+                                                    <span> Teachers can manage their classes, students, and academic content.</span>
+                                                )}
+                                                {data.user_role === 'instructor' && (
+                                                    <span> Instructors can manage specific courses and student assessments.</span>
+                                                )}
+                                                {data.user_role === 'adviser' && (
+                                                    <span> Advisers can monitor and guide students in their academic journey.</span>
+                                                )}
+                                                {data.user_role === 'chairperson' && (
+                                                    <span> Chairpersons oversee departmental activities and faculty management.</span>
+                                                )}
+                                                {data.user_role === 'principal' && (
+                                                    <span> Principals have administrative access to school-wide operations and policies.</span>
+                                                )}
+                                                {data.user_role === 'student' && (
+                                                    <span> Students can access their courses, assignments, and academic progress.</span>
+                                                )}
+                                                {data.user_role === 'parent' && (
+                                                    <span> Parents can monitor their children's academic progress and school activities.</span>
+                                                )}
+                                            </AlertDescription>
+                                        </Alert>
+                                    )}
+
+                                    {/* Submit Buttons */}
+                                    <div className="flex items-center gap-4 pt-6">
+                                        <Button type="submit" disabled={processing} className="flex items-center gap-2">
+                                            <Save className="h-4 w-4" />
+                                            {processing ? 'Creating...' : 'Create Teacher'}
                                         </Button>
                                         <Link href={route('admin.teachers.index')}>
                                             <Button type="button" variant="outline">
@@ -135,19 +213,17 @@ export default function CreateTeacher({ user }: CreateTeacherProps) {
                             </CardContent>
                         </Card>
 
-                        <Card className="max-w-2xl">
+                        {/* Additional Information */}
+                        <Card>
                             <CardHeader>
-                                <CardTitle>Next Steps</CardTitle>
+                                <CardTitle>Important Notes</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
-                                    <p>After creating the teacher account, you can:</p>
-                                    <ul className="list-disc list-inside space-y-1 ml-4">
-                                        <li>Assign the teacher to specific classes or subjects</li>
-                                        <li>Configure classroom access and permissions</li>
-                                        <li>Set up grading and assessment tools</li>
-                                        <li>Link the teacher to student groups or classes</li>
-                                    </ul>
+                                <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                                    <p>• Users will receive their login credentials and can change their password after first login.</p>
+                                    <p>• Email addresses must be unique in the system.</p>
+                                    <p>• Choose the appropriate role based on the user's responsibilities in the school.</p>
+                                    <p>• After creating a user, they will be redirected to their respective dashboard.</p>
                                 </div>
                             </CardContent>
                         </Card>

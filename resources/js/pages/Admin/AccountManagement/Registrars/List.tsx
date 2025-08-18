@@ -1,22 +1,14 @@
-import React, { useState } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
+import { Header } from '@/components/admin/header';
 import { Sidebar } from '@/components/admin/sidebar';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { 
-    Plus, 
-    Search, 
-    Edit, 
-    Trash2, 
-    Eye,
-    Filter,
-    UserPlus,
-    GraduationCap,
-    Building2
-} from 'lucide-react';
-
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Link, router, usePage } from '@inertiajs/react';
+import { Search, Plus, Edit, Eye, Trash2, RotateCcw } from 'lucide-react';
+import { useState } from 'react';
+import PasswordResetModal from '@/components/admin/PasswordResetModal';
 
 interface User {
     id: number;
@@ -24,296 +16,322 @@ interface User {
     email: string;
     user_role: string;
     created_at: string;
-    updated_at: string;
+    last_login_at?: string;
 }
 
-interface Props {
-    users: {
-        data: User[];
-        current_page: number;
-        last_page: number;
-        per_page: number;
-        total: number;
-        from: number;
-        to: number;
-    };
+interface PaginatedUsers {
+    data: User[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    from: number;
+    to: number;
+}
+
+interface Filters {
+    search?: string;
+    role?: string;
+    sort_by?: string;
+    sort_direction?: string;
+}
+
+interface ListProps {
     user: User;
-    filters: {
-        search?: string;
-        sort_by?: string;
-        sort_direction?: string;
-    };
+    users: PaginatedUsers;
+    filters: Filters;
+    roles: Record<string, string>;
 }
 
-export default function RegistrarsList({ users, user, filters }: Props) {
+export default function RegistrarsList({ user, users, filters, roles }: ListProps) {
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
-    const [filterRole, setFilterRole] = useState('all');
+    const [selectedRole, setSelectedRole] = useState(filters.role || 'all');
+    const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
+    const { errors } = usePage().props;
 
-    const filteredRegistrars = users.data.filter(registrar => {
-        const matchesSearch = registrar.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            registrar.email.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesRole = filterRole === 'all' || registrar.user_role === filterRole;
-        return matchesSearch && matchesRole;
-    });
+    // Safety check for user data
+    if (!user) {
+        return <div>Loading...</div>;
+    }
+
+    const handleSearch = () => {
+        router.get(route('admin.registrars.index'), {
+            search: searchTerm,
+            role: selectedRole,
+        }, {
+            preserveState: true,
+            replace: true,
+        });
+    };
+
+    const handleRoleFilter = (role: string) => {
+        setSelectedRole(role);
+        router.get(route('admin.registrars.index'), {
+            search: searchTerm,
+            role: role,
+        }, {
+            preserveState: true,
+            replace: true,
+        });
+    };
+
+    const handleSort = (sortBy: string) => {
+        const currentDirection = filters.sort_direction || 'desc';
+        const newDirection = filters.sort_by === sortBy && currentDirection === 'desc' ? 'asc' : 'desc';
+        
+        router.get(route('admin.registrars.index'), {
+            ...filters,
+            sort_by: sortBy,
+            sort_direction: newDirection,
+        }, {
+            preserveState: true,
+            replace: true,
+        });
+    };
 
     const handleDelete = (userId: number) => {
-        console.log('Delete requested for user ID:', userId);
-        
-        if (confirm('Are you sure you want to delete this registrar?')) {
-            console.log('Delete confirmed, sending request...');
-            
-            router.delete(`/admin/registrars/${userId}`, {
+        if (confirm('Are you sure you want to delete this registrar? This action cannot be undone.')) {
+            router.delete(route('admin.registrars.destroy', userId), {
                 onSuccess: () => {
-                    console.log('Delete successful');
+                    // Reload the page to show updated list
+                    router.reload();
                 },
                 onError: (errors) => {
                     console.error('Delete failed:', errors);
-                },
-                onFinish: () => {
-                    console.log('Delete request finished');
                 }
             });
         }
     };
 
-    const getRoleBadgeColor = (role: string) => {
+    const handleResetPassword = (targetUser: User) => {
+        setResetPasswordUser(targetUser);
+    };
+
+    const getRoleBadgeVariant = (role: string) => {
         switch (role) {
-            case 'registrar':
-                return 'bg-blue-100 text-blue-800';
             case 'admin':
-                return 'bg-red-100 text-red-800';
+                return 'default';
+            case 'registrar':
             case 'teacher':
-                return 'bg-green-100 text-green-800';
+            case 'instructor':
+            case 'adviser':
+            case 'chairperson':
+            case 'principal':
+                return 'secondary';
             case 'student':
-                return 'bg-purple-100 text-purple-800';
             case 'parent':
-                return 'bg-orange-100 text-orange-800';
+                return 'outline';
             default:
-                return 'bg-gray-100 text-gray-800';
+                return 'outline';
         }
     };
 
-    const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-        });
-    };
-
     return (
-        <>
-            <Head title="Registrars Management" />
-            
-            <div className="flex h-screen bg-gray-50">
-                <Sidebar user={user} />
-                
-                <div className="flex-1 flex flex-col overflow-hidden">
-                    <div className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-6">
-                        <div className="max-w-7xl mx-auto">
-                            {/* Header */}
-                            <div className="flex items-center justify-between mb-6">
-                                <div>
-                                    <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                                        <Building2 className="h-6 w-6 text-blue-600" />
-                                        Registrars Management
-                                    </h1>
-                                    <p className="text-gray-600 mt-1">
-                                        Manage all registrar accounts in the system
-                                    </p>
-                                </div>
-                                <Link href="/admin/registrars/create">
-                                    <Button className="bg-blue-600 hover:bg-blue-700">
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        Add New Registrar
-                                    </Button>
-                                </Link>
-                            </div>
+        <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
+            <Sidebar user={user} />
 
-                            {/* Filters and Search */}
-                            <Card className="mb-6">
-                                <CardContent className="p-4">
-                                    <div className="flex flex-col sm:flex-row gap-4">
-                                        <div className="flex-1">
-                                            <div className="relative">
-                                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                                                <Input
-                                                    placeholder="Search registrars by name or email..."
-                                                    value={searchTerm}
-                                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                                    className="pl-10"
-                                                />
-                                            </div>
-                                        </div>
+            <div className="flex flex-1 flex-col overflow-hidden">
+                <Header user={user} />
+
+                <main className="flex-1 overflow-y-auto bg-gray-100 p-4 md:p-6 dark:bg-gray-900">
+                    <div className="flex flex-col gap-6">
+                        <div className="flex flex-col gap-2">
+                            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Registrars Management</h1>
+                            <p className="text-gray-500 dark:text-gray-400">
+                                Manage registrar accounts in the school system.
+                            </p>
+                        </div>
+
+                        {/* Actions Bar */}
+                        <Card>
+                            <CardContent className="p-4">
+                                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                                    <div className="flex flex-col gap-4 md:flex-row md:items-center">
                                         <div className="flex gap-2">
-                                            <select
-                                                value={filterRole}
-                                                onChange={(e) => setFilterRole(e.target.value)}
-                                                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            >
-                                                <option value="all">All Roles</option>
-                                                <option value="registrar">Registrar</option>
-                                                <option value="admin">Admin</option>
-                                                <option value="teacher">Teacher</option>
-                                                <option value="student">Student</option>
-                                                <option value="parent">Parent</option>
-                                            </select>
-                                            <Button variant="outline" size="sm">
-                                                <Filter className="h-4 w-4 mr-2" />
-                                                Filter
+                                            <Input
+                                                placeholder="Search registrars..."
+                                                value={searchTerm}
+                                                onChange={(e) => setSearchTerm(e.target.value)}
+                                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                                                className="w-64"
+                                            />
+                                            <Button onClick={handleSearch} variant="outline">
+                                                <Search className="h-4 w-4" />
                                             </Button>
                                         </div>
+                                        <Select value={selectedRole} onValueChange={handleRoleFilter}>
+                                            <SelectTrigger className="w-48">
+                                                <SelectValue placeholder="Filter by role" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All Roles</SelectItem>
+                                                {roles && Object.entries(roles).map(([key, label]) => (
+                                                    <SelectItem key={key} value={key}>
+                                                        {label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                     </div>
-                                </CardContent>
-                            </Card>
+                                    <Link href={route('admin.registrars.create')}>
+                                        <Button className="flex items-center gap-2">
+                                            <Plus className="h-4 w-4" />
+                                            Add New Registrar
+                                        </Button>
+                                    </Link>
+                                </div>
+                            </CardContent>
+                        </Card>
 
-                            {/* Stats Cards */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                                <Card>
-                                    <CardContent className="p-6">
-                                        <div className="flex items-center">
-                                            <div className="p-2 bg-blue-100 rounded-lg">
-                                                <UserPlus className="h-6 w-6 text-blue-600" />
-                                            </div>
-                                            <div className="ml-4">
-                                                <p className="text-sm font-medium text-gray-600">Total Registrars</p>
-                                                <p className="text-2xl font-bold text-gray-900">{users.total}</p>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                                
-                                <Card>
-                                    <CardContent className="p-6">
-                                        <div className="flex items-center">
-                                            <div className="p-2 bg-green-100 rounded-lg">
-                                                <GraduationCap className="h-6 w-6 text-green-600" />
-                                            </div>
-                                            <div className="ml-4">
-                                                <p className="text-sm font-medium text-gray-600">Active Registrars</p>
-                                                <p className="text-2xl font-bold text-gray-900">
-                                                    {users.data.filter(r => r.user_role === 'registrar').length}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                                
-                                <Card>
-                                    <CardContent className="p-6">
-                                        <div className="flex items-center">
-                                            <div className="p-2 bg-purple-100 rounded-lg">
-                                                <Building2 className="h-6 w-6 text-purple-600" />
-                                            </div>
-                                            <div className="ml-4">
-                                                <p className="text-sm font-medium text-gray-600">Other Roles</p>
-                                                <p className="text-2xl font-bold text-gray-900">
-                                                    {users.data.filter(r => r.user_role !== 'registrar').length}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            </div>
+                        {/* Users Table */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>
+                                    Registrars ({users.total} total)
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="border-b">
+                                                <th 
+                                                    className="cursor-pointer p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800"
+                                                    onClick={() => handleSort('name')}
+                                                >
+                                                    Name
+                                                    {filters.sort_by === 'name' && (
+                                                        <span className="ml-1">
+                                                            {filters.sort_direction === 'desc' ? '↓' : '↑'}
+                                                        </span>
+                                                    )}
+                                                </th>
+                                                <th 
+                                                    className="cursor-pointer p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800"
+                                                    onClick={() => handleSort('email')}
+                                                >
+                                                    Email
+                                                    {filters.sort_by === 'email' && (
+                                                        <span className="ml-1">
+                                                            {filters.sort_direction === 'desc' ? '↓' : '↑'}
+                                                        </span>
+                                                    )}
+                                                </th>
+                                                <th className="p-3 text-left">Role</th>
+                                                <th 
+                                                    className="cursor-pointer p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800"
+                                                    onClick={() => handleSort('created_at')}
+                                                >
+                                                    Created
+                                                    {filters.sort_by === 'created_at' && (
+                                                        <span className="ml-1">
+                                                            {filters.sort_direction === 'desc' ? '↓' : '↑'}
+                                                        </span>
+                                                    )}
+                                                </th>
+                                                <th className="p-3 text-left">Last Login</th>
+                                                <th className="p-3 text-left">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {users.data.map((tableUser) => (
+                                                <tr key={tableUser.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800">
+                                                    <td className="p-3 font-medium">{tableUser.name}</td>
+                                                    <td className="p-3 text-gray-600 dark:text-gray-400">{tableUser.email}</td>
+                                                    <td className="p-3">
+                                                        <Badge variant={getRoleBadgeVariant(tableUser.user_role)}>
+                                                            {roles[tableUser.user_role] || tableUser.user_role}
+                                                        </Badge>
+                                                    </td>
+                                                    <td className="p-3 text-gray-600 dark:text-gray-400">
+                                                        {new Date(tableUser.created_at).toLocaleDateString()}
+                                                    </td>
+                                                    <td className="p-3 text-gray-600 dark:text-gray-400">
+                                                        {tableUser.last_login_at 
+                                                            ? new Date(tableUser.last_login_at).toLocaleDateString()
+                                                            : 'Never'
+                                                        }
+                                                    </td>
+                                                    <td className="p-3">
+                                                        <div className="flex items-center gap-2">
+                                                            <Link href={route('admin.registrars.show', tableUser.id)}>
+                                                                <Button variant="outline" size="sm">
+                                                                    <Eye className="h-3 w-3" />
+                                                                </Button>
+                                                            </Link>
+                                                            <Link href={route('admin.registrars.edit', tableUser.id)}>
+                                                                <Button variant="outline" size="sm">
+                                                                    <Edit className="h-3 w-3" />
+                                                                </Button>
+                                                            </Link>
+                                                            <Button 
+                                                                variant="outline" 
+                                                                size="sm"
+                                                                onClick={() => handleResetPassword(tableUser)}
+                                                            >
+                                                                <RotateCcw className="h-3 w-3" />
+                                                            </Button>
+                                                            {tableUser.id !== user.id && (
+                                                                <Button 
+                                                                    variant="destructive" 
+                                                                    size="sm"
+                                                                    onClick={() => handleDelete(tableUser.id)}
+                                                                >
+                                                                    <Trash2 className="h-3 w-3" />
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
 
-                            {/* Registrars Table */}
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Registrars List</CardTitle>
-                                    <CardDescription>
-                                        A comprehensive list of all registrar accounts and their details
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    {filteredRegistrars.length === 0 ? (
-                                        <div className="text-center py-8">
-                                            <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                                            <h3 className="text-lg font-medium text-gray-900 mb-2">No registrars found</h3>
-                                            <p className="text-gray-500 mb-4">
-                                                {searchTerm || filterRole !== 'all' 
-                                                    ? 'Try adjusting your search or filter criteria.'
-                                                    : 'Get started by creating your first registrar account.'
-                                                }
-                                            </p>
-                                            {!searchTerm && filterRole === 'all' && (
-                                                <Link href="/admin/registrars/create">
-                                                    <Button>
-                                                        <Plus className="h-4 w-4 mr-2" />
-                                                        Add New Registrar
-                                                    </Button>
+                                {/* Pagination */}
+                                {users.last_page > 1 && (
+                                    <div className="mt-4 flex items-center justify-between">
+                                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                                            Showing {users.from} to {users.to} of {users.total} results
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            {users.current_page > 1 && (
+                                                <Link 
+                                                    href={route('admin.registrars.index', { ...filters, page: users.current_page - 1 })}
+                                                >
+                                                    <Button variant="outline" size="sm">Previous</Button>
+                                                </Link>
+                                            )}
+                                            
+                                            <span className="text-sm">
+                                                Page {users.current_page} of {users.last_page}
+                                            </span>
+                                            
+                                            {users.current_page < users.last_page && (
+                                                <Link 
+                                                    href={route('admin.registrars.index', { ...filters, page: users.current_page + 1 })}
+                                                >
+                                                    <Button variant="outline" size="sm">Next</Button>
                                                 </Link>
                                             )}
                                         </div>
-                                    ) : (
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full text-sm">
-                                                <thead>
-                                                    <tr className="border-b">
-                                                        <th className="p-3 text-left">Name</th>
-                                                        <th className="p-3 text-left">Email</th>
-                                                        <th className="p-3 text-left">Role</th>
-                                                        <th className="p-3 text-left">Created</th>
-                                                        <th className="p-3 text-left">Updated</th>
-                                                        <th className="p-3 text-left">Actions</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {filteredRegistrars.map((registrar) => (
-                                                        <tr key={registrar.id} className="border-b hover:bg-gray-50">
-                                                            <td className="p-3 font-medium">
-                                                                <div className="flex items-center">
-                                                                    <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
-                                                                        <span className="text-sm font-medium text-blue-600">
-                                                                            {registrar.name.charAt(0).toUpperCase()}
-                                                                        </span>
-                                                                    </div>
-                                                                    {registrar.name}
-                                                                </div>
-                                                            </td>
-                                                            <td className="p-3">{registrar.email}</td>
-                                                            <td className="p-3">
-                                                                <Badge className={getRoleBadgeColor(registrar.user_role)}>
-                                                                    {registrar.user_role}
-                                                                </Badge>
-                                                            </td>
-                                                            <td className="p-3">{formatDate(registrar.created_at)}</td>
-                                                            <td className="p-3">{formatDate(registrar.updated_at)}</td>
-                                                            <td className="p-3">
-                                                                <div className="flex items-center gap-2">
-                                                                    <Link href={`/admin/registrars/${registrar.id}`}>
-                                                                        <Button variant="ghost" size="sm">
-                                                                            <Eye className="h-4 w-4" />
-                                                                        </Button>
-                                                                    </Link>
-                                                                    <Link href={`/admin/registrars/${registrar.id}/edit`}>
-                                                                        <Button variant="ghost" size="sm">
-                                                                            <Edit className="h-4 w-4" />
-                                                                        </Button>
-                                                                    </Link>
-                                                                    {registrar.id !== user.id && (
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="sm"
-                                                                            onClick={() => handleDelete(registrar.id)}
-                                                                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                                                        >
-                                                                            <Trash2 className="h-4 w-4" />
-                                                                        </Button>
-                                                                    )}
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </div>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
                     </div>
-                </div>
+                </main>
             </div>
-        </>
+
+            {/* Password Reset Modal */}
+            {resetPasswordUser && (
+                <PasswordResetModal
+                    user={resetPasswordUser}
+                    isOpen={!!resetPasswordUser}
+                    onClose={() => setResetPasswordUser(null)}
+                    errors={errors as Record<string, string>}
+                />
+            )}
+        </div>
     );
 }

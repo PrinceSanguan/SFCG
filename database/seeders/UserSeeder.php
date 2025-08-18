@@ -91,16 +91,16 @@ class UserSeeder extends Seeder
         // Create additional hardcoded users for testing instead of random ones
         $additionalUsers = [
             // Additional students
-            ['name' => 'Student 1', 'email' => 'student1@school.edu', 'user_role' => 'student'],
-            ['name' => 'Student 2', 'email' => 'student2@school.edu', 'user_role' => 'student'],
-            ['name' => 'Student 3', 'email' => 'student3@school.edu', 'user_role' => 'student'],
-            ['name' => 'Student 4', 'email' => 'student4@school.edu', 'user_role' => 'student'],
-            ['name' => 'Student 5', 'email' => 'student5@school.edu', 'user_role' => 'student'],
-            ['name' => 'Student 6', 'email' => 'student6@school.edu', 'user_role' => 'student'],
-            ['name' => 'Student 7', 'email' => 'student7@school.edu', 'user_role' => 'student'],
-            ['name' => 'Student 8', 'email' => 'student8@school.edu', 'user_role' => 'student'],
-            ['name' => 'Student 9', 'email' => 'student9@school.edu', 'user_role' => 'student'],
-            ['name' => 'Student 10', 'email' => 'student10@school.edu', 'user_role' => 'student'],
+            ['name' => 'Student 1', 'email' => 'student1@school.edu', 'user_role' => 'student', 'year_level' => 'elementary'],
+            ['name' => 'Student 2', 'email' => 'student2@school.edu', 'user_role' => 'student', 'year_level' => 'elementary'],
+            ['name' => 'Student 3', 'email' => 'student3@school.edu', 'user_role' => 'student', 'year_level' => 'junior_highschool'],
+            ['name' => 'Student 4', 'email' => 'student4@school.edu', 'user_role' => 'student', 'year_level' => 'junior_highschool'],
+            ['name' => 'Student 5', 'email' => 'student5@school.edu', 'user_role' => 'student', 'year_level' => 'senior_highschool'],
+            ['name' => 'Student 6', 'email' => 'student6@school.edu', 'user_role' => 'student', 'year_level' => 'senior_highschool'],
+            ['name' => 'Student 7', 'email' => 'student7@school.edu', 'user_role' => 'student', 'year_level' => 'college'],
+            ['name' => 'Student 8', 'email' => 'student8@school.edu', 'user_role' => 'student', 'year_level' => 'college'],
+            ['name' => 'Student 9', 'email' => 'student9@school.edu', 'user_role' => 'student', 'year_level' => 'college'],
+            ['name' => 'Student 10', 'email' => 'student10@school.edu', 'user_role' => 'student', 'year_level' => 'college'],
             
             // Additional parents
             ['name' => 'Parent 1', 'email' => 'parent1@school.edu', 'user_role' => 'parent'],

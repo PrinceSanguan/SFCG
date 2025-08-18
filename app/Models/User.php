@@ -25,6 +25,7 @@ class User extends Authenticatable
         'password',
         'google_id',
         'user_role',
+        'year_level',
         'last_login_at',
     ];
 
@@ -49,6 +50,16 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'last_login_at' => 'datetime',
             'password' => 'hashed',
+        ];
+    }
+
+    public static function getYearLevels(): array
+    {
+        return [
+            'elementary' => 'Elementary',
+            'junior_highschool' => 'Junior High School',
+            'senior_highschool' => 'Senior High School',
+            'college' => 'College',
         ];
     }
 

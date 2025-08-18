@@ -1,29 +1,15 @@
-import { useState } from 'react';
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Header } from '@/components/admin/header';
+import { Sidebar } from '@/components/admin/sidebar';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { 
-    Plus, 
-    Search, 
-    Filter, 
-    MoreHorizontal, 
-    Edit, 
-    Trash2, 
-    Eye, 
-    UserPlus,
-    GraduationCap,
-    Calendar,
-    Mail,
-    Phone
-} from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { AppShell } from '@/components/app-shell';
-import { AppHeader } from '@/components/app-header';
-import { Sidebar } from '@/components/admin/sidebar';
+import { Link, router, usePage } from '@inertiajs/react';
+import { Search, Plus, Edit, Eye, Trash2, RotateCcw, Upload, Download } from 'lucide-react';
+import { useRef, useState } from 'react';
+import PasswordResetModal from '@/components/admin/PasswordResetModal';
+import { useToast } from '@/components/ui/toast';
 
 interface User {
     id: number;
@@ -31,54 +17,75 @@ interface User {
     email: string;
     user_role: string;
     created_at: string;
-    last_login_at: string | null;
+    last_login_at?: string;
+    parents?: Array<{ id: number; name: string; email: string; pivot?: { relationship_type?: string } }>;
 }
 
-interface PageProps {
-    user: any;
-    users: {
-        data: User[];
-        current_page: number;
-        last_page: number;
-        per_page: number;
-        total: number;
-        links: any[];
-    };
-    filters: {
-        search?: string;
-        sort_by?: string;
-        sort_direction?: string;
-    };
-    role: string;
-    roleDisplayName: string;
+interface PaginatedUsers {
+    data: User[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    from: number;
+    to: number;
 }
 
-export default function StudentsList({ user, users, filters, role, roleDisplayName }: PageProps) {
-    const [search, setSearch] = useState(filters.search || '');
-    const [sortBy, setSortBy] = useState(filters.sort_by || 'created_at');
-    const [sortDirection, setSortDirection] = useState(filters.sort_direction || 'desc');
-    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-    const [userToDelete, setUserToDelete] = useState<User | null>(null);
+interface Filters {
+    search?: string;
+    sort_by?: string;
+    sort_direction?: string;
+    year_level?: string;
+}
+
+interface ListProps {
+    user: User;
+    users: PaginatedUsers;
+    filters: Filters;
+    roles: Record<string, string>;
+}
+
+export default function StudentsList({ user, users, filters, roles }: ListProps) {
+    const [searchTerm, setSearchTerm] = useState(filters.search || '');
+    const [yearLevel, setYearLevel] = useState(filters.year_level || 'all');
+    const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
+    const { errors } = usePage().props;
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const { addToast } = useToast();
+
+    // Safety check for user data
+    if (!user) {
+        return <div>Loading...</div>;
+    }
 
     const handleSearch = () => {
         router.get(route('admin.students.index'), {
-            search,
-            sort_by: sortBy,
-            sort_direction: sortDirection,
+            search: searchTerm,
+            year_level: yearLevel,
         }, {
             preserveState: true,
             replace: true,
         });
     };
 
-    const handleSort = (field: string) => {
-        const newDirection = sortBy === field && sortDirection === 'asc' ? 'desc' : 'asc';
-        setSortBy(field);
-        setSortDirection(newDirection);
+    const handleYearLevelFilter = (yl: string) => {
+        setYearLevel(yl);
+        router.get(route('admin.students.index'), {
+            search: searchTerm,
+            year_level: yl,
+        }, {
+            preserveState: true,
+            replace: true,
+        });
+    };
+
+    const handleSort = (sortBy: string) => {
+        const currentDirection = filters.sort_direction || 'desc';
+        const newDirection = filters.sort_by === sortBy && currentDirection === 'desc' ? 'asc' : 'desc';
         
         router.get(route('admin.students.index'), {
-            search,
-            sort_by: field,
+            ...filters,
+            sort_by: sortBy,
             sort_direction: newDirection,
         }, {
             preserveState: true,
@@ -86,228 +93,312 @@ export default function StudentsList({ user, users, filters, role, roleDisplayNa
         });
     };
 
-    const handleDelete = (user: User) => {
-        setUserToDelete(user);
-        setDeleteDialogOpen(true);
-    };
-
-    const confirmDelete = () => {
-        if (userToDelete) {
-            router.delete(route('admin.students.destroy', userToDelete.id), {
+    const handleDelete = (userId: number) => {
+        if (confirm('Are you sure you want to delete this student? This action cannot be undone.')) {
+            router.delete(route('admin.students.destroy', userId), {
                 onSuccess: () => {
-                    setDeleteDialogOpen(false);
-                    setUserToDelete(null);
+                    // Reload the page to show updated list
+                    router.reload();
                 },
+                onError: (errors) => {
+                    console.error('Delete failed:', errors);
+                }
             });
         }
     };
 
-    const getRoleBadgeVariant = (role: string) => {
-        const variants: { [key: string]: string } = {
-            'student': 'default',
-            'admin': 'destructive',
-            'teacher': 'secondary',
-            'parent': 'outline',
-        };
-        return variants[role] || 'default';
+    const handleResetPassword = (targetUser: User) => {
+        setResetPasswordUser(targetUser);
     };
 
-    const formatDate = (dateString: string | null) => {
-        if (!dateString) return 'Never';
-        return new Date(dateString).toLocaleDateString();
+    const handleDownloadTemplate = () => {
+        window.location.href = route('admin.students.template');
+    };
+
+    const handleUploadClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileSelected: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append('file', file);
+        router.post(route('admin.students.upload'), formData, {
+            forceFormData: true,
+            onSuccess: () => {
+                addToast('Students CSV uploaded successfully.', 'success');
+                router.reload();
+            },
+            onError: (err) => {
+                console.error('CSV upload failed:', err);
+                addToast('CSV upload failed. Please check the file format.', 'error');
+            },
+            preserveScroll: true,
+        });
+        // reset value so same file can be selected again if needed
+        e.target.value = '';
+    };
+
+    const getRoleBadgeVariant = (role: string) => {
+        switch (role) {
+            case 'admin':
+                return 'default';
+            case 'registrar':
+            case 'teacher':
+            case 'instructor':
+            case 'adviser':
+            case 'chairperson':
+            case 'principal':
+                return 'secondary';
+            case 'student':
+            case 'parent':
+                return 'outline';
+            default:
+                return 'outline';
+        }
     };
 
     return (
-        <>
-            <Head title={`${roleDisplayName} Management`} />
-            
-            <AppShell>
-                <AppHeader user={user} />
-                <Sidebar user={user} />
-                
-                <div className="flex-1 p-6">
-                    <div className="mb-6">
-                        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                            {roleDisplayName} Management
-                        </h1>
-                        <p className="text-gray-600 dark:text-gray-400 mt-2">
-                            Manage all student accounts in the system
-                        </p>
-                    </div>
+        <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
+            <Sidebar user={user} />
 
-                    {/* Search and Filters */}
-                    <Card className="mb-6">
-                        <CardContent className="pt-6">
-                            <div className="flex flex-col sm:flex-row gap-4">
-                                <div className="flex-1">
-                                    <div className="relative">
-                                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                                        <Input
-                                            placeholder="Search students by name or email..."
-                                            value={search}
-                                            onChange={(e) => setSearch(e.target.value)}
-                                            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                                            className="pl-10"
+            <div className="flex flex-1 flex-col overflow-hidden">
+                <Header user={user} />
+
+                <main className="flex-1 overflow-y-auto bg-gray-100 p-4 md:p-6 dark:bg-gray-900">
+                    <div className="flex flex-col gap-6">
+                        <div className="flex flex-col gap-2">
+                            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Students Management</h1>
+                            <p className="text-gray-500 dark:text-gray-400">
+                                Create, manage, and monitor student accounts in the school system.
+                            </p>
+                        </div>
+
+                        {/* Actions Bar */}
+                        <Card>
+                            <CardContent className="p-4">
+                                <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
+                                    <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center flex-1 min-w-0">
+                                        <div className="flex gap-2">
+                                            <Input
+                                                placeholder="Search students..."
+                                                value={searchTerm}
+                                                onChange={(e) => setSearchTerm(e.target.value)}
+                                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                                                className="w-64"
+                                            />
+                                            <Button onClick={handleSearch} variant="outline">
+                                                <Search className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                        {/* Role filter removed on Students page; retained only on All Users */}
+                                        <Select value={yearLevel} onValueChange={handleYearLevelFilter}>
+                                            <SelectTrigger className="w-56">
+                                                <SelectValue placeholder="Filter by year level" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All Year Levels</SelectItem>
+                                                <SelectItem value="elementary">Elementary</SelectItem>
+                                                <SelectItem value="junior_highschool">Junior High School</SelectItem>
+                                                <SelectItem value="senior_highschool">Senior High School</SelectItem>
+                                                <SelectItem value="college">College</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2 justify-end w-full lg:w-auto">
+                                        <Link href={route('admin.students.create')}>
+                                            <Button className="flex items-center gap-2">
+                                                <Plus className="h-4 w-4" />
+                                                Add New Student
+                                            </Button>
+                                        </Link>
+                                        <input
+                                            type="file"
+                                            accept=".csv,text/csv"
+                                            ref={fileInputRef}
+                                            className="hidden"
+                                            onChange={handleFileSelected}
                                         />
+                                        <Button variant="outline" className="flex items-center gap-2" onClick={handleUploadClick}>
+                                            <Upload className="h-4 w-4" />
+                                            Upload CSV
+                                        </Button>
+                                        <Button variant="outline" className="flex items-center gap-2" onClick={handleDownloadTemplate}>
+                                            <Download className="h-4 w-4" />
+                                            Download Template
+                                        </Button>
                                     </div>
                                 </div>
-                                
-                                <div className="flex gap-2">
-                                    <Select value={sortBy} onValueChange={setSortBy}>
-                                        <SelectTrigger className="w-40">
-                                            <SelectValue placeholder="Sort by" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="name">Name</SelectItem>
-                                            <SelectItem value="email">Email</SelectItem>
-                                            <SelectItem value="created_at">Created Date</SelectItem>
-                                            <SelectItem value="last_login_at">Last Login</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    
-                                    <Button
-                                        variant={sortDirection === 'asc' ? 'default' : 'outline'}
-                                        onClick={() => handleSort(sortBy)}
-                                        className="px-3"
-                                    >
-                                        {sortDirection === 'asc' ? '↑' : '↓'}
-                                    </Button>
-                                    
-                                    <Button onClick={handleSearch} className="px-4">
-                                        <Filter size={16} className="mr-2" />
-                                        Filter
-                                    </Button>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                            </CardContent>
+                        </Card>
 
-                    {/* Actions */}
-                    <div className="flex justify-between items-center mb-6">
-                        <div className="text-sm text-gray-600 dark:text-gray-400">
-                            Showing {users.data.length} of {users.total} students
-                        </div>
-                        
-                        <Link href={route('admin.students.create')}>
-                            <Button>
-                                <Plus size={16} className="mr-2" />
-                                Add New Student
-                            </Button>
-                        </Link>
-                    </div>
-
-                    {/* Users Grid */}
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {users.data.map((user) => (
-                            <Card key={user.id} className="hover:shadow-md transition-shadow">
-                                <CardHeader className="pb-3">
-                                    <div className="flex items-start justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
-                                                <GraduationCap size={20} className="text-blue-600 dark:text-blue-400" />
-                                            </div>
-                                            <div>
-                                                <CardTitle className="text-lg">{user.name}</CardTitle>
-                                                <Badge variant={getRoleBadgeVariant(user.user_role)}>
-                                                    {user.user_role}
-                                                </Badge>
-                                            </div>
-                                        </div>
-                                        
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon">
-                                                    <MoreHorizontal size={16} />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                                <DropdownMenuItem asChild>
-                                                    <Link href={route('admin.students.show', user.id)}>
-                                                        <Eye size={16} className="mr-2" />
-                                                        View Details
-                                                    </Link>
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem asChild>
-                                                    <Link href={route('admin.students.edit', user.id)}>
-                                                        <Edit size={16} className="mr-2" />
-                                                        Edit
-                                                    </Link>
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem 
-                                                    onClick={() => handleDelete(user)}
-                                                    className="text-red-600 dark:text-red-400"
+                        {/* Students Table */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>
+                                    Students ({users.total} total)
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="border-b">
+                                                <th 
+                                                    className="cursor-pointer p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800"
+                                                    onClick={() => handleSort('name')}
                                                 >
-                                                    <Trash2 size={16} className="mr-2" />
-                                                    Delete
-                                                </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
+                                                    Name
+                                                    {filters.sort_by === 'name' && (
+                                                        <span className="ml-1">
+                                                            {filters.sort_direction === 'desc' ? '↓' : '↑'}
+                                                        </span>
+                                                    )}
+                                                </th>
+                                                <th 
+                                                    className="cursor-pointer p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800"
+                                                    onClick={() => handleSort('email')}
+                                                >
+                                                    Email
+                                                    {filters.sort_by === 'email' && (
+                                                        <span className="ml-1">
+                                                            {filters.sort_direction === 'desc' ? '↓' : '↑'}
+                                                        </span>
+                                                    )}
+                                                </th>
+                                                <th className="p-3 text-left">Role</th>
+                                                <th className="p-3 text-left">Parents</th>
+                                                <th 
+                                                    className="cursor-pointer p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800"
+                                                    onClick={() => handleSort('created_at')}
+                                                >
+                                                    Created
+                                                    {filters.sort_by === 'created_at' && (
+                                                        <span className="ml-1">
+                                                            {filters.sort_direction === 'desc' ? '↓' : '↑'}
+                                                        </span>
+                                                    )}
+                                                </th>
+                                                <th className="p-3 text-left">Last Login</th>
+                                                <th className="p-3 text-left">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {users.data.map((tableUser) => (
+                                                <tr key={tableUser.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800">
+                                                    <td className="p-3 font-medium">{tableUser.name}</td>
+                                                    <td className="p-3 text-gray-600 dark:text-gray-400">{tableUser.email}</td>
+                                                    <td className="p-3">
+                                                        <Badge variant={getRoleBadgeVariant(tableUser.user_role)}>
+                                                            {roles[tableUser.user_role] || tableUser.user_role}
+                                                        </Badge>
+                                                    </td>
+                                                    <td className="p-3 text-gray-600 dark:text-gray-400">
+                                                        {new Date(tableUser.created_at).toLocaleDateString()}
+                                                    </td>
+                                                    <td className="p-3 text-gray-600 dark:text-gray-400">
+                                                        {tableUser.last_login_at 
+                                                            ? new Date(tableUser.last_login_at).toLocaleDateString()
+                                                            : 'Never'
+                                                        }
+                                                    </td>
+                                                    <td className="p-3 text-gray-600 dark:text-gray-400">
+                                                        {tableUser.parents && tableUser.parents.length > 0 ? (
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {tableUser.parents.slice(0, 2).map((p) => (
+                                                                    <Link key={p.id} href={route('admin.parents.show', p.id)} className="underline">
+                                                                        {p.name}
+                                                                    </Link>
+                                                                ))}
+                                                                {tableUser.parents.length > 2 && (
+                                                                    <span className="text-xs text-gray-500">+{tableUser.parents.length - 2} more</span>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-xs text-gray-400">No parents linked</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-3">
+                                                        <div className="flex items-center gap-2">
+                                                            <Link href={route('admin.students.show', tableUser.id)}>
+                                                                <Button variant="outline" size="sm">
+                                                                    <Eye className="h-3 w-3" />
+                                                                </Button>
+                                                            </Link>
+                                                            <Link href={route('admin.students.edit', tableUser.id)}>
+                                                                <Button variant="outline" size="sm">
+                                                                    <Edit className="h-3 w-3" />
+                                                                </Button>
+                                                            </Link>
+                                                            <Button 
+                                                                variant="outline" 
+                                                                size="sm"
+                                                                onClick={() => handleResetPassword(tableUser)}
+                                                            >
+                                                                <RotateCcw className="h-3 w-3" />
+                                                            </Button>
+                                                            {tableUser.id !== user.id && (
+                                                                <Button 
+                                                                    variant="destructive" 
+                                                                    size="sm"
+                                                                    onClick={() => handleDelete(tableUser.id)}
+                                                                >
+                                                                    <Trash2 className="h-3 w-3" />
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Pagination */}
+                                {users.last_page > 1 && (
+                                    <div className="mt-4 flex items-center justify-between">
+                                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                                            Showing {users.from} to {users.to} of {users.total} results
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            {users.current_page > 1 && (
+                                                <Link 
+                                                    href={route('admin.students.index', { ...filters, page: users.current_page - 1 })}
+                                                >
+                                                    <Button variant="outline" size="sm">Previous</Button>
+                                                </Link>
+                                            )}
+                                            
+                                            <span className="text-sm">
+                                                Page {users.current_page} of {users.last_page}
+                                            </span>
+                                            
+                                            {users.current_page < users.last_page && (
+                                                <Link 
+                                                    href={route('admin.students.index', { ...filters, page: users.current_page + 1 })}
+                                                >
+                                                    <Button variant="outline" size="sm">Next</Button>
+                                                </Link>
+                                            )}
+                                        </div>
                                     </div>
-                                </CardHeader>
-                                
-                                <CardContent>
-                                    <div className="space-y-2 text-sm">
-                                        <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                                            <Mail size={14} />
-                                            <span className="truncate">{user.email}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                                            <Calendar size={14} />
-                                            <span>Joined {formatDate(user.created_at)}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                                            <Phone size={14} />
-                                            <span>Last login: {formatDate(user.last_login_at)}</span>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))}
+                                )}
+                            </CardContent>
+                        </Card>
                     </div>
+                </main>
+            </div>
 
-                    {/* Pagination */}
-                    {users.last_page > 1 && (
-                        <div className="flex justify-center mt-8">
-                            <div className="flex gap-2">
-                                {users.links.map((link: any, index: number) => (
-                                    <Link
-                                        key={index}
-                                        href={link.url || '#'}
-                                        className={`px-3 py-2 rounded-md text-sm font-medium ${
-                                            link.active
-                                                ? 'bg-blue-600 text-white'
-                                                : link.url
-                                                ? 'bg-white text-gray-700 hover:bg-gray-50 border'
-                                                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                        }`}
-                                        dangerouslySetInnerHTML={{ __html: link.label }}
-                                    />
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </AppShell>
-
-            {/* Delete Confirmation Dialog */}
-            <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Delete Student</DialogTitle>
-                        <DialogDescription>
-                            Are you sure you want to delete {userToDelete?.name}? This action cannot be undone.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
-                            Cancel
-                        </Button>
-                        <Button variant="destructive" onClick={confirmDelete}>
-                            Delete
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-        </>
+            {/* Password Reset Modal */}
+            {resetPasswordUser && (
+                <PasswordResetModal
+                    user={resetPasswordUser}
+                    isOpen={!!resetPasswordUser}
+                    onClose={() => setResetPasswordUser(null)}
+                    errors={errors as Record<string, string>}
+                />
+            )}
+        </div>
     );
 }

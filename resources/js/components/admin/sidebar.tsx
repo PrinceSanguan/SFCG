@@ -24,6 +24,7 @@ interface SidebarProps {
 export function Sidebar({ user }: SidebarProps) {
     const { url } = usePage(); // Get the current route
     const [isAccountManagementExpanded, setIsAccountManagementExpanded] = useState(true); // Always start expanded
+    const [isStudentsExpanded, setIsStudentsExpanded] = useState(true);
 
     // Function to check if the route matches
     const isActive = (path: string) => url.startsWith(path);
@@ -167,15 +168,65 @@ export function Sidebar({ user }: SidebarProps) {
                                 </Button>
                             </Link>
 
-                            <Link href={route('admin.students.index')} className="w-full">
-                                <Button
-                                    variant={isActive('/admin/students') ? 'secondary' : 'ghost'}
-                                    className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-                                >
-                                    <GraduationCap size={16} />
-                                    Students
-                                </Button>
-                            </Link>
+                            {/* Students submenu with dropdown toggle */}
+                            <div className="space-y-1">
+                                <div className="flex items-center">
+                                    <Link href={route('admin.students.index')} className="w-full">
+                                        <Button
+                                            variant={isActive('/admin/students') && !isActive('/admin/students/elementary') && !isActive('/admin/students/junior-highschool') && !isActive('/admin/students/senior-highschool') && !isActive('/admin/students/college') ? 'secondary' : 'ghost'}
+                                            className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                                        >
+                                            <GraduationCap size={16} />
+                                            All Students
+                                        </Button>
+                                    </Link>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="ml-1 h-8 w-8"
+                                        onClick={() => setIsStudentsExpanded(!isStudentsExpanded)}
+                                        aria-label="Toggle students submenu"
+                                    >
+                                        <ChevronRight size={16} className={`transition-transform duration-200 ${isStudentsExpanded ? 'rotate-90' : ''}`} />
+                                    </Button>
+                                </div>
+                                {isStudentsExpanded && (
+                                    <div className="ml-6 space-y-1">
+                                        <Link href={route('admin.students.elementary')} className="w-full">
+                                            <Button
+                                                variant={isActive('/admin/students/elementary') ? 'secondary' : 'ghost'}
+                                                className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                                            >
+                                                Elementary
+                                            </Button>
+                                        </Link>
+                                        <Link href={route('admin.students.junior_highschool')} className="w-full">
+                                            <Button
+                                                variant={isActive('/admin/students/junior-highschool') ? 'secondary' : 'ghost'}
+                                                className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                                            >
+                                                Junior Highschool
+                                            </Button>
+                                        </Link>
+                                        <Link href={route('admin.students.senior_highschool')} className="w-full">
+                                            <Button
+                                                variant={isActive('/admin/students/senior-highschool') ? 'secondary' : 'ghost'}
+                                                className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                                            >
+                                                Senior Highschool
+                                            </Button>
+                                        </Link>
+                                        <Link href={route('admin.students.college')} className="w-full">
+                                            <Button
+                                                variant={isActive('/admin/students/college') ? 'secondary' : 'ghost'}
+                                                className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                                            >
+                                                College
+                                            </Button>
+                                        </Link>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
 

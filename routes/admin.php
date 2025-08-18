@@ -171,6 +171,11 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     // Student Management
     Route::prefix('students')->name('students.')->group(function () {
         Route::get('/', [UserManagementController::class, 'indexByRole'])->name('index');
+        // Year-level dedicated pages (filter param handled in controller)
+        Route::get('/elementary', function() { request()->merge(['year_level' => 'elementary']); return app(UserManagementController::class)->indexByRole(request()); })->name('elementary');
+        Route::get('/junior-highschool', function() { request()->merge(['year_level' => 'junior_highschool']); return app(UserManagementController::class)->indexByRole(request()); })->name('junior_highschool');
+        Route::get('/senior-highschool', function() { request()->merge(['year_level' => 'senior_highschool']); return app(UserManagementController::class)->indexByRole(request()); })->name('senior_highschool');
+        Route::get('/college', function() { request()->merge(['year_level' => 'college']); return app(UserManagementController::class)->indexByRole(request()); })->name('college');
         Route::get('/create', [UserManagementController::class, 'createByRole'])->name('create');
         Route::post('/', [UserManagementController::class, 'storeByRole'])->name('store');
         Route::get('/{user}', [UserManagementController::class, 'showByRole'])->name('show');
@@ -178,6 +183,9 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
         Route::put('/{user}', [UserManagementController::class, 'updateByRole'])->name('update');
         Route::delete('/{user}', [UserManagementController::class, 'destroyByRole'])->name('destroy');
         Route::post('/{user}/reset-password', [UserManagementController::class, 'resetPasswordByRole'])->name('reset-password');
+        // CSV template and upload endpoints
+        Route::get('/template/csv', [UserManagementController::class, 'downloadStudentsCsvTemplate'])->name('template');
+        Route::post('/upload/csv', [UserManagementController::class, 'uploadStudentsCsv'])->name('upload');
     });
     
     // Activity Logs

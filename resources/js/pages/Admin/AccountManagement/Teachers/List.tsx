@@ -75,7 +75,15 @@ export default function TeacherList({ user, users, filters }: TeacherListProps) 
 
     const handleDelete = (userId: number) => {
         if (confirm('Are you sure you want to delete this teacher account? This action cannot be undone.')) {
-            router.delete(route('admin.teachers.destroy', userId));
+            router.delete(route('admin.teachers.destroy', userId), {
+                onSuccess: () => {
+                    // Reload the page to show updated list
+                    router.reload();
+                },
+                onError: (errors) => {
+                    console.error('Delete failed:', errors);
+                }
+            });
         }
     };
 

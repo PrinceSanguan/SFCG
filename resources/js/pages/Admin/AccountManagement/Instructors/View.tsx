@@ -23,7 +23,6 @@ interface ViewUser {
     user_role: string;
     created_at: string;
     last_login_at?: string;
-    parents?: Array<{ id: number; name: string; email: string; pivot?: { relationship_type?: string } }>;
 }
 
 interface ActivityLog {
@@ -50,7 +49,7 @@ interface ViewProps {
     activityLogs: PaginatedActivityLogs;
 }
 
-export default function ViewStudent({ user, targetUser, activityLogs }: ViewProps) {
+export default function ViewInstructor({ user, targetUser, activityLogs }: ViewProps) {
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const { errors } = usePage().props;
 
@@ -115,14 +114,14 @@ export default function ViewStudent({ user, targetUser, activityLogs }: ViewProp
                 <main className="flex-1 overflow-y-auto bg-gray-100 p-4 md:p-6 dark:bg-gray-900">
                     <div className="flex flex-col gap-6">
                         <div className="flex items-center gap-4">
-                            <Link href={route('admin.students.index')}>
+                            <Link href={route('admin.instructors.index')}>
                                 <Button variant="outline" size="sm" className="flex items-center gap-2">
                                     <ArrowLeft className="h-4 w-4" />
-                                    Back to Students
+                                    Back to Instructors
                                 </Button>
                             </Link>
                             <div>
-                                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Student Profile</h1>
+                                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Instructor Profile</h1>
                                 <p className="text-gray-500 dark:text-gray-400">
                                     Complete profile and activity history for {targetUser.name}.
                                 </p>
@@ -191,32 +190,6 @@ export default function ViewStudent({ user, targetUser, activityLogs }: ViewProp
                             </CardContent>
                         </Card>
 
-                        {/* Linked Parents */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Linked Parents</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                {targetUser.parents && targetUser.parents.length > 0 ? (
-                                    <div className="space-y-2">
-                                        {targetUser.parents.map((p) => (
-                                            <div key={p.id} className="flex items-center justify-between border rounded p-2">
-                                                <div className="flex flex-col">
-                                                    <span className="font-medium">{p.name}</span>
-                                                    <span className="text-xs text-gray-500">{p.email}</span>
-                                                </div>
-                                                <Link href={route('admin.parents.show', p.id)}>
-                                                    <Button variant="outline" size="sm">View Parent</Button>
-                                                </Link>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <p className="text-sm text-gray-500">No parents linked to this student.</p>
-                                )}
-                            </CardContent>
-                        </Card>
-
                         {/* Quick Actions */}
                         <Card>
                             <CardHeader>
@@ -224,7 +197,7 @@ export default function ViewStudent({ user, targetUser, activityLogs }: ViewProp
                             </CardHeader>
                             <CardContent>
                                 <div className="flex gap-4">
-                                    <Link href={route('admin.students.edit', targetUser.id)}>
+                                    <Link href={route('admin.instructors.edit', targetUser.id)}>
                                         <Button variant="outline" className="flex items-center gap-2">
                                             <Edit className="h-4 w-4" />
                                             Edit Profile
@@ -310,7 +283,7 @@ export default function ViewStudent({ user, targetUser, activityLogs }: ViewProp
                                                 <div className="flex items-center gap-2">
                                                     {activityLogs.current_page > 1 && (
                                                         <Link 
-                                                            href={route('admin.students.show', { 
+                                                            href={route('admin.instructors.show', { 
                                                                 user: targetUser.id, 
                                                                 page: activityLogs.current_page - 1 
                                                             })}
@@ -321,7 +294,7 @@ export default function ViewStudent({ user, targetUser, activityLogs }: ViewProp
                                                     
                                                     {activityLogs.current_page < activityLogs.last_page && (
                                                         <Link 
-                                                            href={route('admin.students.show', { 
+                                                            href={route('admin.instructors.show', { 
                                                                 user: targetUser.id, 
                                                                 page: activityLogs.current_page + 1 
                                                             })}
@@ -336,7 +309,7 @@ export default function ViewStudent({ user, targetUser, activityLogs }: ViewProp
                                 ) : (
                                     <div className="text-center py-8">
                                         <Activity className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                                        <p className="text-gray-500 dark:text-gray-400">No activity logs found for this student.</p>
+                                        <p className="text-gray-500 dark:text-gray-400">No activity logs found for this user.</p>
                                     </div>
                                 )}
                             </CardContent>

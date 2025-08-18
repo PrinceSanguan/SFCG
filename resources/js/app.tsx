@@ -5,6 +5,7 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
 // Removed initializeTheme since we want to force light mode
 // import { initializeTheme } from './hooks/use-appearance';
+import { ToastProviderComponent } from '@/components/ui/toast';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
@@ -16,7 +17,11 @@ createInertiaApp({
     resolve: (name: string) => resolvePageComponent(`./pages/${name}.tsx`, import.meta.glob('./pages/**/*.tsx')),
     setup({ el, App, props }: { el: HTMLElement; App: any; props: any }) {
         const root = createRoot(el);
-        root.render(<App {...props} />);
+        root.render(
+            <ToastProviderComponent>
+                <App {...props} />
+            </ToastProviderComponent>
+        );
     },
     progress: {
         color: '#4B5563',

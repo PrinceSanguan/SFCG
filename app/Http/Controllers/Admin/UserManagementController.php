@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\User;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -97,6 +98,7 @@ class UserManagementController extends Controller
         return Inertia::render('Admin/AccountManagement/Create', [
             'user' => Auth::user(),
             'roles' => User::getAvailableRoles(),
+            'yearLevels' => User::getYearLevels(),
         ]);
     }
 
@@ -110,6 +112,7 @@ class UserManagementController extends Controller
             'email' => 'required|string|email|max:255|unique:users',
             'user_role' => 'required|in:admin,registrar,instructor,teacher,adviser,chairperson,principal,student,parent',
             'password' => 'required|string|min:8|confirmed',
+            'year_level' => 'nullable|string|in:elementary,junior_highschool,senior_highschool,college',
         ]);
 
         if ($validator->fails()) {
@@ -121,6 +124,7 @@ class UserManagementController extends Controller
             'email' => $request->email,
             'user_role' => $request->user_role,
             'password' => Hash::make($request->password),
+            'year_level' => $request->user_role === 'student' ? $request->year_level : null,
         ]);
 
         // Log the activity
@@ -375,10 +379,20 @@ class UserManagementController extends Controller
             });
         }
 
+        // Optional filter by student year level
+        if ($role === 'student' && $request->filled('year_level') && $request->get('year_level') !== 'all') {
+            $query->where('year_level', $request->get('year_level'));
+        }
+
         // Sort functionality
         $sortBy = $request->get('sort_by', 'created_at');
         $sortDirection = $request->get('sort_direction', 'desc');
         $query->orderBy($sortBy, $sortDirection);
+
+        // Eager load parents for students
+        if ($role === 'student') {
+            $query->with(['parents']);
+        }
 
         $users = $query->paginate(15)->withQueryString();
 
@@ -387,9 +401,9 @@ class UserManagementController extends Controller
         return Inertia::render('Admin/AccountManagement/' . $folderName . '/List', [
             'user' => Auth::user(),
             'users' => $users,
-            'filters' => $request->only(['search', 'sort_by', 'sort_direction']),
-            'role' => $role,
-            'roleDisplayName' => User::getAvailableRoles()[$role] ?? ucfirst($role),
+            'filters' => $request->only(['search', 'role', 'sort_by', 'sort_direction', 'year_level']),
+            'roles' => User::getAvailableRoles(),
+            'yearLevels' => User::getYearLevels(),
         ]);
     }
 
@@ -404,8 +418,8 @@ class UserManagementController extends Controller
         
         return Inertia::render('Admin/AccountManagement/' . $folderName . '/Create', [
             'user' => Auth::user(),
-            'role' => $role,
-            'roleDisplayName' => User::getAvailableRoles()[$role] ?? ucfirst($role),
+            'roles' => User::getAvailableRoles(),
+            'yearLevels' => User::getYearLevels(),
         ]);
     }
 
@@ -420,6 +434,7 @@ class UserManagementController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
+            'year_level' => 'nullable|string|in:elementary,junior_highschool,senior_highschool,college',
         ]);
 
         if ($validator->fails()) {
@@ -431,6 +446,7 @@ class UserManagementController extends Controller
             'email' => $request->email,
             'user_role' => $role,
             'password' => Hash::make($request->password),
+            'year_level' => $role === 'student' ? $request->year_level : null,
         ]);
 
         // Log the activity
@@ -466,7 +482,11 @@ class UserManagementController extends Controller
             abort(404);
         }
 
-        $user->load(['activityLogs', 'targetActivityLogs.user']);
+        $relations = ['activityLogs', 'targetActivityLogs.user'];
+        if ($role === 'student') {
+            $relations[] = 'parents';
+        }
+        $user->load($relations);
 
         $activityLogs = ActivityLog::where(function ($query) use ($user) {
             $query->where('user_id', $user->id)
@@ -488,6 +508,94 @@ class UserManagementController extends Controller
     }
 
     /**
+     * Download CSV template for bulk student upload.
+     */
+    public function downloadStudentsCsvTemplate()
+    {
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="students_template.csv"',
+        ];
+
+        $columns = ['name', 'email', 'password'];
+        $sampleRows = [
+            ['Juan Dela Cruz', 'juan@example.com', 'password123'],
+            ['Maria Santos', 'maria@example.com', 'password123'],
+        ];
+
+        $callback = function () use ($columns, $sampleRows) {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, $columns);
+            foreach ($sampleRows as $row) {
+                fputcsv($handle, $row);
+            }
+            fclose($handle);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    /**
+     * Handle bulk student upload via CSV.
+     */
+    public function uploadStudentsCsv(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:csv,txt|max:2048',
+        ]);
+
+        $file = $request->file('file');
+        $handle = fopen($file->getPathname(), 'r');
+        $header = fgetcsv($handle);
+        $created = 0;
+        $errors = [];
+
+        $expected = ['name', 'email', 'password'];
+        if (!$header || array_map('strtolower', $header) !== $expected) {
+            return back()->with('error', 'Invalid CSV format. Expected columns: name,email,password');
+        }
+
+        while (($row = fgetcsv($handle)) !== false) {
+            [$name, $email, $password] = $row;
+            $validator = Validator::make([
+                'name' => $name,
+                'email' => $email,
+                'password' => $password,
+            ], [
+                'name' => 'required|string|max:255',
+                'email' => 'required|string|email|max:255|unique:users,email',
+                'password' => 'required|string|min:8',
+            ]);
+
+            if ($validator->fails()) {
+                $errors[] = [
+                    'email' => $email,
+                    'errors' => $validator->errors()->all(),
+                ];
+                continue;
+            }
+
+            User::create([
+                'name' => $name,
+                'email' => $email,
+                'user_role' => 'student',
+                'password' => Hash::make($password),
+            ]);
+            $created++;
+        }
+
+        fclose($handle);
+
+        $message = "$created students uploaded successfully.";
+        if (!empty($errors)) {
+            $message .= ' Some rows were skipped due to validation errors.';
+            Log::warning('Student CSV upload errors', ['errors' => $errors]);
+        }
+
+        return redirect()->route('admin.students.index')->with('success', $message);
+    }
+
+    /**
      * Show the form for editing the specified user by role.
      */
     public function editByRole(User $user)
@@ -505,6 +613,7 @@ class UserManagementController extends Controller
             'user' => Auth::user(),
             'targetUser' => $user,
             'roles' => User::getAvailableRoles(),
+            'yearLevels' => User::getYearLevels(),
             'role' => $role,
             'roleDisplayName' => User::getAvailableRoles()[$role] ?? ucfirst($role),
         ]);
@@ -526,6 +635,7 @@ class UserManagementController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
             'user_role' => 'required|in:admin,registrar,instructor,teacher,adviser,chairperson,principal,student,parent',
+            'year_level' => 'nullable|string|in:elementary,junior_highschool,senior_highschool,college',
         ]);
 
         if ($validator->fails()) {
@@ -538,6 +648,7 @@ class UserManagementController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'user_role' => $request->user_role,
+            'year_level' => $user->user_role === 'student' ? $request->year_level : null,
         ]);
 
         // Log the activity

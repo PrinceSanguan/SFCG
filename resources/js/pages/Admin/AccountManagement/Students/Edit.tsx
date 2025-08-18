@@ -1,322 +1,325 @@
-import { useState } from 'react';
-import { Head, router, useForm } from '@inertiajs/react';
+import { Header } from '@/components/admin/header';
+import { Sidebar } from '@/components/admin/sidebar';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import InputError from '@/components/input-error';
-import { Badge } from '@/components/ui/badge';
-import { 
-    ArrowLeft, 
-    Save, 
-    User,
-    GraduationCap,
-    Mail,
-    Calendar,
-    Shield,
-    Eye,
-    EyeOff
-} from 'lucide-react';
-import { AppShell } from '@/components/app-shell';
-import { AppHeader } from '@/components/app-header';
-import { Sidebar } from '@/components/admin/sidebar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Link, router, useForm, usePage } from '@inertiajs/react';
+import { ArrowLeft, Save, RotateCcw } from 'lucide-react';
+import { FormEvent, useState } from 'react';
+import PasswordResetModal from '@/components/admin/PasswordResetModal';
 
-interface User {
+interface UserData {
     id: number;
     name: string;
     email: string;
     user_role: string;
     created_at: string;
-    last_login_at: string | null;
+    last_login_at?: string;
 }
 
-interface PageProps {
-    user: any;
-    targetUser: User;
-    role: string;
-    roleDisplayName: string;
+interface EditProps {
+    user: UserData; // Current admin user
+    targetUser: UserData; // User being edited
+    roles: Record<string, string>;
+    errors?: Record<string, string>;
+    yearLevels?: Record<string, string>;
 }
 
-export default function StudentsEdit({ user, targetUser, role, roleDisplayName }: PageProps) {
-    const [showPassword, setShowPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
-    const { data, setData, put, processing, errors } = useForm({
-        name: targetUser.name,
-        email: targetUser.email,
-        password: '',
-        password_confirmation: '',
+export default function EditStudent({ user, targetUser, roles, errors, yearLevels }: EditProps) {
+    const { data, setData, put, processing } = useForm({
+        name: targetUser?.name || '',
+        email: targetUser?.email || '',
+        user_role: targetUser?.user_role || '',
+        year_level: (targetUser as any)?.year_level || '',
     });
+    const [showPasswordModal, setShowPasswordModal] = useState(false);
+    const { errors: pageErrors } = usePage().props;
 
-    const handleSubmit = (e: React.FormEvent) => {
+    // Safety check for user data
+    if (!user || !targetUser) {
+        return <div>Loading...</div>;
+    }
+
+    const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
-        
-        // Only include password if it's being changed
-        const updateData: any = {
-            name: data.name,
-            email: data.email,
-        };
-        
-        if (data.password) {
-            updateData.password = data.password;
-            updateData.password_confirmation = data.password_confirmation;
-        }
-        
-        put(route('admin.students.update', targetUser.id), {
-            data: updateData,
-        });
+        put(route('admin.students.update', targetUser.id));
     };
 
-    const formatDate = (dateString: string | null) => {
-        if (!dateString) return 'Never';
-        return new Date(dateString).toLocaleDateString();
+    const handleResetPassword = () => {
+        setShowPasswordModal(true);
+    };
+
+    const getRoleBadgeVariant = (role: string) => {
+        switch (role) {
+            case 'admin':
+                return 'default';
+            case 'registrar':
+            case 'teacher':
+            case 'instructor':
+            case 'adviser':
+            case 'chairperson':
+            case 'principal':
+                return 'secondary';
+            case 'student':
+            case 'parent':
+                return 'outline';
+            default:
+                return 'outline';
+        }
     };
 
     return (
-        <>
-            <Head title={`Edit ${roleDisplayName} - ${targetUser.name}`} />
-            
-            <AppShell>
-                <AppHeader user={user} />
-                <Sidebar user={user} />
-                
-                <div className="flex-1 p-6">
-                    <div className="mb-6">
+        <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
+            <Sidebar user={user} />
+
+            <div className="flex flex-1 flex-col overflow-hidden">
+                <Header user={user} />
+
+                <main className="flex-1 overflow-y-auto bg-gray-100 p-4 md:p-6 dark:bg-gray-900">
+                    <div className="flex flex-col gap-6">
                         <div className="flex items-center gap-4">
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => router.visit(route('admin.students.index'))}
-                            >
-                                <ArrowLeft size={20} />
-                            </Button>
+                            <Link href={route('admin.students.index')}>
+                                <Button variant="outline" size="sm" className="flex items-center gap-2">
+                                    <ArrowLeft className="h-4 w-4" />
+                                    Back to Students
+                                </Button>
+                            </Link>
                             <div>
-                                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                                    Edit {roleDisplayName}
-                                </h1>
-                                <p className="text-gray-600 dark:text-gray-400 mt-2">
-                                    Update student account information
+                                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Edit Student</h1>
+                                <p className="text-gray-500 dark:text-gray-400">
+                                    Update student information and role assignments.
                                 </p>
                             </div>
                         </div>
-                    </div>
 
-                    <div className="grid gap-6 lg:grid-cols-3">
-                        {/* Edit Form */}
-                        <div className="lg:col-span-2">
-                            <Card>
-                                <CardHeader>
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
-                                            <GraduationCap size={20} className="text-blue-600 dark:text-blue-400" />
-                                        </div>
-                                        <div>
-                                            <CardTitle>Edit Student Information</CardTitle>
-                                            <CardDescription>
-                                                Update the student's basic information and account details
-                                            </CardDescription>
-                                        </div>
+                        {/* Current User Info */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Current Student Information</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Name</p>
+                                        <p className="text-lg">{targetUser.name}</p>
                                     </div>
-                                </CardHeader>
-                                
-                                <CardContent>
-                                    <form onSubmit={handleSubmit} className="space-y-6">
-                                        {/* Name Field */}
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Email</p>
+                                        <p className="text-lg">{targetUser.email}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Current Role</p>
+                                        <Badge variant={getRoleBadgeVariant(targetUser.user_role)} className="mt-1">
+                                            {roles[targetUser.user_role] || targetUser.user_role}
+                                        </Badge>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Member Since</p>
+                                        <p className="text-lg">{new Date(targetUser.created_at).toLocaleDateString()}</p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Edit Form */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Update Student Information</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <form onSubmit={handleSubmit} className="space-y-6">
+                                    <div className="grid gap-6 md:grid-cols-2">
+                                        {/* Name */}
                                         <div className="space-y-2">
-                                            <Label htmlFor="name" className="flex items-center gap-2">
-                                                <User size={16} />
-                                                Full Name
-                                            </Label>
+                                            <Label htmlFor="name">Full Name *</Label>
                                             <Input
                                                 id="name"
                                                 type="text"
                                                 value={data.name}
                                                 onChange={(e) => setData('name', e.target.value)}
-                                                placeholder="Enter student's full name"
-                                                className={errors.name ? 'border-red-500' : ''}
+                                                placeholder="Enter full name"
+                                                required
                                             />
-                                            {errors.name && <InputError message={errors.name} />}
+                                            {errors?.name && (
+                                                <Alert variant="destructive">
+                                                    <AlertDescription>{errors.name}</AlertDescription>
+                                                </Alert>
+                                            )}
                                         </div>
 
-                                        {/* Email Field */}
+                                        {/* Email */}
                                         <div className="space-y-2">
-                                            <Label htmlFor="email" className="flex items-center gap-2">
-                                                <Mail size={16} />
-                                                Email Address
-                                            </Label>
+                                            <Label htmlFor="email">Email Address *</Label>
                                             <Input
                                                 id="email"
                                                 type="email"
                                                 value={data.email}
                                                 onChange={(e) => setData('email', e.target.value)}
-                                                placeholder="Enter student's email address"
-                                                className={errors.email ? 'border-red-500' : ''}
+                                                placeholder="Enter email address"
+                                                required
                                             />
-                                            {errors.email && <InputError message={errors.email} />}
-                                        </div>
-
-                                        {/* Password Fields */}
-                                        <div className="space-y-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                            <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                                Change Password (Optional)
-                                            </div>
-                                            
-                                            <div className="space-y-2">
-                                                <Label htmlFor="password" className="flex items-center gap-2">
-                                                    <Shield size={16} />
-                                                    New Password
-                                                </Label>
-                                                <div className="relative">
-                                                    <Input
-                                                        id="password"
-                                                        type={showPassword ? 'text' : 'password'}
-                                                        value={data.password}
-                                                        onChange={(e) => setData('password', e.target.value)}
-                                                        placeholder="Leave blank to keep current password"
-                                                        className={errors.password ? 'border-red-500 pr-10' : 'pr-10'}
-                                                    />
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                                                        onClick={() => setShowPassword(!showPassword)}
-                                                    >
-                                                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                                                    </Button>
-                                                </div>
-                                                {errors.password && <InputError message={errors.password} />}
-                                                <p className="text-sm text-gray-500">
-                                                    Password must be at least 8 characters long
-                                                </p>
-                                            </div>
-
-                                            {data.password && (
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="password_confirmation" className="flex items-center gap-2">
-                                                        <Shield size={16} />
-                                                        Confirm New Password
-                                                    </Label>
-                                                    <div className="relative">
-                                                        <Input
-                                                            id="password_confirmation"
-                                                            type={showConfirmPassword ? 'text' : 'password'}
-                                                            value={data.password_confirmation}
-                                                            onChange={(e) => setData('password_confirmation', e.target.value)}
-                                                            placeholder="Confirm the new password"
-                                                            className={errors.password_confirmation ? 'border-red-500 pr-10' : 'pr-10'}
-                                                        />
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                                                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                                        >
-                                                            {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                                                        </Button>
-                                                    </div>
-                                                    {errors.password_confirmation && <InputError message={errors.password_confirmation} />}
-                                                </div>
+                                            {errors?.email && (
+                                                <Alert variant="destructive">
+                                                    <AlertDescription>{errors.email}</AlertDescription>
+                                                </Alert>
                                             )}
                                         </div>
 
-                                        {/* Form Actions */}
-                                        <div className="flex gap-3 pt-4">
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                onClick={() => router.visit(route('admin.students.index'))}
-                                                className="flex-1"
-                                            >
+                                        {/* Role */}
+                                        <div className="space-y-2">
+                                            <Label htmlFor="user_role">User Role *</Label>
+                                            <Select value={data.user_role} onValueChange={(value) => setData('user_role', value)}>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select a role" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {roles && Object.entries(roles).map(([key, label]) => (
+                                                        <SelectItem key={key} value={key}>
+                                                            {label}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            {errors?.user_role && (
+                                                <Alert variant="destructive">
+                                                    <AlertDescription>{errors.user_role}</AlertDescription>
+                                                </Alert>
+                                            )}
+                                        </div>
+
+                                        {/* Year Level (Students) */}
+                                        <div className="space-y-2">
+                                            <Label htmlFor="year_level">Year Level</Label>
+                                            <Select value={data.year_level} onValueChange={(value) => setData('year_level', value)}>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select year level" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {(yearLevels || {
+                                                        elementary: 'Elementary',
+                                                        junior_highschool: 'Junior High School',
+                                                        senior_highschool: 'Senior High School',
+                                                        college: 'College',
+                                                    }) && Object.entries(yearLevels || {}).map(([key, label]) => (
+                                                        <SelectItem key={key} value={key}>{label}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        {/* Last Login Info */}
+                                        <div className="space-y-2">
+                                            <Label>Last Login</Label>
+                                            <div className="p-3 bg-gray-50 rounded border dark:bg-gray-800">
+                                                {targetUser.last_login_at 
+                                                    ? new Date(targetUser.last_login_at).toLocaleString()
+                                                    : 'Never logged in'
+                                                }
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Role Change Warning */}
+                                    {data.user_role !== targetUser.user_role && (
+                                        <Alert>
+                                            <AlertDescription>
+                                                <strong>Warning:</strong> Changing the user role will affect their access permissions. 
+                                                The user will have access to features specific to the new role: <strong>{roles[data.user_role]}</strong>.
+                                            </AlertDescription>
+                                        </Alert>
+                                    )}
+
+                                    {/* Submit Buttons */}
+                                    <div className="flex items-center gap-4 pt-6">
+                                        <Button type="submit" disabled={processing} className="flex items-center gap-2">
+                                            <Save className="h-4 w-4" />
+                                            {processing ? 'Updating...' : 'Update Student'}
+                                        </Button>
+                                        <Link href={route('admin.students.index')}>
+                                            <Button type="button" variant="outline">
                                                 Cancel
                                             </Button>
-                                            <Button
-                                                type="submit"
-                                                disabled={processing}
-                                                className="flex-1"
-                                            >
-                                                {processing ? (
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                                        Updating...
-                                                    </div>
-                                                ) : (
-                                                    <div className="flex items-center gap-2">
-                                                        <Save size={16} />
-                                                        Update Student
-                                                    </div>
-                                                )}
-                                            </Button>
-                                        </div>
-                                    </form>
-                                </CardContent>
-                            </Card>
-                        </div>
-
-                        {/* User Info Sidebar */}
-                        <div className="space-y-6">
-                            {/* Current User Info */}
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="text-lg">Student Information</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
-                                            <GraduationCap size={24} className="text-blue-600 dark:text-blue-400" />
-                                        </div>
-                                        <div>
-                                            <div className="font-medium">{targetUser.name}</div>
-                                            <Badge variant="default">{targetUser.user_role}</Badge>
-                                        </div>
+                                        </Link>
                                     </div>
+                                </form>
+                            </CardContent>
+                        </Card>
+
+                        {/* Password Management */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Password Management</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-4">
+                                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                                        Reset the student's password to allow them to regain access to their account. 
+                                        A new temporary password will be generated.
+                                    </p>
+                                    <Button 
+                                        onClick={handleResetPassword}
+                                        variant="outline"
+                                        className="flex items-center gap-2"
+                                    >
+                                        <RotateCcw className="h-4 w-4" />
+                                        Reset Password
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Additional Actions */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Additional Actions</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="flex gap-4">
+                                    <Link href={route('admin.students.show', targetUser.id)}>
+                                        <Button variant="outline">
+                                            View Full Profile
+                                        </Button>
+                                    </Link>
                                     
-                                    <div className="space-y-3 text-sm">
-                                        <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                                            <Mail size={14} />
-                                            <span className="truncate">{targetUser.email}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                                            <Calendar size={14} />
-                                            <span>Joined {formatDate(targetUser.created_at)}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                                            <Calendar size={14} />
-                                            <span>Last login: {formatDate(targetUser.last_login_at)}</span>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            {/* Quick Actions */}
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="text-lg">Quick Actions</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-3">
-                                    <Button
-                                        variant="outline"
-                                        className="w-full justify-start"
-                                        onClick={() => router.visit(route('admin.students.show', targetUser.id))}
-                                    >
-                                        <Eye size={16} className="mr-2" />
-                                        View Details
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        className="w-full justify-start"
-                                        onClick={() => router.visit(route('admin.students.index'))}
-                                    >
-                                        <ArrowLeft size={16} className="mr-2" />
-                                        Back to List
-                                    </Button>
-                                </CardContent>
-                            </Card>
-                        </div>
+                                    {/* Prevent self-deletion */}
+                                    {targetUser.id !== user.id && (
+                                        <Button 
+                                            variant="destructive"
+                                            onClick={() => {
+                                                if (confirm('Are you sure you want to delete this student? This action cannot be undone.')) {
+                                                    router.delete(route('admin.students.destroy', targetUser.id), {
+                                                        onSuccess: () => {
+                                                            // Redirect to students list after successful deletion
+                                                            router.visit(route('admin.students.index'));
+                                                        },
+                                                        onError: (errors) => {
+                                                            console.error('Delete failed:', errors);
+                                                        }
+                                                    });
+                                                }
+                                            }}
+                                        >
+                                            Delete Student
+                                        </Button>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
                     </div>
-                </div>
-            </AppShell>
-        </>
+                </main>
+            </div>
+
+            {/* Password Reset Modal */}
+            <PasswordResetModal
+                user={targetUser}
+                isOpen={showPasswordModal}
+                onClose={() => setShowPasswordModal(false)}
+                errors={pageErrors as Record<string, string>}
+            />
+        </div>
     );
 }

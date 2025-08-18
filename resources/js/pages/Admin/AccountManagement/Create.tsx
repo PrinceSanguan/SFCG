@@ -34,6 +34,7 @@ export default function AccountManagementCreate({ user, roles, errors }: CreateP
         user_role: '',
         password: '',
         password_confirmation: '',
+        year_level: '',
     });
 
     const handleSubmit = (e: FormEvent) => {
@@ -130,8 +131,23 @@ export default function AccountManagementCreate({ user, roles, errors }: CreateP
                                             )}
                                         </div>
 
-                                        {/* Empty space for grid alignment */}
-                                        <div></div>
+                                        {/* Year Level - only visible when Student is chosen */}
+                                        {data.user_role === 'student' && (
+                                            <div className="space-y-2">
+                                                <Label htmlFor="year_level">Year Level</Label>
+                                                <Select value={data.year_level} onValueChange={(value) => setData('year_level', value)}>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select year level" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="elementary">Elementary</SelectItem>
+                                                        <SelectItem value="junior_highschool">Junior High School</SelectItem>
+                                                        <SelectItem value="senior_highschool">Senior High School</SelectItem>
+                                                        <SelectItem value="college">College</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        )}
 
                                         {/* Password */}
                                         <div className="space-y-2">

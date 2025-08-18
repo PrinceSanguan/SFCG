@@ -28,7 +28,7 @@ interface EditProps {
     errors?: Record<string, string>;
 }
 
-export default function EditRegistrar({ user, targetUser, roles, errors }: EditProps) {
+export default function EditTeacher({ user, targetUser, roles, errors }: EditProps) {
     const { data, setData, put, processing } = useForm({
         name: targetUser?.name || '',
         email: targetUser?.email || '',
@@ -44,7 +44,7 @@ export default function EditRegistrar({ user, targetUser, roles, errors }: EditP
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
-        put(route('admin.registrars.update', targetUser.id));
+        put(route('admin.teachers.update', targetUser.id));
     };
 
     const handleResetPassword = () => {
@@ -80,16 +80,16 @@ export default function EditRegistrar({ user, targetUser, roles, errors }: EditP
                 <main className="flex-1 overflow-y-auto bg-gray-100 p-4 md:p-6 dark:bg-gray-900">
                     <div className="flex flex-col gap-6">
                         <div className="flex items-center gap-4">
-                            <Link href={route('admin.registrars.index')}>
+                            <Link href={route('admin.teachers.index')}>
                                 <Button variant="outline" size="sm" className="flex items-center gap-2">
                                     <ArrowLeft className="h-4 w-4" />
-                                    Back to Registrars
+                                    Back to Teachers
                                 </Button>
                             </Link>
                             <div>
-                                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Edit Registrar</h1>
+                                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Edit Teacher</h1>
                                 <p className="text-gray-500 dark:text-gray-400">
-                                    Update registrar information and role assignments.
+                                    Update teacher information and role assignments.
                                 </p>
                             </div>
                         </div>
@@ -217,7 +217,7 @@ export default function EditRegistrar({ user, targetUser, roles, errors }: EditP
                                             <Save className="h-4 w-4" />
                                             {processing ? 'Updating...' : 'Update User'}
                                         </Button>
-                                        <Link href={route('admin.registrars.index')}>
+                                        <Link href={route('admin.teachers.index')}>
                                             <Button type="button" variant="outline">
                                                 Cancel
                                             </Button>
@@ -257,33 +257,33 @@ export default function EditRegistrar({ user, targetUser, roles, errors }: EditP
                             </CardHeader>
                             <CardContent>
                                 <div className="flex gap-4">
-                                    <Link href={route('admin.registrars.show', targetUser.id)}>
+                                    <Link href={route('admin.teachers.show', targetUser.id)}>
                                         <Button variant="outline">
                                             View Full Profile
                                         </Button>
                                     </Link>
                                     
-                                    {/* Prevent self-deletion */}
-                                    {targetUser.id !== user.id && (
-                                        <Button 
-                                            variant="destructive"
-                                            onClick={() => {
-                                                if (confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
-                                                    router.delete(route('admin.registrars.destroy', targetUser.id), {
-                                                        onSuccess: () => {
-                                                            // Redirect to registrars list after successful deletion
-                                                            router.visit(route('admin.registrars.index'));
-                                                        },
-                                                        onError: (errors) => {
-                                                            console.error('Delete failed:', errors);
-                                                        }
-                                                    });
-                                                }
-                                            }}
-                                        >
-                                            Delete User
-                                        </Button>
-                                    )}
+                                                                            {/* Prevent self-deletion */}
+                                        {targetUser.id !== user.id && (
+                                            <Button 
+                                                variant="destructive"
+                                                onClick={() => {
+                                                    if (confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+                                                        router.delete(route('admin.teachers.destroy', targetUser.id), {
+                                                            onSuccess: () => {
+                                                                // Redirect to teachers list after successful deletion
+                                                                router.visit(route('admin.teachers.index'));
+                                                            },
+                                                            onError: (errors) => {
+                                                                console.error('Delete failed:', errors);
+                                                            }
+                                                        });
+                                                    }
+                                                }}
+                                            >
+                                                Delete User
+                                            </Button>
+                                        )}
                                 </div>
                             </CardContent>
                         </Card>
