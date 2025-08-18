@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Link, router, usePage } from '@inertiajs/react';
 import { Search, Plus, Edit, Eye, Trash2, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
@@ -45,7 +44,6 @@ interface ListProps {
 
 export default function InstructorsList({ user, users, filters, roles }: ListProps) {
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
-    const [selectedRole, setSelectedRole] = useState(filters.role || 'all');
     const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
     const { errors } = usePage().props;
 
@@ -57,18 +55,6 @@ export default function InstructorsList({ user, users, filters, roles }: ListPro
     const handleSearch = () => {
         router.get(route('admin.instructors.index'), {
             search: searchTerm,
-            role: selectedRole,
-        }, {
-            preserveState: true,
-            replace: true,
-        });
-    };
-
-    const handleRoleFilter = (role: string) => {
-        setSelectedRole(role);
-        router.get(route('admin.instructors.index'), {
-            search: searchTerm,
-            role: role,
         }, {
             preserveState: true,
             replace: true,
@@ -159,19 +145,7 @@ export default function InstructorsList({ user, users, filters, roles }: ListPro
                                                 <Search className="h-4 w-4" />
                                             </Button>
                                         </div>
-                                        <Select value={selectedRole} onValueChange={handleRoleFilter}>
-                                            <SelectTrigger className="w-48">
-                                                <SelectValue placeholder="Filter by role" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">All Roles</SelectItem>
-                                                {roles && Object.entries(roles).map(([key, label]) => (
-                                                    <SelectItem key={key} value={key}>
-                                                        {label}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        {/* Role filter removed on this page; kept only on All Users */}
                                     </div>
                                     <Link href={route('admin.instructors.create')}>
                                         <Button className="flex items-center gap-2">

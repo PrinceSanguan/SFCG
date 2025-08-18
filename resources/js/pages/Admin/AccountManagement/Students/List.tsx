@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Link, router, usePage } from '@inertiajs/react';
 import { Search, Plus, Edit, Eye, Trash2, RotateCcw, Upload, Download } from 'lucide-react';
 import { useRef, useState } from 'react';
@@ -47,7 +46,6 @@ interface ListProps {
 
 export default function StudentsList({ user, users, filters, roles }: ListProps) {
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
-    const [yearLevel, setYearLevel] = useState(filters.year_level || 'all');
     const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
     const { errors } = usePage().props;
     const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -61,18 +59,6 @@ export default function StudentsList({ user, users, filters, roles }: ListProps)
     const handleSearch = () => {
         router.get(route('admin.students.index'), {
             search: searchTerm,
-            year_level: yearLevel,
-        }, {
-            preserveState: true,
-            replace: true,
-        });
-    };
-
-    const handleYearLevelFilter = (yl: string) => {
-        setYearLevel(yl);
-        router.get(route('admin.students.index'), {
-            search: searchTerm,
-            year_level: yl,
         }, {
             preserveState: true,
             replace: true,
@@ -192,19 +178,7 @@ export default function StudentsList({ user, users, filters, roles }: ListProps)
                                                 <Search className="h-4 w-4" />
                                             </Button>
                                         </div>
-                                        {/* Role filter removed on Students page; retained only on All Users */}
-                                        <Select value={yearLevel} onValueChange={handleYearLevelFilter}>
-                                            <SelectTrigger className="w-56">
-                                                <SelectValue placeholder="Filter by year level" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">All Year Levels</SelectItem>
-                                                <SelectItem value="elementary">Elementary</SelectItem>
-                                                <SelectItem value="junior_highschool">Junior High School</SelectItem>
-                                                <SelectItem value="senior_highschool">Senior High School</SelectItem>
-                                                <SelectItem value="college">College</SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                        {/* Year level filter removed on all Students pages */}
                                     </div>
                                     <div className="flex flex-wrap gap-2 justify-end w-full lg:w-auto">
                                         <Link href={route('admin.students.create')}>

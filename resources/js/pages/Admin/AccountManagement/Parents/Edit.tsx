@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Link, useForm, usePage, router } from '@inertiajs/react';
 import { ArrowLeft, Save, Plus, Trash2, Users } from 'lucide-react';
-import { FormEventHandler, useState } from 'react';
+import { FormEventHandler, useMemo, useState } from 'react';
 import InputError from '@/components/input-error';
 
 interface User {
@@ -52,6 +52,7 @@ export default function EditParent({ user, parent, allStudents, relationshipType
         emergency_contact: 'no',
         notes: '',
     });
+    const [studentQuery, setStudentQuery] = useState('');
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
@@ -96,6 +97,13 @@ export default function EditParent({ user, parent, allStudents, relationshipType
     // Filter out already linked students
     const linkedStudentIds = parent.students?.map(s => s.id) || [];
     const availableStudents = allStudents.filter(s => !linkedStudentIds.includes(s.id));
+    const studentOptionsMap = useMemo(() => {
+        const map: Record<string, number> = {};
+        availableStudents.forEach((s) => {
+            map[`${s.name} (${s.email})`] = s.id;
+        });
+        return map;
+    }, [availableStudents]);
 
     return (
         <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
@@ -192,22 +200,25 @@ export default function EditParent({ user, parent, allStudents, relationshipType
                                             <div className="p-4 border rounded-lg bg-gray-50 dark:bg-gray-800">
                                                 <form onSubmit={submitLink} className="space-y-4">
                                                     <div>
-                                                        <Label htmlFor="student_id">Select Student</Label>
-                                                        <Select 
-                                                            value={linkData.student_id} 
-                                                            onValueChange={(value) => setLinkData('student_id', value)}
-                                                        >
-                                                            <SelectTrigger className="mt-1">
-                                                                <SelectValue placeholder="Choose a student..." />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                {availableStudents.map((student) => (
-                                                                    <SelectItem key={student.id} value={student.id.toString()}>
-                                                                        {student.name} ({student.email})
-                                                                    </SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
+                                                        <Label htmlFor="student_search">Select Student</Label>
+                                                        <Input
+                                                            id="student_search"
+                                                            className="mt-1"
+                                                            list="available-students"
+                                                            placeholder="Type to search students by name or email..."
+                                                            value={studentQuery}
+                                                            onChange={(e) => {
+                                                                const value = e.target.value;
+                                                                setStudentQuery(value);
+                                                                const selectedId = studentOptionsMap[value];
+                                                                setLinkData('student_id', selectedId ? String(selectedId) : '');
+                                                            }}
+                                                        />
+                                                        <datalist id="available-students">
+                                                            {availableStudents.map((student) => (
+                                                                <option key={student.id} value={`${student.name} (${student.email})`} />
+                                                            ))}
+                                                        </datalist>
                                                         <InputError message={errors.student_id} className="mt-2" />
                                                     </div>
 
