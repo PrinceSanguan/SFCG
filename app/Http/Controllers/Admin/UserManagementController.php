@@ -145,21 +145,8 @@ class UserManagementController extends Controller
             'user_agent' => $request->userAgent(),
         ]);
 
-        // Redirect based on role
-        $roleRedirects = [
-            'registrar' => route('registrar.dashboard'),
-            'instructor' => route('instructor.dashboard'),
-            'teacher' => route('teacher.dashboard'),
-            'adviser' => route('adviser.dashboard'),
-            'chairperson' => route('chairperson.dashboard'),
-            'principal' => route('principal.dashboard'),
-            'student' => route('student.dashboard'),
-            'parent' => route('parent.dashboard'),
-        ];
-
-        $redirectUrl = $roleRedirects[$user->user_role] ?? route('admin.users.index');
-
-        return redirect($redirectUrl)->with('success', 'User created successfully!');
+        // Redirect back to admin users index instead of role-specific dashboards
+        return redirect()->route('admin.users.index')->with('success', 'User created successfully!');
     }
 
     /**
@@ -467,7 +454,8 @@ class UserManagementController extends Controller
             'user_agent' => $request->userAgent(),
         ]);
 
-        return redirect()->route($this->getRoleRouteName($role))->with('success', ucfirst($role) . ' created successfully!');
+        // Redirect back to the role-specific index page instead of external dashboards
+        return redirect()->route('admin.' . $this->getRoleRouteName($role))->with('success', ucfirst($role) . ' created successfully!');
     }
 
     /**
@@ -668,7 +656,7 @@ class UserManagementController extends Controller
             'user_agent' => $request->userAgent(),
         ]);
 
-        return redirect()->route($this->getRoleRouteName($role))->with('success', ucfirst($role) . ' updated successfully!');
+        return redirect()->route('admin.' . $this->getRoleRouteName($role))->with('success', ucfirst($role) . ' updated successfully!');
     }
 
     /**
@@ -714,7 +702,7 @@ class UserManagementController extends Controller
         Log::info('Deleting user: ' . $user->id);
         $user->delete();
 
-        return redirect()->route($this->getRoleRouteName($role))->with('success', ucfirst($role) . ' deleted successfully!');
+        return redirect()->route('admin.' . $this->getRoleRouteName($role))->with('success', ucfirst($role) . ' deleted successfully!');
     }
 
     /**
