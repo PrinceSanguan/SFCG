@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\Admin\ParentManagementController;
 use App\Http\Controllers\Admin\ActivityLogController;
+use App\Http\Controllers\Admin\AcademicController;
 
 /*
 |--------------------------------------------------------------------------
@@ -208,4 +209,133 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
         // Get recent activities
         Route::get('/recent-activities', [ActivityLogController::class, 'recentActivities'])->name('recent-activities');
     });
+});
+
+// Academic & Curriculum Management routes
+Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/academic')->name('admin.academic.')->group(function () {
+    Route::get('/', [AcademicController::class, 'index'])->name('index');
+    Route::get('/levels', [AcademicController::class, 'levels'])->name('levels');
+    Route::post('/levels', function(\Illuminate\Http\Request $request) {
+        $validated = $request->validate([
+            'key' => ['required', 'string', 'alpha_dash', 'max:50', 'unique:academic_levels,key'],
+            'name' => ['required', 'string', 'max:100'],
+            'sort_order' => ['nullable', 'integer', 'min:0'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+        $validated['sort_order'] = $validated['sort_order'] ?? 0;
+        $validated['is_active'] = $validated['is_active'] ?? true;
+        \App\Models\AcademicLevel::create($validated);
+        return back();
+    })->name('levels.store');
+    Route::put('/levels/{level}', function(\Illuminate\Http\Request $request, \App\Models\AcademicLevel $level) {
+        $validated = $request->validate([
+            'key' => ['required', 'string', 'alpha_dash', 'max:50', 'unique:academic_levels,key,' . $level->id],
+            'name' => ['required', 'string', 'max:100'],
+            'sort_order' => ['nullable', 'integer', 'min:0'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+        $level->update($validated);
+        return back();
+    })->name('levels.update');
+    Route::delete('/levels/{level}', function(\App\Models\AcademicLevel $level) {
+        $level->delete();
+        return back();
+    })->name('levels.destroy');
+    Route::get('/grading', [AcademicController::class, 'grading'])->name('grading');
+    Route::get('/programs', [AcademicController::class, 'programs'])->name('programs'); // strands/courses/departments
+    
+    // Strands CRUD
+    Route::post('/strands', function(\Illuminate\Http\Request $request) {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'code' => ['required', 'string', 'max:20', 'unique:strands,code'],
+            'description' => ['nullable', 'string'],
+            'academic_level_id' => ['required', 'exists:academic_levels,id'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+        $validated['is_active'] = $validated['is_active'] ?? true;
+        \App\Models\Strand::create($validated);
+        return back();
+    })->name('strands.store');
+    Route::put('/strands/{strand}', function(\Illuminate\Http\Request $request, \App\Models\Strand $strand) {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'code' => ['required', 'string', 'max:20', 'unique:strands,code,' . $strand->id],
+            'description' => ['nullable', 'string'],
+            'academic_level_id' => ['required', 'exists:academic_levels,id'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+        $strand->update($validated);
+        return back();
+    })->name('strands.update');
+    Route::delete('/strands/{strand}', function(\App\Models\Strand $strand) {
+        $strand->delete();
+        return back();
+    })->name('strands.destroy');
+    
+    // Departments CRUD
+    Route::post('/departments', function(\Illuminate\Http\Request $request) {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'code' => ['required', 'string', 'max:20', 'unique:departments,code'],
+            'description' => ['nullable', 'string'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+        $validated['is_active'] = $validated['is_active'] ?? true;
+        \App\Models\Department::create($validated);
+        return back();
+    })->name('departments.store');
+    Route::put('/departments/{department}', function(\Illuminate\Http\Request $request, \App\Models\Department $department) {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'code' => ['required', 'string', 'max:20', 'unique:departments,code,' . $department->id],
+            'description' => ['nullable', 'string'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+        $department->update($validated);
+        return back();
+    })->name('departments.update');
+    Route::delete('/departments/{department}', function(\App\Models\Department $department) {
+        $department->delete();
+        return back();
+    })->name('departments.destroy');
+    
+    // Courses CRUD
+    Route::post('/courses', function(\Illuminate\Http\Request $request) {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'code' => ['required', 'string', 'max:20', 'unique:courses,code'],
+            'description' => ['nullable', 'string'],
+            'strand_id' => ['nullable', 'exists:strands,id'],
+            'department_id' => ['nullable', 'exists:departments,id'],
+            'units' => ['nullable', 'integer', 'min:0'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+        $validated['is_active'] = $validated['is_active'] ?? true;
+        $validated['units'] = $validated['units'] ?? 0;
+        \App\Models\Course::create($validated);
+        return back();
+    })->name('courses.store');
+    Route::put('/courses/{course}', function(\Illuminate\Http\Request $request, \App\Models\Course $course) {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'code' => ['required', 'string', 'max:20', 'unique:courses,code,' . $course->id],
+            'description' => ['nullable', 'string'],
+            'strand_id' => ['nullable', 'exists:strands,id'],
+            'department_id' => ['nullable', 'exists:departments,id'],
+            'units' => ['nullable', 'integer', 'min:0'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+        $course->update($validated);
+        return back();
+    })->name('courses.update');
+    Route::delete('/courses/{course}', function(\App\Models\Course $course) {
+        $course->delete();
+        return back();
+    })->name('courses.destroy');
+    
+    Route::get('/assign-instructors', [AcademicController::class, 'assignInstructors'])->name('assign-instructors');
+    Route::get('/assign-teachers', [AcademicController::class, 'assignTeachers'])->name('assign-teachers');
+    Route::get('/assign-advisers', [AcademicController::class, 'assignAdvisers'])->name('assign-advisers');
+    Route::get('/subjects', [AcademicController::class, 'subjects'])->name('subjects');
 });

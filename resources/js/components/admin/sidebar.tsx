@@ -9,8 +9,8 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Link, usePage } from '@inertiajs/react';
-import { BarChart, ChevronDown, CreditCard, LayoutDashboard, Settings, Users, UserCheck, ChevronRight, GraduationCap, BookOpen, UserCog, Crown, Building2, UserPlus } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { BarChart, ChevronDown, CreditCard, LayoutDashboard, Settings, Users, UserCheck, ChevronRight, GraduationCap, BookOpen, UserCog, Crown, Building2, UserPlus, Notebook } from 'lucide-react';
+import { useState } from 'react';
 
 interface User {
     name: string;
@@ -229,6 +229,17 @@ export function Sidebar({ user }: SidebarProps) {
                             </div>
                         </div>
                     </div>
+
+                    {/* Academic & Curriculum Management */}
+                    <Link href={route('admin.academic.index')} className="w-full">
+                        <Button
+                            variant={isActive('/admin/academic') ? 'secondary' : 'ghost'}
+                            className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                        >
+                            <Notebook size={18} />
+                            Academic & Curriculum
+                        </Button>
+                    </Link>
 
                     {/* Disabled menu items with opacity */}
                     <Button
