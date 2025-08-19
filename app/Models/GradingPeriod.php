@@ -7,20 +7,25 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Strand extends Model
+class GradingPeriod extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'name',
         'code',
-        'description',
         'academic_level_id',
+        'start_date',
+        'end_date',
+        'sort_order',
         'is_active',
     ];
 
     protected $casts = [
+        'start_date' => 'date',
+        'end_date' => 'date',
         'is_active' => 'boolean',
+        'sort_order' => 'integer',
     ];
 
     public function academicLevel(): BelongsTo
@@ -28,8 +33,18 @@ class Strand extends Model
         return $this->belongsTo(AcademicLevel::class);
     }
 
-    public function courses(): HasMany
+    public function subjects(): HasMany
     {
-        return $this->hasMany(Course::class);
+        return $this->hasMany(Subject::class);
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    public function scopeForLevel($query, $academicLevelId)
+    {
+        return $query->where('academic_level_id', $academicLevelId);
     }
 }

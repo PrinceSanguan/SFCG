@@ -241,7 +241,19 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/aca
         $level->delete();
         return back();
     })->name('levels.destroy');
+    
+    // Grading Periods Management
     Route::get('/grading', [AcademicController::class, 'grading'])->name('grading');
+    Route::post('/grading-periods', [AcademicController::class, 'storeGradingPeriod'])->name('grading-periods.store');
+    Route::put('/grading-periods/{gradingPeriod}', [AcademicController::class, 'updateGradingPeriod'])->name('grading-periods.update');
+    Route::delete('/grading-periods/{gradingPeriod}', [AcademicController::class, 'destroyGradingPeriod'])->name('grading-periods.destroy');
+    
+    // Subjects Management
+    Route::get('/subjects', [AcademicController::class, 'subjects'])->name('subjects');
+    Route::post('/subjects', [AcademicController::class, 'storeSubject'])->name('subjects.store');
+    Route::put('/subjects/{subject}', [AcademicController::class, 'updateSubject'])->name('subjects.update');
+    Route::delete('/subjects/{subject}', [AcademicController::class, 'destroySubject'])->name('subjects.destroy');
+    
     Route::get('/programs', [AcademicController::class, 'programs'])->name('programs'); // strands/courses/departments
     
     // Strands CRUD
@@ -253,6 +265,13 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/aca
             'academic_level_id' => ['required', 'exists:academic_levels,id'],
             'is_active' => ['nullable', 'boolean'],
         ]);
+        
+        // Ensure only Senior High School can have strands
+        $academicLevel = \App\Models\AcademicLevel::find($validated['academic_level_id']);
+        if (!$academicLevel || $academicLevel->key !== 'senior_highschool') {
+            return back()->withErrors(['academic_level_id' => 'Strands can only be created for Senior High School.']);
+        }
+        
         $validated['is_active'] = $validated['is_active'] ?? true;
         \App\Models\Strand::create($validated);
         return back();
@@ -265,6 +284,13 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/aca
             'academic_level_id' => ['required', 'exists:academic_levels,id'],
             'is_active' => ['nullable', 'boolean'],
         ]);
+        
+        // Ensure only Senior High School can have strands
+        $academicLevel = \App\Models\AcademicLevel::find($validated['academic_level_id']);
+        if (!$academicLevel || $academicLevel->key !== 'senior_highschool') {
+            return back()->withErrors(['academic_level_id' => 'Strands can only be created for Senior High School.']);
+        }
+        
         $strand->update($validated);
         return back();
     })->name('strands.update');
@@ -306,8 +332,7 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/aca
             'name' => ['required', 'string', 'max:100'],
             'code' => ['required', 'string', 'max:20', 'unique:courses,code'],
             'description' => ['nullable', 'string'],
-            'strand_id' => ['nullable', 'exists:strands,id'],
-            'department_id' => ['nullable', 'exists:departments,id'],
+            'department_id' => ['required', 'exists:departments,id'],
             'units' => ['nullable', 'integer', 'min:0'],
             'is_active' => ['nullable', 'boolean'],
         ]);
@@ -321,8 +346,7 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/aca
             'name' => ['required', 'string', 'max:100'],
             'code' => ['required', 'string', 'max:20', 'unique:courses,code,' . $course->id],
             'description' => ['nullable', 'string'],
-            'strand_id' => ['nullable', 'exists:strands,id'],
-            'department_id' => ['nullable', 'exists:departments,id'],
+            'department_id' => ['required', 'exists:departments,id'],
             'units' => ['nullable', 'integer', 'min:0'],
             'is_active' => ['nullable', 'boolean'],
         ]);
@@ -334,8 +358,16 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/aca
         return back();
     })->name('courses.destroy');
     
+    // Assignment Management
     Route::get('/assign-instructors', [AcademicController::class, 'assignInstructors'])->name('assign-instructors');
+    Route::post('/assign-instructors', [AcademicController::class, 'storeInstructorAssignment'])->name('assign-instructors.store');
+    Route::delete('/assign-instructors/{assignment}', [AcademicController::class, 'destroyInstructorAssignment'])->name('assign-instructors.destroy');
+    
     Route::get('/assign-teachers', [AcademicController::class, 'assignTeachers'])->name('assign-teachers');
+    Route::post('/assign-teachers', [AcademicController::class, 'storeTeacherAssignment'])->name('assign-teachers.store');
+    Route::delete('/assign-teachers/{assignment}', [AcademicController::class, 'destroyTeacherAssignment'])->name('assign-teachers.destroy');
+    
     Route::get('/assign-advisers', [AcademicController::class, 'assignAdvisers'])->name('assign-advisers');
-    Route::get('/subjects', [AcademicController::class, 'subjects'])->name('subjects');
+    Route::post('/assign-advisers', [AcademicController::class, 'storeClassAdviserAssignment'])->name('assign-advisers.store');
+    Route::delete('/assign-advisers/{assignment}', [AcademicController::class, 'destroyClassAdviserAssignment'])->name('assign-advisers.destroy');
 });

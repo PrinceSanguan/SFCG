@@ -183,4 +183,52 @@ class User extends Authenticatable
     {
         return $this->parents()->where('parent_id', $parent->id)->exists();
     }
+
+    /**
+     * Get teacher subject assignments for this user.
+     */
+    public function teacherSubjectAssignments(): HasMany
+    {
+        return $this->hasMany(\App\Models\TeacherSubjectAssignment::class, 'teacher_id');
+    }
+
+    /**
+     * Get instructor course assignments for this user.
+     */
+    public function instructorCourseAssignments(): HasMany
+    {
+        return $this->hasMany(\App\Models\InstructorCourseAssignment::class, 'instructor_id');
+    }
+
+    /**
+     * Get class adviser assignments for this user.
+     */
+    public function classAdviserAssignments(): HasMany
+    {
+        return $this->hasMany(\App\Models\ClassAdviserAssignment::class, 'adviser_id');
+    }
+
+    /**
+     * Check if this user is a teacher.
+     */
+    public function isTeacher(): bool
+    {
+        return $this->user_role === 'teacher';
+    }
+
+    /**
+     * Check if this user is an instructor.
+     */
+    public function isInstructor(): bool
+    {
+        return $this->user_role === 'instructor';
+    }
+
+    /**
+     * Check if this user is an adviser.
+     */
+    public function isAdviser(): bool
+    {
+        return $this->user_role === 'adviser';
+    }
 }

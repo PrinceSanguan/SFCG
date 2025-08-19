@@ -15,12 +15,7 @@ class Department extends Model
         'code',
     ];
 
-    public function strands()
-    {
-        return $this->hasMany(Strand::class);
-    }
-
-    public function courses()
+    public function courses(): HasMany
     {
         return $this->hasMany(Course::class);
     }

@@ -6,127 +6,194 @@ use Illuminate\Database\Seeder;
 use App\Models\Department;
 use App\Models\Strand;
 use App\Models\Course;
+use App\Models\AcademicLevel;
 
 class StrandCourseDepartmentSeeder extends Seeder
 {
     public function run(): void
     {
-        // Create strands for existing departments
-        $mathDept = Department::where('code', 'MATH')->first();
-        $sciDept = Department::where('code', 'SCI')->first();
-        $engDept = Department::where('code', 'ENG')->first();
-        $csDept = Department::where('code', 'CS')->first();
-        $busDept = Department::where('code', 'BUS')->first();
+        // Get academic levels
+        $seniorHigh = AcademicLevel::where('key', 'senior_highschool')->first();
 
-        if ($mathDept) {
+        // Create strands ONLY for Senior High School
+        if ($seniorHigh) {
             Strand::create([
-                'name' => 'Advanced Mathematics',
-                'code' => 'ADV_MATH',
-                'department_id' => $mathDept->id,
+                'name' => 'STEM (Science, Technology, Engineering, and Mathematics)',
+                'code' => 'STEM',
+                'description' => 'Science, Technology, Engineering, and Mathematics strand',
+                'academic_level_id' => $seniorHigh->id,
+                'is_active' => true,
+            ]);
+
+            Strand::create([
+                'name' => 'ABM (Accountancy, Business, and Management)',
+                'code' => 'ABM',
+                'description' => 'Accountancy, Business, and Management strand',
+                'academic_level_id' => $seniorHigh->id,
+                'is_active' => true,
+            ]);
+
+            Strand::create([
+                'name' => 'HUMSS (Humanities and Social Sciences)',
+                'code' => 'HUMSS',
+                'description' => 'Humanities and Social Sciences strand',
+                'academic_level_id' => $seniorHigh->id,
+                'is_active' => true,
+            ]);
+
+            Strand::create([
+                'name' => 'GAS (General Academic Strand)',
+                'code' => 'GAS',
+                'description' => 'General Academic Strand',
+                'academic_level_id' => $seniorHigh->id,
+                'is_active' => true,
             ]);
         }
 
-        if ($sciDept) {
-            Strand::create([
-                'name' => 'General Science',
-                'code' => 'GEN_SCI',
-                'department_id' => $sciDept->id,
-            ]);
-        }
+        // Create departments with their specific courses
+        $computerDept = Department::create([
+            'name' => 'Computer Department',
+            'code' => 'COMP',
+        ]);
 
-        if ($engDept) {
-            Strand::create([
-                'name' => 'English Literature',
-                'code' => 'ENG_LIT',
-                'department_id' => $engDept->id,
-            ]);
-        }
+        $computerDept->courses()->createMany([
+            [
+                'name' => 'Computer Engineering Technology',
+                'code' => 'COMP_ENG_TECH',
+                'description' => 'Computer Engineering Technology Program',
+                'units' => 3,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Computer Engineering',
+                'code' => 'COMP_ENG',
+                'description' => 'Computer Engineering Program',
+                'units' => 4,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Computer Science',
+                'code' => 'COMP_SCI',
+                'description' => 'Computer Science Program',
+                'units' => 4,
+                'is_active' => true,
+            ],
+        ]);
 
-        if ($csDept) {
-            Strand::create([
-                'name' => 'Computer Programming',
-                'code' => 'COMP_PROG',
-                'department_id' => $csDept->id,
-            ]);
-        }
+        $mathDept = Department::create([
+            'name' => 'Mathematics Department',
+            'code' => 'MATH',
+        ]);
 
-        if ($busDept) {
-            Strand::create([
-                'name' => 'Business Management',
-                'code' => 'BUS_MGMT',
-                'department_id' => $busDept->id,
-            ]);
-        }
-
-        // Create courses for existing departments
-        if ($mathDept) {
-            Course::create([
+        $mathDept->courses()->createMany([
+            [
                 'name' => 'Algebra I',
                 'code' => 'MATH101',
-                'department_id' => $mathDept->id,
-            ]);
-
-            Course::create([
+                'description' => 'Introduction to Algebra',
+                'units' => 3,
+                'is_active' => true,
+            ],
+            [
                 'name' => 'Geometry',
                 'code' => 'MATH102',
-                'department_id' => $mathDept->id,
-            ]);
-        }
+                'description' => 'Plane and Solid Geometry',
+                'units' => 3,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Calculus',
+                'code' => 'MATH201',
+                'description' => 'Differential Calculus',
+                'units' => 4,
+                'is_active' => true,
+            ],
+        ]);
 
-        if ($sciDept) {
-            Course::create([
+        $sciDept = Department::create([
+            'name' => 'Science Department',
+            'code' => 'SCI',
+        ]);
+
+        $sciDept->courses()->createMany([
+            [
                 'name' => 'Biology',
                 'code' => 'SCI101',
-                'department_id' => $sciDept->id,
-            ]);
-
-            Course::create([
+                'description' => 'General Biology',
+                'units' => 4,
+                'is_active' => true,
+            ],
+            [
                 'name' => 'Chemistry',
                 'code' => 'SCI102',
-                'department_id' => $sciDept->id,
-            ]);
-        }
+                'description' => 'General Chemistry',
+                'units' => 4,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Physics',
+                'code' => 'SCI201',
+                'description' => 'General Physics',
+                'units' => 4,
+                'is_active' => true,
+            ],
+        ]);
 
-        if ($engDept) {
-            Course::create([
+        $engDept = Department::create([
+            'name' => 'English Department',
+            'code' => 'ENG',
+        ]);
+
+        $engDept->courses()->createMany([
+            [
                 'name' => 'English Composition',
                 'code' => 'ENG101',
-                'department_id' => $engDept->id,
-            ]);
-
-            Course::create([
+                'description' => 'College Composition and Rhetoric',
+                'units' => 3,
+                'is_active' => true,
+            ],
+            [
                 'name' => 'World Literature',
                 'code' => 'ENG102',
-                'department_id' => $engDept->id,
-            ]);
-        }
+                'description' => 'Introduction to World Literature',
+                'units' => 3,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Technical Writing',
+                'code' => 'ENG201',
+                'description' => 'Technical and Professional Writing',
+                'units' => 3,
+                'is_active' => true,
+            ],
+        ]);
 
-        if ($csDept) {
-            Course::create([
-                'name' => 'Introduction to Programming',
-                'code' => 'CS101',
-                'department_id' => $csDept->id,
-            ]);
+        $busDept = Department::create([
+            'name' => 'Business Department',
+            'code' => 'BUS',
+        ]);
 
-            Course::create([
-                'name' => 'Data Structures',
-                'code' => 'CS201',
-                'department_id' => $csDept->id,
-            ]);
-        }
-
-        if ($busDept) {
-            Course::create([
+        $busDept->courses()->createMany([
+            [
                 'name' => 'Business Fundamentals',
                 'code' => 'BUS101',
-                'department_id' => $busDept->id,
-            ]);
-
-            Course::create([
+                'description' => 'Introduction to Business',
+                'units' => 3,
+                'is_active' => true,
+            ],
+            [
                 'name' => 'Marketing Principles',
                 'code' => 'BUS102',
-                'department_id' => $busDept->id,
-            ]);
-        }
+                'description' => 'Principles of Marketing',
+                'units' => 3,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Financial Management',
+                'code' => 'BUS201',
+                'description' => 'Business Financial Management',
+                'units' => 3,
+                'is_active' => true,
+            ],
+        ]);
     }
 }

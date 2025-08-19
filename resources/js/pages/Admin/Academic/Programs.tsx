@@ -10,19 +10,30 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Link, router } from '@inertiajs/react';
 import { useState } from 'react';
 import { ArrowLeft, Plus } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface User { name: string; email: string; user_role: string }
-interface Department { id: number; name: string; code: string; strands: Strand[]; courses: Course[] }
-interface Strand { id: number; name: string; code: string; department_id: number }
-interface Course { id: number; name: string; code: string; department_id: number }
+interface AcademicLevel { id: number; name: string; key: string; strands: Strand[] }
+interface Department { id: number; name: string; code: string; courses: Course[] }
+interface Strand { id: number; name: string; code: string; academic_level_id: number; academic_level: AcademicLevel }
+interface Course { id: number; name: string; code: string; department_id: number; description?: string; units?: number; is_active?: boolean }
 
-export default function Programs({ user, departments = [] }: { user: User; departments?: Department[] }) {
+export default function Programs({ user, academicLevels = [], departments = [], formErrors }: { user: User; academicLevels?: AcademicLevel[]; departments?: Department[]; formErrors?: Record<string, string> }) {
     const [activeTab, setActiveTab] = useState('strands');
     
     // Strand form state
-    const [strandForm, setStrandForm] = useState({ name: '', code: '', department_id: '' });
+    const [strandForm, setStrandForm] = useState({ name: '', code: '', academic_level_id: '' });
     const [strandModal, setStrandModal] = useState(false);
     const [editStrand, setEditStrand] = useState<Strand | null>(null);
+
+    // Auto-set Senior High School when modal opens
+    const openStrandModal = () => {
+        const seniorHighLevel = academicLevels.find(level => level.key === 'senior_highschool');
+        if (seniorHighLevel) {
+            setStrandForm({ name: '', code: '', academic_level_id: seniorHighLevel.id.toString() });
+        }
+        setStrandModal(true);
+    };
     
     // Department form state
     const [deptForm, setDeptForm] = useState({ name: '', code: '' });
@@ -38,12 +49,12 @@ export default function Programs({ user, departments = [] }: { user: User; depar
     const submitStrand = () => {
         router.post(route('admin.academic.strands.store'), strandForm, {
             preserveScroll: true,
-            onSuccess: () => { setStrandForm({ name: '', code: '', department_id: '' }); setStrandModal(false); },
+            onSuccess: () => { setStrandForm({ name: '', code: '', academic_level_id: '' }); setStrandModal(false); },
         });
     };
     
     const updateStrand = (strand: Strand) => {
-        const data = { name: strand.name, code: strand.code, department_id: strand.department_id };
+        const data = { name: strand.name, code: strand.code, academic_level_id: strand.academic_level_id };
         router.put(route('admin.academic.strands.update', strand.id), data, { 
             preserveScroll: true, 
             onSuccess: () => setEditStrand(null) 
@@ -131,13 +142,21 @@ export default function Programs({ user, departments = [] }: { user: User; depar
                                         <h3 className="font-semibold">Academic Strands</h3>
                                         <Dialog open={strandModal} onOpenChange={setStrandModal}>
                                             <DialogTrigger asChild>
-                                                <Button className="flex items-center gap-2"><Plus className="h-4 w-4" /> Add Strand</Button>
+                                                <Button onClick={openStrandModal} className="flex items-center gap-2">
+                                                    <Plus className="h-4 w-4" />
+                                                    Add Strand
+                                                </Button>
                                             </DialogTrigger>
                                             <DialogContent>
                                                 <DialogHeader>
                                                     <DialogTitle>Add new strand</DialogTitle>
                                                 </DialogHeader>
                                                 <div className="space-y-3">
+                                                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                                        <p className="text-sm text-blue-800">
+                                                            <strong>Note:</strong> Strands are only available for Senior High School students as academic tracks (STEM, ABM, HUMSS, GAS).
+                                                        </p>
+                                                    </div>
                                                     <div>
                                                         <Label htmlFor="strand-name">Name</Label>
                                                         <Input id="strand-name" value={strandForm.name} onChange={(e) => setStrandForm({ ...strandForm, name: e.target.value })} />
@@ -147,19 +166,29 @@ export default function Programs({ user, departments = [] }: { user: User; depar
                                                         <Input id="strand-code" value={strandForm.code} onChange={(e) => setStrandForm({ ...strandForm, code: e.target.value })} />
                                                     </div>
                                                     <div>
-                                                        <Label htmlFor="strand-dept">Department</Label>
-                                                        <Select value={strandForm.department_id} onValueChange={(value) => setStrandForm({ ...strandForm, department_id: value })}>
+                                                        <Label htmlFor="strand-level">Academic Level</Label>
+                                                        <Select value={strandForm.academic_level_id} onValueChange={(value) => setStrandForm({ ...strandForm, academic_level_id: value })} disabled>
                                                             <SelectTrigger>
-                                                                <SelectValue placeholder="Select department" />
+                                                                <SelectValue placeholder="Select academic level" />
                                                             </SelectTrigger>
                                                             <SelectContent>
-                                                                {departments.map((dept) => (
-                                                                    <SelectItem key={dept.id} value={dept.id.toString()}>
-                                                                        {dept.name}
-                                                                    </SelectItem>
-                                                                ))}
+                                                                {academicLevels
+                                                                    .filter(level => level.key === 'senior_highschool')
+                                                                    .map((level) => (
+                                                                        <SelectItem key={level.id} value={level.id.toString()}>
+                                                                            {level.name}
+                                                                        </SelectItem>
+                                                                    ))}
                                                             </SelectContent>
                                                         </Select>
+                                                        <p className="text-sm text-gray-500 mt-1">
+                                                            Strands are automatically assigned to Senior High School
+                                                        </p>
+                                                        {formErrors?.academic_level_id && (
+                                                            <Alert variant="destructive">
+                                                                <AlertDescription>{formErrors.academic_level_id}</AlertDescription>
+                                                            </Alert>
+                                                        )}
                                                     </div>
                                                 </div>
                                                 <DialogFooter>
@@ -175,17 +204,17 @@ export default function Programs({ user, departments = [] }: { user: User; depar
                                                 <tr>
                                                     <th className="text-left p-3">Code</th>
                                                     <th className="text-left p-3">Name</th>
-                                                    <th className="text-left p-3">Department</th>
+                                                    <th className="text-left p-3">Academic Level</th>
                                                     <th className="text-left p-3">Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {departments.flatMap(dept => dept.strands).map((strand) => (
+                                                {academicLevels.flatMap(level => level.strands).map((strand) => (
                                                     <tr key={strand.id} className="border-t">
                                                         <td className="p-3">{strand.code}</td>
                                                         <td className="p-3">{strand.name}</td>
                                                         <td className="p-3">
-                                                            {departments.find(d => d.id === strand.department_id)?.name || '-'}
+                                                            {academicLevels.find(l => l.id === strand.academic_level_id)?.name || '-'}
                                                         </td>
                                                         <td className="p-3">
                                                             <div className="flex gap-2">
@@ -340,6 +369,11 @@ export default function Programs({ user, departments = [] }: { user: User; depar
                                     <DialogTitle>Edit strand</DialogTitle>
                                 </DialogHeader>
                                 <div className="space-y-3">
+                                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                        <p className="text-sm text-blue-800">
+                                            <strong>Note:</strong> Strands are only available for Senior High School students as academic tracks (STEM, ABM, HUMSS, GAS).
+                                        </p>
+                                    </div>
                                     <div>
                                         <Label>Name</Label>
                                         <Input value={editStrand.name} onChange={(e) => setEditStrand({ ...editStrand, name: e.target.value })} />
@@ -349,19 +383,24 @@ export default function Programs({ user, departments = [] }: { user: User; depar
                                         <Input value={editStrand.code} onChange={(e) => setEditStrand({ ...editStrand, code: e.target.value })} />
                                     </div>
                                     <div>
-                                        <Label>Department</Label>
-                                        <Select value={editStrand.department_id.toString()} onValueChange={(value) => setEditStrand({ ...editStrand, department_id: Number(value) })}>
+                                        <Label>Academic Level</Label>
+                                        <Select value={editStrand.academic_level_id.toString()} onValueChange={(value) => setEditStrand({ ...editStrand, academic_level_id: Number(value) })} disabled>
                                             <SelectTrigger>
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {departments.map((dept) => (
-                                                    <SelectItem key={dept.id} value={dept.id.toString()}>
-                                                        {dept.name}
-                                                    </SelectItem>
-                                                ))}
+                                                {academicLevels
+                                                    .filter(level => level.key === 'senior_highschool')
+                                                    .map((level) => (
+                                                        <SelectItem key={level.id} value={level.id.toString()}>
+                                                            {level.name}
+                                                        </SelectItem>
+                                                    ))}
                                             </SelectContent>
                                         </Select>
+                                        <p className="text-sm text-gray-500 mt-1">
+                                            Strands are automatically assigned to Senior High School
+                                        </p>
                                     </div>
                                 </div>
                                 <DialogFooter>

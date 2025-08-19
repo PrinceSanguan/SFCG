@@ -13,10 +13,18 @@ class Course extends Model
     protected $fillable = [
         'name',
         'code',
+        'description',
         'department_id',
+        'units',
+        'is_active',
     ];
 
-    public function department()
+    protected $casts = [
+        'units' => 'integer',
+        'is_active' => 'boolean',
+    ];
+
+    public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
     }

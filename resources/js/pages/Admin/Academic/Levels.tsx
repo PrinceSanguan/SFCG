@@ -35,7 +35,12 @@ export default function Levels({ user, levels = [] }: { user: User; levels?: Lev
         });
     };
     const update = (level: Level) => {
-        router.put(route('admin.academic.levels.update', level.id), level, { preserveScroll: true, onSuccess: () => setEditModal(null) });
+        router.put(route('admin.academic.levels.update', level.id), {
+            key: level.key,
+            name: level.name,
+            sort_order: level.sort_order,
+            is_active: level.is_active,
+        }, { preserveScroll: true, onSuccess: () => setEditModal(null) });
     };
     const destroyLevel = (level: Level) => {
         if (confirm(`Delete ${level.name}?`)) {
