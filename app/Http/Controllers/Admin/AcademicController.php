@@ -78,23 +78,31 @@ class AcademicController extends Controller
 
     public function assignInstructors()
     {
+        // Get College level ID
+        $collegeLevel = AcademicLevel::where('key', 'college')->first();
+        
         $assignments = InstructorCourseAssignment::with([
             'instructor', 
-            'course', 
+            'course.department', 
             'academicLevel', 
             'gradingPeriod'
-        ])->orderBy('school_year', 'desc')->get();
+        ])->where('academic_level_id', $collegeLevel->id)
+          ->orderBy('school_year', 'desc')->get();
         
         $instructors = User::where('user_role', 'instructor')->orderBy('name')->get();
-        $courses = Course::orderBy('name')->get();
+        $courses = Course::whereHas('department', function($query) use ($collegeLevel) {
+            $query->where('academic_level_id', $collegeLevel->id);
+        })->orderBy('name')->get();
+        $subjects = Subject::where('academic_level_id', $collegeLevel->id)->orderBy('name')->get();
         $academicLevels = AcademicLevel::orderBy('sort_order')->get();
-        $gradingPeriods = GradingPeriod::orderBy('sort_order')->get();
+        $gradingPeriods = GradingPeriod::where('academic_level_id', $collegeLevel->id)->orderBy('sort_order')->get();
         
         return Inertia::render('Admin/Academic/AssignInstructors', [
             'user' => $this->sharedUser(),
             'assignments' => $assignments,
             'instructors' => $instructors,
             'courses' => $courses,
+            'subjects' => $subjects,
             'academicLevels' => $academicLevels,
             'gradingPeriods' => $gradingPeriods,
         ]);
@@ -102,17 +110,21 @@ class AcademicController extends Controller
 
     public function assignTeachers()
     {
+        // Get Senior High School level ID
+        $shsLevel = AcademicLevel::where('key', 'senior_highschool')->first();
+        
         $assignments = TeacherSubjectAssignment::with([
             'teacher', 
             'subject', 
             'academicLevel', 
             'gradingPeriod'
-        ])->orderBy('school_year', 'desc')->get();
+        ])->where('academic_level_id', $shsLevel->id)
+          ->orderBy('school_year', 'desc')->get();
         
         $teachers = User::where('user_role', 'teacher')->orderBy('name')->get();
-        $subjects = Subject::orderBy('name')->get();
+        $subjects = Subject::where('academic_level_id', $shsLevel->id)->orderBy('name')->get();
         $academicLevels = AcademicLevel::orderBy('sort_order')->get();
-        $gradingPeriods = GradingPeriod::orderBy('sort_order')->get();
+        $gradingPeriods = GradingPeriod::where('academic_level_id', $shsLevel->id)->orderBy('sort_order')->get();
         
         return Inertia::render('Admin/Academic/AssignTeachers', [
             'user' => $this->sharedUser(),
@@ -126,18 +138,25 @@ class AcademicController extends Controller
 
     public function assignAdvisers()
     {
+        // Get Elementary and Junior High School level IDs
+        $elementaryLevel = AcademicLevel::where('key', 'elementary')->first();
+        $jhsLevel = AcademicLevel::where('key', 'junior_highschool')->first();
+        
         $assignments = ClassAdviserAssignment::with([
             'adviser', 
             'academicLevel'
-        ])->orderBy('school_year', 'desc')->get();
+        ])->whereIn('academic_level_id', [$elementaryLevel->id, $jhsLevel->id])
+          ->orderBy('school_year', 'desc')->get();
         
         $advisers = User::where('user_role', 'adviser')->orderBy('name')->get();
+        $subjects = Subject::whereIn('academic_level_id', [$elementaryLevel->id, $jhsLevel->id])->orderBy('name')->get();
         $academicLevels = AcademicLevel::orderBy('sort_order')->get();
         
         return Inertia::render('Admin/Academic/AssignAdvisers', [
             'user' => $this->sharedUser(),
             'assignments' => $assignments,
             'advisers' => $advisers,
+            'subjects' => $subjects,
             'academicLevels' => $academicLevels,
         ]);
     }
@@ -158,109 +177,6 @@ class AcademicController extends Controller
             'academicLevels' => $academicLevels,
             'gradingPeriods' => $gradingPeriods,
         ]);
-    }
-
-    // Grading Period Management
-    public function storeGradingPeriod(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:100',
-            'code' => 'required|string|max:20|unique:grading_periods,code',
-            'academic_level_id' => 'required|exists:academic_levels,id',
-            'start_date' => 'required|date',
-            'end_date' => 'required|date|after:start_date',
-            'sort_order' => 'nullable|integer|min:0',
-            'is_active' => 'nullable|boolean',
-        ]);
-
-        if ($validator->fails()) {
-            return back()->withErrors($validator)->withInput();
-        }
-
-        $gradingPeriod = GradingPeriod::create([
-            'name' => $request->name,
-            'code' => $request->code,
-            'academic_level_id' => $request->academic_level_id,
-            'start_date' => $request->start_date,
-            'end_date' => $request->end_date,
-            'sort_order' => $request->sort_order ?? 0,
-            'is_active' => $request->is_active ?? true,
-        ]);
-
-        // Log activity
-        ActivityLog::create([
-            'user_id' => Auth::id(),
-            'action' => 'created_grading_period',
-            'entity_type' => 'grading_period',
-            'entity_id' => $gradingPeriod->id,
-            'details' => [
-                'name' => $gradingPeriod->name,
-                'code' => $gradingPeriod->code,
-                'academic_level' => $gradingPeriod->academicLevel->name,
-            ],
-        ]);
-
-        return back()->with('success', 'Grading period created successfully!');
-    }
-
-    public function updateGradingPeriod(Request $request, GradingPeriod $gradingPeriod)
-    {
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:100',
-            'code' => 'required|string|max:20|unique:grading_periods,code,' . $gradingPeriod->id,
-            'academic_level_id' => 'required|exists:academic_levels,id',
-            'start_date' => 'required|date',
-            'end_date' => 'required|date|after:start_date',
-            'sort_order' => 'nullable|integer|min:0',
-            'is_active' => 'nullable|boolean',
-        ]);
-
-        if ($validator->fails()) {
-            return back()->withErrors($validator)->withInput();
-        }
-
-        $gradingPeriod->update([
-            'name' => $request->name,
-            'code' => $request->code,
-            'academic_level_id' => $request->academic_level_id,
-            'start_date' => $request->start_date,
-            'end_date' => $request->end_date,
-            'sort_order' => $request->sort_order ?? 0,
-            'is_active' => $request->is_active ?? true,
-        ]);
-
-        // Log activity
-        ActivityLog::create([
-            'user_id' => Auth::id(),
-            'action' => 'updated_grading_period',
-            'entity_type' => 'grading_period',
-            'entity_id' => $gradingPeriod->id,
-            'details' => [
-                'name' => $gradingPeriod->name,
-                'code' => $gradingPeriod->code,
-            ],
-        ]);
-
-        return back()->with('success', 'Grading period updated successfully!');
-    }
-
-    public function destroyGradingPeriod(GradingPeriod $gradingPeriod)
-    {
-        $gradingPeriod->delete();
-
-        // Log activity
-        ActivityLog::create([
-            'user_id' => Auth::id(),
-            'action' => 'deleted_grading_period',
-            'entity_type' => 'grading_period',
-            'entity_id' => $gradingPeriod->id,
-            'details' => [
-                'name' => $gradingPeriod->name,
-                'code' => $gradingPeriod->code,
-            ],
-        ]);
-
-        return back()->with('success', 'Grading period deleted successfully!');
     }
 
     // Subject Management
@@ -374,6 +290,109 @@ class AcademicController extends Controller
         return back()->with('success', 'Subject deleted successfully!');
     }
 
+    // Grading Period Management
+    public function storeGradingPeriod(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:100',
+            'code' => 'required|string|max:20|unique:grading_periods,code',
+            'academic_level_id' => 'required|exists:academic_levels,id',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after:start_date',
+            'sort_order' => 'nullable|integer|min:0',
+            'is_active' => 'nullable|boolean',
+        ]);
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput();
+        }
+
+        $gradingPeriod = GradingPeriod::create([
+            'name' => $request->name,
+            'code' => $request->code,
+            'academic_level_id' => $request->academic_level_id,
+            'start_date' => $request->start_date,
+            'end_date' => $request->end_date,
+            'sort_order' => $request->sort_order ?? 0,
+            'is_active' => $request->is_active ?? true,
+        ]);
+
+        // Log activity
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'created_grading_period',
+            'entity_type' => 'grading_period',
+            'entity_id' => $gradingPeriod->id,
+            'details' => [
+                'name' => $gradingPeriod->name,
+                'code' => $gradingPeriod->code,
+                'academic_level' => $gradingPeriod->academicLevel->name,
+            ],
+        ]);
+
+        return back()->with('success', 'Grading period created successfully!');
+    }
+
+    public function updateGradingPeriod(Request $request, GradingPeriod $gradingPeriod)
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:100',
+            'code' => 'required|string|max:20|unique:grading_periods,code,' . $gradingPeriod->id,
+            'academic_level_id' => 'required|exists:academic_levels,id',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after:start_date',
+            'sort_order' => 'nullable|integer|min:0',
+            'is_active' => 'nullable|boolean',
+        ]);
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput();
+        }
+
+        $gradingPeriod->update([
+            'name' => $request->name,
+            'code' => $request->code,
+            'academic_level_id' => $request->academic_level_id,
+            'start_date' => $request->start_date,
+            'end_date' => $request->end_date,
+            'sort_order' => $request->sort_order ?? 0,
+            'is_active' => $request->is_active ?? true,
+        ]);
+
+        // Log activity
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'updated_grading_period',
+            'entity_type' => 'grading_period',
+            'entity_id' => $gradingPeriod->id,
+            'details' => [
+                'name' => $gradingPeriod->name,
+                'code' => $gradingPeriod->code,
+            ],
+        ]);
+
+        return back()->with('success', 'Grading period updated successfully!');
+    }
+
+    public function destroyGradingPeriod(GradingPeriod $gradingPeriod)
+    {
+        $gradingPeriod->delete();
+
+        // Log activity
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'deleted_grading_period',
+            'entity_type' => 'grading_period',
+            'entity_id' => $gradingPeriod->id,
+            'details' => [
+                'name' => $gradingPeriod->name,
+                'code' => $gradingPeriod->code,
+            ],
+        ]);
+
+        return back()->with('success', 'Grading period deleted successfully!');
+    }
+
     // Assignment Management
     public function storeTeacherAssignment(Request $request)
     {
@@ -421,6 +440,53 @@ class AcademicController extends Controller
         ]);
 
         return back()->with('success', 'Teacher assigned to subject successfully!');
+    }
+
+    public function updateTeacherAssignment(Request $request, TeacherSubjectAssignment $assignment)
+    {
+        $validator = Validator::make($request->all(), [
+            'teacher_id' => 'required|exists:users,id',
+            'subject_id' => 'required|exists:subjects,id',
+            'academic_level_id' => 'required|exists:academic_levels,id',
+            'grading_period_id' => 'nullable|exists:grading_periods,id',
+            'school_year' => 'required|string',
+            'notes' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput();
+        }
+
+        // Check if teacher has the correct role
+        $teacher = User::find($request->teacher_id);
+        if (!$teacher || $teacher->user_role !== 'teacher') {
+            return back()->with('error', 'Selected user is not a teacher.');
+        }
+
+        $assignment->update([
+            'teacher_id' => $request->teacher_id,
+            'subject_id' => $request->subject_id,
+            'academic_level_id' => $request->academic_level_id,
+            'grading_period_id' => $request->grading_period_id,
+            'school_year' => $request->school_year,
+            'notes' => $request->notes,
+        ]);
+
+        // Log activity
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'target_user_id' => $request->teacher_id,
+            'action' => 'updated_teacher_subject_assignment',
+            'entity_type' => 'teacher_subject_assignment',
+            'entity_id' => $assignment->id,
+            'details' => [
+                'teacher' => $teacher->name,
+                'subject' => $assignment->subject->name,
+                'school_year' => $request->school_year,
+            ],
+        ]);
+
+        return back()->with('success', 'Teacher assignment updated successfully!');
     }
 
     public function storeInstructorAssignment(Request $request)
@@ -471,6 +537,53 @@ class AcademicController extends Controller
         return back()->with('success', 'Instructor assigned to course successfully!');
     }
 
+    public function updateInstructorAssignment(Request $request, InstructorCourseAssignment $assignment)
+    {
+        $validator = Validator::make($request->all(), [
+            'instructor_id' => 'required|exists:users,id',
+            'course_id' => 'required|exists:courses,id',
+            'academic_level_id' => 'required|exists:academic_levels,id',
+            'grading_period_id' => 'nullable|exists:grading_periods,id',
+            'school_year' => 'required|string',
+            'notes' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput();
+        }
+
+        // Check if instructor has the correct role
+        $instructor = User::find($request->instructor_id);
+        if (!$instructor || $instructor->user_role !== 'instructor') {
+            return back()->with('error', 'Selected user is not an instructor.');
+        }
+
+        $assignment->update([
+            'instructor_id' => $request->instructor_id,
+            'course_id' => $request->course_id,
+            'academic_level_id' => $request->academic_level_id,
+            'grading_period_id' => $request->grading_period_id,
+            'school_year' => $request->school_year,
+            'notes' => $request->notes,
+        ]);
+
+        // Log activity
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'target_user_id' => $request->instructor_id,
+            'action' => 'updated_instructor_course_assignment',
+            'entity_type' => 'instructor_course_assignment',
+            'entity_id' => $assignment->id,
+            'details' => [
+                'instructor' => $instructor->name,
+                'course' => $assignment->course->name,
+                'school_year' => $request->school_year,
+            ],
+        ]);
+
+        return back()->with('success', 'Instructor assignment updated successfully!');
+    }
+
     public function storeClassAdviserAssignment(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -518,6 +631,54 @@ class AcademicController extends Controller
         ]);
 
         return back()->with('success', 'Class adviser assigned successfully!');
+    }
+
+    public function updateClassAdviserAssignment(Request $request, ClassAdviserAssignment $assignment)
+    {
+        $validator = Validator::make($request->all(), [
+            'adviser_id' => 'required|exists:users,id',
+            'academic_level_id' => 'required|exists:academic_levels,id',
+            'grade_level' => 'required|string',
+            'section' => 'required|string',
+            'school_year' => 'required|string',
+            'notes' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput();
+        }
+
+        // Check if adviser has the correct role
+        $adviser = User::find($request->adviser_id);
+        if (!$adviser || $adviser->user_role !== 'adviser') {
+            return back()->with('error', 'Selected user is not an adviser.');
+        }
+
+        $assignment->update([
+            'adviser_id' => $request->adviser_id,
+            'academic_level_id' => $request->academic_level_id,
+            'grade_level' => $request->grade_level,
+            'section' => $request->section,
+            'school_year' => $request->school_year,
+            'notes' => $request->notes,
+        ]);
+
+        // Log activity
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'target_user_id' => $request->adviser_id,
+            'action' => 'updated_class_adviser_assignment',
+            'entity_type' => 'class_adviser_assignment',
+            'entity_id' => $assignment->id,
+            'details' => [
+                'adviser' => $adviser->name,
+                'grade_level' => $request->grade_level,
+                'section' => $request->section,
+                'school_year' => $request->school_year,
+            ],
+        ]);
+
+        return back()->with('success', 'Class adviser assignment updated successfully!');
     }
 
     // Delete assignments

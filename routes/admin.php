@@ -353,21 +353,29 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/aca
         $course->update($validated);
         return back();
     })->name('courses.update');
-    Route::delete('/courses/{course}', function(\App\Models\Course $course) {
+    Route::delete('/courses/{course}', function(\Illuminate\Http\Request $request, \App\Models\Course $course) {
         $course->delete();
         return back();
     })->name('courses.destroy');
     
+    // Subjects CRUD
+    Route::post('/subjects', [AcademicController::class, 'storeSubject'])->name('subjects.store');
+    Route::put('/subjects/{subject}', [AcademicController::class, 'updateSubject'])->name('subjects.update');
+    Route::delete('/subjects/{subject}', [AcademicController::class, 'destroySubject'])->name('subjects.destroy');
+    
     // Assignment Management
     Route::get('/assign-instructors', [AcademicController::class, 'assignInstructors'])->name('assign-instructors');
     Route::post('/assign-instructors', [AcademicController::class, 'storeInstructorAssignment'])->name('assign-instructors.store');
+    Route::put('/assign-instructors/{assignment}', [AcademicController::class, 'updateInstructorAssignment'])->name('assign-instructors.update');
     Route::delete('/assign-instructors/{assignment}', [AcademicController::class, 'destroyInstructorAssignment'])->name('assign-instructors.destroy');
     
     Route::get('/assign-teachers', [AcademicController::class, 'assignTeachers'])->name('assign-teachers');
     Route::post('/assign-teachers', [AcademicController::class, 'storeTeacherAssignment'])->name('assign-teachers.store');
+    Route::put('/assign-teachers/{assignment}', [AcademicController::class, 'updateTeacherAssignment'])->name('assign-teachers.update');
     Route::delete('/assign-teachers/{assignment}', [AcademicController::class, 'destroyTeacherAssignment'])->name('assign-teachers.destroy');
     
     Route::get('/assign-advisers', [AcademicController::class, 'assignAdvisers'])->name('assign-advisers');
     Route::post('/assign-advisers', [AcademicController::class, 'storeClassAdviserAssignment'])->name('assign-advisers.store');
+    Route::put('/assign-advisers/{assignment}', [AcademicController::class, 'updateClassAdviserAssignment'])->name('assign-advisers.update');
     Route::delete('/assign-advisers/{assignment}', [AcademicController::class, 'destroyClassAdviserAssignment'])->name('assign-advisers.destroy');
 });

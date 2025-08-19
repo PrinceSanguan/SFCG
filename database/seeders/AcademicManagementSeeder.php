@@ -6,9 +6,6 @@ use Illuminate\Database\Seeder;
 use App\Models\AcademicLevel;
 use App\Models\GradingPeriod;
 use App\Models\Subject;
-use App\Models\Department;
-use App\Models\Strand;
-use App\Models\Course;
 
 class AcademicManagementSeeder extends Seeder
 {
@@ -20,349 +17,102 @@ class AcademicManagementSeeder extends Seeder
         $seniorHigh = AcademicLevel::where('key', 'senior_highschool')->first();
         $college = AcademicLevel::where('key', 'college')->first();
 
-        // Create Grading Periods
-        if ($elementary) {
-            // Elementary - Quarters
-            GradingPeriod::create([
-                'name' => 'First Quarter',
-                'code' => 'ELEM_Q1',
-                'academic_level_id' => $elementary->id,
-                'start_date' => '2024-06-01',
-                'end_date' => '2024-08-31',
-                'sort_order' => 1,
-                'is_active' => true,
-            ]);
+        // Get grading periods
+        $elementaryGrading = GradingPeriod::where('academic_level_id', $elementary->id)->first();
+        $juniorHighGrading = GradingPeriod::where('academic_level_id', $juniorHigh->id)->first();
+        $seniorHighGrading = GradingPeriod::where('academic_level_id', $seniorHigh->id)->first();
+        $collegeGrading = GradingPeriod::where('academic_level_id', $college->id)->first();
 
-            GradingPeriod::create([
-                'name' => 'Second Quarter',
-                'code' => 'ELEM_Q2',
-                'academic_level_id' => $elementary->id,
-                'start_date' => '2024-09-01',
-                'end_date' => '2024-11-30',
-                'sort_order' => 2,
-                'is_active' => true,
-            ]);
+        // Create Elementary Subjects
+        if ($elementary && $elementaryGrading) {
+            $elementarySubjects = [
+                ['name' => 'Mathematics', 'code' => 'MATH-ELEM', 'description' => 'Basic mathematics for elementary students', 'units' => 1, 'hours_per_week' => 5, 'is_core' => true],
+                ['name' => 'English', 'code' => 'ENG-ELEM', 'description' => 'English language and reading', 'units' => 1, 'hours_per_week' => 5, 'is_core' => true],
+                ['name' => 'Science', 'code' => 'SCI-ELEM', 'description' => 'Basic science concepts', 'units' => 1, 'hours_per_week' => 3, 'is_core' => true],
+                ['name' => 'Social Studies', 'code' => 'SOC-ELEM', 'description' => 'History and geography basics', 'units' => 1, 'hours_per_week' => 3, 'is_core' => true],
+                ['name' => 'Physical Education', 'code' => 'PE-ELEM', 'description' => 'Physical activities and health', 'units' => 1, 'hours_per_week' => 2, 'is_core' => false],
+                ['name' => 'Arts and Music', 'code' => 'ART-ELEM', 'description' => 'Creative arts and music appreciation', 'units' => 1, 'hours_per_week' => 2, 'is_core' => false],
+            ];
 
-            GradingPeriod::create([
-                'name' => 'Third Quarter',
-                'code' => 'ELEM_Q3',
-                'academic_level_id' => $elementary->id,
-                'start_date' => '2024-12-01',
-                'end_date' => '2025-02-28',
-                'sort_order' => 3,
-                'is_active' => true,
-            ]);
-
-            GradingPeriod::create([
-                'name' => 'Fourth Quarter',
-                'code' => 'ELEM_Q4',
-                'academic_level_id' => $elementary->id,
-                'start_date' => '2025-03-01',
-                'end_date' => '2025-05-31',
-                'sort_order' => 4,
-                'is_active' => true,
-            ]);
+            foreach ($elementarySubjects as $subjectData) {
+                Subject::create([
+                    ...$subjectData,
+                    'academic_level_id' => $elementary->id,
+                    'grading_period_id' => $elementaryGrading->id,
+                    'is_active' => true,
+                ]);
+            }
         }
 
-        if ($juniorHigh) {
-            // Junior High - Quarters
-            GradingPeriod::create([
-                'name' => 'First Quarter',
-                'code' => 'JHS_Q1',
-                'academic_level_id' => $juniorHigh->id,
-                'start_date' => '2024-06-01',
-                'end_date' => '2024-08-31',
-                'sort_order' => 1,
-                'is_active' => true,
-            ]);
+        // Create Junior High School Subjects
+        if ($juniorHigh && $juniorHighGrading) {
+            $juniorHighSubjects = [
+                ['name' => 'Mathematics', 'code' => 'MATH-JHS', 'description' => 'Intermediate mathematics', 'units' => 1, 'hours_per_week' => 5, 'is_core' => true],
+                ['name' => 'English', 'code' => 'ENG-JHS', 'description' => 'English literature and composition', 'units' => 1, 'hours_per_week' => 5, 'is_core' => true],
+                ['name' => 'Science', 'code' => 'SCI-JHS', 'description' => 'General science', 'units' => 1, 'hours_per_week' => 4, 'is_core' => true],
+                ['name' => 'Social Studies', 'code' => 'SOC-JHS', 'description' => 'Philippine history and world geography', 'units' => 1, 'hours_per_week' => 4, 'is_core' => true],
+                ['name' => 'Filipino', 'code' => 'FIL-JHS', 'description' => 'Filipino language and literature', 'units' => 1, 'hours_per_week' => 4, 'is_core' => true],
+                ['name' => 'Technology and Livelihood Education', 'code' => 'TLE-JHS', 'description' => 'Practical skills and entrepreneurship', 'units' => 1, 'hours_per_week' => 4, 'is_core' => true],
+                ['name' => 'Physical Education', 'code' => 'PE-JHS', 'description' => 'Physical fitness and sports', 'units' => 1, 'hours_per_week' => 2, 'is_core' => false],
+                ['name' => 'Music and Arts', 'code' => 'MAPEH-JHS', 'description' => 'Music, arts, physical education, and health', 'units' => 1, 'hours_per_week' => 2, 'is_core' => false],
+            ];
 
-            GradingPeriod::create([
-                'name' => 'Second Quarter',
-                'code' => 'JHS_Q2',
-                'academic_level_id' => $juniorHigh->id,
-                'start_date' => '2024-09-01',
-                'end_date' => '2024-11-30',
-                'sort_order' => 2,
-                'is_active' => true,
-            ]);
-
-            GradingPeriod::create([
-                'name' => 'Third Quarter',
-                'code' => 'JHS_Q3',
-                'academic_level_id' => $juniorHigh->id,
-                'start_date' => '2024-12-01',
-                'end_date' => '2025-02-28',
-                'sort_order' => 3,
-                'is_active' => true,
-            ]);
-
-            GradingPeriod::create([
-                'name' => 'Fourth Quarter',
-                'code' => 'JHS_Q4',
-                'academic_level_id' => $juniorHigh->id,
-                'start_date' => '2025-03-01',
-                'end_date' => '2025-05-31',
-                'sort_order' => 4,
-                'is_active' => true,
-            ]);
+            foreach ($juniorHighSubjects as $subjectData) {
+                Subject::create([
+                    ...$subjectData,
+                    'academic_level_id' => $juniorHigh->id,
+                    'grading_period_id' => $juniorHighGrading->id,
+                    'is_active' => true,
+                ]);
+            }
         }
 
-        if ($seniorHigh) {
-            // Senior High - Semesters
-            GradingPeriod::create([
-                'name' => 'First Semester',
-                'code' => 'SHS_S1',
-                'academic_level_id' => $seniorHigh->id,
-                'start_date' => '2024-06-01',
-                'end_date' => '2024-11-30',
-                'sort_order' => 1,
-                'is_active' => true,
-            ]);
+        // Create Senior High School Subjects
+        if ($seniorHigh && $seniorHighGrading) {
+            $seniorHighSubjects = [
+                ['name' => 'Core Mathematics', 'code' => 'MATH-SHS', 'description' => 'Advanced mathematics for SHS', 'units' => 1, 'hours_per_week' => 5, 'is_core' => true],
+                ['name' => 'Core English', 'code' => 'ENG-SHS', 'description' => 'English for academic purposes', 'units' => 1, 'hours_per_week' => 5, 'is_core' => true],
+                ['name' => 'Core Science', 'code' => 'SCI-SHS', 'description' => 'General biology, chemistry, physics', 'units' => 1, 'hours_per_week' => 4, 'is_core' => true],
+                ['name' => 'Core Social Studies', 'code' => 'SOC-SHS', 'description' => 'Contemporary Philippine issues', 'units' => 1, 'hours_per_week' => 4, 'is_core' => true],
+                ['name' => 'Core Filipino', 'code' => 'FIL-SHS', 'description' => 'Komunikasyon at pananaliksik', 'units' => 1, 'hours_per_week' => 4, 'is_core' => true],
+                ['name' => 'Physical Education and Health', 'code' => 'PEH-SHS', 'description' => 'Physical education and health', 'units' => 1, 'hours_per_week' => 2, 'is_core' => true],
+                ['name' => 'Personal Development', 'code' => 'PD-SHS', 'description' => 'Personal development and career guidance', 'units' => 1, 'hours_per_week' => 2, 'is_core' => true],
+                ['name' => 'Understanding Culture and Society', 'code' => 'UCS-SHS', 'description' => 'Understanding culture, society, and politics', 'units' => 1, 'hours_per_week' => 2, 'is_core' => true],
+                ['name' => 'Applied Economics', 'code' => 'ECON-SHS', 'description' => 'Basic economics principles', 'units' => 1, 'hours_per_week' => 2, 'is_core' => false],
+                ['name' => 'Business Mathematics', 'code' => 'BMATH-SHS', 'description' => 'Mathematics for business applications', 'units' => 1, 'hours_per_week' => 2, 'is_core' => false],
+            ];
 
-            GradingPeriod::create([
-                'name' => 'Second Semester',
-                'code' => 'SHS_S2',
-                'academic_level_id' => $seniorHigh->id,
-                'start_date' => '2024-12-01',
-                'end_date' => '2025-05-31',
-                'sort_order' => 2,
-                'is_active' => true,
-            ]);
+            foreach ($seniorHighSubjects as $subjectData) {
+                Subject::create([
+                    ...$subjectData,
+                    'academic_level_id' => $seniorHigh->id,
+                    'grading_period_id' => $seniorHighGrading->id,
+                    'is_active' => true,
+                ]);
+            }
         }
 
-        if ($college) {
-            // College - Semesters
-            GradingPeriod::create([
-                'name' => 'First Semester',
-                'code' => 'COL_S1',
-                'academic_level_id' => $college->id,
-                'start_date' => '2024-06-01',
-                'end_date' => '2024-11-30',
-                'sort_order' => 1,
-                'is_active' => true,
-            ]);
+        // Create College Subjects
+        if ($college && $collegeGrading) {
+            $collegeSubjects = [
+                ['name' => 'College Algebra', 'code' => 'MATH101', 'description' => 'Fundamental concepts of algebra', 'units' => 3, 'hours_per_week' => 3, 'is_core' => true],
+                ['name' => 'English Composition', 'code' => 'ENG101', 'description' => 'College writing and rhetoric', 'units' => 3, 'hours_per_week' => 3, 'is_core' => true],
+                ['name' => 'General Chemistry', 'code' => 'CHEM101', 'description' => 'Introduction to chemistry', 'units' => 4, 'hours_per_week' => 4, 'is_core' => true],
+                ['name' => 'General Physics', 'code' => 'PHYS101', 'description' => 'Introduction to physics', 'units' => 4, 'hours_per_week' => 4, 'is_core' => true],
+                ['name' => 'Introduction to Psychology', 'code' => 'PSYCH101', 'description' => 'Basic psychology concepts', 'units' => 3, 'hours_per_week' => 3, 'is_core' => false],
+                ['name' => 'Introduction to Sociology', 'code' => 'SOC101', 'description' => 'Basic sociology concepts', 'units' => 3, 'hours_per_week' => 3, 'is_core' => false],
+                ['name' => 'Physical Education', 'code' => 'PE101', 'description' => 'College physical education', 'units' => 2, 'hours_per_week' => 2, 'is_core' => false],
+                ['name' => 'Computer Fundamentals', 'code' => 'CS101', 'description' => 'Introduction to computing', 'units' => 3, 'hours_per_week' => 3, 'is_core' => false],
+            ];
 
-            GradingPeriod::create([
-                'name' => 'Second Semester',
-                'code' => 'COL_S2',
-                'academic_level_id' => $college->id,
-                'start_date' => '2024-12-01',
-                'end_date' => '2025-05-31',
-                'sort_order' => 2,
-                'is_active' => true,
-            ]);
-
-            GradingPeriod::create([
-                'name' => 'Summer Term',
-                'code' => 'COL_SUM',
-                'academic_level_id' => $college->id,
-                'start_date' => '2025-06-01',
-                'end_date' => '2025-07-31',
-                'sort_order' => 3,
-                'is_active' => true,
-            ]);
+            foreach ($collegeSubjects as $subjectData) {
+                Subject::create([
+                    ...$subjectData,
+                    'academic_level_id' => $college->id,
+                    'grading_period_id' => $collegeGrading->id,
+                    'is_active' => true,
+                ]);
+            }
         }
-
-        // Create Subjects
-        if ($elementary) {
-            // Elementary Subjects
-            Subject::create([
-                'name' => 'Mathematics',
-                'code' => 'ELEM_MATH',
-                'description' => 'Basic mathematics for elementary students',
-                'academic_level_id' => $elementary->id,
-                'units' => 1,
-                'hours_per_week' => 5,
-                'is_core' => true,
-                'is_active' => true,
-            ]);
-
-            Subject::create([
-                'name' => 'Science',
-                'code' => 'ELEM_SCI',
-                'description' => 'Basic science for elementary students',
-                'academic_level_id' => $elementary->id,
-                'units' => 1,
-                'hours_per_week' => 3,
-                'is_core' => true,
-                'is_active' => true,
-            ]);
-
-            Subject::create([
-                'name' => 'English',
-                'code' => 'ELEM_ENG',
-                'description' => 'English language and reading',
-                'academic_level_id' => $elementary->id,
-                'units' => 1,
-                'hours_per_week' => 5,
-                'is_core' => true,
-                'is_active' => true,
-            ]);
-
-            Subject::create([
-                'name' => 'Filipino',
-                'code' => 'ELEM_FIL',
-                'description' => 'Filipino language and reading',
-                'academic_level_id' => $elementary->id,
-                'units' => 1,
-                'hours_per_week' => 3,
-                'is_core' => true,
-                'is_active' => true,
-            ]);
-        }
-
-        if ($juniorHigh) {
-            // Junior High Subjects
-            Subject::create([
-                'name' => 'Mathematics',
-                'code' => 'JHS_MATH',
-                'description' => 'Mathematics for junior high students',
-                'academic_level_id' => $juniorHigh->id,
-                'units' => 1,
-                'hours_per_week' => 5,
-                'is_core' => true,
-                'is_active' => true,
-            ]);
-
-            Subject::create([
-                'name' => 'Science',
-                'code' => 'JHS_SCI',
-                'description' => 'Science for junior high students',
-                'academic_level_id' => $juniorHigh->id,
-                'units' => 1,
-                'hours_per_week' => 4,
-                'is_core' => true,
-                'is_active' => true,
-            ]);
-
-            Subject::create([
-                'name' => 'English',
-                'code' => 'JHS_ENG',
-                'description' => 'English language and literature',
-                'academic_level_id' => $juniorHigh->id,
-                'units' => 1,
-                'hours_per_week' => 4,
-                'is_core' => true,
-                'is_active' => true,
-            ]);
-
-            Subject::create([
-                'name' => 'Filipino',
-                'code' => 'JHS_FIL',
-                'description' => 'Filipino language and literature',
-                'academic_level_id' => $juniorHigh->id,
-                'units' => 1,
-                'hours_per_week' => 3,
-                'is_core' => true,
-                'is_active' => true,
-            ]);
-
-            Subject::create([
-                'name' => 'Social Studies',
-                'code' => 'JHS_SS',
-                'description' => 'Social studies and history',
-                'academic_level_id' => $juniorHigh->id,
-                'units' => 1,
-                'hours_per_week' => 3,
-                'is_core' => true,
-                'is_active' => true,
-            ]);
-        }
-
-        if ($seniorHigh) {
-            // Senior High Subjects
-            Subject::create([
-                'name' => 'General Mathematics',
-                'code' => 'SHS_GENMATH',
-                'description' => 'General mathematics for senior high',
-                'academic_level_id' => $seniorHigh->id,
-                'units' => 1,
-                'hours_per_week' => 5,
-                'is_core' => true,
-                'is_active' => true,
-            ]);
-
-            Subject::create([
-                'name' => 'Earth and Life Science',
-                'code' => 'SHS_ELS',
-                'description' => 'Earth and life science',
-                'academic_level_id' => $seniorHigh->id,
-                'units' => 1,
-                'hours_per_week' => 4,
-                'is_core' => true,
-                'is_active' => true,
-            ]);
-
-            Subject::create([
-                'name' => 'Oral Communication',
-                'code' => 'SHS_ORAL',
-                'description' => 'Oral communication in context',
-                'academic_level_id' => $seniorHigh->id,
-                'units' => 1,
-                'hours_per_week' => 3,
-                'is_core' => true,
-                'is_active' => true,
-            ]);
-
-            Subject::create([
-                'name' => 'Komunikasyon at Pananaliksik',
-                'code' => 'SHS_KOM',
-                'description' => 'Komunikasyon at pananaliksik sa wika',
-                'academic_level_id' => $seniorHigh->id,
-                'units' => 1,
-                'hours_per_week' => 3,
-                'is_core' => true,
-                'is_active' => true,
-            ]);
-        }
-
-        if ($college) {
-            // College Subjects
-            Subject::create([
-                'name' => 'College Algebra',
-                'code' => 'COL_ALG',
-                'description' => 'College algebra and trigonometry',
-                'academic_level_id' => $college->id,
-                'units' => 3,
-                'hours_per_week' => 3,
-                'is_core' => true,
-                'is_active' => true,
-            ]);
-
-            Subject::create([
-                'name' => 'General Chemistry',
-                'code' => 'COL_CHEM',
-                'description' => 'General chemistry for non-majors',
-                'academic_level_id' => $college->id,
-                'units' => 4,
-                'hours_per_week' => 4,
-                'is_core' => false,
-                'is_active' => true,
-            ]);
-
-            Subject::create([
-                'name' => 'College English',
-                'code' => 'COL_ENG',
-                'description' => 'College composition and rhetoric',
-                'academic_level_id' => $college->id,
-                'units' => 3,
-                'hours_per_week' => 3,
-                'is_core' => true,
-                'is_active' => true,
-            ]);
-
-            Subject::create([
-                'name' => 'Philippine History',
-                'code' => 'COL_HIST',
-                'description' => 'Philippine history and culture',
-                'academic_level_id' => $college->id,
-                'units' => 3,
-                'hours_per_week' => 3,
-                'is_core' => true,
-                'is_active' => true,
-            ]);
-        }
-
-        $this->command->info('Academic Management data seeded successfully!');
     }
 }

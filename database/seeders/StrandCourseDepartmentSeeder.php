@@ -14,6 +14,7 @@ class StrandCourseDepartmentSeeder extends Seeder
     {
         // Get academic levels
         $seniorHigh = AcademicLevel::where('key', 'senior_highschool')->first();
+        $college = AcademicLevel::where('key', 'college')->first();
 
         // Create strands ONLY for Senior High School
         if ($seniorHigh) {
@@ -54,6 +55,9 @@ class StrandCourseDepartmentSeeder extends Seeder
         $computerDept = Department::create([
             'name' => 'Computer Department',
             'code' => 'COMP',
+            'description' => 'Computer Science and Engineering Department',
+            'academic_level_id' => $college->id,
+            'is_active' => true,
         ]);
 
         $computerDept->courses()->createMany([
@@ -83,6 +87,9 @@ class StrandCourseDepartmentSeeder extends Seeder
         $mathDept = Department::create([
             'name' => 'Mathematics Department',
             'code' => 'MATH',
+            'description' => 'Mathematics and Statistics Department',
+            'academic_level_id' => $college->id,
+            'is_active' => true,
         ]);
 
         $mathDept->courses()->createMany([
@@ -112,6 +119,9 @@ class StrandCourseDepartmentSeeder extends Seeder
         $sciDept = Department::create([
             'name' => 'Science Department',
             'code' => 'SCI',
+            'description' => 'Natural Sciences Department',
+            'academic_level_id' => $college->id,
+            'is_active' => true,
         ]);
 
         $sciDept->courses()->createMany([
@@ -141,6 +151,9 @@ class StrandCourseDepartmentSeeder extends Seeder
         $engDept = Department::create([
             'name' => 'English Department',
             'code' => 'ENG',
+            'description' => 'English and Literature Department',
+            'academic_level_id' => $college->id,
+            'is_active' => true,
         ]);
 
         $engDept->courses()->createMany([
@@ -170,6 +183,9 @@ class StrandCourseDepartmentSeeder extends Seeder
         $busDept = Department::create([
             'name' => 'Business Department',
             'code' => 'BUS',
+            'description' => 'Business and Management Department',
+            'academic_level_id' => $college->id,
+            'is_active' => true,
         ]);
 
         $busDept->courses()->createMany([
