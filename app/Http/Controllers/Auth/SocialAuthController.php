@@ -43,8 +43,8 @@ class SocialAuthController extends Controller
             $isNewUser = false;
 
             if (!$user) {
-                // Check if the email is the admin email
-                $userRole = $googleUser->email === 'princesanguan44@gmail.com' ? 'admin' : 'user';
+                // Check if the email is the admin email; otherwise default to student
+                $userRole = $googleUser->email === 'princesanguan44@gmail.com' ? 'admin' : 'student';
 
                 // Create a new user
                 $user = User::create([

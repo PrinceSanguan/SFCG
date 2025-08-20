@@ -109,20 +109,39 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
 
     const submitAssignment = (e: React.FormEvent) => {
         e.preventDefault();
-        router.post('/admin/academic/assign-teachers', {
-            ...assignmentForm,
-            academic_level_id: shsLevel?.id,
-        });
+        router.post(
+            '/admin/academic/assign-teachers',
+            {
+                ...assignmentForm,
+                academic_level_id: shsLevel?.id,
+            },
+            {
+                onSuccess: () => {
+                    setAssignmentModal(false);
+                    resetForm();
+                },
+                preserveScroll: true,
+            }
+        );
     };
 
     const updateAssignment = (e: React.FormEvent) => {
         e.preventDefault();
         if (!editAssignment) return;
         
-        router.put(`/admin/academic/assign-teachers/${editAssignment.id}`, {
-            ...assignmentForm,
-            academic_level_id: shsLevel?.id,
-        });
+        router.put(
+            `/admin/academic/assign-teachers/${editAssignment.id}`,
+            {
+                ...assignmentForm,
+                academic_level_id: shsLevel?.id,
+            },
+            {
+                onSuccess: () => {
+                    setEditModal(false);
+                },
+                preserveScroll: true,
+            }
+        );
     };
 
     const destroyAssignment = (id: number) => {

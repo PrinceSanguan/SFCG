@@ -15,6 +15,7 @@ interface User {
     name: string;
     email: string;
     user_role: string;
+    student_number?: string;
     created_at: string;
     last_login_at?: string;
     parents?: Array<{ id: number; name: string; email: string; pivot?: { relationship_type?: string } }>;
@@ -232,6 +233,17 @@ export default function StudentsList({ user, users, filters, roles }: ListProps)
                                                 </th>
                                                 <th 
                                                     className="cursor-pointer p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800"
+                                                    onClick={() => handleSort('student_number')}
+                                                >
+                                                    Student ID
+                                                    {filters.sort_by === 'student_number' && (
+                                                        <span className="ml-1">
+                                                            {filters.sort_direction === 'desc' ? '↓' : '↑'}
+                                                        </span>
+                                                    )}
+                                                </th>
+                                                <th 
+                                                    className="cursor-pointer p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800"
                                                     onClick={() => handleSort('email')}
                                                 >
                                                     Email
@@ -262,20 +274,12 @@ export default function StudentsList({ user, users, filters, roles }: ListProps)
                                             {users.data.map((tableUser) => (
                                                 <tr key={tableUser.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800">
                                                     <td className="p-3 font-medium">{tableUser.name}</td>
+                                                    <td className="p-3 text-gray-600 dark:text-gray-400">{tableUser.student_number || '—'}</td>
                                                     <td className="p-3 text-gray-600 dark:text-gray-400">{tableUser.email}</td>
                                                     <td className="p-3">
                                                         <Badge variant={getRoleBadgeVariant(tableUser.user_role)}>
                                                             {roles[tableUser.user_role] || tableUser.user_role}
                                                         </Badge>
-                                                    </td>
-                                                    <td className="p-3 text-gray-600 dark:text-gray-400">
-                                                        {new Date(tableUser.created_at).toLocaleDateString()}
-                                                    </td>
-                                                    <td className="p-3 text-gray-600 dark:text-gray-400">
-                                                        {tableUser.last_login_at 
-                                                            ? new Date(tableUser.last_login_at).toLocaleDateString()
-                                                            : 'Never'
-                                                        }
                                                     </td>
                                                     <td className="p-3 text-gray-600 dark:text-gray-400">
                                                         {tableUser.parents && tableUser.parents.length > 0 ? (
@@ -292,6 +296,15 @@ export default function StudentsList({ user, users, filters, roles }: ListProps)
                                                         ) : (
                                                             <span className="text-xs text-gray-400">No parents linked</span>
                                                         )}
+                                                    </td>
+                                                    <td className="p-3 text-gray-600 dark:text-gray-400">
+                                                        {new Date(tableUser.created_at).toLocaleDateString()}
+                                                    </td>
+                                                    <td className="p-3 text-gray-600 dark:text-gray-400">
+                                                        {tableUser.last_login_at 
+                                                            ? new Date(tableUser.last_login_at).toLocaleDateString()
+                                                            : 'Never'
+                                                        }
                                                     </td>
                                                     <td className="p-3">
                                                         <div className="flex items-center gap-2">

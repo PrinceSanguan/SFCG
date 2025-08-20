@@ -32,6 +32,7 @@ export default function CreateStudent({ user, roles, errors, yearLevels }: Creat
         password: '',
         password_confirmation: '',
         year_level: '',
+        student_number: '',
     });
 
     const handleSubmit = (e: FormEvent) => {
@@ -146,6 +147,23 @@ export default function CreateStudent({ user, roles, errors, yearLevels }: Creat
                                                     ))}
                                                 </SelectContent>
                                             </Select>
+                                        </div>
+
+                                        {/* Student ID - optional (auto-generated if blank) */}
+                                        <div className="space-y-2">
+                                            <Label htmlFor="student_number">Student ID</Label>
+                                            <Input
+                                                id="student_number"
+                                                type="text"
+                                                value={data.student_number}
+                                                onChange={(e) => setData('student_number', e.target.value)}
+                                                placeholder="e.g. EL-2025-000123 (leave empty to auto-generate)"
+                                            />
+                                            {errors?.student_number && (
+                                                <Alert variant="destructive">
+                                                    <AlertDescription>{errors.student_number}</AlertDescription>
+                                                </Alert>
+                                            )}
                                         </div>
 
                                         {/* Password */}

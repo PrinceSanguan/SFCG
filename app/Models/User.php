@@ -26,6 +26,7 @@ class User extends Authenticatable
         'google_id',
         'user_role',
         'year_level',
+        'student_number',
         'last_login_at',
     ];
 
@@ -40,6 +41,13 @@ class User extends Authenticatable
     ];
 
     /**
+     * Default model attributes.
+     */
+    protected $attributes = [
+        'user_role' => 'student',
+    ];
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
@@ -51,6 +59,36 @@ class User extends Authenticatable
             'last_login_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (User $user) {
+            if ($user->user_role === 'student' && empty($user->student_number)) {
+                $user->student_number = static::generateStudentNumber($user);
+            }
+        });
+    }
+
+    public static function generateStudentNumber(User $user): string
+    {
+        $prefixMap = [
+            'elementary' => 'EL',
+            'junior_highschool' => 'JH',
+            'senior_highschool' => 'SH',
+            'college' => 'CO',
+        ];
+
+        $level = $user->year_level ?: 'college';
+        $prefix = $prefixMap[$level] ?? 'ST';
+        $year = now()->format('Y');
+
+        do {
+            $sequence = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            $candidate = $prefix . '-' . $year . '-' . $sequence;
+        } while (static::where('student_number', $candidate)->exists());
+
+        return $candidate;
     }
 
     public static function getYearLevels(): array

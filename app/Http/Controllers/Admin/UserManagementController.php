@@ -112,7 +112,8 @@ class UserManagementController extends Controller
             'email' => 'required|string|email|max:255|unique:users',
             'user_role' => 'required|in:admin,registrar,instructor,teacher,adviser,chairperson,principal,student,parent',
             'password' => 'required|string|min:8|confirmed',
-            'year_level' => 'nullable|string|in:elementary,junior_highschool,senior_highschool,college',
+            'year_level' => 'required_if:user_role,student|string|in:elementary,junior_highschool,senior_highschool,college|nullable',
+            'student_number' => 'nullable|string|max:40|unique:users,student_number',
         ]);
 
         if ($validator->fails()) {
@@ -125,6 +126,7 @@ class UserManagementController extends Controller
             'user_role' => $request->user_role,
             'password' => Hash::make($request->password),
             'year_level' => $request->user_role === 'student' ? $request->year_level : null,
+            'student_number' => $request->user_role === 'student' ? $request->student_number : null,
         ]);
 
         // Log the activity
@@ -192,6 +194,7 @@ class UserManagementController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
             'user_role' => 'required|in:admin,registrar,instructor,teacher,adviser,chairperson,principal,student,parent',
+            'student_number' => 'nullable|string|max:40|unique:users,student_number,' . $user->id,
         ]);
 
         if ($validator->fails()) {
@@ -204,6 +207,7 @@ class UserManagementController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'user_role' => $request->user_role,
+            'student_number' => $request->user_role === 'student' ? $request->student_number : $user->student_number,
         ]);
 
         // Log the activity
@@ -421,7 +425,8 @@ class UserManagementController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
-            'year_level' => 'nullable|string|in:elementary,junior_highschool,senior_highschool,college',
+            'year_level' => 'required_if:user_role,student|string|in:elementary,junior_highschool,senior_highschool,college|nullable',
+            'student_number' => 'nullable|string|max:40|unique:users,student_number',
         ]);
 
         if ($validator->fails()) {
@@ -434,6 +439,7 @@ class UserManagementController extends Controller
             'user_role' => $role,
             'password' => Hash::make($request->password),
             'year_level' => $role === 'student' ? $request->year_level : null,
+            'student_number' => $role === 'student' ? $request->student_number : null,
         ]);
 
         // Log the activity
@@ -505,10 +511,10 @@ class UserManagementController extends Controller
             'Content-Disposition' => 'attachment; filename="students_template.csv"',
         ];
 
-        $columns = ['name', 'email', 'password'];
+        $columns = ['name', 'email', 'password', 'year_level', 'student_number'];
         $sampleRows = [
-            ['Juan Dela Cruz', 'juan@example.com', 'password123'],
-            ['Maria Santos', 'maria@example.com', 'password123'],
+            ['Juan Dela Cruz', 'juan@example.com', 'password123', 'senior_highschool', 'SH-2025-000001'],
+            ['Maria Santos', 'maria@example.com', 'password123', 'college', 'CO-2025-000002'],
         ];
 
         $callback = function () use ($columns, $sampleRows) {
@@ -538,21 +544,25 @@ class UserManagementController extends Controller
         $created = 0;
         $errors = [];
 
-        $expected = ['name', 'email', 'password'];
+        $expected = ['name', 'email', 'password', 'year_level', 'student_number'];
         if (!$header || array_map('strtolower', $header) !== $expected) {
-            return back()->with('error', 'Invalid CSV format. Expected columns: name,email,password');
+            return back()->with('error', 'Invalid CSV format. Expected columns: name,email,password,year_level,student_number');
         }
 
         while (($row = fgetcsv($handle)) !== false) {
-            [$name, $email, $password] = $row;
+            [$name, $email, $password, $yearLevel, $studentNumber] = $row;
             $validator = Validator::make([
                 'name' => $name,
                 'email' => $email,
                 'password' => $password,
+                'year_level' => $yearLevel,
+                'student_number' => $studentNumber,
             ], [
                 'name' => 'required|string|max:255',
                 'email' => 'required|string|email|max:255|unique:users,email',
                 'password' => 'required|string|min:8',
+                'year_level' => 'required|string|in:elementary,junior_highschool,senior_highschool,college',
+                'student_number' => 'nullable|string|max:40|unique:users,student_number',
             ]);
 
             if ($validator->fails()) {
@@ -568,6 +578,8 @@ class UserManagementController extends Controller
                 'email' => $email,
                 'user_role' => 'student',
                 'password' => Hash::make($password),
+                'year_level' => $yearLevel,
+                'student_number' => $studentNumber ?: null,
             ]);
             $created++;
         }
@@ -623,7 +635,7 @@ class UserManagementController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
             'user_role' => 'required|in:admin,registrar,instructor,teacher,adviser,chairperson,principal,student,parent',
-            'year_level' => 'nullable|string|in:elementary,junior_highschool,senior_highschool,college',
+            'year_level' => 'required_if:user_role,student|string|in:elementary,junior_highschool,senior_highschool,college|nullable',
         ]);
 
         if ($validator->fails()) {
