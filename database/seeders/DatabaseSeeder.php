@@ -15,5 +15,12 @@ class DatabaseSeeder extends Seeder
         $this->call(ParentStudentSeeder::class);
         $this->call(StrandCourseDepartmentSeeder::class);
         $this->call(AcademicManagementSeeder::class);
+        // Seed honor system data
+        $this->call([
+            HonorTypesSeeder::class,
+            HonorCriteriaSeeder::class,
+            HonorDemoSeeder::class,
+            HonorSampleDataSeeder::class, // Add comprehensive sample data
+        ]);
     }
 }

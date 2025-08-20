@@ -149,6 +149,6 @@ Route::middleware(['auth'])->group(function () {
 // Parent Dashboard
 Route::middleware(['auth'])->group(function () {
     Route::get('/parent/dashboard', function () {
-        return Inertia::render('Welcome', ['message' => 'Welcome to Parent Dashboard - Coming Soon!']);
+        return Inertia::render('Parent/Dashboard');
     })->name('parent.dashboard');
 });

@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\Admin\ParentManagementController;
 use App\Http\Controllers\Admin\ActivityLogController;
 use App\Http\Controllers\Admin\AcademicController;
+use Illuminate\Http\Request;
 
 /*
 |--------------------------------------------------------------------------
@@ -253,6 +254,13 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/aca
     Route::post('/subjects', [AcademicController::class, 'storeSubject'])->name('subjects.store');
     Route::put('/subjects/{subject}', [AcademicController::class, 'updateSubject'])->name('subjects.update');
     Route::delete('/subjects/{subject}', [AcademicController::class, 'destroySubject'])->name('subjects.destroy');
+
+    // Honors
+    Route::get('/honors', [AcademicController::class, 'honors'])->name('honors');
+    Route::post('/honors/criteria', [AcademicController::class, 'saveHonorCriteria'])->name('honors.criteria.save');
+    Route::post('/honors/generate', [AcademicController::class, 'generateHonorRoll'])->name('honors.generate');
+    Route::post('/honors/{result}/override', [AcademicController::class, 'overrideHonorResult'])->name('honors.override');
+    Route::get('/honors/export', [AcademicController::class, 'exportHonorRoll'])->name('honors.export');
     
     Route::get('/programs', [AcademicController::class, 'programs'])->name('programs'); // strands/courses/departments
     
@@ -378,4 +386,27 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/aca
     Route::post('/assign-advisers', [AcademicController::class, 'storeClassAdviserAssignment'])->name('assign-advisers.store');
     Route::put('/assign-advisers/{assignment}', [AcademicController::class, 'updateClassAdviserAssignment'])->name('assign-advisers.update');
     Route::delete('/assign-advisers/{assignment}', [AcademicController::class, 'destroyClassAdviserAssignment'])->name('assign-advisers.destroy');
+    
+    // API routes for honor system
+    Route::prefix('api')->name('api.')->group(function () {
+        Route::get('/academic-levels', function () {
+            return \App\Models\AcademicLevel::all();
+        })->name('academic-levels');
+        
+        Route::get('/honor-types', function () {
+            return \App\Models\HonorType::all();
+        })->name('honor-types');
+        
+        Route::get('/honor-criteria', function () {
+            return \App\Models\HonorCriterion::with(['honorType', 'academicLevel'])->get();
+        })->name('honor-criteria');
+        
+        Route::get('/honor-results', function (Request $request) {
+            $query = \App\Models\HonorResult::with(['honorType', 'student'])
+                ->where('academic_level_id', $request->academic_level_id)
+                ->where('school_year', $request->school_year);
+            
+            return $query->get();
+        })->name('honor-results');
+    });
 });

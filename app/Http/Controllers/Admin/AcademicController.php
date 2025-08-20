@@ -15,10 +15,15 @@ use App\Models\Subject;
 use App\Models\TeacherSubjectAssignment;
 use App\Models\InstructorCourseAssignment;
 use App\Models\ClassAdviserAssignment;
+use App\Models\HonorType;
+use App\Models\HonorCriterion;
+use App\Models\HonorResult;
+use App\Models\StudentGrade;
 use App\Models\User;
 use App\Models\ActivityLog;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class AcademicController extends Controller
 {
@@ -169,7 +174,7 @@ class AcademicController extends Controller
             ->get();
         
         $academicLevels = AcademicLevel::orderBy('sort_order')->get();
-        $gradingPeriods = GradingPeriod::orderBy('sort_order')->get();
+        $gradingPeriods = GradingPeriod::orderBy('academic_level_id')->orderBy('sort_order')->get();
         
         return Inertia::render('Admin/Academic/Subjects', [
             'user' => $this->sharedUser(),
@@ -177,6 +182,290 @@ class AcademicController extends Controller
             'academicLevels' => $academicLevels,
             'gradingPeriods' => $gradingPeriods,
         ]);
+    }
+
+    // Honor Management
+    public function honors()
+    {
+        $academicLevels = AcademicLevel::orderBy('sort_order')->get();
+        $honorTypes = HonorType::orderBy('scope')->orderBy('name')->get();
+        $criteria = HonorCriterion::with(['honorType', 'academicLevel'])->get();
+        
+        // Get current school year (you can modify this logic as needed)
+        $currentYear = date('Y');
+        $schoolYears = [
+            ($currentYear - 1) . '-' . $currentYear,
+            $currentYear . '-' . ($currentYear + 1),
+            ($currentYear + 1) . '-' . ($currentYear + 2),
+        ];
+
+        // Get existing honor results for the current school year
+        $honorResults = HonorResult::with(['honorType', 'student'])
+            ->where('school_year', '2024-2025') // Use the school year that matches our sample data
+            ->get();
+
+        // Group results by academic_level_id and honor_type_id for easy UI rendering
+        $groupedHonorResults = [];
+        foreach ($honorResults as $result) {
+            $levelId = (string) $result->academic_level_id;
+            $typeId = (string) $result->honor_type_id;
+            if (!isset($groupedHonorResults[$levelId])) {
+                $groupedHonorResults[$levelId] = [];
+            }
+            if (!isset($groupedHonorResults[$levelId][$typeId])) {
+                $groupedHonorResults[$levelId][$typeId] = [];
+            }
+            $groupedHonorResults[$levelId][$typeId][] = $result;
+        }
+
+        // Debug logging
+        \Illuminate\Support\Facades\Log::info('🔍 DEBUG: Honors method data:', [
+            'academicLevelsCount' => $academicLevels->count(),
+            'honorTypesCount' => $honorTypes->count(),
+            'criteriaCount' => $criteria->count(),
+            'schoolYears' => $schoolYears,
+            'honorResultsCount' => $honorResults->count(),
+            'groupedKeys' => array_keys($groupedHonorResults),
+        ]);
+
+        return Inertia::render('Admin/Academic/Honors/Index', [
+            'user' => $this->sharedUser(),
+            'academicLevels' => $academicLevels,
+            'honorTypes' => $honorTypes,
+            'criteria' => $criteria,
+            'schoolYears' => $schoolYears,
+            'honorResults' => $honorResults,
+            'groupedHonorResults' => $groupedHonorResults,
+        ]);
+    }
+
+    public function saveHonorCriteria(Request $request)
+    {
+        $data = $request->validate([
+            'academic_level_id' => 'required|exists:academic_levels,id',
+            'honor_type_id' => 'required|exists:honor_types,id',
+            'min_gpa' => 'nullable|numeric|min:0|max:100',
+            'max_gpa' => 'nullable|numeric|min:0|max:100',
+            'min_grade' => 'nullable|integer|min:0|max:100',
+            'min_grade_all' => 'nullable|integer|min:1|max:100',
+            'min_year' => 'nullable|integer|min:1|max:10',
+            'max_year' => 'nullable|integer|min:1|max:10',
+            'require_consistent_honor' => 'boolean',
+            'additional_rules' => 'array|nullable',
+        ]);
+
+        HonorCriterion::updateOrCreate(
+            [
+                'academic_level_id' => $data['academic_level_id'],
+                'honor_type_id' => $data['honor_type_id'],
+            ],
+            $data
+        );
+
+        return back()->with('success', 'Honor criteria saved.');
+    }
+
+    public function storeHonorCriterion(Request $request)
+    {
+        return $this->saveHonorCriteria($request);
+    }
+
+    public function destroyHonorCriterion(HonorCriterion $criterion)
+    {
+        $criterion->delete();
+        return back()->with('success', 'Honor criterion deleted successfully.');
+    }
+
+    public function updateHonorCriterion(Request $request, HonorCriterion $criterion)
+    {
+        $data = $request->validate([
+            'academic_level_id' => 'required|exists:academic_levels,id',
+            'honor_type_id' => 'required|exists:honor_types,id',
+            'min_gpa' => 'nullable|numeric|min:0|max:100',
+            'max_gpa' => 'nullable|numeric|min:0|max:100',
+            'min_grade' => 'nullable|integer|min:0|max:100',
+            'min_grade_all' => 'nullable|integer|min:1|max:100',
+            'min_year' => 'nullable|integer|min:1|max:10',
+            'max_year' => 'nullable|integer|min:1|max:10',
+            'require_consistent_honor' => 'boolean',
+            'additional_rules' => 'array|nullable',
+        ]);
+
+        $criterion->update($data);
+        return back()->with('success', 'Honor criterion updated successfully.');
+    }
+
+    public function generateHonorRoll(Request $request)
+    {
+        $validated = $request->validate([
+            'academic_level_id' => 'required|exists:academic_levels,id',
+            'school_year' => 'required|string',
+        ]);
+
+        $level = AcademicLevel::findOrFail($validated['academic_level_id']);
+        $criteria = HonorCriterion::where('academic_level_id', $level->id)->get();
+        
+        $honorResults = [];
+        
+        foreach ($criteria as $criterion) {
+            $students = User::where('user_role', 'student')
+                ->where('year_level', $level->key)
+                ->get();
+            
+            $qualifiedStudents = [];
+            
+            foreach ($students as $student) {
+                $grades = StudentGrade::where('student_id', $student->id)
+                    ->where('academic_level_id', $level->id)
+                    ->where('school_year', $validated['school_year']);
+                
+                // Apply year restrictions for college honors
+                if ($criterion->min_year || $criterion->max_year) {
+                    $grades = $grades->whereBetween('year_of_study', [
+                        $criterion->min_year ?? 1,
+                        $criterion->max_year ?? 4
+                    ]);
+                }
+                
+                $grades = $grades->pluck('grade');
+                
+                if ($grades->isEmpty()) {
+                    continue;
+                }
+                
+                $gpa = round($grades->avg(), 2);
+                $minGrade = (int) floor($grades->min());
+                
+                // Check if student qualifies for this honor
+                $qualifies = true;
+                
+                // GPA requirements
+                if ($criterion->min_gpa && $gpa < $criterion->min_gpa) {
+                    $qualifies = false;
+                }
+                if ($criterion->max_gpa && $gpa > $criterion->max_gpa) {
+                    $qualifies = false;
+                }
+                
+                // Minimum grade requirements
+                if ($criterion->min_grade && $minGrade < $criterion->min_grade) {
+                    $qualifies = false;
+                }
+                
+                // Consistent honor standing (for Dean's List)
+                if ($criterion->require_consistent_honor) {
+                    // Check if student has been on honor roll in previous years
+                    $previousHonors = HonorResult::where('student_id', $student->id)
+                        ->where('academic_level_id', $level->id)
+                        ->where('school_year', '!=', $validated['school_year'])
+                        ->where('is_overridden', false)
+                        ->exists();
+                    
+                    if (!$previousHonors) {
+                        $qualifies = false;
+                    }
+                }
+                
+                if ($qualifies) {
+                    $qualifiedStudents[] = [
+                        'id' => $student->id,
+                        'name' => $student->name,
+                        'student_number' => $student->student_number,
+                        'gpa' => $gpa,
+                        'min_grade' => $minGrade,
+                        'grades_count' => $grades->count(),
+                    ];
+                }
+            }
+            
+            if (!empty($qualifiedStudents)) {
+                $honorResults[] = [
+                    'honor_type' => $criterion->honorType,
+                    'criterion' => $criterion,
+                    'students' => $qualifiedStudents,
+                    'count' => count($qualifiedStudents),
+                ];
+            }
+        }
+        
+        // Store results in honor_results table
+        foreach ($honorResults as $result) {
+            foreach ($result['students'] as $student) {
+                HonorResult::updateOrCreate([
+                    'student_id' => $student['id'],
+                    'honor_type_id' => $result['honor_type']->id,
+                    'academic_level_id' => $level->id,
+                    'school_year' => $validated['school_year'],
+                ], [
+                    'gpa' => $student['gpa'],
+                    'is_overridden' => false,
+                ]);
+            }
+        }
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Honor roll generated successfully',
+            'data' => [
+                'academic_level' => $level->name,
+                'school_year' => $validated['school_year'],
+                'honor_results' => $honorResults,
+                'total_students' => array_sum(array_column($honorResults, 'count')),
+            ]
+        ]);
+    }
+
+    public function overrideHonorResult(Request $request, HonorResult $result)
+    {
+        $data = $request->validate([
+            'honor_type_id' => 'required|exists:honor_types,id',
+            'override_reason' => 'required|string|max:1000',
+        ]);
+
+        $result->update([
+            'honor_type_id' => $data['honor_type_id'],
+            'is_overridden' => true,
+            'override_reason' => $data['override_reason'],
+        ]);
+
+        return back()->with('success', 'Honor result overridden.');
+    }
+
+    public function exportHonorRoll(Request $request)
+    {
+        $validated = $request->validate([
+            'academic_level_id' => 'required|exists:academic_levels,id',
+            'school_year' => 'required|string',
+        ]);
+
+        $results = HonorResult::with(['student', 'honorType'])
+            ->where('academic_level_id', $validated['academic_level_id'])
+            ->where('school_year', $validated['school_year'])
+            ->orderBy('honor_type_id')
+            ->get();
+
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="honor_roll_'.$validated['school_year'].'.csv"',
+        ];
+
+        $callback = function () use ($results) {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, ['Student ID', 'Name', 'Honor', 'GPA', 'Overridden', 'Reason']);
+            foreach ($results as $row) {
+                fputcsv($handle, [
+                    $row->student->student_number ?? $row->student->id,
+                    $row->student->name,
+                    $row->honorType->name,
+                    $row->gpa,
+                    $row->is_overridden ? 'Yes' : 'No',
+                    $row->override_reason,
+                ]);
+            }
+            fclose($handle);
+        };
+
+        return response()->stream($callback, 200, $headers);
     }
 
     // Subject Management
