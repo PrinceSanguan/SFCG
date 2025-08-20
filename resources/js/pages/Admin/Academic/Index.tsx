@@ -67,12 +67,6 @@ export default function AcademicIndex({ user }: { user: User }) {
                                     <Link href={route('admin.academic.subjects')}><Button variant="outline">Manage Subjects</Button></Link>
                                 </CardContent>
                             </Card>
-                            <Card>
-                                <CardHeader><CardTitle>Honor Tracking & Ranking</CardTitle></CardHeader>
-                                <CardContent>
-                                    <Link href={route('admin.academic.honors')}><Button variant="outline">Open Honor Module</Button></Link>
-                                </CardContent>
-                            </Card>
                         </div>
                     </div>
                 </main>

@@ -233,11 +233,22 @@ export function Sidebar({ user }: SidebarProps) {
                     {/* Academic & Curriculum Management */}
                     <Link href={route('admin.academic.index')} className="w-full">
                         <Button
-                            variant={isActive('/admin/academic') ? 'secondary' : 'ghost'}
+                            variant={isActive('/admin/academic') && !isActive('/admin/academic/honors') ? 'secondary' : 'ghost'}
                             className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
                         >
                             <Notebook size={18} />
                             Academic & Curriculum
+                        </Button>
+                    </Link>
+
+                    {/* Honor Tracking & Ranking */}
+                    <Link href={route('admin.academic.honors')} className="w-full">
+                        <Button
+                            variant={isActive('/admin/academic/honors') ? 'secondary' : 'ghost'}
+                            className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                        >
+                            <Crown size={18} />
+                            Honor Tracking & Ranking
                         </Button>
                     </Link>
 
