@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\Admin\ParentManagementController;
 use App\Http\Controllers\Admin\ActivityLogController;
 use App\Http\Controllers\Admin\AcademicController;
+use App\Http\Controllers\Admin\CertificateController;
 use Illuminate\Http\Request;
 
 /*
@@ -409,4 +410,15 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/aca
             return $query->get();
         })->name('honor-results');
     });
+
+    // Certificates
+    Route::get('/certificates', [CertificateController::class, 'index'])->name('certificates.index');
+    Route::post('/certificates/templates', [CertificateController::class, 'storeTemplate'])->name('certificates.templates.store');
+    Route::put('/certificates/templates/{template}', [CertificateController::class, 'updateTemplate'])->name('certificates.templates.update');
+    Route::delete('/certificates/templates/{template}', [CertificateController::class, 'destroyTemplate'])->name('certificates.templates.destroy');
+    Route::post('/certificates/generate', [CertificateController::class, 'generate'])->name('certificates.generate');
+    Route::post('/certificates/generate-bulk', [CertificateController::class, 'generateBulk'])->name('certificates.generate-bulk');
+    Route::get('/certificates/resolve-student', [CertificateController::class, 'resolveStudentApi'])->name('certificates.resolve-student');
+    Route::get('/certificates/{certificate}/download', [CertificateController::class, 'download'])->name('certificates.download');
+    Route::get('/certificates/{certificate}/print', [CertificateController::class, 'print'])->name('certificates.print');
 });

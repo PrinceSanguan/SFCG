@@ -22,5 +22,7 @@ class DatabaseSeeder extends Seeder
             HonorDemoSeeder::class,
             HonorSampleDataSeeder::class, // Add comprehensive sample data
         ]);
+        // Seed default certificate templates
+        $this->call(CertificateTemplatesSeeder::class);
     }
 }

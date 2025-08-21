@@ -13,8 +13,8 @@ import { BarChart, ChevronDown, CreditCard, LayoutDashboard, Settings, Users, Us
 import { useState } from 'react';
 
 interface User {
-    name: string;
-    email: string;
+    name?: string;
+    email?: string;
 }
 
 interface SidebarProps {
@@ -252,6 +252,17 @@ export function Sidebar({ user }: SidebarProps) {
                         </Button>
                     </Link>
 
+                    {/* Certificates */}
+                    <Link href="/admin/academic/certificates" className="w-full">
+                        <Button
+                            variant={isActive('/admin/academic/certificates') ? 'secondary' : 'ghost'}
+                            className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                        >
+                            <Notebook size={18} />
+                            Certificates
+                        </Button>
+                    </Link>
+
                     {/* Disabled menu items with opacity */}
                     <Button
                         variant="ghost"
@@ -289,12 +300,12 @@ export function Sidebar({ user }: SidebarProps) {
             <div className="border-t p-4 dark:border-gray-700">
                 <div className="flex items-center gap-3">
                     <Avatar>
-                        <AvatarImage src="/api/placeholder/32/32" alt={user.name} />
-                        <AvatarFallback>{user.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                        <AvatarImage src="/api/placeholder/32/32" alt={user?.name ?? 'User'} />
+                        <AvatarFallback>{(user?.name ?? 'U').substring(0, 2).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col">
-                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{user.name}</span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">{user.email}</span>
+                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{user?.name ?? 'User'}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">{user?.email ?? ''}</span>
                     </div>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
