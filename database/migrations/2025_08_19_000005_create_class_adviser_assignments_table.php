@@ -16,16 +16,16 @@ return new class extends Migration
             $table->id();
             $table->foreignId('adviser_id')->constrained('users')->onDelete('cascade');
             $table->foreignId('academic_level_id')->constrained()->onDelete('cascade');
-            $table->string('grade_level'); // e.g., "Grade 1", "Grade 7"
-            $table->string('section'); // e.g., "A", "B", "Diamond"
-            $table->string('school_year');
+            $table->string('grade_level', 50); // e.g., "Grade 1", "Grade 7"
+            $table->string('section', 50); // e.g., "A", "B", "Diamond"
+            $table->string('school_year', 20); // e.g., "2024-2025"
             $table->boolean('is_active')->default(true);
             $table->timestamp('assigned_at')->useCurrent();
             $table->foreignId('assigned_by')->constrained('users')->onDelete('cascade');
             $table->text('notes')->nullable();
             $table->timestamps();
 
-            // Prevent duplicate assignments
+            // Prevent duplicate assignments - optimized for MySQL key length
             $table->unique(['adviser_id', 'academic_level_id', 'grade_level', 'section', 'school_year'], 'unique_class_adviser_assignment');
         });
     }

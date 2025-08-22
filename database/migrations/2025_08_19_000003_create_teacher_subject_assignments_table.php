@@ -14,7 +14,7 @@ return new class extends Migration
             $table->foreignId('subject_id')->constrained()->onDelete('cascade');
             $table->foreignId('academic_level_id')->constrained()->onDelete('cascade');
             $table->foreignId('grading_period_id')->nullable()->constrained()->onDelete('set null');
-            $table->string('school_year');
+            $table->string('school_year', 20); // e.g., "2024-2025"
             $table->boolean('is_active')->default(true);
             $table->timestamp('assigned_at')->useCurrent();
             $table->foreignId('assigned_by')->constrained('users')->onDelete('cascade');

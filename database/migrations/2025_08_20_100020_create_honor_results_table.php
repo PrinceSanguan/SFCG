@@ -17,7 +17,7 @@ return new class extends Migration
             $table->foreignId('student_id')->constrained('users')->onDelete('cascade');
             $table->foreignId('honor_type_id')->constrained('honor_types')->onDelete('cascade');
             $table->foreignId('academic_level_id')->constrained()->onDelete('cascade');
-            $table->string('school_year')->index();
+            $table->string('school_year', 20)->index(); // e.g., "2024-2025"
             $table->decimal('gpa', 5, 2)->nullable();
             $table->boolean('is_overridden')->default(false);
             $table->text('override_reason')->nullable();
