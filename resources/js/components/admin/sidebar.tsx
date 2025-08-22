@@ -263,6 +263,17 @@ export function Sidebar({ user }: SidebarProps) {
                         </Button>
                     </Link>
 
+                    {/* Reports and Archiving */}
+                    <Link href={route('admin.reports.index')} className="w-full">
+                        <Button
+                            variant={isActive('/admin/reports') ? 'secondary' : 'ghost'}
+                            className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                        >
+                            <BarChart size={18} />
+                            Reports & Archiving
+                        </Button>
+                    </Link>
+
                     {/* Disabled menu items with opacity */}
                     <Button
                         variant="ghost"
@@ -284,15 +295,7 @@ export function Sidebar({ user }: SidebarProps) {
                         <span className="ml-auto text-xs">(Soon)</span>
                     </Button>
 
-                    <Button
-                        variant="ghost"
-                        disabled
-                        className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-gray-400 opacity-50 dark:text-gray-500"
-                    >
-                        <CreditCard size={18} />
-                        Reports
-                        <span className="ml-auto text-xs">(Soon)</span>
-                    </Button>
+
                 </nav>
             </div>
 

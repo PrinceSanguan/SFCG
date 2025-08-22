@@ -11,18 +11,18 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->call(UserSeeder::class);
-        $this->call(ParentStudentSeeder::class);
-        $this->call(StrandCourseDepartmentSeeder::class);
-        $this->call(AcademicManagementSeeder::class);
-        // Seed honor system data
         $this->call([
+            UserSeeder::class,
+            AcademicManagementSeeder::class,
+            ParentStudentSeeder::class,
+            StrandCourseDepartmentSeeder::class,
+            UpdateDepartmentsAcademicLevelSeeder::class,
             HonorTypesSeeder::class,
             HonorCriteriaSeeder::class,
             HonorDemoSeeder::class,
-            HonorSampleDataSeeder::class, // Add comprehensive sample data
+            HonorSampleDataSeeder::class,
+            CertificateTemplatesSeeder::class,
+            SampleGradesSeeder::class,
         ]);
-        // Seed default certificate templates
-        $this->call(CertificateTemplatesSeeder::class);
     }
 }

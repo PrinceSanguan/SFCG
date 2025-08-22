@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\ParentManagementController;
 use App\Http\Controllers\Admin\ActivityLogController;
 use App\Http\Controllers\Admin\AcademicController;
 use App\Http\Controllers\Admin\CertificateController;
+use App\Http\Controllers\Admin\ReportsController;
 use Illuminate\Http\Request;
 
 /*
@@ -422,4 +423,12 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/aca
     Route::get('/certificates/resolve-student', [CertificateController::class, 'resolveStudentApi'])->name('certificates.resolve-student');
     Route::get('/certificates/{certificate}/download', [CertificateController::class, 'download'])->name('certificates.download');
     Route::get('/certificates/{certificate}/print', [CertificateController::class, 'print'])->name('certificates.print');
+});
+
+// Reports and Archiving routes
+Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/reports')->name('admin.reports.')->group(function () {
+    Route::get('/', [ReportsController::class, 'index'])->name('index');
+    Route::post('/grade-report', [ReportsController::class, 'generateGradeReport'])->name('grade-report');
+    Route::post('/honor-statistics', [ReportsController::class, 'generateHonorStatistics'])->name('honor-statistics');
+    Route::post('/archive-records', [ReportsController::class, 'archiveAcademicRecords'])->name('archive-records');
 });
