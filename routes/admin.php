@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\ActivityLogController;
 use App\Http\Controllers\Admin\AcademicController;
 use App\Http\Controllers\Admin\CertificateController;
 use App\Http\Controllers\Admin\ReportsController;
+use App\Http\Controllers\Admin\NotificationController;
 use Illuminate\Http\Request;
 
 /*
@@ -431,4 +432,16 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/rep
     Route::post('/grade-report', [ReportsController::class, 'generateGradeReport'])->name('grade-report');
     Route::post('/honor-statistics', [ReportsController::class, 'generateHonorStatistics'])->name('honor-statistics');
     Route::post('/archive-records', [ReportsController::class, 'archiveAcademicRecords'])->name('archive-records');
+});
+
+// Notification and Transparency routes
+Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/notifications')->name('admin.notifications.')->group(function () {
+    Route::get('/', [NotificationController::class, 'index'])->name('index');
+    Route::post('/preview-grade-notifications', [NotificationController::class, 'previewGradeNotifications'])->name('preview-grade');
+    Route::post('/preview-honor-notifications', [NotificationController::class, 'previewHonorNotifications'])->name('preview-honor');
+    Route::post('/send-grade-notifications', [NotificationController::class, 'sendGradeNotifications'])->name('send-grade');
+    Route::post('/send-honor-notifications', [NotificationController::class, 'sendHonorNotifications'])->name('send-honor');
+    Route::post('/send-general-announcement', [NotificationController::class, 'sendGeneralAnnouncement'])->name('send-announcement');
+    Route::get('/recipients', [NotificationController::class, 'getRecipients'])->name('recipients');
+    Route::post('/{notification}/resend', [NotificationController::class, 'resendFailed'])->name('resend');
 });
