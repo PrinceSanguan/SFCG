@@ -9,7 +9,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Link, usePage } from '@inertiajs/react';
-import { BarChart, Bell, ChevronDown, LayoutDashboard, Settings, Users, UserCheck, ChevronRight, GraduationCap, BookOpen, UserCog, Crown, Building2, UserPlus, Notebook } from 'lucide-react';
+import { BarChart, Bell, ChevronDown, LayoutDashboard, Settings, Users, UserCheck, ChevronRight, GraduationCap, BookOpen, UserCog, Crown, Building2, UserPlus, Notebook, Shield } from 'lucide-react';
 import { useState } from 'react';
 
 interface User {
@@ -282,6 +282,17 @@ export function Sidebar({ user }: SidebarProps) {
                         >
                             <Bell size={18} />
                             Notifications
+                        </Button>
+                    </Link>
+
+                    {/* System Audit & Security */}
+                    <Link href={route('admin.security.index')} className="w-full">
+                        <Button
+                            variant={isActive('/admin/security') ? 'secondary' : 'ghost'}
+                            className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                        >
+                            <Shield size={18} />
+                            Security & Audit
                         </Button>
                     </Link>
 

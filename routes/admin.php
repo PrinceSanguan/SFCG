@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\AcademicController;
 use App\Http\Controllers\Admin\CertificateController;
 use App\Http\Controllers\Admin\ReportsController;
 use App\Http\Controllers\Admin\NotificationController;
+use App\Http\Controllers\Admin\SecurityController;
 use Illuminate\Http\Request;
 
 /*
@@ -444,4 +445,16 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/not
     Route::post('/send-general-announcement', [NotificationController::class, 'sendGeneralAnnouncement'])->name('send-announcement');
     Route::get('/recipients', [NotificationController::class, 'getRecipients'])->name('recipients');
     Route::post('/{notification}/resend', [NotificationController::class, 'resendFailed'])->name('resend');
+});
+
+// System Audit and Security routes
+Route::middleware(['auth', 'role:admin'])->prefix('admin/security')->name('admin.security.')->group(function () {
+    Route::get('/', [SecurityController::class, 'index'])->name('index');
+    Route::get('/activity-logs', [SecurityController::class, 'activityLogs'])->name('activity-logs');
+    Route::get('/login-sessions', [SecurityController::class, 'loginSessions'])->name('login-sessions');
+    Route::delete('/sessions/{sessionId}', [SecurityController::class, 'terminateSession'])->name('terminate-session');
+    Route::delete('/users/{userId}/sessions', [SecurityController::class, 'terminateUserSessions'])->name('terminate-user-sessions');
+    Route::post('/backups', [SecurityController::class, 'createBackup'])->name('create-backup');
+    Route::get('/backups/{filename}/download', [SecurityController::class, 'downloadBackup'])->name('download-backup');
+    Route::delete('/backups/{filename}', [SecurityController::class, 'deleteBackup'])->name('delete-backup');
 });
