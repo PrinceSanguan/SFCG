@@ -43,6 +43,63 @@ class CertificateController extends Controller
         ]);
     }
 
+    public function search(Request $request)
+    {
+        $query = Certificate::with(['student', 'template', 'academicLevel']);
+
+        // Search by serial number
+        if ($request->filled('serial_number')) {
+            $query->where('serial_number', 'like', '%' . $request->serial_number . '%');
+        }
+
+        // Search by student name
+        if ($request->filled('student_name')) {
+            $query->whereHas('student', function ($q) use ($request) {
+                $q->where('name', 'like', '%' . $request->student_name . '%');
+            });
+        }
+
+        // Search by student number
+        if ($request->filled('student_number')) {
+            $query->whereHas('student', function ($q) use ($request) {
+                $q->where('student_number', 'like', '%' . $request->student_number . '%');
+            });
+        }
+
+        // Filter by template
+        if ($request->filled('template_id')) {
+            $query->where('template_id', $request->template_id);
+        }
+
+        // Filter by academic level
+        if ($request->filled('academic_level_id')) {
+            $query->where('academic_level_id', $request->academic_level_id);
+        }
+
+        // Filter by school year
+        if ($request->filled('school_year')) {
+            $query->where('school_year', $request->school_year);
+        }
+
+        // Filter by status
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        // Filter by date range
+        if ($request->filled('date_from')) {
+            $query->where('created_at', '>=', $request->date_from);
+        }
+
+        if ($request->filled('date_to')) {
+            $query->where('created_at', '<=', $request->date_to . ' 23:59:59');
+        }
+
+        $certificates = $query->orderByDesc('created_at')->paginate(50);
+
+        return response()->json($certificates);
+    }
+
     public function storeTemplate(Request $request)
     {
         $validated = $request->validate([

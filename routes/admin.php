@@ -413,6 +413,7 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/aca
 
     // Certificates
     Route::get('/certificates', [CertificateController::class, 'index'])->name('certificates.index');
+    Route::get('/certificates/search', [CertificateController::class, 'search'])->name('certificates.search');
     Route::post('/certificates/templates', [CertificateController::class, 'storeTemplate'])->name('certificates.templates.store');
     Route::put('/certificates/templates/{template}', [CertificateController::class, 'updateTemplate'])->name('certificates.templates.update');
     Route::delete('/certificates/templates/{template}', [CertificateController::class, 'destroyTemplate'])->name('certificates.templates.destroy');
