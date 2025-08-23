@@ -15,6 +15,7 @@ import { useState } from 'react';
 interface User {
     name?: string;
     email?: string;
+    user_role?: string;
 }
 
 interface SidebarProps {

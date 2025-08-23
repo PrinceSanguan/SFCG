@@ -13,8 +13,9 @@ import { Link } from '@inertiajs/react';
 import { ChevronDown, LayoutDashboard, Settings } from 'lucide-react';
 
 interface User {
-    name: string;
-    email: string;
+    name?: string;
+    email?: string;
+    user_role?: string;
 }
 
 export function Header({ user }: { user: User }) {
@@ -31,7 +32,7 @@ export function Header({ user }: { user: User }) {
                             <Button variant="ghost" className="flex items-center gap-2">
                                 <Avatar className="h-8 w-8">
                                     <AvatarImage src="/api/placeholder/32/32" alt={user.name} />
-                                    <AvatarFallback>{user.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                    <AvatarFallback>{user.name?.substring(0, 2).toUpperCase() || 'U'}</AvatarFallback>
                                 </Avatar>
                                 <span className="hidden text-sm font-medium md:inline-flex">{user.name}</span>
                                 <ChevronDown size={16} />
