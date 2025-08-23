@@ -24,6 +24,8 @@ use App\Models\ActivityLog;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Models\CertificateTemplate;
+use App\Models\Certificate;
 
 class RegistrarAcademicController extends Controller
 {
@@ -203,13 +205,73 @@ class RegistrarAcademicController extends Controller
 
     public function honors()
     {
-        $honorTypes = HonorType::with(['academicLevel'])->orderBy('name')->get();
         $academicLevels = AcademicLevel::orderBy('sort_order')->get();
+        $honorTypes = HonorType::orderBy('scope')->orderBy('name')->get();
+        $criteria = HonorCriterion::with(['honorType', 'academicLevel'])->get();
+        
+        // Get current school year (you can modify this logic as needed)
+        $currentYear = date('Y');
+        $schoolYears = [
+            ($currentYear - 1) . '-' . $currentYear,
+            $currentYear . '-' . ($currentYear + 1),
+            ($currentYear + 1) . '-' . ($currentYear + 2),
+        ];
+
+        // Get existing honor results for the current school year
+        $honorResults = HonorResult::with(['honorType', 'student'])
+            ->where('school_year', '2024-2025') // Use the school year that matches our sample data
+            ->get();
+
+        // Group results by academic_level_id and honor_type_id for easy UI rendering
+        $groupedHonorResults = [];
+        foreach ($honorResults as $result) {
+            $levelId = (string) $result->academic_level_id;
+            $typeId = (string) $result->honor_type_id;
+            if (!isset($groupedHonorResults[$levelId])) {
+                $groupedHonorResults[$levelId] = [];
+            }
+            if (!isset($groupedHonorResults[$levelId][$typeId])) {
+                $groupedHonorResults[$levelId][$typeId] = [];
+            }
+            $groupedHonorResults[$levelId][$typeId][] = $result;
+        }
         
         return Inertia::render('Registrar/Academic/Honors', [
             'user' => $this->sharedUser(),
-            'honorTypes' => $honorTypes,
             'academicLevels' => $academicLevels,
+            'honorTypes' => $honorTypes,
+            'criteria' => $criteria,
+            'schoolYears' => $schoolYears,
+            'honorResults' => $honorResults,
+            'groupedHonorResults' => $groupedHonorResults,
+        ]);
+    }
+
+    public function certificates()
+    {
+        $academicLevels = AcademicLevel::orderBy('sort_order')->get();
+        $templates = CertificateTemplate::with(['academicLevel'])->orderBy('name')->get();
+        
+        // Get current school year
+        $currentYear = date('Y');
+        $schoolYears = [
+            ($currentYear - 1) . '-' . $currentYear,
+            $currentYear . '-' . ($currentYear + 1),
+            ($currentYear + 1) . '-' . ($currentYear + 2),
+        ];
+
+        // Get recent certificates
+        $recentCertificates = Certificate::with(['student', 'template', 'academicLevel'])
+            ->latest()
+            ->take(10)
+            ->get();
+
+        return Inertia::render('Registrar/Academic/Certificates', [
+            'user' => $this->sharedUser(),
+            'academicLevels' => $academicLevels,
+            'templates' => $templates,
+            'recentCertificates' => $recentCertificates,
+            'schoolYears' => $schoolYears,
         ]);
     }
 }

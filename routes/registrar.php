@@ -842,7 +842,7 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
     });
 
     // Certificates
-    Route::get('/certificates', [CertificateController::class, 'index'])->name('certificates.index');
+    Route::get('/certificates', [RegistrarAcademicController::class, 'certificates'])->name('certificates.index');
     Route::get('/certificates/search', [CertificateController::class, 'search'])->name('certificates.search');
     Route::get('/certificates/{certificate}/download', [CertificateController::class, 'download'])->name('certificates.download');
     Route::get('/certificates/{certificate}/print', [CertificateController::class, 'print'])->name('certificates.print');
