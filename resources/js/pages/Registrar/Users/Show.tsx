@@ -1,0 +1,145 @@
+import { Header } from '@/components/registrar/header';
+import { Sidebar } from '@/components/registrar/sidebar';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Link } from '@inertiajs/react';
+import { ArrowLeft, Edit, User, Calendar, Mail, Shield } from 'lucide-react';
+
+interface User {
+    id: number;
+    name: string;
+    email: string;
+    user_role: string;
+    created_at: string;
+}
+
+interface ActivityLog {
+    id: number;
+    action: string;
+    entity_type: string;
+    details: any;
+    created_at: string;
+    user: User;
+}
+
+interface UsersShowProps {
+    user: any;
+    targetUser: User;
+    activityLogs: ActivityLog[];
+}
+
+export default function UsersShow({ user, targetUser, activityLogs }: UsersShowProps) {
+    return (
+        <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
+            <Sidebar user={user} />
+            
+            <div className="flex flex-1 flex-col overflow-hidden">
+                <Header user={user} />
+                
+                <main className="flex-1 overflow-y-auto bg-gray-100 p-4 md:p-6 dark:bg-gray-900">
+                    <div className="mx-auto max-w-7xl space-y-6">
+                        {/* Back Button */}
+                        <div className="flex items-center gap-4">
+                            <Link href={route('registrar.users.index')}>
+                                <Button variant="outline" size="sm">
+                                    <ArrowLeft className="h-4 w-4 mr-2" />
+                                    Back to Users
+                                </Button>
+                            </Link>
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                                User Details
+                            </h1>
+                            <p className="text-gray-500 dark:text-gray-400">
+                                View information about {targetUser.name}
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            {/* User Information */}
+                            <div className="lg:col-span-1">
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <User className="h-5 w-5" />
+                                            User Information
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="space-y-4">
+                                        <div>
+                                            <label className="text-sm font-medium text-gray-500">Name</label>
+                                            <p className="text-lg font-semibold">{targetUser.name}</p>
+                                        </div>
+                                        <div>
+                                            <label className="text-sm font-medium text-gray-500">Email</label>
+                                            <p className="text-lg">{targetUser.email}</p>
+                                        </div>
+                                        <div>
+                                            <label className="text-sm font-medium text-gray-500">Role</label>
+                                            <Badge variant="secondary" className="mt-1">
+                                                {targetUser.user_role}
+                                            </Badge>
+                                        </div>
+                                        <div>
+                                            <label className="text-sm font-medium text-gray-500">Member Since</label>
+                                            <p className="text-sm">{new Date(targetUser.created_at).toLocaleDateString()}</p>
+                                        </div>
+                                        
+                                        <div className="pt-4">
+                                            <Link href={route('registrar.users.edit', targetUser.id)}>
+                                                <Button className="w-full">
+                                                    <Edit className="h-4 w-4 mr-2" />
+                                                    Edit User
+                                                </Button>
+                                            </Link>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </div>
+
+                            {/* Activity Logs */}
+                            <div className="lg:col-span-2">
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <Shield className="h-5 w-5" />
+                                            Recent Activity
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="space-y-4">
+                                            {activityLogs.map((log) => (
+                                                <div key={log.id} className="flex items-start gap-3 p-3 border rounded-lg">
+                                                    <div className="flex-1">
+                                                        <p className="font-medium">{log.action}</p>
+                                                        <p className="text-sm text-gray-500">
+                                                            {log.entity_type} • {new Date(log.created_at).toLocaleString()}
+                                                        </p>
+                                                        {log.details && (
+                                                            <p className="text-sm text-gray-600 mt-1">
+                                                                {JSON.stringify(log.details)}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            
+                                            {activityLogs.length === 0 && (
+                                                <div className="text-center py-8">
+                                                    <p className="text-gray-500">No activity logs found.</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </div>
+    );
+}
