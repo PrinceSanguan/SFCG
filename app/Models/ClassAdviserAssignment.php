@@ -12,6 +12,7 @@ class ClassAdviserAssignment extends Model
 
     protected $fillable = [
         'adviser_id',
+        'subject_id',
         'academic_level_id',
         'grade_level',
         'section',
@@ -35,6 +36,11 @@ class ClassAdviserAssignment extends Model
     public function academicLevel(): BelongsTo
     {
         return $this->belongsTo(AcademicLevel::class);
+    }
+
+    public function subject(): BelongsTo
+    {
+        return $this->belongsTo(Subject::class);
     }
 
     public function assignedBy(): BelongsTo

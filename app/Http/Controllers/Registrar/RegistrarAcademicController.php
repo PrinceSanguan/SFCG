@@ -143,38 +143,61 @@ class RegistrarAcademicController extends Controller
 
     public function assignAdvisers()
     {
+        // Get Elementary and Junior High School level IDs
+        $elementaryLevel = AcademicLevel::where('key', 'elementary')->first();
+        $jhsLevel = AcademicLevel::where('key', 'junior_highschool')->first();
+        
+        // Safety check: only proceed if we have valid levels
+        if (!$elementaryLevel || !$jhsLevel) {
+            return Inertia::render('Registrar/Academic/AssignAdvisers', [
+                'user' => $this->sharedUser(),
+                'assignments' => collect(),
+                'advisers' => collect(),
+                'subjects' => collect(),
+                'academicLevels' => collect(),
+                'error' => 'Elementary or Junior High School academic levels are not configured in the system.',
+            ]);
+        }
+        
         $assignments = ClassAdviserAssignment::with([
             'adviser', 
-            'academicLevel', 
-            'gradingPeriod'
+            'academicLevel'
         ])->orderBy('school_year', 'desc')->get();
         
         $advisers = User::where('user_role', 'adviser')->orderBy('name')->get();
+        
+        // Filter subjects to only include Elementary and Junior High School subjects
+        $subjects = Subject::whereIn('academic_level_id', [
+            $elementaryLevel->id, 
+            $jhsLevel->id
+        ])->orderBy('name')->get();
+        
         $academicLevels = AcademicLevel::orderBy('sort_order')->get();
-        $gradingPeriods = GradingPeriod::orderBy('academic_level_id')->orderBy('sort_order')->get();
         
         return Inertia::render('Registrar/Academic/AssignAdvisers', [
             'user' => $this->sharedUser(),
             'assignments' => $assignments,
             'advisers' => $advisers,
+            'subjects' => $subjects,
             'academicLevels' => $academicLevels,
-            'gradingPeriods' => $gradingPeriods,
         ]);
     }
 
     public function subjects()
     {
-        $subjects = Subject::with(['academicLevel'])
+        $subjects = Subject::with(['academicLevel', 'gradingPeriod'])
             ->orderBy('academic_level_id')
             ->orderBy('name')
             ->get();
         
         $academicLevels = AcademicLevel::orderBy('sort_order')->get();
+        $gradingPeriods = GradingPeriod::orderBy('academic_level_id')->orderBy('sort_order')->get();
         
         return Inertia::render('Registrar/Academic/Subjects', [
             'user' => $this->sharedUser(),
             'subjects' => $subjects,
             'academicLevels' => $academicLevels,
+            'gradingPeriods' => $gradingPeriods,
         ]);
     }
 

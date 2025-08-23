@@ -877,6 +877,7 @@ class AcademicController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'adviser_id' => 'required|exists:users,id',
+            'subject_id' => 'required|exists:subjects,id',
             'academic_level_id' => 'required|exists:academic_levels,id',
             'grade_level' => 'required|string',
             'section' => 'required|string',
@@ -896,6 +897,7 @@ class AcademicController extends Controller
 
         $assignment = ClassAdviserAssignment::create([
             'adviser_id' => $request->adviser_id,
+            'subject_id' => $request->subject_id,
             'academic_level_id' => $request->academic_level_id,
             'grade_level' => $request->grade_level,
             'section' => $request->section,
@@ -926,6 +928,7 @@ class AcademicController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'adviser_id' => 'required|exists:users,id',
+            'subject_id' => 'required|exists:subjects,id',
             'academic_level_id' => 'required|exists:academic_levels,id',
             'grade_level' => 'required|string',
             'section' => 'required|string',
@@ -945,6 +948,7 @@ class AcademicController extends Controller
 
         $assignment->update([
             'adviser_id' => $request->adviser_id,
+            'subject_id' => $request->subject_id,
             'academic_level_id' => $request->academic_level_id,
             'grade_level' => $request->grade_level,
             'section' => $request->section,

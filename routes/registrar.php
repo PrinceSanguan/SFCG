@@ -652,6 +652,172 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
         return back()->with('success', 'Course deleted successfully!');
     })->name('courses.destroy');
     
+    // Adviser Assignments CRUD routes
+    Route::post('/assign-advisers', function(\Illuminate\Http\Request $request) {
+        $validated = $request->validate([
+            'adviser_id' => ['required', 'exists:users,id'],
+            'subject_id' => ['required', 'exists:subjects,id'],
+            'academic_level_id' => ['required', 'exists:academic_levels,id'],
+            'grade_level' => ['required', 'string', 'max:50'],
+            'section' => ['required', 'string', 'max:10'],
+            'school_year' => ['required', 'string', 'max:20'],
+            'notes' => ['nullable', 'string'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+        
+        $validated['is_active'] = $validated['is_active'] ?? true;
+        
+        $assignment = \App\Models\ClassAdviserAssignment::create($validated);
+        
+        // Log activity
+        \App\Models\ActivityLog::create([
+            'user_id' => \Illuminate\Support\Facades\Auth::id(),
+            'target_user_id' => $request->adviser_id,
+            'action' => 'created_adviser_assignment',
+            'entity_type' => 'class_adviser_assignment',
+            'entity_id' => $assignment->id,
+            'details' => [
+                'adviser' => $assignment->adviser->name,
+                'grade_level' => $request->grade_level,
+                'section' => $request->section,
+                'school_year' => $request->school_year,
+            ],
+        ]);
+        
+        return back()->with('success', 'Adviser assigned successfully!');
+    })->name('assign-advisers.store');
+    
+    Route::put('/assign-advisers/{assignment}', function(\Illuminate\Http\Request $request, \App\Models\ClassAdviserAssignment $assignment) {
+        $validated = $request->validate([
+            'adviser_id' => ['required', 'exists:users,id'],
+            'subject_id' => ['required', 'exists:subjects,id'],
+            'academic_level_id' => ['required', 'exists:academic_levels,id'],
+            'grade_level' => ['required', 'string', 'max:50'],
+            'section' => ['required', 'string', 'max:10'],
+            'school_year' => ['required', 'string', 'max:20'],
+            'notes' => ['nullable', 'string'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+        
+        $validated['is_active'] = $validated['is_active'] ?? true;
+        
+        $assignment->update($validated);
+        
+        // Log activity
+        \App\Models\ActivityLog::create([
+            'user_id' => \Illuminate\Support\Facades\Auth::id(),
+            'target_user_id' => $request->adviser_id,
+            'action' => 'updated_adviser_assignment',
+            'entity_type' => 'class_adviser_assignment',
+            'entity_id' => $assignment->id,
+            'details' => [
+                'adviser' => $assignment->adviser->name,
+                'grade_level' => $request->grade_level,
+                'section' => $request->section,
+                'school_year' => $request->school_year,
+            ],
+        ]);
+        
+        return back()->with('success', 'Adviser assignment updated successfully!');
+    })->name('assign-advisers.update');
+    
+    Route::delete('/assign-advisers/{assignment}', function(\App\Models\ClassAdviserAssignment $assignment) {
+        $assignment->delete();
+        
+        // Log activity
+        \App\Models\ActivityLog::create([
+            'user_id' => \Illuminate\Support\Facades\Auth::id(),
+            'action' => 'deleted_adviser_assignment',
+            'entity_type' => 'class_adviser_assignment',
+            'entity_id' => $assignment->id,
+        ]);
+        
+        return back()->with('success', 'Adviser assignment removed successfully!');
+    })->name('assign-advisers.destroy');
+    
+    // Subjects CRUD routes
+    Route::post('/subjects', function(\Illuminate\Http\Request $request) {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'code' => ['required', 'string', 'max:20', 'unique:subjects,code'],
+            'description' => ['nullable', 'string'],
+            'academic_level_id' => ['required', 'exists:academic_levels,id'],
+            'grading_period_id' => ['nullable', 'exists:grading_periods,id'],
+            'units' => ['required', 'numeric', 'min:0'],
+            'hours_per_week' => ['required', 'numeric', 'min:0'],
+            'is_core' => ['nullable', 'boolean'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+        
+        $validated['is_core'] = $validated['is_core'] ?? false;
+        $validated['is_active'] = $validated['is_active'] ?? true;
+        
+        $subject = \App\Models\Subject::create($validated);
+        
+        // Log activity
+        \App\Models\ActivityLog::create([
+            'user_id' => \Illuminate\Support\Facades\Auth::id(),
+            'action' => 'created_subject',
+            'entity_type' => 'subject',
+            'entity_id' => $subject->id,
+            'details' => [
+                'subject_name' => $subject->name,
+                'subject_code' => $subject->code,
+                'academic_level' => $subject->academicLevel->name,
+            ],
+        ]);
+        
+        return back()->with('success', 'Subject created successfully!');
+    })->name('subjects.store');
+    
+    Route::put('/subjects/{subject}', function(\Illuminate\Http\Request $request, \App\Models\Subject $subject) {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'code' => ['required', 'string', 'max:20', 'unique:subjects,code,' . $subject->id],
+            'description' => ['nullable', 'string'],
+            'academic_level_id' => ['required', 'exists:academic_levels,id'],
+            'grading_period_id' => ['nullable', 'exists:grading_periods,id'],
+            'units' => ['required', 'numeric', 'min:0'],
+            'hours_per_week' => ['required', 'numeric', 'min:0'],
+            'is_core' => ['nullable', 'boolean'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+        
+        $validated['is_core'] = $validated['is_core'] ?? false;
+        $validated['is_active'] = $validated['is_active'] ?? true;
+        
+        $subject->update($validated);
+        
+        // Log activity
+        \App\Models\ActivityLog::create([
+            'user_id' => \Illuminate\Support\Facades\Auth::id(),
+            'action' => 'updated_subject',
+            'entity_type' => 'subject',
+            'entity_id' => $subject->id,
+            'details' => [
+                'subject_name' => $subject->name,
+                'subject_code' => $subject->code,
+                'academic_level' => $subject->academicLevel->name,
+            ],
+        ]);
+        
+        return back()->with('success', 'Subject updated successfully!');
+    })->name('subjects.update');
+    
+    Route::delete('/subjects/{subject}', function(\Illuminate\Http\Request $request, \App\Models\Subject $subject) {
+        $subject->delete();
+        
+        // Log activity
+        \App\Models\ActivityLog::create([
+            'user_id' => \Illuminate\Support\Facades\Auth::id(),
+            'action' => 'deleted_subject',
+            'entity_type' => 'subject',
+            'entity_id' => $subject->id,
+        ]);
+        
+        return back()->with('success', 'Subject deleted successfully!');
+    })->name('subjects.destroy');
+    
     // API routes for honor system
     Route::prefix('api')->name('api.')->group(function () {
         Route::get('/academic-levels', function () {

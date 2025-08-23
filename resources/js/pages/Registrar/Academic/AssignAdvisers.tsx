@@ -1,344 +1,679 @@
+import React, { useState } from 'react';
+import { router } from '@inertiajs/react';
 import { Header } from '@/components/registrar/header';
 import { Sidebar } from '@/components/registrar/sidebar';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Link } from '@inertiajs/react';
-import { ArrowLeft, UserCheck, GraduationCap, Calendar, Users, CheckCircle, XCircle } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { ArrowLeft, Plus, Edit, Trash2, Users, Calendar, User, School } from 'lucide-react';
 
 interface User {
-    name?: string;
-    email?: string;
-    user_role?: string;
+    id: number;
+    name: string;
+    email: string;
+    user_role: string;
 }
 
 interface AcademicLevel {
     id: number;
+    name: string;
     key: string;
-    name: string;
-    sort_order: number;
 }
 
-interface GradingPeriod {
+interface Subject {
     id: number;
     name: string;
+    code: string;
+    description: string;
+    units: number;
     academic_level_id: number;
-    sort_order: number;
 }
 
-interface Adviser {
-    id: number;
-    name: string;
-    email: string;
-}
-
-interface AdviserAssignment {
+interface ClassAdviserAssignment {
     id: number;
     adviser_id: number;
     academic_level_id: number;
-    grading_period_id: number;
+    grade_level: string;
+    section: string;
     school_year: string;
+    notes: string | null;
     is_active: boolean;
-    created_at: string;
-    updated_at: string;
-    adviser: Adviser;
-    academicLevel: AcademicLevel;
-    gradingPeriod: GradingPeriod;
+    adviser: User;
+    academicLevel?: AcademicLevel;
 }
 
-interface AssignAdvisersProps {
+interface Props {
     user: User;
-    assignments: AdviserAssignment[];
-    advisers: Adviser[];
+    assignments: ClassAdviserAssignment[];
+    advisers: User[];
+    subjects: Subject[];
     academicLevels: AcademicLevel[];
-    gradingPeriods: GradingPeriod[];
 }
 
-export default function AssignAdvisers({ user, assignments, advisers, academicLevels, gradingPeriods }: AssignAdvisersProps) {
-    // Group assignments by school year
-    const groupedAssignments = assignments.reduce((acc, assignment) => {
-        if (!acc[assignment.school_year]) {
-            acc[assignment.school_year] = [];
+export default function AssignAdvisers({ user, assignments, advisers, subjects, academicLevels }: Props) {
+    const [assignmentForm, setAssignmentForm] = useState({
+        adviser_id: '',
+        subject_id: '',
+        academic_level_id: '',
+        grade_level: '',
+        section: '',
+        school_year: '',
+        notes: '',
+        is_active: true,
+    });
+
+    const [assignmentModal, setAssignmentModal] = useState(false);
+    const [editAssignment, setEditAssignment] = useState<ClassAdviserAssignment | null>(null);
+    const [editModal, setEditModal] = useState(false);
+
+    // Filter for Elementary and Junior High School levels only
+    const elementaryLevel = academicLevels.find(level => level.key === 'elementary');
+    const jhsLevel = academicLevels.find(level => level.key === 'junior_highschool');
+    const relevantLevels = [elementaryLevel, jhsLevel].filter((level): level is AcademicLevel => level !== null && level !== undefined);
+    
+    // Safety check: only proceed if we have valid levels
+    if (relevantLevels.length === 0) {
+        return (
+            <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => router.get('/registrar/academic')}
+                            className="flex items-center space-x-2"
+                        >
+                            <ArrowLeft className="h-4 w-4" />
+                            <span>Back to Academic Management</span>
+                        </Button>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <h1 className="text-2xl font-bold text-gray-900">Assign Class Advisers (Elementary to JHS)</h1>
+                    </div>
+                </div>
+                <Card>
+                    <CardContent className="pt-6">
+                        <div className="text-center py-8">
+                            <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                            <h3 className="text-lg font-medium text-gray-900 mb-2">Academic Levels Not Found</h3>
+                            <p className="text-gray-600 mb-4">
+                                Elementary or Junior High School academic levels are not configured in the system.
+                            </p>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
+    
+    const relevantAssignments = assignments.filter(assignment => 
+        relevantLevels.some(level => level.id === assignment.academic_level_id)
+    );
+
+    const schoolYearOptions = [
+        '2024-2025',
+        '2025-2026',
+        '2026-2027',
+        '2027-2028',
+    ];
+
+    const getGradeLevelOptions = (academicLevelKey: string) => {
+        if (academicLevelKey === 'elementary') {
+            return ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6'];
+        } else if (academicLevelKey === 'junior_highschool') {
+            return ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10'];
         }
-        acc[assignment.school_year].push(assignment);
-        return acc;
-    }, {} as Record<string, AdviserAssignment[]>);
+        return [];
+    };
+
+    const getSectionOptions = () => {
+        return ['A', 'B', 'C', 'D', 'E', 'F'];
+    };
+
+    const submitAssignment = (e: React.FormEvent) => {
+        e.preventDefault();
+        router.post('/registrar/academic/assign-advisers', assignmentForm);
+    };
+
+    const updateAssignment = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editAssignment) return;
+        
+        router.put(`/registrar/academic/assign-advisers/${editAssignment.id}`, assignmentForm);
+    };
+
+    const destroyAssignment = (id: number) => {
+        if (confirm('Are you sure you want to delete this assignment?')) {
+            router.delete(`/registrar/academic/assign-advisers/${id}`);
+        }
+    };
+
+    const openEditModal = (assignment: ClassAdviserAssignment) => {
+        setEditAssignment(assignment);
+        setAssignmentForm({
+            adviser_id: assignment.adviser_id.toString(),
+            subject_id: '', // Will be filled from assignment data when we update the backend
+            academic_level_id: assignment.academic_level_id.toString(),
+            grade_level: assignment.grade_level,
+            section: assignment.section,
+            school_year: assignment.school_year,
+            notes: assignment.notes || '',
+            is_active: assignment.is_active,
+        });
+        setEditModal(true);
+    };
+
+    const getStatusBadge = (isActive: boolean) => {
+        return isActive ? (
+            <Badge className="bg-green-100 text-green-800">Active</Badge>
+        ) : (
+            <Badge className="bg-red-100 text-red-800">Inactive</Badge>
+        );
+    };
+
+    const getLevelIcon = (levelKey: string) => {
+        switch (levelKey) {
+            case 'elementary':
+                return '🎓';
+            case 'junior_highschool':
+                return '📚';
+            default:
+                return '📖';
+        }
+    };
+
+    const resetForm = () => {
+        setAssignmentForm({
+            adviser_id: '',
+            subject_id: '',
+            academic_level_id: '',
+            grade_level: '',
+            section: '',
+            school_year: '',
+            notes: '',
+            is_active: true,
+        });
+    };
 
     return (
         <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
             <Sidebar user={user} />
-            
             <div className="flex flex-1 flex-col overflow-hidden">
                 <Header user={user} />
-                
                 <main className="flex-1 overflow-y-auto bg-gray-100 p-4 md:p-6 dark:bg-gray-900">
-                    <div className="mx-auto max-w-7xl space-y-6">
-                        {/* Back Button */}
-                        <div className="flex items-center gap-4">
-                            <Link href={route('registrar.academic.index')}>
-                                <Button variant="outline" size="sm">
-                                    <ArrowLeft className="h-4 w-4 mr-2" />
-                                    Back to Academic Management
+                    <div className="space-y-6">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-4">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => router.get('/registrar/academic')}
+                                    className="flex items-center space-x-2"
+                                >
+                                    <ArrowLeft className="h-4 w-4" />
+                                    <span>Back to Academic Management</span>
                                 </Button>
-                            </Link>
-                        </div>
-
-                        <div className="flex flex-col gap-2">
-                            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                                Class Adviser Assignments
-                            </h1>
-                            <p className="text-lg text-gray-600 dark:text-gray-400">
-                                View and manage class adviser assignments to academic levels.
-                            </p>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Assign Class Advisers (Elementary to JHS)</h1>
+                            </div>
                         </div>
 
                         {/* Info Card */}
-                        <Card className="bg-pink-50 border-pink-200 dark:bg-pink-900/20 dark:border-pink-800">
+                        <Card className="bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800">
                             <CardContent className="pt-6">
-                                <div className="flex items-start gap-3">
-                                    <UserCheck className="h-5 w-5 text-pink-600 mt-0.5" />
+                                <div className="flex items-start space-x-3">
+                                    <School className="h-5 w-5 text-blue-600 mt-0.5" />
                                     <div>
-                                        <h3 className="font-medium text-pink-900 dark:text-pink-100">
-                                            Adviser Assignment Overview
-                                        </h3>
-                                        <p className="text-sm text-pink-700 dark:text-pink-300 mt-1">
-                                            This page displays all class adviser assignments organized by school year. 
-                                            Assignments link advisers to specific academic levels and grading periods.
+                                        <h3 className="font-medium text-blue-900 dark:text-blue-100">Class Adviser Assignments</h3>
+                                        <p className="text-blue-700 dark:text-blue-300 text-sm mt-1">
+                                            Manage class adviser assignments for Elementary and Junior High School levels. Advisers are responsible for specific grade levels and sections.
                                         </p>
                                     </div>
                                 </div>
                             </CardContent>
                         </Card>
 
-                        {/* Statistics Cards */}
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <Card>
-                                <CardContent className="pt-6">
-                                    <div className="flex items-center gap-3">
-                                        <UserCheck className="h-8 w-8 text-blue-600" />
+                        {/* Actions */}
+                        <div className="flex justify-between items-center">
+                            <div className="flex items-center space-x-4">
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Adviser Assignments</h2>
+                                <Badge variant="secondary">{relevantAssignments.length} assignments</Badge>
+                            </div>
+                            <Dialog open={assignmentModal} onOpenChange={setAssignmentModal}>
+                                <DialogTrigger asChild>
+                                    <Button onClick={() => { setAssignmentModal(true); resetForm(); }}>
+                                        <Plus className="h-4 w-4 mr-2" />
+                                        Assign Adviser
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-md">
+                                    <DialogHeader>
+                                        <DialogTitle>Assign Class Adviser</DialogTitle>
+                                    </DialogHeader>
+                                    <form onSubmit={submitAssignment} className="space-y-4">
                                         <div>
-                                            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                                                {assignments.length}
-                                            </p>
-                                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                                                Total Assignments
-                                            </p>
+                                            <Label htmlFor="adviser_id">Adviser</Label>
+                                            <Select
+                                                value={assignmentForm.adviser_id}
+                                                onValueChange={(value) => setAssignmentForm({ ...assignmentForm, adviser_id: value })}
+                                                required
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select adviser" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {advisers
+                                                        .filter(adviser => adviser.user_role === 'adviser')
+                                                        .map((adviser) => (
+                                                            <SelectItem key={adviser.id} value={adviser.id.toString()}>
+                                                                {adviser.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                </SelectContent>
+                                            </Select>
                                         </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
 
-                            <Card>
-                                <CardContent className="pt-6">
-                                    <div className="flex items-center gap-3">
-                                        <Users className="h-8 w-8 text-green-600" />
                                         <div>
-                                            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                                                {advisers.length}
-                                            </p>
-                                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                                                Available Advisers
-                                            </p>
+                                            <Label htmlFor="subject_id">Subject</Label>
+                                            <Select
+                                                value={assignmentForm.subject_id}
+                                                onValueChange={(value) => setAssignmentForm({ ...assignmentForm, subject_id: value })}
+                                                required
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select subject" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {subjects.map((subject) => (
+                                                        <SelectItem key={subject.id} value={subject.id.toString()}>
+                                                            {subject.name} ({subject.code})
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
                                         </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
 
-                            <Card>
-                                <CardContent className="pt-6">
-                                    <div className="flex items-center gap-3">
-                                        <GraduationCap className="h-8 w-8 text-orange-600" />
                                         <div>
-                                            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                                                {academicLevels.length}
-                                            </p>
-                                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                                                Academic Levels
-                                            </p>
+                                            <Label htmlFor="academic_level_id">Academic Level</Label>
+                                            <Select
+                                                value={assignmentForm.academic_level_id}
+                                                onValueChange={(value) => {
+                                                    setAssignmentForm({ 
+                                                        ...assignmentForm, 
+                                                        academic_level_id: value,
+                                                        grade_level: '' // Reset grade level when level changes
+                                                    });
+                                                }}
+                                                required
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select academic level" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {relevantLevels.map((level) => (
+                                                        <SelectItem key={level.id} value={level.id.toString()}>
+                                                            {getLevelIcon(level.key)} {level.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
                                         </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
 
-                            <Card>
-                                <CardContent className="pt-6">
-                                    <div className="flex items-center gap-3">
-                                        <Calendar className="h-8 w-8 text-purple-600" />
                                         <div>
-                                            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                                                {Object.keys(groupedAssignments).length}
-                                            </p>
-                                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                                                School Years
-                                            </p>
+                                            <Label htmlFor="grade_level">Grade Level</Label>
+                                            <Select
+                                                value={assignmentForm.grade_level}
+                                                onValueChange={(value) => setAssignmentForm({ ...assignmentForm, grade_level: value })}
+                                                required
+                                                disabled={!assignmentForm.academic_level_id}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select grade level" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {assignmentForm.academic_level_id && 
+                                                        getGradeLevelOptions(
+                                                            relevantLevels.find(l => l.id.toString() === assignmentForm.academic_level_id)?.key || ''
+                                                        ).map((grade) => (
+                                                            <SelectItem key={grade} value={grade}>
+                                                                {grade}
+                                                            </SelectItem>
+                                                        ))
+                                                    }
+                                                </SelectContent>
+                                            </Select>
                                         </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
+
+                                        <div>
+                                            <Label htmlFor="section">Section</Label>
+                                            <Select
+                                                value={assignmentForm.section}
+                                                onValueChange={(value) => setAssignmentForm({ ...assignmentForm, section: value })}
+                                                required
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select section" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {getSectionOptions().map((section) => (
+                                                        <SelectItem key={section} value={section}>
+                                                            {section}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        <div>
+                                            <Label htmlFor="school_year">School Year</Label>
+                                            <Select
+                                                value={assignmentForm.school_year}
+                                                onValueChange={(value) => setAssignmentForm({ ...assignmentForm, school_year: value })}
+                                                required
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select school year" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {schoolYearOptions.map((year) => (
+                                                        <SelectItem key={year} value={year}>
+                                                            {year}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        <div>
+                                            <Label htmlFor="notes">Notes</Label>
+                                            <Textarea
+                                                id="notes"
+                                                value={assignmentForm.notes}
+                                                onChange={(e) => setAssignmentForm({ ...assignmentForm, notes: e.target.value })}
+                                                placeholder="Additional notes..."
+                                            />
+                                        </div>
+
+                                        <div className="flex items-center space-x-2">
+                                            <input
+                                                type="checkbox"
+                                                id="is_active"
+                                                checked={assignmentForm.is_active}
+                                                onChange={(e) => setAssignmentForm({ ...assignmentForm, is_active: e.target.checked })}
+                                                className="rounded border-gray-300"
+                                            />
+                                            <Label htmlFor="is_active">Active</Label>
+                                        </div>
+
+                                        <div className="flex justify-end space-x-2">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => setAssignmentModal(false)}
+                                            >
+                                                Cancel
+                                            </Button>
+                                            <Button type="submit">Assign Adviser</Button>
+                                        </div>
+                                    </form>
+                                </DialogContent>
+                            </Dialog>
                         </div>
 
-                        {/* Assignments by School Year */}
-                        {Object.entries(groupedAssignments).map(([schoolYear, yearAssignments]) => (
-                            <Card key={schoolYear}>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <Calendar className="h-5 w-5 text-green-600" />
-                                        School Year: {schoolYear}
-                                        <Badge variant="outline" className="ml-2">
-                                            {yearAssignments.length} assignments
-                                        </Badge>
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-4">
-                                        {yearAssignments.map((assignment) => (
-                                            <div key={assignment.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                                                <div className="flex items-center gap-6">
-                                                    <div className="flex flex-col">
-                                                        <h4 className="font-medium text-gray-900 dark:text-gray-100">
-                                                            {assignment.adviser.name}
-                                                        </h4>
-                                                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                                                            {assignment.adviser.email}
-                                                        </p>
+                        {/* Assignments Display */}
+                        {relevantAssignments.length > 0 ? (
+                            <div className="grid gap-4">
+                                {relevantAssignments.map((assignment) => (
+                                    <Card key={assignment.id}>
+                                        <CardContent className="pt-6">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center space-x-4">
+                                                    <div className="flex items-center space-x-2">
+                                                        <User className="h-4 w-4 text-gray-500" />
+                                                        <span className="font-medium">{assignment.adviser.name}</span>
                                                     </div>
-                                                    
-                                                    <div className="flex items-center gap-2 text-gray-400">
-                                                        <UserCheck className="h-4 w-4" />
-                                                    </div>
-                                                    
-                                                    <div className="flex flex-col">
-                                                        <h4 className="font-medium text-gray-900 dark:text-gray-100">
-                                                            {assignment.academicLevel.name}
-                                                        </h4>
-                                                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                                                            Academic Level
-                                                        </p>
-                                                    </div>
-                                                    
-                                                    <div className="flex flex-col">
-                                                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                                                            {assignment.gradingPeriod.name}
-                                                        </p>
-                                                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                                                            Grading Period
-                                                        </p>
+                                                    <span className="text-gray-400">→</span>
+                                                    <div className="flex items-center space-x-2">
+                                                        <School className="h-4 w-4 text-gray-500" />
+                                                        <span className="font-medium">
+                                                            {assignment.grade_level} - Section {assignment.section}
+                                                        </span>
+                                                        <Badge variant="outline">
+                                                            {assignment.academicLevel?.name || 'Unknown Level'}
+                                                        </Badge>
                                                     </div>
                                                 </div>
-                                                
-                                                <div className="flex items-center gap-3">
-                                                    {assignment.is_active ? (
-                                                        <Badge variant="default" className="bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300">
-                                                            <CheckCircle className="h-3 w-3 mr-1" />
-                                                            Active
-                                                        </Badge>
-                                                    ) : (
-                                                        <Badge variant="secondary" className="bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300">
-                                                            <XCircle className="h-3 w-3 mr-1" />
-                                                            Inactive
-                                                        </Badge>
-                                                    )}
-                                                    
-                                                    <div className="text-right">
-                                                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                            Created: {new Date(assignment.created_at).toLocaleDateString()}
-                                                        </p>
-                                                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                            Updated: {new Date(assignment.updated_at).toLocaleDateString()}
-                                                        </p>
+                                                <div className="flex items-center space-x-4">
+                                                    <div className="flex items-center space-x-2 text-sm text-gray-600">
+                                                        <Calendar className="h-4 w-4" />
+                                                        <span>{assignment.school_year}</span>
+                                                    </div>
+                                                    {getStatusBadge(assignment.is_active)}
+                                                    <div className="flex items-center space-x-2">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => openEditModal(assignment)}
+                                                        >
+                                                            <Edit className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => destroyAssignment(assignment.id)}
+                                                            className="text-red-600 hover:text-red-700"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
                                                     </div>
                                                 </div>
                                             </div>
-                                        ))}
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))}
-
-                        {assignments.length === 0 && (
+                                            {assignment.notes && (
+                                                <p className="text-sm text-gray-600 mt-2">{assignment.notes}</p>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                            </div>
+                        ) : (
                             <Card>
                                 <CardContent className="pt-6">
                                     <div className="text-center py-8">
-                                        <UserCheck className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                                        <p className="text-gray-500 dark:text-gray-400">No adviser assignments found.</p>
-                                        <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
-                                            Adviser assignments must be configured by an administrator.
+                                        <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                                        <h3 className="text-lg font-medium text-gray-900 mb-2">No Adviser Assignments</h3>
+                                        <p className="text-gray-600 mb-4">
+                                            No class advisers have been assigned to Elementary or Junior High School levels yet.
                                         </p>
+                                        <Button onClick={() => setAssignmentModal(true)}>
+                                            <Plus className="h-4 w-4 mr-2" />
+                                            Assign Your First Adviser
+                                        </Button>
                                     </div>
                                 </CardContent>
                             </Card>
                         )}
 
-                        {/* Additional Information */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="text-lg">About Adviser Assignments</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-3">
-                                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                                        Class adviser assignments are essential for:
-                                    </p>
-                                    <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1 ml-4">
-                                        <li>• Student guidance and counseling</li>
-                                        <li>• Academic monitoring and support</li>
-                                        <li>• Class management and coordination</li>
-                                        <li>• Parent communication and liaison</li>
-                                        <li>• Student welfare and development</li>
-                                    </ul>
-                                </CardContent>
-                            </Card>
+                        {/* Edit Assignment Modal */}
+                        {editAssignment && (
+                            <Dialog open={editModal} onOpenChange={setEditModal}>
+                                <DialogContent className="max-w-md">
+                                    <DialogHeader>
+                                        <DialogTitle>Edit Adviser Assignment</DialogTitle>
+                                    </DialogHeader>
+                                    <form onSubmit={updateAssignment} className="space-y-4">
+                                        <div>
+                                            <Label htmlFor="edit_adviser_id">Adviser</Label>
+                                            <Select
+                                                value={assignmentForm.adviser_id}
+                                                onValueChange={(value) => setAssignmentForm({ ...assignmentForm, adviser_id: value })}
+                                                required
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select adviser" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {advisers
+                                                        .filter(adviser => adviser.user_role === 'adviser')
+                                                        .map((adviser) => (
+                                                            <SelectItem key={adviser.id} value={adviser.id.toString()}>
+                                                                {adviser.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
 
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="text-lg">Assignment Structure</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-3">
-                                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                                        Each assignment includes:
-                                    </p>
-                                    <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1 ml-4">
-                                        <li>• Adviser and academic level pairing</li>
-                                        <li>• Grading period assignment</li>
-                                        <li>• School year designation</li>
-                                        <li>• Active/inactive status</li>
-                                        <li>• Assignment tracking and history</li>
-                                    </ul>
-                                </CardContent>
-                            </Card>
-                        </div>
+                                        <div>
+                                            <Label htmlFor="edit_subject_id">Subject</Label>
+                                            <Select
+                                                value={assignmentForm.subject_id}
+                                                onValueChange={(value) => setAssignmentForm({ ...assignmentForm, subject_id: value })}
+                                                required
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select subject" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {subjects.map((subject) => (
+                                                        <SelectItem key={subject.id} value={subject.id.toString()}>
+                                                            {subject.name} ({subject.code})
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
 
-                        {/* Adviser Role Information */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="text-lg">Class Adviser Responsibilities</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div className="text-center p-4 border rounded-lg">
-                                        <Users className="h-8 w-8 text-blue-500 mx-auto mb-2" />
-                                        <h4 className="font-medium text-gray-900 dark:text-gray-100">Student Guidance</h4>
-                                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                                            Provide academic and personal guidance to assigned students.
-                                        </p>
-                                    </div>
-                                    <div className="text-center p-4 border rounded-lg">
-                                        <GraduationCap className="h-8 w-8 text-green-500 mx-auto mb-2" />
-                                        <h4 className="font-medium text-gray-900 dark:text-gray-100">Academic Monitoring</h4>
-                                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                                            Monitor student progress and academic performance.
-                                        </p>
-                                    </div>
-                                    <div className="text-center p-4 border rounded-lg">
-                                        <Calendar className="h-8 w-8 text-purple-500 mx-auto mb-2" />
-                                        <h4 className="font-medium text-gray-900 dark:text-gray-100">Class Coordination</h4>
-                                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                                            Coordinate class activities and parent communications.
-                                        </p>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
+                                        <div>
+                                            <Label htmlFor="edit_academic_level_id">Academic Level</Label>
+                                            <Select
+                                                value={assignmentForm.academic_level_id}
+                                                onValueChange={(value) => {
+                                                    setAssignmentForm({ 
+                                                        ...assignmentForm, 
+                                                        academic_level_id: value,
+                                                        grade_level: '' // Reset grade level when level changes
+                                                    });
+                                                }}
+                                                required
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select academic level" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {relevantLevels.map((level) => (
+                                                        <SelectItem key={level.id} value={level.id.toString()}>
+                                                            {getLevelIcon(level.key)} {level.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        <div>
+                                            <Label htmlFor="edit_grade_level">Grade Level</Label>
+                                            <Select
+                                                value={assignmentForm.grade_level}
+                                                onValueChange={(value) => setAssignmentForm({ ...assignmentForm, grade_level: value })}
+                                                required
+                                                disabled={!assignmentForm.academic_level_id}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select grade level" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {assignmentForm.academic_level_id && 
+                                                        getGradeLevelOptions(
+                                                            relevantLevels.find(l => l.id.toString() === assignmentForm.academic_level_id)?.key || ''
+                                                        ).map((grade) => (
+                                                            <SelectItem key={grade} value={grade}>
+                                                                {grade}
+                                                            </SelectItem>
+                                                        ))
+                                                    }
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        <div>
+                                            <Label htmlFor="edit_section">Section</Label>
+                                            <Select
+                                                value={assignmentForm.section}
+                                                onValueChange={(value) => setAssignmentForm({ ...assignmentForm, section: value })}
+                                                required
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select section" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {getSectionOptions().map((section) => (
+                                                        <SelectItem key={section} value={section}>
+                                                            {section}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        <div>
+                                            <Label htmlFor="edit_school_year">School Year</Label>
+                                            <Select
+                                                value={assignmentForm.school_year}
+                                                onValueChange={(value) => setAssignmentForm({ ...assignmentForm, school_year: value })}
+                                                required
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select school year" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {schoolYearOptions.map((year) => (
+                                                        <SelectItem key={year} value={year}>
+                                                            {year}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        <div>
+                                            <Label htmlFor="edit_notes">Notes</Label>
+                                            <Textarea
+                                                id="edit_notes"
+                                                value={assignmentForm.notes}
+                                                onChange={(e) => setAssignmentForm({ ...assignmentForm, notes: e.target.value })}
+                                                placeholder="Additional notes..."
+                                            />
+                                        </div>
+
+                                        <div className="flex items-center space-x-2">
+                                            <input
+                                                type="checkbox"
+                                                id="edit_is_active"
+                                                checked={assignmentForm.is_active}
+                                                onChange={(e) => setAssignmentForm({ ...assignmentForm, is_active: e.target.checked })}
+                                                className="rounded border-gray-300"
+                                            />
+                                            <Label htmlFor="edit_is_active">Active</Label>
+                                        </div>
+
+                                        <div className="flex justify-end space-x-2">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => setEditModal(false)}
+                                            >
+                                                Cancel
+                                            </Button>
+                                            <Button type="submit">Update Assignment</Button>
+                                        </div>
+                                    </form>
+                                </DialogContent>
+                            </Dialog>
+                        )}
                     </div>
                 </main>
             </div>
