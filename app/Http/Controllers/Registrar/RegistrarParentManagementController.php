@@ -117,10 +117,28 @@ class RegistrarParentManagementController extends Controller
             abort(404, 'User is not a parent.');
         }
 
-        $newPassword = \Illuminate\Support\Str::random(12);
-        $parent->update(['password' => Hash::make($newPassword)]);
+        $validated = $request->validate([
+            'password' => 'required|string|min:8|confirmed',
+        ]);
 
-        return back()->with('success', 'Password reset successfully. New password: ' . $newPassword);
+        $parent->update([
+            'password' => Hash::make($validated['password']),
+        ]);
+
+        // Log the activity
+        \App\Models\ActivityLog::create([
+            'user_id' => Auth::id(),
+            'target_user_id' => $parent->id,
+            'action' => 'reset_parent_password',
+            'entity_type' => 'User',
+            'entity_id' => $parent->id,
+            'details' => [
+                'target_parent' => $parent->name,
+                'reset_by' => Auth::user()->name,
+            ],
+        ]);
+
+        return back()->with('success', 'Parent password reset successfully!');
     }
 
     /**

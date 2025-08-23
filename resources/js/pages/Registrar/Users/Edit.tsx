@@ -6,7 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Link, useForm } from '@inertiajs/react';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, Key } from 'lucide-react';
+import { useState } from 'react';
+import PasswordResetModal from '@/components/registrar/PasswordResetModal';
 
 interface User {
     id: number;
@@ -22,6 +24,7 @@ interface UsersEditProps {
 }
 
 export default function UsersEdit({ user, targetUser, roles }: UsersEditProps) {
+    const [showPasswordModal, setShowPasswordModal] = useState(false);
     const { data, setData, put, processing, errors } = useForm({
         name: targetUser.name,
         email: targetUser.email,
@@ -121,6 +124,14 @@ export default function UsersEdit({ user, targetUser, roles }: UsersEditProps) {
                                             <Save className="h-4 w-4 mr-2" />
                                             {processing ? 'Saving...' : 'Save Changes'}
                                         </Button>
+                                        <Button 
+                                            type="button" 
+                                            variant="outline"
+                                            onClick={() => setShowPasswordModal(true)}
+                                        >
+                                            <Key className="h-4 w-4 mr-2" />
+                                            Reset Password
+                                        </Button>
                                         <Link href={route('registrar.users.show', targetUser.id)}>
                                             <Button type="button" variant="outline">
                                                 Cancel
@@ -133,6 +144,14 @@ export default function UsersEdit({ user, targetUser, roles }: UsersEditProps) {
                     </div>
                 </main>
             </div>
+
+            {/* Password Reset Modal */}
+            <PasswordResetModal
+                user={targetUser}
+                isOpen={showPasswordModal}
+                onClose={() => setShowPasswordModal(false)}
+                routeName="registrar.users.reset-password"
+            />
         </div>
     );
 }

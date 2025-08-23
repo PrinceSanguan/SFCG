@@ -4,7 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Link } from '@inertiajs/react';
-import { ArrowLeft, Edit, User, Calendar, Mail, Shield } from 'lucide-react';
+import { ArrowLeft, Edit, User, Calendar, Mail, Shield, Key } from 'lucide-react';
+import { useState } from 'react';
+import PasswordResetModal from '@/components/registrar/PasswordResetModal';
 
 interface User {
     id: number;
@@ -30,6 +32,8 @@ interface UsersShowProps {
 }
 
 export default function UsersShow({ user, targetUser, activityLogs }: UsersShowProps) {
+    const [showPasswordModal, setShowPasswordModal] = useState(false);
+    
     return (
         <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
             <Sidebar user={user} />
@@ -88,13 +92,21 @@ export default function UsersShow({ user, targetUser, activityLogs }: UsersShowP
                                             <p className="text-sm">{new Date(targetUser.created_at).toLocaleDateString()}</p>
                                         </div>
                                         
-                                        <div className="pt-4">
+                                        <div className="pt-4 space-y-2">
                                             <Link href={route('registrar.users.edit', targetUser.id)}>
                                                 <Button className="w-full">
                                                     <Edit className="h-4 w-4 mr-2" />
                                                     Edit User
                                                 </Button>
                                             </Link>
+                                            <Button 
+                                                variant="outline"
+                                                className="w-full"
+                                                onClick={() => setShowPasswordModal(true)}
+                                            >
+                                                <Key className="h-4 w-4 mr-2" />
+                                                Reset Password
+                                            </Button>
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -140,6 +152,14 @@ export default function UsersShow({ user, targetUser, activityLogs }: UsersShowP
                     </div>
                 </main>
             </div>
+
+            {/* Password Reset Modal */}
+            <PasswordResetModal
+                user={targetUser}
+                isOpen={showPasswordModal}
+                onClose={() => setShowPasswordModal(false)}
+                routeName="registrar.users.reset-password"
+            />
         </div>
     );
 }

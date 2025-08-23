@@ -5,7 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Link } from '@inertiajs/react';
-import { Search, Users, Eye, Edit, UserPlus, UserMinus } from 'lucide-react';
+import { Search, Users, Eye, Edit, UserPlus, UserMinus, Key } from 'lucide-react';
+import { useState } from 'react';
+import PasswordResetModal from '@/components/registrar/PasswordResetModal';
 
 interface Parent {
     id: number;
@@ -34,6 +36,8 @@ interface ParentsIndexProps {
 }
 
 export default function ParentsIndex({ user, parents, filters }: ParentsIndexProps) {
+    const [resetPasswordParent, setResetPasswordParent] = useState<Parent | null>(null);
+    
     return (
         <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
             <Sidebar user={user} />
@@ -117,6 +121,14 @@ export default function ParentsIndex({ user, parents, filters }: ParentsIndexPro
                                                         Edit
                                                     </Button>
                                                 </Link>
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm"
+                                                    onClick={() => setResetPasswordParent(parent)}
+                                                >
+                                                    <Key className="h-4 w-4 mr-2" />
+                                                    Reset Password
+                                                </Button>
                                             </div>
                                         </div>
                                     ))}
@@ -149,6 +161,16 @@ export default function ParentsIndex({ user, parents, filters }: ParentsIndexPro
                     </div>
                 </main>
             </div>
+
+            {/* Password Reset Modal */}
+            {resetPasswordParent && (
+                <PasswordResetModal
+                    user={resetPasswordParent}
+                    isOpen={!!resetPasswordParent}
+                    onClose={() => setResetPasswordParent(null)}
+                    routeName="registrar.parents.reset-password"
+                />
+            )}
         </div>
     );
 }

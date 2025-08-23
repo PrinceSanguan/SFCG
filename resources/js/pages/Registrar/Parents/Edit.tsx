@@ -5,7 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Link, useForm } from '@inertiajs/react';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, Key } from 'lucide-react';
+import { useState } from 'react';
+import PasswordResetModal from '@/components/registrar/PasswordResetModal';
 
 interface Parent {
     id: number;
@@ -19,6 +21,7 @@ interface ParentsEditProps {
 }
 
 export default function ParentsEdit({ user, parent }: ParentsEditProps) {
+    const [showPasswordModal, setShowPasswordModal] = useState(false);
     const { data, setData, put, processing, errors } = useForm({
         name: parent.name,
         email: parent.email,
@@ -95,6 +98,14 @@ export default function ParentsEdit({ user, parent }: ParentsEditProps) {
                                             <Save className="h-4 w-4 mr-2" />
                                             {processing ? 'Saving...' : 'Save Changes'}
                                         </Button>
+                                        <Button 
+                                            type="button" 
+                                            variant="outline"
+                                            onClick={() => setShowPasswordModal(true)}
+                                        >
+                                            <Key className="h-4 w-4 mr-2" />
+                                            Reset Password
+                                        </Button>
                                         <Link href={route('registrar.parents.show', parent.id)}>
                                             <Button type="button" variant="outline">
                                                 Cancel
@@ -107,6 +118,14 @@ export default function ParentsEdit({ user, parent }: ParentsEditProps) {
                     </div>
                 </main>
             </div>
+
+            {/* Password Reset Modal */}
+            <PasswordResetModal
+                user={parent}
+                isOpen={showPasswordModal}
+                onClose={() => setShowPasswordModal(false)}
+                routeName="registrar.parents.reset-password"
+            />
         </div>
     );
 }

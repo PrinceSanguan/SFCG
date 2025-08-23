@@ -4,7 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Link } from '@inertiajs/react';
-import { ArrowLeft, Edit, User, Calendar, Mail, Users } from 'lucide-react';
+import { ArrowLeft, Edit, User, Calendar, Mail, Users, Key } from 'lucide-react';
+import { useState } from 'react';
+import PasswordResetModal from '@/components/registrar/PasswordResetModal';
 
 interface Parent {
     id: number;
@@ -28,6 +30,8 @@ interface ParentsShowProps {
 }
 
 export default function ParentsShow({ user, parent }: ParentsShowProps) {
+    const [showPasswordModal, setShowPasswordModal] = useState(false);
+    
     return (
         <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
             <Sidebar user={user} />
@@ -80,13 +84,21 @@ export default function ParentsShow({ user, parent }: ParentsShowProps) {
                                             <p className="text-sm">{new Date(parent.created_at).toLocaleDateString()}</p>
                                         </div>
                                         
-                                        <div className="pt-4">
+                                        <div className="pt-4 space-y-2">
                                             <Link href={route('registrar.parents.edit', parent.id)}>
                                                 <Button className="w-full">
                                                     <Edit className="h-4 w-4 mr-2" />
                                                     Edit Parent
                                                 </Button>
                                             </Link>
+                                            <Button 
+                                                variant="outline"
+                                                className="w-full"
+                                                onClick={() => setShowPasswordModal(true)}
+                                            >
+                                                <Key className="h-4 w-4 mr-2" />
+                                                Reset Password
+                                            </Button>
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -135,6 +147,14 @@ export default function ParentsShow({ user, parent }: ParentsShowProps) {
                     </div>
                 </main>
             </div>
+
+            {/* Password Reset Modal */}
+            <PasswordResetModal
+                user={parent}
+                isOpen={showPasswordModal}
+                onClose={() => setShowPasswordModal(false)}
+                routeName="registrar.parents.reset-password"
+            />
         </div>
     );
 }

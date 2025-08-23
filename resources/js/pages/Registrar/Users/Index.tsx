@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Link, useForm } from '@inertiajs/react';
 import { Search, Users, Eye, Edit, Trash2, Key } from 'lucide-react';
 import { useState } from 'react';
+import PasswordResetModal from '@/components/registrar/PasswordResetModal';
 
 interface User {
     id: number;
@@ -34,15 +35,15 @@ interface UsersIndexProps {
 
 export default function UsersIndex({ user, users, filters, roles, currentRole, yearLevel }: UsersIndexProps) {
     const [userToDelete, setUserToDelete] = useState<User | null>(null);
-    const [userToResetPassword, setUserToResetPassword] = useState<User | null>(null);
-    const { delete: deleteUser, post: resetPassword } = useForm();
+    const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
+    const { delete: deleteUser } = useForm();
 
     const handleDelete = (userItem: User) => {
         setUserToDelete(userItem);
     };
 
     const handleResetPassword = (userItem: User) => {
-        setUserToResetPassword(userItem);
+        setResetPasswordUser(userItem);
     };
 
     const confirmDelete = () => {
@@ -69,29 +70,7 @@ export default function UsersIndex({ user, users, filters, roles, currentRole, y
         }
     };
 
-    const confirmResetPassword = () => {
-        if (userToResetPassword) {
-            let resetRoute;
-            
-            // Determine the correct reset password route based on current role
-            if (currentRole && currentRole !== 'student') {
-                // For role-specific routes (administrators, teachers, etc.)
-                resetRoute = route(`registrar.${currentRole}s.reset-password`, userToResetPassword.id);
-            } else if (yearLevel) {
-                // For year-level specific student routes
-                resetRoute = route('registrar.students.reset-password', userToResetPassword.id);
-            } else {
-                // For general users route
-                resetRoute = route('registrar.users.reset-password', userToResetPassword.id);
-            }
-            
-            resetPassword(resetRoute, {
-                onSuccess: () => {
-                    setUserToResetPassword(null);
-                },
-            });
-        }
-    };
+
 
     return (
         <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
@@ -250,34 +229,14 @@ export default function UsersIndex({ user, users, filters, roles, currentRole, y
                 </div>
             )}
 
-            {/* Password Reset Confirmation Dialog */}
-            {userToResetPassword && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-md w-full mx-4">
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                            Confirm Password Reset
-                        </h3>
-                        <p className="text-gray-600 dark:text-gray-400 mb-6">
-                            Are you sure you want to reset the password for <strong>{userToResetPassword.name}</strong>? 
-                            A new random password will be generated and sent to their email.
-                        </p>
-                        <div className="flex gap-3 justify-end">
-                            <Button
-                                variant="outline"
-                                onClick={() => setUserToResetPassword(null)}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                variant="default"
-                                onClick={confirmResetPassword}
-                                className="bg-blue-600 hover:bg-blue-700"
-                            >
-                                Reset Password
-                            </Button>
-                        </div>
-                    </div>
-                </div>
+            {/* Password Reset Modal */}
+            {resetPasswordUser && (
+                <PasswordResetModal
+                    user={resetPasswordUser}
+                    isOpen={!!resetPasswordUser}
+                    onClose={() => setResetPasswordUser(null)}
+                    routeName={currentRole ? `registrar.${currentRole}s.reset-password` : 'registrar.users.reset-password'}
+                />
             )}
         </div>
     );
