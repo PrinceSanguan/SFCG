@@ -465,6 +465,193 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
     })->name('assign-teachers.destroy');
     Route::get('/assign-advisers', [RegistrarAcademicController::class, 'assignAdvisers'])->name('assign-advisers');
     
+    // Strands CRUD routes
+    Route::post('/strands', function(\Illuminate\Http\Request $request) {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'code' => ['required', 'string', 'max:20', 'unique:strands,code'],
+            'academic_level_id' => ['required', 'exists:academic_levels,id'],
+        ]);
+        
+        $strand = \App\Models\Strand::create($validated);
+        
+        // Log activity
+        \App\Models\ActivityLog::create([
+            'user_id' => \Illuminate\Support\Facades\Auth::id(),
+            'action' => 'created_strand',
+            'entity_type' => 'strand',
+            'entity_id' => $strand->id,
+            'details' => [
+                'strand_name' => $strand->name,
+                'strand_code' => $strand->code,
+            ],
+        ]);
+        
+        return back()->with('success', 'Strand created successfully!');
+    })->name('strands.store');
+    
+    Route::put('/strands/{strand}', function(\Illuminate\Http\Request $request, \App\Models\Strand $strand) {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'code' => ['required', 'string', 'max:20', 'unique:strands,code,' . $strand->id],
+            'academic_level_id' => ['required', 'exists:academic_levels,id'],
+        ]);
+        
+        $strand->update($validated);
+        
+        // Log activity
+        \App\Models\ActivityLog::create([
+            'user_id' => \Illuminate\Support\Facades\Auth::id(),
+            'action' => 'updated_strand',
+            'entity_type' => 'strand',
+            'entity_id' => $strand->id,
+            'details' => [
+                'strand_name' => $strand->name,
+                'strand_code' => $strand->code,
+            ],
+        ]);
+        
+        return back()->with('success', 'Strand updated successfully!');
+    })->name('strands.update');
+    
+    Route::delete('/strands/{strand}', function(\App\Models\Strand $strand) {
+        $strand->delete();
+        
+        // Log activity
+        \App\Models\ActivityLog::create([
+            'user_id' => \Illuminate\Support\Facades\Auth::id(),
+            'action' => 'deleted_strand',
+            'entity_type' => 'strand',
+            'entity_id' => $strand->id,
+        ]);
+        
+        return back()->with('success', 'Strand deleted successfully!');
+    })->name('strands.destroy');
+    
+    // Departments CRUD routes
+    Route::post('/departments', function(\Illuminate\Http\Request $request) {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'code' => ['required', 'string', 'max:20', 'unique:departments,code'],
+        ]);
+        
+        $department = \App\Models\Department::create($validated);
+        
+        // Log activity
+        \App\Models\ActivityLog::create([
+            'user_id' => \Illuminate\Support\Facades\Auth::id(),
+            'action' => 'created_department',
+            'entity_type' => 'department',
+            'entity_id' => $department->id,
+            'details' => [
+                'department_name' => $department->name,
+                'department_code' => $department->code,
+            ],
+        ]);
+        
+        return back()->with('success', 'Department created successfully!');
+    })->name('departments.store');
+    
+    Route::put('/departments/{department}', function(\Illuminate\Http\Request $request, \App\Models\Department $department) {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'code' => ['required', 'string', 'max:20', 'unique:departments,code,' . $department->id],
+        ]);
+        
+        $department->update($validated);
+        
+        // Log activity
+        \App\Models\ActivityLog::create([
+            'user_id' => \Illuminate\Support\Facades\Auth::id(),
+            'action' => 'updated_department',
+            'entity_type' => 'department',
+            'entity_id' => $department->id,
+            'details' => [
+                'department_name' => $department->name,
+                'department_code' => $department->code,
+            ],
+        ]);
+        
+        return back()->with('success', 'Department updated successfully!');
+    })->name('departments.update');
+    
+    Route::delete('/departments/{department}', function(\App\Models\Department $department) {
+        $department->delete();
+        
+        // Log activity
+        \App\Models\ActivityLog::create([
+            'user_id' => \Illuminate\Support\Facades\Auth::id(),
+            'action' => 'deleted_department',
+            'entity_type' => 'department',
+            'entity_id' => $department->id,
+        ]);
+        
+        return back()->with('success', 'Department deleted successfully!');
+    })->name('departments.destroy');
+    
+    // Courses CRUD routes
+    Route::post('/courses', function(\Illuminate\Http\Request $request) {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'code' => ['required', 'string', 'max:20', 'unique:courses,code'],
+            'department_id' => ['required', 'exists:departments,id'],
+        ]);
+        
+        $course = \App\Models\Course::create($validated);
+        
+        // Log activity
+        \App\Models\ActivityLog::create([
+            'user_id' => \Illuminate\Support\Facades\Auth::id(),
+            'action' => 'created_course',
+            'entity_type' => 'course',
+            'entity_id' => $course->id,
+            'details' => [
+                'course_name' => $course->name,
+                'course_code' => $course->code,
+            ],
+        ]);
+        
+        return back()->with('success', 'Course created successfully!');
+    })->name('courses.store');
+    
+    Route::put('/courses/{course}', function(\Illuminate\Http\Request $request, \App\Models\Course $course) {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'code' => ['required', 'string', 'max:20', 'unique:courses,code,' . $course->id],
+            'department_id' => ['required', 'exists:departments,id'],
+        ]);
+        
+        $course->update($validated);
+        
+        // Log activity
+        \App\Models\ActivityLog::create([
+            'user_id' => \Illuminate\Support\Facades\Auth::id(),
+            'action' => 'updated_course',
+            'entity_type' => 'course',
+            'entity_id' => $course->id,
+            'details' => [
+                'course_name' => $course->name,
+                'course_code' => $course->code,
+            ],
+        ]);
+        
+        return back()->with('success', 'Course updated successfully!');
+    })->name('courses.update');
+    
+    Route::delete('/courses/{course}', function(\App\Models\Course $course) {
+        $course->delete();
+        
+        // Log activity
+        \App\Models\ActivityLog::create([
+            'user_id' => \Illuminate\Support\Facades\Auth::id(),
+            'action' => 'deleted_course',
+            'entity_type' => 'course',
+            'entity_id' => $course->id,
+        ]);
+        
+        return back()->with('success', 'Course deleted successfully!');
+    })->name('courses.destroy');
+    
     // API routes for honor system
     Route::prefix('api')->name('api.')->group(function () {
         Route::get('/academic-levels', function () {

@@ -2,300 +2,474 @@ import { Header } from '@/components/registrar/header';
 import { Sidebar } from '@/components/registrar/sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Link } from '@inertiajs/react';
-import { ArrowLeft, Building2, GraduationCap, BookOpen, Users, CheckCircle, XCircle } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Link, router } from '@inertiajs/react';
+import { useState } from 'react';
+import { ArrowLeft, Plus } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
-interface User {
-    name?: string;
-    email?: string;
-    user_role?: string;
-}
+interface User { name: string; email: string; user_role: string }
+interface AcademicLevel { id: number; name: string; key: string; strands: Strand[] }
+interface Department { id: number; name: string; code: string; courses: Course[] }
+interface Strand { id: number; name: string; code: string; academic_level_id: number; academic_level: AcademicLevel }
+interface Course { id: number; name: string; code: string; department_id: number; description?: string; units?: number; is_active?: boolean }
 
-interface AcademicLevel {
-    id: number;
-    key: string;
-    name: string;
-    sort_order: number;
-    strands?: Strand[];
-}
+export default function Programs({ user, academicLevels = [], departments = [], formErrors }: { user: User; academicLevels?: AcademicLevel[]; departments?: Department[]; formErrors?: Record<string, string> }) {
+    const [activeTab, setActiveTab] = useState('strands');
+    
+    // Strand form state
+    const [strandForm, setStrandForm] = useState({ name: '', code: '', academic_level_id: '' });
+    const [strandModal, setStrandModal] = useState(false);
+    const [editStrand, setEditStrand] = useState<Strand | null>(null);
 
-interface Strand {
-    id: number;
-    name: string;
-    description?: string;
-    academic_level_id: number;
-    is_active: boolean;
-    created_at: string;
-    updated_at: string;
-}
+    // Auto-set Senior High School when modal opens
+    const openStrandModal = () => {
+        const seniorHighLevel = academicLevels.find(level => level.key === 'senior_highschool');
+        if (seniorHighLevel) {
+            setStrandForm({ name: '', code: '', academic_level_id: seniorHighLevel.id.toString() });
+        }
+        setStrandModal(true);
+    };
+    
+    // Department form state
+    const [deptForm, setDeptForm] = useState({ name: '', code: '' });
+    const [deptModal, setDeptModal] = useState(false);
+    const [editDept, setEditDept] = useState<Department | null>(null);
+    
+    // Course form state
+    const [courseForm, setCourseForm] = useState({ name: '', code: '', department_id: '' });
+    const [courseModal, setCourseModal] = useState(false);
+    const [editCourse, setEditCourse] = useState<Course | null>(null);
 
-interface Department {
-    id: number;
-    name: string;
-    description?: string;
-    academic_level_id: number;
-    is_active: boolean;
-    created_at: string;
-    updated_at: string;
-    courses?: Course[];
-}
+    // Strand handlers
+    const submitStrand = () => {
+        router.post(route('registrar.academic.strands.store'), strandForm, {
+            preserveScroll: true,
+            onSuccess: () => { setStrandForm({ name: '', code: '', academic_level_id: '' }); setStrandModal(false); },
+        });
+    };
+    
+    const updateStrand = (strand: Strand) => {
+        const data = { name: strand.name, code: strand.code, academic_level_id: strand.academic_level_id };
+        router.put(route('registrar.academic.strands.update', strand.id), data, { 
+            preserveScroll: true, 
+            onSuccess: () => setEditStrand(null) 
+        });
+    };
+    
+    const destroyStrand = (strand: Strand) => {
+        if (confirm(`Delete strand ${strand.name}?`)) {
+            router.delete(route('registrar.academic.strands.destroy', strand.id), { preserveScroll: true });
+        }
+    };
 
-interface Course {
-    id: number;
-    name: string;
-    code: string;
-    description?: string;
-    department_id: number;
-    is_active: boolean;
-    created_at: string;
-    updated_at: string;
-}
+    // Department handlers
+    const submitDepartment = () => {
+        router.post(route('registrar.academic.departments.store'), deptForm, {
+            preserveScroll: true,
+            onSuccess: () => { setDeptForm({ name: '', code: '' }); setDeptModal(false); },
+        });
+    };
+    
+    const updateDepartment = (dept: Department) => {
+        const data = { name: dept.name, code: dept.code };
+        router.put(route('registrar.academic.departments.update', dept.id), data, { 
+            preserveScroll: true, 
+            onSuccess: () => setEditDept(null) 
+        });
+    };
+    
+    const destroyDepartment = (dept: Department) => {
+        if (confirm(`Delete department ${dept.name}?`)) {
+            router.delete(route('registrar.academic.departments.destroy', dept.id), { preserveScroll: true });
+        }
+    };
 
-interface ProgramsProps {
-    user: User;
-    academicLevels: AcademicLevel[];
-    departments: Department[];
-}
+    // Course handlers
+    const submitCourse = () => {
+        router.post(route('registrar.academic.courses.store'), courseForm, {
+            preserveScroll: true,
+            onSuccess: () => { setCourseForm({ name: '', code: '', department_id: '' }); setCourseModal(false); },
+        });
+    };
+    
+    const updateCourse = (course: Course) => {
+        const data = { name: course.name, code: course.code, department_id: course.department_id };
+        router.put(route('registrar.academic.courses.update', course.id), data, { 
+            preserveScroll: true, 
+            onSuccess: () => setEditCourse(null) 
+        });
+    };
+    
+    const destroyCourse = (course: Course) => {
+        if (confirm(`Delete course ${course.name}?`)) {
+            router.delete(route('registrar.academic.courses.destroy', course.id), { preserveScroll: true });
+        }
+    };
 
-export default function Programs({ user, academicLevels, departments }: ProgramsProps) {
     return (
         <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
             <Sidebar user={user} />
-            
             <div className="flex flex-1 flex-col overflow-hidden">
                 <Header user={user} />
-                
                 <main className="flex-1 overflow-y-auto bg-gray-100 p-4 md:p-6 dark:bg-gray-900">
-                    <div className="mx-auto max-w-7xl space-y-6">
-                        {/* Back Button */}
-                        <div className="flex items-center gap-4">
-                            <Link href={route('registrar.academic.index')}>
-                                <Button variant="outline" size="sm">
-                                    <ArrowLeft className="h-4 w-4 mr-2" />
-                                    Back to Academic Management
-                                </Button>
-                            </Link>
-                        </div>
+                    <div className="mb-4">
+                        <Link href={route('registrar.academic.index')}>
+                            <Button variant="outline" size="sm" className="flex items-center gap-2">
+                                <ArrowLeft className="h-4 w-4" /> Back to Academic & Curriculum
+                            </Button>
+                        </Link>
+                    </div>
+                    
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Manage strands, courses, and departments</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <Tabs value={activeTab} onValueChange={setActiveTab}>
+                                <TabsList className="grid w-full grid-cols-3">
+                                    <TabsTrigger value="strands">Strands</TabsTrigger>
+                                    <TabsTrigger value="departments">Departments</TabsTrigger>
+                                    <TabsTrigger value="courses">Courses</TabsTrigger>
+                                </TabsList>
+                                
+                                <TabsContent value="strands" className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="font-semibold">Academic Strands</h3>
+                                        <Dialog open={strandModal} onOpenChange={setStrandModal}>
+                                            <DialogTrigger asChild>
+                                                <Button onClick={openStrandModal} className="flex items-center gap-2">
+                                                    <Plus className="h-4 w-4" />
+                                                    Add Strand
+                                                </Button>
+                                            </DialogTrigger>
+                                            <DialogContent>
+                                                <DialogHeader>
+                                                    <DialogTitle>Add new strand</DialogTitle>
+                                                </DialogHeader>
+                                                <div className="space-y-3">
+                                                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                                        <p className="text-sm text-blue-800">
+                                                            <strong>Note:</strong> Strands are only available for Senior High School students as academic tracks (STEM, ABM, HUMSS, GAS).
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <Label htmlFor="strand-name">Name</Label>
+                                                        <Input id="strand-name" value={strandForm.name} onChange={(e) => setStrandForm({ ...strandForm, name: e.target.value })} />
+                                                    </div>
+                                                    <div>
+                                                        <Label htmlFor="strand-code">Code</Label>
+                                                        <Input id="strand-code" value={strandForm.code} onChange={(e) => setStrandForm({ ...strandForm, code: e.target.value })} />
+                                                    </div>
+                                                    <div>
+                                                        <Label htmlFor="strand-level">Academic Level</Label>
+                                                        <Select value={strandForm.academic_level_id} onValueChange={(value) => setStrandForm({ ...strandForm, academic_level_id: value })} disabled>
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder="Select academic level" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {academicLevels
+                                                                    .filter(level => level.key === 'senior_highschool')
+                                                                    .map((level) => (
+                                                                        <SelectItem key={level.id} value={level.id.toString()}>
+                                                                            {level.name}
+                                                                        </SelectItem>
+                                                                    ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                        <p className="text-sm text-gray-500 mt-1">
+                                                            Strands are automatically assigned to Senior High School
+                                                        </p>
+                                                        {formErrors?.academic_level_id && (
+                                                            <Alert variant="destructive">
+                                                                <AlertDescription>{formErrors.academic_level_id}</AlertDescription>
+                                                            </Alert>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <DialogFooter>
+                                                    <Button onClick={submitStrand}>Save</Button>
+                                                </DialogFooter>
+                                            </DialogContent>
+                                        </Dialog>
+                                    </div>
+                                    
+                                    <div className="overflow-x-auto rounded border">
+                                        <table className="w-full text-sm">
+                                            <thead className="bg-gray-50 dark:bg-gray-800">
+                                                <tr>
+                                                    <th className="text-left p-3">Code</th>
+                                                    <th className="text-left p-3">Name</th>
+                                                    <th className="text-left p-3">Academic Level</th>
+                                                    <th className="text-left p-3">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {academicLevels.flatMap(level => level.strands).map((strand) => (
+                                                    <tr key={strand.id} className="border-t">
+                                                        <td className="p-3">{strand.code}</td>
+                                                        <td className="p-3">{strand.name}</td>
+                                                        <td className="p-3">
+                                                            {academicLevels.find(l => l.id === strand.academic_level_id)?.name || '-'}
+                                                        </td>
+                                                        <td className="p-3">
+                                                            <div className="flex gap-2">
+                                                                <Button variant="outline" size="sm" onClick={() => setEditStrand(strand)}>Edit</Button>
+                                                                <Button variant="destructive" size="sm" onClick={() => destroyStrand(strand)}>Delete</Button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </TabsContent>
+                                
+                                <TabsContent value="departments" className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="font-semibold">Departments</h3>
+                                        <Dialog open={deptModal} onOpenChange={setDeptModal}>
+                                            <DialogTrigger asChild>
+                                                <Button className="flex items-center gap-2"><Plus className="h-4 w-4" /> Add Department</Button>
+                                            </DialogTrigger>
+                                            <DialogContent>
+                                                <DialogHeader>
+                                                    <DialogTitle>Add new department</DialogTitle>
+                                                </DialogHeader>
+                                                <div className="space-y-3">
+                                                    <div>
+                                                        <Label htmlFor="dept-name">Name</Label>
+                                                        <Input id="dept-name" value={deptForm.name} onChange={(e) => setDeptForm({ ...deptForm, name: e.target.value })} />
+                                                    </div>
+                                                    <div>
+                                                        <Label htmlFor="dept-code">Code</Label>
+                                                        <Input id="dept-code" value={deptForm.code} onChange={(e) => setDeptForm({ ...deptForm, code: e.target.value })} />
+                                                    </div>
+                                                </div>
+                                                <DialogFooter>
+                                                    <Button onClick={submitDepartment}>Save</Button>
+                                                </DialogFooter>
+                                            </DialogContent>
+                                        </Dialog>
+                                    </div>
+                                    
+                                    <div className="overflow-x-auto rounded border">
+                                        <table className="w-full text-sm">
+                                            <thead className="bg-gray-50 dark:bg-gray-800">
+                                                <tr>
+                                                    <th className="text-left p-3">Code</th>
+                                                    <th className="text-left p-3">Name</th>
+                                                    <th className="text-left p-3">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {departments.map((dept) => (
+                                                    <tr key={dept.id} className="border-t">
+                                                        <td className="p-3">{dept.code}</td>
+                                                        <td className="p-3">{dept.name}</td>
+                                                        <td className="p-3">
+                                                            <div className="flex gap-2">
+                                                                <Button variant="outline" size="sm" onClick={() => setEditDept(dept)}>Edit</Button>
+                                                                <Button variant="destructive" size="sm" onClick={() => destroyDepartment(dept)}>Delete</Button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </TabsContent>
+                                
+                                <TabsContent value="courses" className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="font-semibold">Courses</h3>
+                                        <Dialog open={courseModal} onOpenChange={setCourseModal}>
+                                            <DialogTrigger asChild>
+                                                <Button className="flex items-center gap-2"><Plus className="h-4 w-4" /> Add Course</Button>
+                                            </DialogTrigger>
+                                            <DialogContent>
+                                                <DialogHeader>
+                                                    <DialogTitle>Add new course</DialogTitle>
+                                                </DialogHeader>
+                                                <div className="space-y-3">
+                                                    <div>
+                                                        <Label htmlFor="course-name">Name</Label>
+                                                        <Input id="course-name" value={courseForm.name} onChange={(e) => setCourseForm({ ...courseForm, name: e.target.value })} />
+                                                    </div>
+                                                    <div>
+                                                        <Label htmlFor="course-code">Code</Label>
+                                                        <Input id="course-code" value={courseForm.code} onChange={(e) => setCourseForm({ ...courseForm, code: e.target.value })} />
+                                                    </div>
+                                                    <div>
+                                                        <Label htmlFor="course-dept">Department</Label>
+                                                        <Select value={courseForm.department_id} onValueChange={(value) => setCourseForm({ ...courseForm, department_id: value })}>
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder="Select department" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {departments.map((dept) => (
+                                                                    <SelectItem key={dept.id} value={dept.id.toString()}>
+                                                                        {dept.name}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                </div>
+                                                <DialogFooter>
+                                                    <Button onClick={submitCourse}>Save</Button>
+                                                </DialogFooter>
+                                            </DialogContent>
+                                        </Dialog>
+                                    </div>
+                                    
+                                    <div className="overflow-x-auto rounded border">
+                                        <table className="w-full text-sm">
+                                            <thead className="bg-gray-50 dark:bg-gray-800">
+                                                <tr>
+                                                    <th className="text-left p-3">Code</th>
+                                                    <th className="text-left p-3">Name</th>
+                                                    <th className="text-left p-3">Department</th>
+                                                    <th className="text-left p-3">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {departments.flatMap(dept => dept.courses).map((course) => (
+                                                    <tr key={course.id} className="border-t">
+                                                        <td className="p-3">{course.code}</td>
+                                                        <td className="p-3">{course.name}</td>
+                                                        <td className="p-3">
+                                                            {departments.find(d => d.id === course.department_id)?.name || '-'}
+                                                        </td>
+                                                        <td className="p-3">
+                                                            <div className="flex gap-2">
+                                                                <Button variant="outline" size="sm" onClick={() => setEditCourse(course)}>Edit</Button>
+                                                                <Button variant="destructive" size="sm" onClick={() => destroyCourse(course)}>Delete</Button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </TabsContent>
+                            </Tabs>
+                        </CardContent>
+                    </Card>
 
-                        <div className="flex flex-col gap-2">
-                            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                                Academic Programs & Structure
-                            </h1>
-                            <p className="text-lg text-gray-600 dark:text-gray-400">
-                                View academic programs, strands, departments, and courses for each level.
-                            </p>
-                        </div>
-
-                        {/* Info Card */}
-                        <Card className="bg-teal-50 border-teal-200 dark:bg-teal-900/20 dark:border-teal-800">
-                            <CardContent className="pt-6">
-                                <div className="flex items-start gap-3">
-                                    <Building2 className="h-5 w-5 text-teal-600 mt-0.5" />
+                    {/* Edit modals */}
+                    {editStrand && (
+                        <Dialog open={!!editStrand} onOpenChange={(open) => !open && setEditStrand(null)}>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Edit strand</DialogTitle>
+                                </DialogHeader>
+                                <div className="space-y-3">
+                                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                        <p className="text-sm text-blue-800">
+                                            <strong>Note:</strong> Strands are only available for Senior High School students as academic tracks (STEM, ABM, HUMSS, GAS).
+                                        </p>
+                                    </div>
                                     <div>
-                                        <h3 className="font-medium text-teal-900 dark:text-teal-100">
-                                            Academic Structure Overview
-                                        </h3>
-                                        <p className="text-sm text-teal-700 dark:text-teal-300 mt-1">
-                                            This page displays the complete academic structure including programs, strands, 
-                                            departments, and courses organized by academic level.
+                                        <Label>Name</Label>
+                                        <Input value={editStrand.name} onChange={(e) => setEditStrand({ ...editStrand, name: e.target.value })} />
+                                    </div>
+                                    <div>
+                                        <Label>Code</Label>
+                                        <Input value={editStrand.code} onChange={(e) => setEditStrand({ ...editStrand, code: e.target.value })} />
+                                    </div>
+                                    <div>
+                                        <Label>Academic Level</Label>
+                                        <Select value={editStrand.academic_level_id.toString()} onValueChange={(value) => setEditStrand({ ...editStrand, academic_level_id: Number(value) })} disabled>
+                                            <SelectTrigger>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {academicLevels
+                                                    .filter(level => level.key === 'senior_highschool')
+                                                    .map((level) => (
+                                                        <SelectItem key={level.id} value={level.id.toString()}>
+                                                            {level.name}
+                                                        </SelectItem>
+                                                    ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <p className="text-sm text-gray-500 mt-1">
+                                            Strands are automatically assigned to Senior High School
                                         </p>
                                     </div>
                                 </div>
-                            </CardContent>
-                        </Card>
+                                <DialogFooter>
+                                    <Button onClick={() => updateStrand(editStrand)}>Save</Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    )}
 
-                        {/* Academic Levels with Strands */}
-                        {academicLevels.map((level) => (
-                            <Card key={level.id}>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <GraduationCap className="h-5 w-5 text-blue-600" />
-                                        {level.name} - Academic Structure
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-6">
-                                        {/* Strands Section */}
-                                        {level.strands && level.strands.length > 0 && (
-                                            <div>
-                                                <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
-                                                    <BookOpen className="h-4 w-4 text-indigo-600" />
-                                                    Strands
-                                                </h4>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                                    {level.strands.map((strand) => (
-                                                        <div key={strand.id} className="p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                                                            <div className="flex items-center justify-between mb-2">
-                                                                <h5 className="font-medium text-gray-900 dark:text-gray-100">
-                                                                    {strand.name}
-                                                                </h5>
-                                                                {strand.is_active ? (
-                                                                    <Badge variant="default" className="bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300 text-xs">
-                                                                        <CheckCircle className="h-3 w-3 mr-1" />
-                                                                        Active
-                                                                    </Badge>
-                                                                ) : (
-                                                                    <Badge variant="secondary" className="bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 text-xs">
-                                                                        <XCircle className="h-3 w-3 mr-1" />
-                                                                        Inactive
-                                                                    </Badge>
-                                                                )}
-                                                            </div>
-                                                            {strand.description && (
-                                                                <p className="text-sm text-gray-600 dark:text-gray-400">
-                                                                    {strand.description}
-                                                                </p>
-                                                            )}
-                                                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                                                                Created: {new Date(strand.created_at).toLocaleDateString()}
-                                                            </p>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Departments Section */}
-                                        {departments.filter(dept => dept.academic_level_id === level.id).length > 0 && (
-                                            <div>
-                                                <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
-                                                    <Building2 className="h-4 w-4 text-purple-600" />
-                                                    Departments
-                                                </h4>
-                                                <div className="space-y-4">
-                                                    {departments
-                                                        .filter(dept => dept.academic_level_id === level.id)
-                                                        .map((department) => (
-                                                            <div key={department.id} className="border rounded-lg p-4">
-                                                                <div className="flex items-center justify-between mb-3">
-                                                                    <h5 className="font-medium text-gray-900 dark:text-gray-100">
-                                                                        {department.name}
-                                                                    </h5>
-                                                                    {department.is_active ? (
-                                                                        <Badge variant="default" className="bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300">
-                                                                            <CheckCircle className="h-3 w-3 mr-1" />
-                                                                            Active
-                                                                        </Badge>
-                                                                    ) : (
-                                                                        <Badge variant="secondary" className="bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300">
-                                                                            <XCircle className="h-3 w-3 mr-1" />
-                                                                            Inactive
-                                                                        </Badge>
-                                                                    )}
-                                                                </div>
-                                                                {department.description && (
-                                                                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                                                                        {department.description}
-                                                                    </p>
-                                                                )}
-                                                                
-                                                                {/* Courses in Department */}
-                                                                {department.courses && department.courses.length > 0 && (
-                                                                    <div>
-                                                                        <h6 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-                                                                            <BookOpen className="h-3 w-3 text-blue-600" />
-                                                                            Courses ({department.courses.length})
-                                                                        </h6>
-                                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                                                            {department.courses.map((course) => (
-                                                                                <div key={course.id} className="p-2 bg-gray-50 dark:bg-gray-800 rounded border">
-                                                                                    <div className="flex items-center justify-between">
-                                                                                        <div>
-                                                                                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                                                                                {course.name}
-                                                                                            </p>
-                                                                                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                                                                Code: {course.code}
-                                                                                            </p>
-                                                                                        </div>
-                                                                                        {course.is_active ? (
-                                                                                            <Badge variant="default" className="bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300 text-xs">
-                                                                                                Active
-                                                                                            </Badge>
-                                                                                        ) : (
-                                                                                            <Badge variant="secondary" className="bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 text-xs">
-                                                                                                Inactive
-                                                                                            </Badge>
-                                                                                        )}
-                                                                                    </div>
-                                                                                    {course.description && (
-                                                                                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                                                                                            {course.description}
-                                                                                        </p>
-                                                                                    )}
-                                                                                </div>
-                                                                            ))}
-                                                                        </div>
-                                                                    </div>
-                                                                )}
-                                                                
-                                                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
-                                                                    Created: {new Date(department.created_at).toLocaleDateString()}
-                                                                </p>
-                                                            </div>
-                                                        ))}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* No Content Message */}
-                                        {(!level.strands || level.strands.length === 0) && 
-                                         departments.filter(dept => dept.academic_level_id === level.id).length === 0 && (
-                                            <div className="text-center py-6">
-                                                <Building2 className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                                                <p className="text-gray-500 dark:text-gray-400">
-                                                    No programs or departments configured for {level.name} yet.
-                                                </p>
-                                                <p className="text-sm text-gray-400 dark:text-gray-500">
-                                                    Academic structure must be configured by an administrator.
-                                                </p>
-                                            </div>
-                                        )}
+                    {editDept && (
+                        <Dialog open={!!editDept} onOpenChange={(open) => !open && setEditDept(null)}>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Edit department</DialogTitle>
+                                </DialogHeader>
+                                <div className="space-y-3">
+                                    <div>
+                                        <Label>Name</Label>
+                                        <Input value={editDept.name} onChange={(e) => setEditDept({ ...editDept, name: e.target.value })} />
                                     </div>
-                                </CardContent>
-                            </Card>
-                        ))}
+                                    <div>
+                                        <Label>Code</Label>
+                                        <Input value={editDept.code} onChange={(e) => setEditDept({ ...editDept, code: e.target.value })} />
+                                    </div>
+                                </div>
+                                <DialogFooter>
+                                    <Button onClick={() => updateDepartment(editDept)}>Save</Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    )}
 
-                        {/* Additional Information */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="text-lg">Academic Structure</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-3">
-                                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                                        The academic structure provides the foundation for:
-                                    </p>
-                                    <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1 ml-4">
-                                        <li>• Student enrollment and programs</li>
-                                        <li>• Course offerings and curriculum</li>
-                                        <li>• Teacher and instructor assignments</li>
-                                        <li>• Academic planning and scheduling</li>
-                                        <li>• Grade computation and reporting</li>
-                                    </ul>
-                                </CardContent>
-                            </Card>
-
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="text-lg">System Integration</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-3">
-                                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                                        Programs integrate with other system components:
-                                    </p>
-                                    <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1 ml-4">
-                                        <li>• Student registration and enrollment</li>
-                                        <li>• Course scheduling and assignments</li>
-                                        <li>• Grade recording and computation</li>
-                                        <li>• Academic reporting and analytics</li>
-                                        <li>• Certificate and transcript generation</li>
-                                    </ul>
-                                </CardContent>
-                            </Card>
-                        </div>
-                    </div>
+                    {editCourse && (
+                        <Dialog open={!!editCourse} onOpenChange={(open) => !open && setEditCourse(null)}>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Edit course</DialogTitle>
+                                </DialogHeader>
+                                <div className="space-y-3">
+                                    <div>
+                                        <Label>Name</Label>
+                                        <Input value={editCourse.name} onChange={(e) => setEditCourse({ ...editCourse, name: e.target.value })} />
+                                    </div>
+                                    <div>
+                                        <Label>Code</Label>
+                                        <Input value={editCourse.code} onChange={(e) => setEditCourse({ ...editCourse, code: e.target.value })} />
+                                    </div>
+                                    <div>
+                                        <Label>Department</Label>
+                                        <Select value={editCourse.department_id.toString()} onValueChange={(value) => setEditCourse({ ...editCourse, department_id: Number(value) })}>
+                                            <SelectTrigger>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {departments.map((dept) => (
+                                                    <SelectItem key={dept.id} value={dept.id.toString()}>
+                                                        {dept.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                                <DialogFooter>
+                                    <Button onClick={() => updateCourse(editCourse)}>Save</Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    )}
                 </main>
             </div>
         </div>
