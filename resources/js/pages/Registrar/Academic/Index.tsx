@@ -67,6 +67,12 @@ export default function AcademicIndex({ user }: { user: User }) {
                                     <Link href={route('registrar.academic.subjects')}><Button variant="outline">Manage Subjects</Button></Link>
                                 </CardContent>
                             </Card>
+                            <Card>
+                                <CardHeader><CardTitle>Student Subject Management</CardTitle></CardHeader>
+                                <CardContent>
+                                    <Link href={route('registrar.academic.student-subjects.index')}><Button variant="outline">Manage Student Subjects</Button></Link>
+                                </CardContent>
+                            </Card>
                         </div>
                     </div>
                 </main>

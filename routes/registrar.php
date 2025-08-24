@@ -7,6 +7,7 @@ use App\Http\Controllers\Registrar\RegistrarUserManagementController;
 use App\Http\Controllers\Registrar\RegistrarParentManagementController;
 
 use App\Http\Controllers\Registrar\RegistrarAcademicController;
+use App\Http\Controllers\Registrar\StudentSubjectController;
 use App\Http\Controllers\Admin\CertificateController;
 use App\Http\Controllers\Admin\ReportsController;
 
@@ -244,6 +245,14 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
     })->name('grading-periods.destroy');
     Route::get('/subjects', [RegistrarAcademicController::class, 'subjects'])->name('subjects');
     Route::get('/programs', [RegistrarAcademicController::class, 'programs'])->name('programs');
+    
+    // Student Subject Management
+    Route::get('/student-subjects', [StudentSubjectController::class, 'index'])->name('student-subjects.index');
+    Route::post('/student-subjects', [StudentSubjectController::class, 'store'])->name('student-subjects.store');
+    Route::put('/student-subjects/{assignment}', [StudentSubjectController::class, 'update'])->name('student-subjects.update');
+    Route::delete('/student-subjects/{assignment}', [StudentSubjectController::class, 'destroy'])->name('student-subjects.destroy');
+    Route::get('/student-subjects/students/{levelId}', [StudentSubjectController::class, 'getStudentsByLevel'])->name('student-subjects.students-by-level');
+    Route::get('/student-subjects/subjects/{levelId}', [StudentSubjectController::class, 'getSubjectsByLevel'])->name('student-subjects.subjects-by-level');
     Route::get('/honors', [RegistrarAcademicController::class, 'honors'])->name('honors');
     Route::get('/assign-instructors', [RegistrarAcademicController::class, 'assignInstructors'])->name('assign-instructors');
     Route::post('/assign-instructors', function(\Illuminate\Http\Request $request) {
@@ -264,6 +273,19 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
         $instructor = \App\Models\User::find($request->instructor_id);
         if (!$instructor || $instructor->user_role !== 'instructor') {
             return back()->with('error', 'Selected user is not an instructor.');
+        }
+
+        // Check for existing assignment to provide better error message
+        $existingAssignment = \App\Models\InstructorCourseAssignment::where([
+            'instructor_id' => $request->instructor_id,
+            'course_id' => $request->course_id,
+            'academic_level_id' => $request->academic_level_id,
+            'grading_period_id' => $request->grading_period_id,
+            'school_year' => $request->school_year,
+        ])->first();
+
+        if ($existingAssignment) {
+            return back()->with('error', 'This instructor is already assigned to this course for the specified period and school year. Please check existing assignments or modify the current one.');
         }
 
         $assignment = \App\Models\InstructorCourseAssignment::create([
@@ -310,6 +332,19 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
         $instructor = \App\Models\User::find($request->instructor_id);
         if (!$instructor || $instructor->user_role !== 'instructor') {
             return back()->with('error', 'Selected user is not an instructor.');
+        }
+
+        // Check for existing assignment (excluding current one) to provide better error message
+        $existingAssignment = \App\Models\InstructorCourseAssignment::where([
+            'instructor_id' => $request->instructor_id,
+            'course_id' => $request->course_id,
+            'academic_level_id' => $request->academic_level_id,
+            'grading_period_id' => $request->grading_period_id,
+            'school_year' => $request->school_year,
+        ])->where('id', '!=', $assignment->id)->first();
+
+        if ($existingAssignment) {
+            return back()->with('error', 'This instructor is already assigned to this course for the specified period and school year. Please check existing assignments or modify the current one.');
         }
 
         $assignment->update([
@@ -735,6 +770,7 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
             'description' => ['nullable', 'string'],
             'academic_level_id' => ['required', 'exists:academic_levels,id'],
             'grading_period_id' => ['nullable', 'exists:grading_periods,id'],
+            'course_id' => ['nullable', 'exists:courses,id'],
             'units' => ['required', 'numeric', 'min:0'],
             'hours_per_week' => ['required', 'numeric', 'min:0'],
             'is_core' => ['nullable', 'boolean'],
@@ -769,6 +805,7 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
             'description' => ['nullable', 'string'],
             'academic_level_id' => ['required', 'exists:academic_levels,id'],
             'grading_period_id' => ['nullable', 'exists:grading_periods,id'],
+            'course_id' => ['nullable', 'exists:courses,id'],
             'units' => ['required', 'numeric', 'min:0'],
             'hours_per_week' => ['required', 'numeric', 'min:0'],
             'is_core' => ['nullable', 'boolean'],

@@ -102,12 +102,10 @@ Route::middleware([UserMiddleware::class])->group(function () {
 //     return Inertia::render('Welcome', ['message' => 'Welcome to Registrar Dashboard - Coming Soon!']);
 // })->name('registrar.dashboard');
 
-// Instructor Dashboard
-Route::middleware(['auth'])->group(function () {
-    Route::get('/instructor/dashboard', function () {
-        return Inertia::render('Welcome', ['message' => 'Welcome to Instructor Dashboard - Coming Soon!']);
-    })->name('instructor.dashboard');
-});
+// Instructor Dashboard - Now handled by dedicated routes file
+// Route::get('/instructor/dashboard', function () {
+//     return Inertia::render('Welcome', ['message' => 'Welcome to Instructor Dashboard - Coming Soon!']);
+// })->name('instructor.dashboard');
 
 // Teacher Dashboard
 Route::middleware(['auth'])->group(function () {

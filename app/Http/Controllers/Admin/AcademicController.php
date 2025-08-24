@@ -168,19 +168,21 @@ class AcademicController extends Controller
 
     public function subjects()
     {
-        $subjects = Subject::with(['academicLevel', 'gradingPeriod'])
+        $subjects = Subject::with(['academicLevel', 'gradingPeriod', 'course'])
             ->orderBy('academic_level_id')
             ->orderBy('name')
             ->get();
         
         $academicLevels = AcademicLevel::orderBy('sort_order')->get();
         $gradingPeriods = GradingPeriod::orderBy('academic_level_id')->orderBy('sort_order')->get();
+        $courses = Course::orderBy('name')->get();
         
         return Inertia::render('Admin/Academic/Subjects', [
             'user' => $this->sharedUser(),
             'subjects' => $subjects,
             'academicLevels' => $academicLevels,
             'gradingPeriods' => $gradingPeriods,
+            'courses' => $courses,
         ]);
     }
 
@@ -477,7 +479,8 @@ class AcademicController extends Controller
             'description' => 'nullable|string',
             'academic_level_id' => 'required|exists:academic_levels,id',
             'grading_period_id' => 'nullable|exists:grading_periods,id',
-            'units' => 'nullable|integer|min:0',
+            'course_id' => 'nullable|exists:courses,id',
+            'units' => 'nullable|numeric|min:0',
             'hours_per_week' => 'nullable|integer|min:0',
             'is_core' => 'nullable|boolean',
             'is_active' => 'nullable|boolean',
@@ -493,6 +496,7 @@ class AcademicController extends Controller
             'description' => $request->description,
             'academic_level_id' => $request->academic_level_id,
             'grading_period_id' => $request->grading_period_id,
+            'course_id' => $request->course_id,
             'units' => $request->units ?? 0,
             'hours_per_week' => $request->hours_per_week ?? 0,
             'is_core' => $request->is_core ?? false,
@@ -523,7 +527,8 @@ class AcademicController extends Controller
             'description' => 'nullable|string',
             'academic_level_id' => 'required|exists:academic_levels,id',
             'grading_period_id' => 'nullable|exists:grading_periods,id',
-            'units' => 'nullable|integer|min:0',
+            'course_id' => 'nullable|exists:courses,id',
+            'units' => 'nullable|numeric|min:0',
             'hours_per_week' => 'nullable|integer|min:0',
             'is_core' => 'nullable|boolean',
             'is_active' => 'nullable|boolean',
@@ -539,6 +544,7 @@ class AcademicController extends Controller
             'description' => $request->description,
             'academic_level_id' => $request->academic_level_id,
             'grading_period_id' => $request->grading_period_id,
+            'course_id' => $request->course_id,
             'units' => $request->units ?? 0,
             'hours_per_week' => $request->hours_per_week ?? 0,
             'is_core' => $request->is_core ?? false,
@@ -799,6 +805,19 @@ class AcademicController extends Controller
             return back()->with('error', 'Selected user is not an instructor.');
         }
 
+        // Check for existing assignment to provide better error message
+        $existingAssignment = InstructorCourseAssignment::where([
+            'instructor_id' => $request->instructor_id,
+            'course_id' => $request->course_id,
+            'academic_level_id' => $request->academic_level_id,
+            'grading_period_id' => $request->grading_period_id,
+            'school_year' => $request->school_year,
+        ])->first();
+
+        if ($existingAssignment) {
+            return back()->with('error', 'This instructor is already assigned to this course for the specified period and school year. Please check existing assignments or modify the current one.');
+        }
+
         $assignment = InstructorCourseAssignment::create([
             'instructor_id' => $request->instructor_id,
             'course_id' => $request->course_id,
@@ -845,6 +864,19 @@ class AcademicController extends Controller
         $instructor = User::find($request->instructor_id);
         if (!$instructor || $instructor->user_role !== 'instructor') {
             return back()->with('error', 'Selected user is not an instructor.');
+        }
+
+        // Check for existing assignment (excluding current one) to provide better error message
+        $existingAssignment = InstructorCourseAssignment::where([
+            'instructor_id' => $request->instructor_id,
+            'course_id' => $request->course_id,
+            'academic_level_id' => $request->academic_level_id,
+            'grading_period_id' => $request->grading_period_id,
+            'school_year' => $request->school_year,
+        ])->where('id', '!=', $assignment->id)->first();
+
+        if ($existingAssignment) {
+            return back()->with('error', 'This instructor is already assigned to this course for the specified period and school year. Please check existing assignments or modify the current one.');
         }
 
         $assignment->update([

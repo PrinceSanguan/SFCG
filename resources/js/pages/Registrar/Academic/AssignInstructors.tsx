@@ -293,7 +293,7 @@ export default function AssignInstructors({ user, assignments = [], instructors 
                                 <Label htmlFor="course_id">Course</Label>
                                 <Select
                                     value={assignmentForm.course_id}
-                                    onValueChange={(value) => setAssignmentForm({ ...assignmentForm, course_id: value })}
+                                    onValueChange={(value) => setAssignmentForm({ ...assignmentForm, course_id: value, subject_id: '' })}
                                     required
                                 >
                                     <SelectTrigger>
@@ -315,16 +315,19 @@ export default function AssignInstructors({ user, assignments = [], instructors 
                                     value={assignmentForm.subject_id}
                                     onValueChange={(value) => setAssignmentForm({ ...assignmentForm, subject_id: value })}
                                     required
+                                    disabled={!assignmentForm.course_id}
                                 >
                                     <SelectTrigger>
-                                        <SelectValue placeholder="Select subject" />
+                                        <SelectValue placeholder={assignmentForm.course_id ? "Select subject" : "Select course first"} />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {(subjects || []).map((subject) => (
-                                            <SelectItem key={subject.id} value={subject.id.toString()}>
-                                                {subject.name} ({subject.code})
-                                            </SelectItem>
-                                        ))}
+                                        {(subjects || [])
+                                            .filter(subject => !assignmentForm.course_id || subject.course_id?.toString() === assignmentForm.course_id)
+                                            .map((subject) => (
+                                                <SelectItem key={subject.id} value={subject.id.toString()}>
+                                                    {subject.name} ({subject.code})
+                                                </SelectItem>
+                                            ))}
                                     </SelectContent>
                                 </Select>
                             </div>

@@ -15,6 +15,7 @@ import { ArrowLeft, Plus, Edit, Trash2, BookOpen, Clock, Hash } from 'lucide-rea
 interface User { name: string; email: string; user_role: string }
 interface AcademicLevel { id: number; name: string; key: string; sort_order: number }
 interface GradingPeriod { id: number; name: string; code: string; academic_level_id: number }
+interface Course { id: number; name: string; code: string; department_id: number }
 interface Subject { 
     id: number; 
     name: string; 
@@ -22,19 +23,22 @@ interface Subject {
     description?: string;
     academic_level_id: number; 
     grading_period_id?: number;
+    course_id?: number;
     units: number;
     hours_per_week: number;
     is_core: boolean;
     is_active: boolean;
     academic_level: AcademicLevel;
     grading_period?: GradingPeriod;
+    course?: { id: number; name: string; code: string };
 }
 
-export default function Subjects({ user, subjects = [], academicLevels = [], gradingPeriods = [] }: { 
+export default function Subjects({ user, subjects = [], academicLevels = [], gradingPeriods = [], courses = [] }: { 
     user: User; 
     subjects?: Subject[]; 
     academicLevels?: AcademicLevel[]; 
-    gradingPeriods?: GradingPeriod[] 
+    gradingPeriods?: GradingPeriod[]; 
+    courses?: Course[] 
 }) {
     const [activeTab, setActiveTab] = useState('all');
     
@@ -45,6 +49,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
         description: '', 
         academic_level_id: '', 
         grading_period_id: '', 
+        course_id: '', 
         units: 0, 
         hours_per_week: 0, 
         is_core: false, 
@@ -69,7 +74,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
         router.post(route('registrar.academic.subjects.store'), subjectForm, {
             preserveScroll: true,
             onSuccess: () => { 
-                setSubjectForm({ name: '', code: '', description: '', academic_level_id: '', grading_period_id: '', units: 0, hours_per_week: 0, is_core: false, is_active: true }); 
+                setSubjectForm({ name: '', code: '', description: '', academic_level_id: '', grading_period_id: '', course_id: '', units: 0, hours_per_week: 0, is_core: false, is_active: true }); 
                 setSubjectModal(false); 
             },
         });
@@ -122,6 +127,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
             description: '', 
             academic_level_id: '', 
             grading_period_id: '', 
+            course_id: '', 
             units: 0, 
             hours_per_week: 0, 
             is_core: false, 
@@ -248,6 +254,25 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                 </SelectContent>
                                             </Select>
                                         </div>
+                                        
+                                        {/* Course field - only show for College level */}
+                                        {subjectForm.academic_level_id && academicLevels.find(level => level.id.toString() === subjectForm.academic_level_id)?.key === 'college' && (
+                                            <div>
+                                                <Label htmlFor="subject-course">Course</Label>
+                                                <Select value={subjectForm.course_id} onValueChange={(value) => setSubjectForm({ ...subjectForm, course_id: value })}>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select course (required for college subjects)" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {courses.map((course) => (
+                                                            <SelectItem key={course.id} value={course.id.toString()}>
+                                                                {course.code} - {course.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        )}
                                         <div className="grid grid-cols-2 gap-3">
                                             <div>
                                                 <Label htmlFor="subject-units">Units</Label>
@@ -304,11 +329,12 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                         <Card>
                             <CardContent className="pt-6">
                                 <Tabs value={activeTab} onValueChange={setActiveTab}>
-                                    <TabsList className="grid w-full grid-cols-4">
+                                    <TabsList className="grid w-full grid-cols-5">
                                         <TabsTrigger value="all">All Subjects</TabsTrigger>
                                         <TabsTrigger value="elementary">Elementary</TabsTrigger>
                                         <TabsTrigger value="junior_highschool">Junior High</TabsTrigger>
                                         <TabsTrigger value="senior_highschool">Senior High</TabsTrigger>
+                                        <TabsTrigger value="college">College</TabsTrigger>
                                     </TabsList>
                                     
                                     <TabsContent value="all" className="space-y-4">
@@ -319,6 +345,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                         <th className="text-left p-3">Code</th>
                                                         <th className="text-left p-3">Name</th>
                                                         <th className="text-left p-3">Level</th>
+                                                        <th className="text-left p-3">Course</th>
                                                         <th className="text-left p-3">Units</th>
                                                         <th className="text-left p-3">Hours/Week</th>
                                                         <th className="text-left p-3">Type</th>
@@ -332,13 +359,22 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                             <td className="p-3 font-mono">{subject.code}</td>
                                                             <td className="p-3">{subject.name}</td>
                                                             <td className="p-3">{subject.academic_level.name}</td>
+                                                            <td className="p-3">
+                                                                {subject.course ? (
+                                                                    <Badge variant="outline" className="bg-blue-100 text-blue-800">
+                                                                        {subject.course.code}
+                                                                    </Badge>
+                                                                ) : (
+                                                                    <span className="text-gray-400">-</span>
+                                                                )}
+                                                            </td>
                                                             <td className="p-3">{subject.units}</td>
                                                             <td className="p-3">{subject.hours_per_week}</td>
                                                             <td className="p-3">{getCoreBadge(subject.is_core)}</td>
                                                             <td className="p-3">{getStatusBadge(subject.is_active)}</td>
                                                             <td className="p-3">
                                                                 <div className="flex gap-2">
-                                                                    <Button variant="outline" size="sm" onClick={() => setEditSubject(subject)}>Edit</Button>
+                                                                    <Button variant="outline" size="sm" onClick={() => { setEditSubject(subject); setEditModal(true); }}>Edit</Button>
                                                                     <Button variant="destructive" size="sm" onClick={() => destroySubject(subject)}>Delete</Button>
                                                                 </div>
                                                             </td>
@@ -374,7 +410,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                             <td className="p-3">{getStatusBadge(subject.is_active)}</td>
                                                             <td className="p-3">
                                                                 <div className="flex gap-2">
-                                                                    <Button variant="outline" size="sm" onClick={() => setEditSubject(subject)}>Edit</Button>
+                                                                    <Button variant="outline" size="sm" onClick={() => { setEditSubject(subject); setEditModal(true); }}>Edit</Button>
                                                                     <Button variant="destructive" size="sm" onClick={() => destroySubject(subject)}>Delete</Button>
                                                                 </div>
                                                             </td>
@@ -410,7 +446,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                             <td className="p-3">{getStatusBadge(subject.is_active)}</td>
                                                             <td className="p-3">
                                                                 <div className="flex gap-2">
-                                                                    <Button variant="outline" size="sm" onClick={() => setEditSubject(subject)}>Edit</Button>
+                                                                    <Button variant="outline" size="sm" onClick={() => { setEditSubject(subject); setEditModal(true); }}>Edit</Button>
                                                                     <Button variant="destructive" size="sm" onClick={() => destroySubject(subject)}>Delete</Button>
                                                                 </div>
                                                             </td>
@@ -446,7 +482,43 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                             <td className="p-3">{getStatusBadge(subject.is_active)}</td>
                                                             <td className="p-3">
                                                                 <div className="flex gap-2">
-                                                                    <Button variant="outline" size="sm" onClick={() => setEditSubject(subject)}>Edit</Button>
+                                                                    <Button variant="outline" size="sm" onClick={() => { setEditSubject(subject); setEditModal(true); }}>Edit</Button>
+                                                                    <Button variant="destructive" size="sm" onClick={() => destroySubject(subject)}>Delete</Button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </TabsContent>
+                                    
+                                    <TabsContent value="college" className="space-y-4">
+                                        <div className="overflow-x-auto rounded border">
+                                            <table className="w-full text-sm">
+                                                <thead className="bg-gray-50 dark:bg-gray-800">
+                                                    <tr>
+                                                        <th className="text-left p-3">Code</th>
+                                                        <th className="text-left p-3">Name</th>
+                                                        <th className="text-left p-3">Units</th>
+                                                        <th className="text-left p-3">Hours/Week</th>
+                                                        <th className="text-left p-3">Type</th>
+                                                        <th className="text-left p-3">Status</th>
+                                                        <th className="text-left p-3">Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {getSubjectsByLevel('college').map((subject) => (
+                                                        <tr key={subject.id} className="border-t">
+                                                            <td className="p-3 font-mono">{subject.code}</td>
+                                                            <td className="p-3">{subject.name}</td>
+                                                            <td className="p-3">{subject.units}</td>
+                                                            <td className="p-3">{subject.hours_per_week}</td>
+                                                            <td className="p-3">{getCoreBadge(subject.is_core)}</td>
+                                                            <td className="p-3">{getStatusBadge(subject.is_active)}</td>
+                                                            <td className="p-3">
+                                                                <div className="flex gap-2">
+                                                                    <Button variant="outline" size="sm" onClick={() => { setEditSubject(subject); setEditModal(true); }}>Edit</Button>
                                                                     <Button variant="destructive" size="sm" onClick={() => destroySubject(subject)}>Delete</Button>
                                                                 </div>
                                                             </td>

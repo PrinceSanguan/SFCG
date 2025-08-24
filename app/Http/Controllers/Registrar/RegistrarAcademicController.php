@@ -101,6 +101,12 @@ class RegistrarAcademicController extends Controller
             $query->where('academic_level_id', $collegeLevel->id);
         })->orderBy('name')->get();
         
+        // Get subjects for college level
+        $subjects = Subject::with(['course'])
+            ->where('academic_level_id', $collegeLevel->id)
+            ->orderBy('name')
+            ->get();
+        
         $academicLevels = AcademicLevel::orderBy('sort_order')->get();
         $gradingPeriods = GradingPeriod::orderBy('academic_level_id')->orderBy('sort_order')->get();
         
@@ -109,6 +115,7 @@ class RegistrarAcademicController extends Controller
             'assignments' => $assignments,
             'instructors' => $instructors,
             'courses' => $courses,
+            'subjects' => $subjects,
             'academicLevels' => $academicLevels,
             'gradingPeriods' => $gradingPeriods,
         ]);
@@ -187,19 +194,21 @@ class RegistrarAcademicController extends Controller
 
     public function subjects()
     {
-        $subjects = Subject::with(['academicLevel', 'gradingPeriod'])
+        $subjects = Subject::with(['academicLevel', 'gradingPeriod', 'course'])
             ->orderBy('academic_level_id')
             ->orderBy('name')
             ->get();
         
         $academicLevels = AcademicLevel::orderBy('sort_order')->get();
         $gradingPeriods = GradingPeriod::orderBy('academic_level_id')->orderBy('sort_order')->get();
+        $courses = Course::orderBy('name')->get();
         
         return Inertia::render('Registrar/Academic/Subjects', [
             'user' => $this->sharedUser(),
             'subjects' => $subjects,
             'academicLevels' => $academicLevels,
             'gradingPeriods' => $gradingPeriods,
+            'courses' => $courses,
         ]);
     }
 

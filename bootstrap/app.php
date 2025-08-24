@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\EnsureRole;
+use App\Http\Middleware\InstructorMiddleware;
 use App\Http\Middleware\RegistrarMiddleware;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -22,6 +23,9 @@ return Application::configure(basePath: dirname(__DIR__))
             
             Route::middleware('web')
                 ->group(base_path('routes/registrar.php'));
+            
+            Route::middleware('web')
+                ->group(base_path('routes/instructor.php'));
         }
     )
     ->withMiddleware(function (Middleware $middleware) {
@@ -36,6 +40,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'admin' => EnsureAdmin::class,
             'role' => EnsureRole::class,
+            'instructor' => InstructorMiddleware::class,
             'registrar' => RegistrarMiddleware::class,
         ]);
     })

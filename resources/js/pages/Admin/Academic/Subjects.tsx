@@ -15,6 +15,7 @@ import { ArrowLeft, Plus, Edit, Trash2, BookOpen, Clock, Hash } from 'lucide-rea
 interface User { name: string; email: string; user_role: string }
 interface AcademicLevel { id: number; name: string; key: string; sort_order: number }
 interface GradingPeriod { id: number; name: string; code: string; academic_level_id: number }
+interface Course { id: number; name: string; code: string; department_id: number }
 interface Subject { 
     id: number; 
     name: string; 
@@ -22,19 +23,22 @@ interface Subject {
     description?: string;
     academic_level_id: number; 
     grading_period_id?: number;
+    course_id?: number;
     units: number;
     hours_per_week: number;
     is_core: boolean;
     is_active: boolean;
     academic_level: AcademicLevel;
     grading_period?: GradingPeriod;
+    course?: { id: number; name: string; code: string };
 }
 
-export default function Subjects({ user, subjects = [], academicLevels = [], gradingPeriods = [] }: { 
+export default function Subjects({ user, subjects = [], academicLevels = [], gradingPeriods = [], courses = [] }: { 
     user: User; 
     subjects?: Subject[]; 
     academicLevels?: AcademicLevel[]; 
-    gradingPeriods?: GradingPeriod[] 
+    gradingPeriods?: GradingPeriod[]; 
+    courses?: Course[] 
 }) {
     const [activeTab, setActiveTab] = useState('all');
     
@@ -45,6 +49,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
         description: '', 
         academic_level_id: '', 
         grading_period_id: '', 
+        course_id: '', 
         units: 0, 
         hours_per_week: 0, 
         is_core: false, 
@@ -69,7 +74,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
         router.post(route('admin.academic.subjects.store'), subjectForm, {
             preserveScroll: true,
             onSuccess: () => { 
-                setSubjectForm({ name: '', code: '', description: '', academic_level_id: '', grading_period_id: '', units: 0, hours_per_week: 0, is_core: false, is_active: true }); 
+                setSubjectForm({ name: '', code: '', description: '', academic_level_id: '', grading_period_id: '', course_id: '', units: 0, hours_per_week: 0, is_core: false, is_active: true }); 
                 setSubjectModal(false); 
             },
         });
@@ -82,6 +87,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
             description: subject.description || '',
             academic_level_id: subject.academic_level_id, 
             grading_period_id: subject.grading_period_id || '',
+            course_id: subject.course_id || '',
             units: subject.units,
             hours_per_week: subject.hours_per_week,
             is_core: subject.is_core,
@@ -171,7 +177,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                     <div className="font-semibold">Subjects</div>
                                     <Dialog open={subjectModal} onOpenChange={setSubjectModal}>
                                         <DialogTrigger asChild>
-                                            <Button onClick={() => setSubjectForm({ name: '', code: '', description: '', academic_level_id: '', grading_period_id: '', units: 0, hours_per_week: 0, is_core: false, is_active: true })} className="flex items-center gap-2">
+                                            <Button onClick={() => setSubjectForm({ name: '', code: '', description: '', academic_level_id: '', grading_period_id: '', course_id: '', units: 0, hours_per_week: 0, is_core: false, is_active: true })} className="flex items-center gap-2">
                                                 <Plus className="h-4 w-4" />
                                                 Add Subject
                                             </Button>
@@ -213,7 +219,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
                                                         <Label htmlFor="subject-level">Academic Level</Label>
-                                                        <Select value={subjectForm.academic_level_id} onValueChange={(value) => setSubjectForm({ ...subjectForm, academic_level_id: value, grading_period_id: '' })}>
+                                                        <Select value={subjectForm.academic_level_id} onValueChange={(value) => setSubjectForm({ ...subjectForm, academic_level_id: value, grading_period_id: '', course_id: '' })}>
                                                             <SelectTrigger>
                                                                 <SelectValue placeholder="Select academic level" />
                                                             </SelectTrigger>
@@ -245,6 +251,25 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                         </Select>
                                                     </div>
                                                 </div>
+                                                
+                                                {/* Course field - only show for College level */}
+                                                {subjectForm.academic_level_id && academicLevels.find(level => level.id.toString() === subjectForm.academic_level_id)?.key === 'college' && (
+                                                    <div>
+                                                        <Label htmlFor="subject-course">Course</Label>
+                                                        <Select value={subjectForm.course_id} onValueChange={(value) => setSubjectForm({ ...subjectForm, course_id: value })}>
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder="Select course (required for college subjects)" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {courses.map((course) => (
+                                                                    <SelectItem key={course.id} value={course.id.toString()}>
+                                                                        {course.code} - {course.name}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                )}
                                                 <div className="grid grid-cols-3 gap-4">
                                                     <div>
                                                         <Label htmlFor="subject-units">Units</Label>
@@ -252,8 +277,9 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                             id="subject-units" 
                                                             type="number" 
                                                             min="0" 
+                                                            step="0.5"
                                                             value={subjectForm.units} 
-                                                            onChange={(e) => setSubjectForm({ ...subjectForm, units: parseInt(e.target.value) || 0 })} 
+                                                            onChange={(e) => setSubjectForm({ ...subjectForm, units: parseFloat(e.target.value) || 0 })} 
                                                         />
                                                     </div>
                                                     <div>
@@ -329,6 +355,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                         <th className="text-left p-3">Name</th>
                                                         <th className="text-left p-3">Level</th>
                                                         <th className="text-left p-3">Period</th>
+                                                        <th className="text-left p-3">Course</th>
                                                         <th className="text-left p-3">Units</th>
                                                         <th className="text-left p-3">Hours</th>
                                                         <th className="text-left p-3">Type</th>
@@ -355,6 +382,15 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                                 {subject.grading_period ? (
                                                                     <Badge variant="outline">
                                                                         {subject.grading_period.name}
+                                                                    </Badge>
+                                                                ) : (
+                                                                    <span className="text-gray-400">-</span>
+                                                                )}
+                                                            </td>
+                                                            <td className="p-3">
+                                                                {subject.course ? (
+                                                                    <Badge variant="outline" className="bg-blue-100 text-blue-800">
+                                                                        {subject.course.code}
                                                                     </Badge>
                                                                 ) : (
                                                                     <span className="text-gray-400">-</span>
@@ -501,7 +537,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <Label>Academic Level</Label>
-                                    <Select value={editSubject.academic_level_id.toString()} onValueChange={(value) => setEditSubject({ ...editSubject, academic_level_id: Number(value), grading_period_id: undefined })}>
+                                    <Select value={editSubject.academic_level_id.toString()} onValueChange={(value) => setEditSubject({ ...editSubject, academic_level_id: Number(value), grading_period_id: undefined, course_id: undefined })}>
                                         <SelectTrigger>
                                             <SelectValue />
                                         </SelectTrigger>
@@ -533,15 +569,35 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                     </Select>
                                 </div>
                             </div>
+                            
+                            {/* Course field - only show for College level */}
+                            {editSubject.academic_level_id && academicLevels.find(level => level.id === editSubject.academic_level_id)?.key === 'college' && (
+                                <div>
+                                    <Label>Course</Label>
+                                    <Select value={editSubject.course_id?.toString() || ''} onValueChange={(value) => setEditSubject({ ...editSubject, course_id: Number(value) })}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select course (required for college subjects)" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {courses.map((course) => (
+                                                <SelectItem key={course.id} value={course.id.toString()}>
+                                                    {course.code} - {course.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
                             <div className="grid grid-cols-3 gap-4">
                                 <div>
                                     <Label>Units</Label>
-                                    <Input 
-                                        type="number" 
-                                        min="0" 
-                                        value={editSubject.units} 
-                                        onChange={(e) => setEditSubject({ ...editSubject, units: parseInt(e.target.value) || 0 })} 
-                                    />
+                                                                                <Input 
+                                                type="number" 
+                                                min="0" 
+                                                step="0.5"
+                                                value={editSubject.units} 
+                                                onChange={(e) => setEditSubject({ ...editSubject, units: parseFloat(e.target.value) || 0 })} 
+                                            />
                                 </div>
                                 <div>
                                     <Label>Hours per Week</Label>

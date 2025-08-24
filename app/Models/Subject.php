@@ -17,6 +17,7 @@ class Subject extends Model
         'description',
         'academic_level_id',
         'grading_period_id',
+        'course_id',
         'units',
         'hours_per_week',
         'is_core',
@@ -26,7 +27,7 @@ class Subject extends Model
     protected $casts = [
         'is_core' => 'boolean',
         'is_active' => 'boolean',
-        'units' => 'integer',
+        'units' => 'decimal:1',
         'hours_per_week' => 'integer',
     ];
 
@@ -38,6 +39,11 @@ class Subject extends Model
     public function gradingPeriod(): BelongsTo
     {
         return $this->belongsTo(GradingPeriod::class);
+    }
+
+    public function course(): BelongsTo
+    {
+        return $this->belongsTo(Course::class);
     }
 
     public function teacherAssignments(): HasMany

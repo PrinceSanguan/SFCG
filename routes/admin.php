@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\CertificateController;
 use App\Http\Controllers\Admin\ReportsController;
 use App\Http\Controllers\Admin\NotificationController;
 use App\Http\Controllers\Admin\SecurityController;
+use App\Http\Controllers\Admin\StudentSubjectController;
 use Illuminate\Http\Request;
 
 /*
@@ -267,6 +268,14 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/aca
     Route::get('/honors/export', [AcademicController::class, 'exportHonorRoll'])->name('honors.export');
     
     Route::get('/programs', [AcademicController::class, 'programs'])->name('programs'); // strands/courses/departments
+    
+    // Student Subject Management
+    Route::get('/student-subjects', [StudentSubjectController::class, 'index'])->name('student-subjects.index');
+    Route::post('/student-subjects', [StudentSubjectController::class, 'store'])->name('student-subjects.store');
+    Route::put('/student-subjects/{assignment}', [StudentSubjectController::class, 'update'])->name('student-subjects.update');
+    Route::delete('/student-subjects/{assignment}', [StudentSubjectController::class, 'destroy'])->name('student-subjects.destroy');
+    Route::get('/student-subjects/students/{levelId}', [StudentSubjectController::class, 'getStudentsByLevel'])->name('student-subjects.students-by-level');
+    Route::get('/student-subjects/subjects/{levelId}', [StudentSubjectController::class, 'getSubjectsByLevel'])->name('student-subjects.subjects-by-level');
     
     // Strands CRUD
     Route::post('/strands', function(\Illuminate\Http\Request $request) {

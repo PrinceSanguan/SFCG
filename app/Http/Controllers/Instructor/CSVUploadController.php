@@ -1,0 +1,193 @@
+<?php
+
+namespace App\Http\Controllers\Instructor;
+
+use App\Http\Controllers\Controller;
+use App\Models\StudentGrade;
+use App\Models\InstructorCourseAssignment;
+use App\Models\User;
+use App\Models\Subject;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
+use Inertia\Inertia;
+
+class CSVUploadController extends Controller
+{
+    /**
+     * Display the CSV upload form.
+     */
+    public function index()
+    {
+        $user = Auth::user();
+        
+        // Get instructor's assigned courses
+        $assignedCourses = InstructorCourseAssignment::with(['course', 'academicLevel', 'gradingPeriod'])
+            ->where('instructor_id', $user->id)
+            ->where('is_active', true)
+            ->get();
+        
+        return Inertia::render('Instructor/Grades/Upload', [
+            'user' => $user,
+            'assignedCourses' => $assignedCourses,
+        ]);
+    }
+    
+    /**
+     * Handle CSV upload and process grades.
+     */
+    public function upload(Request $request)
+    {
+        $user = Auth::user();
+        
+        $request->validate([
+            'csv_file' => 'required|file|mimes:csv,txt|max:2048',
+            'subject_id' => 'required|exists:subjects,id',
+            'academic_level_id' => 'required|exists:academic_levels,id',
+            'grading_period_id' => 'nullable|exists:grading_periods,id',
+            'school_year' => 'required|string|max:20',
+            'year_of_study' => 'nullable|integer|min:1|max:10',
+        ]);
+        
+        // Verify the instructor is assigned to this subject
+        $isAssigned = InstructorCourseAssignment::where('instructor_id', $user->id)
+            ->where('course_id', $request->subject_id)
+            ->where('is_active', true)
+            ->exists();
+        
+        if (!$isAssigned) {
+            return back()->withErrors(['subject_id' => 'You are not assigned to this subject.']);
+        }
+        
+        try {
+            $file = $request->file('csv_file');
+            $csvData = $this->parseCSV($file);
+            
+            $results = $this->processGrades($csvData, $request->all(), $user);
+            
+            return back()->with('success', "Successfully processed {$results['success']} grades. {$results['errors']} errors occurred.");
+            
+        } catch (\Exception $e) {
+            return back()->withErrors(['csv_file' => 'Error processing CSV file: ' . $e->getMessage()]);
+        }
+    }
+    
+    /**
+     * Download CSV template.
+     */
+    public function downloadTemplate()
+    {
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="grades_template.csv"',
+        ];
+        
+        $callback = function() {
+            $file = fopen('php://output', 'w');
+            
+            // Add headers
+            fputcsv($file, ['Student ID', 'Student Name', 'Grade', 'Notes']);
+            
+            // Add sample data
+            fputcsv($file, ['1', 'John Doe', '95.5', 'Excellent performance']);
+            fputcsv($file, ['2', 'Jane Smith', '88.0', 'Good work']);
+            
+            fclose($file);
+        };
+        
+        return response()->stream($callback, 200, $headers);
+    }
+    
+    /**
+     * Parse CSV file and return data array.
+     */
+    private function parseCSV($file)
+    {
+        $data = [];
+        $handle = fopen($file->getPathname(), 'r');
+        
+        // Skip header row
+        fgetcsv($handle);
+        
+        while (($row = fgetcsv($handle)) !== false) {
+            if (count($row) >= 3) {
+                $data[] = [
+                    'student_id' => trim($row[0]),
+                    'student_name' => trim($row[1]),
+                    'grade' => trim($row[2]),
+                    'notes' => isset($row[3]) ? trim($row[3]) : '',
+                ];
+            }
+        }
+        
+        fclose($handle);
+        return $data;
+    }
+    
+    /**
+     * Process grades from CSV data.
+     */
+    private function processGrades($csvData, $requestData, $user)
+    {
+        $success = 0;
+        $errors = 0;
+        
+        foreach ($csvData as $row) {
+            try {
+                // Validate student exists
+                $student = User::where('id', $row['student_id'])
+                    ->orWhere('student_number', $row['student_id'])
+                    ->first();
+                
+                if (!$student) {
+                    $errors++;
+                    continue;
+                }
+                
+                // Validate grade
+                $grade = floatval($row['grade']);
+                if ($grade < 0 || $grade > 100) {
+                    $errors++;
+                    continue;
+                }
+                
+                // Check if grade already exists
+                $existingGrade = StudentGrade::where([
+                    'student_id' => $student->id,
+                    'subject_id' => $requestData['subject_id'],
+                    'academic_level_id' => $requestData['academic_level_id'],
+                    'grading_period_id' => $requestData['grading_period_id'],
+                    'school_year' => $requestData['school_year'],
+                ])->first();
+                
+                if ($existingGrade) {
+                    // Update existing grade
+                    $existingGrade->update([
+                        'grade' => $grade,
+                    ]);
+                } else {
+                    // Create new grade
+                    StudentGrade::create([
+                        'student_id' => $student->id,
+                        'subject_id' => $requestData['subject_id'],
+                        'academic_level_id' => $requestData['academic_level_id'],
+                        'grading_period_id' => $requestData['grading_period_id'],
+                        'school_year' => $requestData['school_year'],
+                        'year_of_study' => $requestData['year_of_study'],
+                        'grade' => $grade,
+                    ]);
+                }
+                
+                $success++;
+                
+            } catch (\Exception $e) {
+                $errors++;
+            }
+        }
+        
+        return [
+            'success' => $success,
+            'errors' => $errors,
+        ];
+    }
+}

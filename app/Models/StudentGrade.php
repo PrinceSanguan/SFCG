@@ -18,17 +18,25 @@ class StudentGrade extends Model
         'school_year',
         'year_of_study',
         'grade',
+        'is_submitted_for_validation',
+        'submitted_at',
+        'validated_at',
+        'validated_by',
     ];
 
     protected $casts = [
         'grade' => 'float',
         'year_of_study' => 'integer',
+        'is_submitted_for_validation' => 'boolean',
+        'submitted_at' => 'datetime',
+        'validated_at' => 'datetime',
     ];
 
     public function student(): BelongsTo { return $this->belongsTo(User::class, 'student_id'); }
     public function subject(): BelongsTo { return $this->belongsTo(Subject::class); }
     public function academicLevel(): BelongsTo { return $this->belongsTo(AcademicLevel::class); }
     public function gradingPeriod(): BelongsTo { return $this->belongsTo(GradingPeriod::class); }
+    public function validatedBy(): BelongsTo { return $this->belongsTo(User::class, 'validated_by'); }
 }
 
 
