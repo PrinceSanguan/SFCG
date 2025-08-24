@@ -8,6 +8,9 @@ use App\Models\ActivityLog;
 use App\Models\StudentGrade;
 use App\Models\HonorResult;
 use App\Models\Certificate;
+use App\Models\AcademicLevel;
+use App\Models\GradingPeriod;
+use App\Models\HonorType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
@@ -150,5 +153,60 @@ class RegistrarController extends Controller
         ]);
         
         return back()->with('success', 'Password updated successfully.');
+    }
+
+    /**
+     * Display registrar reports and archiving page.
+     */
+    public function reports(Request $request)
+    {
+        $user = $request->user();
+        
+        // Get data for reports
+        $academicLevels = AcademicLevel::orderBy('name')->get();
+        $gradingPeriods = GradingPeriod::with('academicLevel')->orderBy('name')->get();
+        $honorTypes = HonorType::orderBy('name')->get();
+        
+        // Generate school years (current year and 5 years back)
+        $currentYear = date('Y');
+        $schoolYears = [];
+        for ($i = 0; $i < 6; $i++) {
+            $schoolYears[] = ($currentYear - $i) . '-' . ($currentYear - $i + 1);
+        }
+        
+        // Get statistics for reports
+        $stats = $this->getReportsStats();
+        
+        return Inertia::render('Registrar/Reports/Index', [
+            'user' => $user,
+            'academicLevels' => $academicLevels,
+            'schoolYears' => $schoolYears,
+            'gradingPeriods' => $gradingPeriods,
+            'honorTypes' => $honorTypes,
+            'stats' => $stats,
+        ]);
+    }
+
+    /**
+     * Get reports statistics.
+     */
+    private function getReportsStats(): array
+    {
+        try {
+            return [
+                'total_students' => User::where('user_role', 'student')->count(),
+                'total_certificates' => Certificate::count(),
+                'total_honors' => HonorResult::count(),
+                'active_periods' => GradingPeriod::where('is_active', true)->count(),
+            ];
+        } catch (\Exception $e) {
+            Log::error('Error fetching reports stats: ' . $e->getMessage());
+            return [
+                'total_students' => 0,
+                'total_certificates' => 0,
+                'total_honors' => 0,
+                'active_periods' => 0,
+            ];
+        }
     }
 }

@@ -849,8 +849,8 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
 });
 
 // Reports and Archiving routes (Registrar has access)
-Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar/reports')->name('registrar.reports.')->group(function () {
-    Route::get('/', [ReportsController::class, 'index'])->name('index');
+Route::middleware(['auth', 'registrar'])->prefix('registrar/reports')->name('registrar.reports.')->group(function () {
+    Route::get('/', [RegistrarController::class, 'reports'])->name('index');
     Route::post('/grade-report', [ReportsController::class, 'generateGradeReport'])->name('grade-report');
     Route::post('/honor-statistics', [ReportsController::class, 'generateHonorStatistics'])->name('honor-statistics');
     Route::post('/archive-records', [ReportsController::class, 'archiveAcademicRecords'])->name('archive-records');
