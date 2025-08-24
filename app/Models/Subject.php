@@ -53,7 +53,7 @@ class Subject extends Model
 
     public function instructorAssignments(): HasMany
     {
-        return $this->hasMany(InstructorCourseAssignment::class);
+        return $this->hasMany(InstructorSubjectAssignment::class);
     }
 
     public function scopeActive($query)

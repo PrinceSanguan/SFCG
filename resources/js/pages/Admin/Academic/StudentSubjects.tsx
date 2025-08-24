@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
@@ -451,41 +452,29 @@ export default function StudentSubjects({
                                 <form onSubmit={submitAssignment} className="space-y-4">
                                     <div>
                                         <Label htmlFor="student">Student</Label>
-                                        <Select 
-                                            value={assignmentForm.student_id} 
+                                        <SearchableSelect
+                                            value={assignmentForm.student_id}
                                             onValueChange={(value) => setAssignmentForm({ ...assignmentForm, student_id: value })}
-                                            required
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select student" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {students.map((student) => (
-                                                    <SelectItem key={student.id} value={student.id.toString()}>
-                                                        {student.name} ({student.email})
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                            placeholder="Select student"
+                                            options={students.map((student) => ({
+                                                value: student.id.toString(),
+                                                label: student.name,
+                                                description: student.email
+                                            }))}
+                                        />
                                     </div>
                                     <div>
                                         <Label htmlFor="subject">Subject</Label>
-                                        <Select 
-                                            value={assignmentForm.subject_id} 
+                                        <SearchableSelect
+                                            value={assignmentForm.subject_id}
                                             onValueChange={(value) => setAssignmentForm({ ...assignmentForm, subject_id: value })}
-                                            required
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select subject" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {subjects.map((subject) => (
-                                                    <SelectItem key={subject.id} value={subject.id.toString()}>
-                                                        {subject.name} ({subject.code})
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                            placeholder="Select subject"
+                                            options={subjects.map((subject) => ({
+                                                value: subject.id.toString(),
+                                                label: subject.name,
+                                                description: subject.code
+                                            }))}
+                                        />
                                     </div>
                                     <div>
                                         <Label htmlFor="school_year">School Year</Label>
@@ -554,41 +543,29 @@ export default function StudentSubjects({
                                 <form onSubmit={updateAssignment} className="space-y-4">
                                     <div>
                                         <Label htmlFor="edit-student">Student</Label>
-                                        <Select 
-                                            value={assignmentForm.student_id} 
+                                        <SearchableSelect
+                                            value={assignmentForm.student_id}
                                             onValueChange={(value) => setAssignmentForm({ ...assignmentForm, student_id: value })}
-                                            required
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select student" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {students.map((student) => (
-                                                    <SelectItem key={student.id} value={student.id.toString()}>
-                                                        {student.name} ({student.email})
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                            placeholder="Select student"
+                                            options={students.map((student) => ({
+                                                value: student.id.toString(),
+                                                label: student.name,
+                                                description: student.email
+                                            }))}
+                                        />
                                     </div>
                                     <div>
                                         <Label htmlFor="edit-subject">Subject</Label>
-                                        <Select 
-                                            value={assignmentForm.subject_id} 
+                                        <SearchableSelect
+                                            value={assignmentForm.subject_id}
                                             onValueChange={(value) => setAssignmentForm({ ...assignmentForm, subject_id: value })}
-                                            required
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select subject" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {subjects.map((subject) => (
-                                                    <SelectItem key={subject.id} value={subject.id.toString()}>
-                                                        {subject.name} ({subject.code})
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                            placeholder="Select subject"
+                                            options={subjects.map((subject) => ({
+                                                value: subject.id.toString(),
+                                                label: subject.name,
+                                                description: subject.code
+                                            }))}
+                                        />
                                     </div>
                                     <div>
                                         <Label htmlFor="edit-school_year">School Year</Label>

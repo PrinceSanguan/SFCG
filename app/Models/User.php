@@ -239,6 +239,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Get instructor subject assignments for this user.
+     */
+    public function instructorSubjectAssignments(): HasMany
+    {
+        return $this->hasMany(\App\Models\InstructorSubjectAssignment::class, 'instructor_id');
+    }
+
+    /**
      * Get class adviser assignments for this user.
      */
     public function classAdviserAssignments(): HasMany

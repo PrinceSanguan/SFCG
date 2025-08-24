@@ -49,9 +49,12 @@ class CSVUploadController extends Controller
             'year_of_study' => 'nullable|integer|min:1|max:10',
         ]);
         
-        // Verify the instructor is assigned to this subject
+        // Get academic level for grade validation
+        $academicLevel = \App\Models\AcademicLevel::find($request->academic_level_id);
+        
+        // Verify the instructor is assigned to this subject's academic level
         $isAssigned = InstructorCourseAssignment::where('instructor_id', $user->id)
-            ->where('course_id', $request->subject_id)
+            ->where('academic_level_id', $request->academic_level_id)
             ->where('is_active', true)
             ->exists();
         
@@ -63,7 +66,7 @@ class CSVUploadController extends Controller
             $file = $request->file('csv_file');
             $csvData = $this->parseCSV($file);
             
-            $results = $this->processGrades($csvData, $request->all(), $user);
+            $results = $this->processGrades($csvData, $request->all(), $user, $academicLevel);
             
             return back()->with('success', "Successfully processed {$results['success']} grades. {$results['errors']} errors occurred.");
             
@@ -127,7 +130,7 @@ class CSVUploadController extends Controller
     /**
      * Process grades from CSV data.
      */
-    private function processGrades($csvData, $requestData, $user)
+    private function processGrades($csvData, $requestData, $user, $academicLevel)
     {
         $success = 0;
         $errors = 0;
@@ -144,9 +147,19 @@ class CSVUploadController extends Controller
                     continue;
                 }
                 
-                // Validate grade
+                // Validate grade based on academic level
                 $grade = floatval($row['grade']);
-                if ($grade < 0 || $grade > 100) {
+                $isValidGrade = false;
+                
+                if ($academicLevel && $academicLevel->key === 'college') {
+                    // College: 1.0 to 5.0, where 3.0 is passing
+                    $isValidGrade = ($grade >= 1.0 && $grade <= 5.0);
+                } else {
+                    // Elementary to Senior High: 75 to 100, where 75 is passing
+                    $isValidGrade = ($grade >= 75 && $grade <= 100);
+                }
+                
+                if (!$isValidGrade) {
                     $errors++;
                     continue;
                 }

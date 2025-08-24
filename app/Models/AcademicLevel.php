@@ -52,6 +52,11 @@ class AcademicLevel extends Model
         return $this->hasMany(InstructorCourseAssignment::class);
     }
 
+    public function instructorSubjectAssignments(): HasMany
+    {
+        return $this->hasMany(InstructorSubjectAssignment::class);
+    }
+
     public function classAdviserAssignments(): HasMany
     {
         return $this->hasMany(ClassAdviserAssignment::class);

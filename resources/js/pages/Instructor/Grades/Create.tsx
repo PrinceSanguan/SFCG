@@ -66,7 +66,7 @@ export default function Create({ user, subjects, academicLevels, gradingPeriods,
         student_id: '',
         subject_id: '',
         academic_level_id: '',
-        grading_period_id: '',
+        grading_period_id: '0',
         school_year: '2024-2025',
         year_of_study: '',
         grade: '',
@@ -184,7 +184,7 @@ export default function Create({ user, subjects, academicLevels, gradingPeriods,
                                                     <SelectValue placeholder="Select grading period (optional)" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="">No Period</SelectItem>
+                                                    <SelectItem value="0">No Period</SelectItem>
                                                     {gradingPeriods.map((period) => (
                                                         <SelectItem key={period.id} value={period.id.toString()}>
                                                             {period.name}
@@ -238,9 +238,9 @@ export default function Create({ user, subjects, academicLevels, gradingPeriods,
                                             id="grade"
                                             type="number"
                                             step="0.01"
-                                            min="0"
-                                            max="100"
-                                            placeholder="Enter grade (0-100)"
+                                            min={data.academic_level_id && academicLevels.find(level => level.id.toString() === data.academic_level_id)?.key === 'college' ? '1.0' : '75'}
+                                            max={data.academic_level_id && academicLevels.find(level => level.id.toString() === data.academic_level_id)?.key === 'college' ? '5.0' : '100'}
+                                            placeholder={data.academic_level_id && academicLevels.find(level => level.id.toString() === data.academic_level_id)?.key === 'college' ? 'Enter grade (1.0-5.0)' : 'Enter grade (75-100)'}
                                             value={data.grade}
                                             onChange={(e) => setData('grade', e.target.value)}
                                             className={errors.grade ? 'border-red-500' : ''}
@@ -249,7 +249,10 @@ export default function Create({ user, subjects, academicLevels, gradingPeriods,
                                             <p className="text-sm text-red-500 mt-1">{errors.grade}</p>
                                         )}
                                         <p className="text-sm text-muted-foreground mt-1">
-                                            Enter the numerical grade (0-100 scale)
+                                            {data.academic_level_id && academicLevels.find(level => level.id.toString() === data.academic_level_id)?.key === 'college' 
+                                                ? 'College: 1.0 (highest) to 5.0 (lowest). 3.0 is passing (equivalent to 75).' 
+                                                : 'Elementary to Senior High: 75 (passing) to 100 (highest).'
+                                            }
                                         </p>
                                     </div>
 

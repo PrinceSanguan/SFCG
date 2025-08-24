@@ -32,8 +32,11 @@ class GradeManagementController extends Controller
         // Get grades for assigned courses
         $grades = StudentGrade::with(['student', 'subject', 'academicLevel', 'gradingPeriod'])
             ->whereHas('subject', function ($query) use ($assignedCourses) {
-                $query->whereIn('id', $assignedCourses->pluck('course_id'));
+                // Get subjects that belong to the academic levels of assigned courses
+                $query->whereIn('academic_level_id', $assignedCourses->pluck('academic_level_id'));
             })
+            ->whereHas('student') // Ensure student exists
+            ->whereHas('academicLevel') // Ensure academic level exists
             ->when($request->filled('subject'), function ($query) use ($request) {
                 $query->where('subject_id', $request->subject);
             })
@@ -49,6 +52,8 @@ class GradeManagementController extends Controller
             ->latest()
             ->paginate(15)
             ->withQueryString();
+        
+
         
         return Inertia::render('Instructor/Grades/Index', [
             'user' => $user,
@@ -72,7 +77,7 @@ class GradeManagementController extends Controller
             ->get();
         
         // Get available subjects, academic levels, and grading periods
-        $subjects = Subject::whereIn('id', $assignedCourses->pluck('course_id'))->get();
+        $subjects = Subject::whereIn('academic_level_id', $assignedCourses->pluck('academic_level_id'))->get();
         $academicLevels = AcademicLevel::all();
         $gradingPeriods = GradingPeriod::all();
         
@@ -99,12 +104,27 @@ class GradeManagementController extends Controller
             'grading_period_id' => 'nullable|exists:grading_periods,id',
             'school_year' => 'required|string|max:20',
             'year_of_study' => 'nullable|integer|min:1|max:10',
-            'grade' => 'required|numeric|min:0|max:100',
+            'grade' => 'required|numeric',
         ]);
         
-        // Verify the instructor is assigned to this subject
+        // Custom validation for grade based on academic level
+        $academicLevel = \App\Models\AcademicLevel::find($request->academic_level_id);
+        if ($academicLevel) {
+            if ($academicLevel->key === 'college') {
+                $validator->addRules(['grade' => 'numeric|min:1.0|max:5.0']);
+            } else {
+                $validator->addRules(['grade' => 'numeric|min:75|max:100']);
+            }
+        }
+        
+        // Handle "0" value for grading_period_id (no period selected)
+        if ($request->grading_period_id === '0') {
+            $request->merge(['grading_period_id' => null]);
+        }
+        
+        // Verify the instructor is assigned to this subject's academic level
         $isAssigned = InstructorCourseAssignment::where('instructor_id', $user->id)
-            ->where('course_id', $request->subject_id)
+            ->where('academic_level_id', $request->academic_level_id)
             ->where('is_active', true)
             ->exists();
         
@@ -121,9 +141,12 @@ class GradeManagementController extends Controller
             'student_id' => $request->student_id,
             'subject_id' => $request->subject_id,
             'academic_level_id' => $request->academic_level_id,
-            'grading_period_id' => $request->grading_period_id,
             'school_year' => $request->school_year,
-        ])->first();
+        ])->when($request->grading_period_id, function ($query, $gradingPeriodId) {
+            $query->where('grading_period_id', $gradingPeriodId);
+        })->when(!$request->grading_period_id, function ($query) {
+            $query->whereNull('grading_period_id');
+        })->first();
         
         if ($existingGrade) {
             return back()->withErrors(['grade' => 'A grade already exists for this student, subject, and period.']);
@@ -142,9 +165,9 @@ class GradeManagementController extends Controller
     {
         $user = Auth::user();
         
-        // Verify the instructor is assigned to this subject
+        // Verify the instructor is assigned to this subject's academic level
         $isAssigned = InstructorCourseAssignment::where('instructor_id', $user->id)
-            ->where('course_id', $grade->subject_id)
+            ->where('academic_level_id', $grade->academic_level_id)
             ->where('is_active', true)
             ->exists();
         
