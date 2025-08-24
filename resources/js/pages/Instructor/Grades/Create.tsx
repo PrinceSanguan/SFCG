@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useForm } from '@inertiajs/react';
 import { ArrowLeft, Save, Plus } from 'lucide-react';
 import { Link } from '@inertiajs/react';
+import { useEffect } from 'react';
+
 
 interface User {
     id: number;
@@ -16,12 +18,17 @@ interface User {
     user_role: string;
 }
 
-interface AssignedCourse {
+interface AssignedSubject {
     id: number;
-    course: {
+    subject: {
         id: number;
         name: string;
         code: string;
+        course?: {
+            id: number;
+            name: string;
+            code: string;
+        };
     };
     academicLevel: {
         id: number;
@@ -34,13 +41,21 @@ interface AssignedCourse {
     };
     school_year: string;
     is_active: boolean;
+    enrolled_students: Array<{
+        id: number;
+        student: {
+            id: number;
+            name: string;
+            email: string;
+        };
+        semester?: string;
+        is_active: boolean;
+        school_year: string;
+    }>;
+    student_count: number;
 }
 
-interface Subject {
-    id: number;
-    name: string;
-    code: string;
-}
+
 
 interface AcademicLevel {
     id: number;
@@ -51,17 +66,29 @@ interface AcademicLevel {
 interface GradingPeriod {
     id: number;
     name: string;
+    code: string;
+    start_date: string;
+    end_date: string;
+    sort_order: number;
+    is_active: boolean;
+    academic_level_id: number;
 }
 
 interface CreateProps {
     user: User;
-    subjects: Subject[];
     academicLevels: AcademicLevel[];
     gradingPeriods: GradingPeriod[];
-    assignedCourses: AssignedCourse[];
+    assignedSubjects: AssignedSubject[];
+    selectedStudent?: {
+        id: number;
+        name: string;
+        email: string;
+        subjectId?: number;
+        academicLevelKey?: string;
+    };
 }
 
-export default function Create({ user, subjects, academicLevels, gradingPeriods, assignedCourses }: CreateProps) {
+export default function Create({ user, academicLevels, gradingPeriods, assignedSubjects, selectedStudent }: CreateProps) {
     const { data, setData, post, processing, errors } = useForm({
         student_id: '',
         subject_id: '',
@@ -72,14 +99,112 @@ export default function Create({ user, subjects, academicLevels, gradingPeriods,
         grade: '',
     });
 
+    useEffect(() => {
+        // Check for URL parameters first
+        const urlParams = new URLSearchParams(window.location.search);
+        const studentId = urlParams.get('student_id');
+        const subjectId = urlParams.get('subject_id');
+        const academicLevelId = urlParams.get('academic_level_id');
+        const academicLevelKey = urlParams.get('academic_level_key');
+        const schoolYear = urlParams.get('school_year');
+        
+        if (studentId && subjectId && academicLevelId) {
+            // Auto-populate form from URL parameters
+            setData('student_id', studentId);
+            setData('subject_id', subjectId);
+            setData('academic_level_id', academicLevelId);
+            setData('school_year', schoolYear || '2024-2025');
+            setData('year_of_study', '');
+            setData('grade', '');
+            
+            // Store academic level key for grade validation
+            if (academicLevelKey) {
+                // Find the academic level object to get the key
+                const academicLevel = academicLevels.find(level => level.id.toString() === academicLevelId);
+                if (academicLevel) {
+                    // Update the form data to trigger grade field updates
+                    setData('academic_level_id', academicLevelId);
+                }
+            }
+            
+            // Clear URL parameters after populating
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, '', newUrl);
+        } else if (selectedStudent) {
+            // Fallback to selectedStudent prop
+            setData('student_id', selectedStudent.id.toString());
+            setData('subject_id', selectedStudent.subjectId?.toString() || '');
+            setData('academic_level_id', selectedStudent.academicLevelKey || '');
+            setData('school_year', '2024-2025');
+            setData('year_of_study', '');
+            setData('grade', '');
+        }
+    }, [selectedStudent, setData]);
+
+    // Function to get subject and academic level when student is selected
+    const getStudentSubjectInfo = (studentId: string) => {
+        if (!studentId) return null;
+        
+        for (const subject of assignedSubjects) {
+            const enrollment = subject.enrolled_students.find(e => e.student.id.toString() === studentId);
+            if (enrollment) {
+                return {
+                    subjectId: subject.subject.id,
+                    academicLevelId: subject.academicLevel.id,
+                    academicLevelKey: subject.academicLevel.key,
+                    schoolYear: subject.school_year
+                };
+            }
+        }
+        return null;
+    };
+
+    // Handle student selection
+    const handleStudentChange = (studentId: string) => {
+        setData('student_id', studentId);
+        
+        if (studentId) {
+            const subjectInfo = getStudentSubjectInfo(studentId);
+            if (subjectInfo) {
+                setData('subject_id', subjectInfo.subjectId.toString());
+                setData('academic_level_id', subjectInfo.academicLevelId.toString());
+                setData('school_year', subjectInfo.schoolYear);
+            }
+        } else {
+            // Clear related fields if no student selected
+            setData('subject_id', '');
+            setData('academic_level_id', '');
+            setData('grade', '');
+        }
+    };
+
+    // Get current academic level key for grade validation
+    const getCurrentAcademicLevelKey = () => {
+        if (data.academic_level_id) {
+            return academicLevels.find(level => level.id.toString() === data.academic_level_id)?.key;
+        }
+        return null;
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        
+        // Debug logging
+        console.log('Form submitted with data:', data);
+        console.log('Has pre-selected student:', hasPreSelectedStudent);
+        
         post(route('instructor.grades.store'), {
             onSuccess: () => {
-                // Grade created successfully
+                console.log('Grade created successfully');
+            },
+            onError: (errors) => {
+                console.log('Grade creation failed:', errors);
             },
         });
     };
+
+    // Check if we have a pre-selected student (from URL params or props)
+    const hasPreSelectedStudent = data.student_id && data.subject_id && data.academic_level_id;
 
     return (
         <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
@@ -101,10 +226,13 @@ export default function Create({ user, subjects, academicLevels, gradingPeriods,
                                 </Link>
                                 <div>
                                     <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                                        Input New Grade
+                                        {hasPreSelectedStudent ? 'Input Grade' : 'Input New Grade'}
                                     </h1>
                                     <p className="text-gray-500 dark:text-gray-400">
-                                        Enter a new grade for a student in your assigned course.
+                                        {hasPreSelectedStudent 
+                                            ? 'Enter a grade for the selected student.'
+                                            : 'Enter a new grade for a student in your assigned course.'
+                                        }
                                     </p>
                                 </div>
                             </div>
@@ -115,26 +243,140 @@ export default function Create({ user, subjects, academicLevels, gradingPeriods,
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
                                     <Plus className="h-5 w-5" />
-                                    Grade Information
+                                    {hasPreSelectedStudent ? 'Grade Information' : 'Grade Information'}
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <form onSubmit={handleSubmit} className="space-y-4">
+                                {hasPreSelectedStudent ? (
+                                    // Simplified form for pre-selected student
+                                    <form onSubmit={handleSubmit} className="space-y-6">
+                                        {/* Student Info Display */}
+                                        <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                                            <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-2">
+                                                Student Information
+                                            </h3>
+                                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                                <div>
+                                                    <span className="text-gray-500 dark:text-gray-400">Student:</span>
+                                                    <p className="font-medium">
+                                                        {assignedSubjects.find(s => 
+                                                            s.enrolled_students.some(e => e.student.id.toString() === data.student_id)
+                                                        )?.enrolled_students.find(e => e.student.id.toString() === data.student_id)?.student.name || 'Unknown'}
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <span className="text-gray-500 dark:text-gray-400">Subject:</span>
+                                                    <p className="font-medium">
+                                                        {assignedSubjects.find(s => s.subject.id.toString() === data.subject_id)?.subject.name || 'Unknown'}
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <span className="text-gray-500 dark:text-gray-400">Academic Level:</span>
+                                                    <p className="font-medium">
+                                                        {academicLevels.find(l => l.id.toString() === data.academic_level_id)?.name || 'Unknown'}
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <span className="text-gray-500 dark:text-gray-400">School Year:</span>
+                                                    <p className="font-medium">{data.school_year}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Grade Input and Grading Period */}
+                                        <div className="grid gap-4 md:grid-cols-2">
+                                            <div>
+                                                <Label htmlFor="grade">Grade</Label>
+                                                <Input
+                                                    id="grade"
+                                                    type="number"
+                                                    step="0.01"
+                                                    min={getCurrentAcademicLevelKey() === 'college' ? '1.0' : '75'}
+                                                    max={getCurrentAcademicLevelKey() === 'college' ? '5.0' : '100'}
+                                                    placeholder={getCurrentAcademicLevelKey() === 'college' ? 'Enter grade (1.0-5.0)' : 'Enter grade (75-100)'}
+                                                    value={data.grade}
+                                                    onChange={(e) => setData('grade', e.target.value)}
+                                                    className={errors.grade ? 'border-red-500' : ''}
+                                                    autoFocus
+                                                />
+                                                {errors.grade && (
+                                                    <p className="text-sm text-red-500 mt-1">{errors.grade}</p>
+                                                )}
+                                                <p className="text-sm text-muted-foreground mt-1">
+                                                    {getCurrentAcademicLevelKey() === 'college' 
+                                                        ? 'College: 1.0 (highest) to 5.0 (lowest). 3.0 is passing (equivalent to 75).' 
+                                                        : 'Elementary to Senior High: 75 (passing) to 100 (highest).'
+                                                    }
+                                                </p>
+                                            </div>
+
+                                            <div>
+                                                <Label htmlFor="grading_period_id">Grading Period</Label>
+                                                <Select value={data.grading_period_id} onValueChange={(value) => setData('grading_period_id', value)}>
+                                                    <SelectTrigger className={errors.grading_period_id ? 'border-red-500' : ''}>
+                                                        <SelectValue placeholder="Select grading period" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {gradingPeriods
+                                                            .filter(period => {
+                                                                // Filter periods for the current academic level
+                                                                const currentLevel = academicLevels.find(l => l.id.toString() === data.academic_level_id);
+                                                                return currentLevel ? period.academic_level_id === currentLevel.id : true;
+                                                            })
+                                                            .map((period) => (
+                                                                <SelectItem key={period.id} value={period.id.toString()}>
+                                                                    {period.name}
+                                                                </SelectItem>
+                                                            ))
+                                                        }
+                                                    </SelectContent>
+                                                </Select>
+                                                {errors.grading_period_id && (
+                                                    <p className="text-sm text-red-500 mt-1">{errors.grading_period_id}</p>
+                                                )}
+                                                <p className="text-sm text-muted-foreground mt-1">
+                                                    Select which grading period this grade belongs to
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Action Buttons */}
+                                        <div className="flex gap-4 pt-4">
+                                            <Button type="submit" disabled={processing} className="flex-1">
+                                                <Save className="h-4 w-4 mr-2" />
+                                                {processing ? 'Saving...' : 'Save Grade'}
+                                            </Button>
+                                            <Link href={route('instructor.grades.index')} className="flex-1">
+                                                <Button type="button" variant="outline" className="w-full">
+                                                    Cancel
+                                                </Button>
+                                            </Link>
+                                        </div>
+                                    </form>
+                                ) : (
+                                    // Full form for manual entry
+                                    <form onSubmit={handleSubmit} className="space-y-4">
                                     <div>
-                                        <Label htmlFor="student_id">Student ID or Name</Label>
-                                        <Input
-                                            id="student_id"
-                                            type="text"
-                                            placeholder="Enter student ID or search by name"
-                                            value={data.student_id}
-                                            onChange={(e) => setData('student_id', e.target.value)}
-                                            className={errors.student_id ? 'border-red-500' : ''}
-                                        />
+                                        <Label htmlFor="student_id">Student</Label>
+                                        <Select value={data.student_id} onValueChange={handleStudentChange}>
+                                            <SelectTrigger className={errors.student_id ? 'border-red-500' : ''}>
+                                                <SelectValue placeholder="Select a student" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {assignedSubjects.flatMap(subject => 
+                                                    subject.enrolled_students.map(enrollment => (
+                                                        <SelectItem key={enrollment.student.id} value={enrollment.student.id.toString()}>
+                                                            {enrollment.student.name} - {subject.subject.name}
+                                                        </SelectItem>
+                                                    ))
+                                                )}
+                                            </SelectContent>
+                                        </Select>
                                         {errors.student_id && (
                                             <p className="text-sm text-red-500 mt-1">{errors.student_id}</p>
                                         )}
                                         <p className="text-sm text-muted-foreground mt-1">
-                                            Enter the student's ID number or full name
+                                            Select a student from your assigned subjects
                                         </p>
                                     </div>
 
@@ -145,9 +387,10 @@ export default function Create({ user, subjects, academicLevels, gradingPeriods,
                                                 <SelectValue placeholder="Select a subject" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {subjects.map((subject) => (
-                                                    <SelectItem key={subject.id} value={subject.id.toString()}>
-                                                        {subject.name} ({subject.code})
+                                                {assignedSubjects.map((subject) => (
+                                                    <SelectItem key={subject.subject.id} value={subject.subject.id.toString()}>
+                                                        {subject.subject.name} ({subject.subject.code})
+                                                        {subject.subject.course && ` - ${subject.subject.course.name}`}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
@@ -238,9 +481,9 @@ export default function Create({ user, subjects, academicLevels, gradingPeriods,
                                             id="grade"
                                             type="number"
                                             step="0.01"
-                                            min={data.academic_level_id && academicLevels.find(level => level.id.toString() === data.academic_level_id)?.key === 'college' ? '1.0' : '75'}
-                                            max={data.academic_level_id && academicLevels.find(level => level.id.toString() === data.academic_level_id)?.key === 'college' ? '5.0' : '100'}
-                                            placeholder={data.academic_level_id && academicLevels.find(level => level.id.toString() === data.academic_level_id)?.key === 'college' ? 'Enter grade (1.0-5.0)' : 'Enter grade (75-100)'}
+                                            min={getCurrentAcademicLevelKey() === 'college' ? '1.0' : '75'}
+                                            max={getCurrentAcademicLevelKey() === 'college' ? '5.0' : '100'}
+                                            placeholder={getCurrentAcademicLevelKey() === 'college' ? 'Enter grade (1.0-5.0)' : 'Enter grade (75-100)'}
                                             value={data.grade}
                                             onChange={(e) => setData('grade', e.target.value)}
                                             className={errors.grade ? 'border-red-500' : ''}
@@ -249,7 +492,7 @@ export default function Create({ user, subjects, academicLevels, gradingPeriods,
                                             <p className="text-sm text-red-500 mt-1">{errors.grade}</p>
                                         )}
                                         <p className="text-sm text-muted-foreground mt-1">
-                                            {data.academic_level_id && academicLevels.find(level => level.id.toString() === data.academic_level_id)?.key === 'college' 
+                                            {getCurrentAcademicLevelKey() === 'college' 
                                                 ? 'College: 1.0 (highest) to 5.0 (lowest). 3.0 is passing (equivalent to 75).' 
                                                 : 'Elementary to Senior High: 75 (passing) to 100 (highest).'
                                             }
@@ -268,6 +511,7 @@ export default function Create({ user, subjects, academicLevels, gradingPeriods,
                                         </Link>
                                     </div>
                                 </form>
+                                )}
                             </CardContent>
                         </Card>
 
@@ -279,13 +523,13 @@ export default function Create({ user, subjects, academicLevels, gradingPeriods,
                             <CardContent>
                                 <div className="space-y-3 text-sm text-muted-foreground">
                                     <p>
-                                        • <strong>Student ID:</strong> Enter the student's ID number or full name for identification
+                                        • <strong>Student:</strong> Select a student from your assigned subjects
                                     </p>
                                     <p>
-                                        • <strong>Subject:</strong> Select from your assigned courses only
+                                        • <strong>Subject:</strong> Automatically populated when student is selected
                                     </p>
                                     <p>
-                                        • <strong>Grade Scale:</strong> Use 0-100 scale where 90+ is excellent, 80-89 is good, 70-79 is satisfactory
+                                        • <strong>Grade Scale:</strong> College uses 1.0-5.0 scale (1.0 highest, 3.0 passing), Elementary/Senior High uses 75-100 scale (75 passing)
                                     </p>
                                     <p>
                                         • <strong>Validation:</strong> Grades are automatically submitted for validation after saving

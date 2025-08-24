@@ -6,13 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\InstructorSubjectAssignment;
 use App\Models\User;
 use App\Models\Subject;
-
 use App\Models\AcademicLevel;
 use App\Models\GradingPeriod;
 use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
+use Inertia\Inertia;
 
 class InstructorSubjectAssignmentController extends Controller
 {
@@ -31,13 +31,14 @@ class InstructorSubjectAssignmentController extends Controller
         $academicLevels = AcademicLevel::all();
         $gradingPeriods = GradingPeriod::all();
 
-        return view('registrar.academic.assign-instructors-subjects', compact(
-            'assignments',
-            'instructors',
-            'subjects',
-            'academicLevels',
-            'gradingPeriods'
-        ));
+        return Inertia::render('Registrar/Academic/AssignInstructorsSubjects', [
+            'user' => Auth::user(),
+            'assignments' => $assignments,
+            'instructors' => $instructors,
+            'subjects' => $subjects,
+            'academicLevels' => $academicLevels,
+            'gradingPeriods' => $gradingPeriods,
+        ]);
     }
 
     public function store(Request $request)

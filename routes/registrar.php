@@ -8,6 +8,7 @@ use App\Http\Controllers\Registrar\RegistrarParentManagementController;
 
 use App\Http\Controllers\Registrar\RegistrarAcademicController;
 use App\Http\Controllers\Registrar\StudentSubjectController;
+use App\Http\Controllers\Registrar\InstructorSubjectAssignmentController;
 use App\Http\Controllers\Admin\CertificateController;
 use App\Http\Controllers\Admin\ReportsController;
 
@@ -255,6 +256,13 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
     Route::get('/student-subjects/subjects/{levelId}', [StudentSubjectController::class, 'getSubjectsByLevel'])->name('student-subjects.subjects-by-level');
     Route::get('/honors', [RegistrarAcademicController::class, 'honors'])->name('honors');
     Route::get('/assign-instructors', [RegistrarAcademicController::class, 'assignInstructors'])->name('assign-instructors');
+    
+    // New Subject-Based Instructor Assignments
+    Route::get('/assign-instructors-subjects', [InstructorSubjectAssignmentController::class, 'index'])->name('assign-instructors-subjects');
+    Route::post('/assign-instructors-subjects', [InstructorSubjectAssignmentController::class, 'store'])->name('assign-instructors-subjects.store');
+    Route::put('/assign-instructors-subjects/{assignment}', [InstructorSubjectAssignmentController::class, 'update'])->name('assign-instructors-subjects.update');
+    Route::delete('/assign-instructors-subjects/{assignment}', [InstructorSubjectAssignmentController::class, 'destroy'])->name('assign-instructors-subjects.destroy');
+    
     Route::post('/assign-instructors', function(\Illuminate\Http\Request $request) {
         $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
             'instructor_id' => 'required|exists:users,id',

@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\ReportsController;
 use App\Http\Controllers\Admin\NotificationController;
 use App\Http\Controllers\Admin\SecurityController;
 use App\Http\Controllers\Admin\StudentSubjectController;
+use App\Http\Controllers\Admin\InstructorSubjectAssignmentController;
 use Illuminate\Http\Request;
 
 /*
@@ -389,6 +390,12 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/aca
     Route::post('/assign-instructors', [AcademicController::class, 'storeInstructorAssignment'])->name('assign-instructors.store');
     Route::put('/assign-instructors/{assignment}', [AcademicController::class, 'updateInstructorAssignment'])->name('assign-instructors.update');
     Route::delete('/assign-instructors/{assignment}', [AcademicController::class, 'destroyInstructorAssignment'])->name('assign-instructors.destroy');
+    
+    // New Subject-Based Instructor Assignments
+    Route::get('/assign-instructors-subjects', [InstructorSubjectAssignmentController::class, 'index'])->name('assign-instructors-subjects');
+    Route::post('/assign-instructors-subjects', [InstructorSubjectAssignmentController::class, 'store'])->name('assign-instructors-subjects.store');
+    Route::put('/assign-instructors-subjects/{assignment}', [InstructorSubjectAssignmentController::class, 'update'])->name('assign-instructors-subjects.update');
+    Route::delete('/assign-instructors-subjects/{assignment}', [InstructorSubjectAssignmentController::class, 'destroy'])->name('assign-instructors-subjects.destroy');
     
     Route::get('/assign-teachers', [AcademicController::class, 'assignTeachers'])->name('assign-teachers');
     Route::post('/assign-teachers', [AcademicController::class, 'storeTeacherAssignment'])->name('assign-teachers.store');

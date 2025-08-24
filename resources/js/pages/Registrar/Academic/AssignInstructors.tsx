@@ -242,7 +242,7 @@ export default function AssignInstructors({ user, assignments = [], instructors 
                         <div>
                             <h3 className="font-medium text-blue-900">College Instructor Assignments</h3>
                             <p className="text-blue-700 text-sm mt-1">
-                                Manage instructor assignments for college-level courses. This page is specifically for assigning instructors to college courses and departments.
+                                Manage instructor assignments for college-level courses. This page shows instructors assigned to courses and displays the subjects available in each course.
                             </p>
                         </div>
                     </div>
@@ -424,6 +424,22 @@ export default function AssignInstructors({ user, assignments = [], instructors 
                                             <BookOpen className="h-4 w-4 text-gray-500" />
                                             <span className="font-medium">{assignment.course.name}</span>
                                             <Badge variant="outline">{assignment.course.department?.name || 'No Department'}</Badge>
+                                        </div>
+                                        {/* Show subjects for this course */}
+                                        <div className="ml-8 mt-2">
+                                            <div className="text-sm text-gray-600 mb-1">Subjects:</div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {subjects
+                                                    .filter(subject => subject.course_id?.toString() === assignment.course_id.toString())
+                                                    .map(subject => (
+                                                        <Badge key={subject.id} variant="secondary" className="text-xs">
+                                                            {subject.name} ({subject.code})
+                                                        </Badge>
+                                                    ))}
+                                            </div>
+                                            {subjects.filter(subject => subject.course_id?.toString() === assignment.course_id.toString()).length === 0 && (
+                                                <span className="text-xs text-gray-400 italic">No subjects assigned to this course</span>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="flex items-center space-x-4">

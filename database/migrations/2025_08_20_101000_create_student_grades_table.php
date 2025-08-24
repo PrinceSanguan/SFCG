@@ -16,7 +16,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('student_id')->constrained('users')->onDelete('cascade');
             $table->foreignId('subject_id')->constrained('subjects')->onDelete('cascade');
-            $table->foreignId('academic_level_id')->constrained()->onDelete('cascade');
+            $table->foreignId('academic_level_id')->constrained('academic_levels')->onDelete('cascade');
             $table->foreignId('grading_period_id')->nullable()->constrained('grading_periods')->nullOnDelete();
             $table->string('school_year', 20); // e.g., "2024-2025"
             $table->unsignedTinyInteger('year_of_study')->nullable(); // 1..4 for college, optional for basic

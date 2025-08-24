@@ -6,6 +6,7 @@ use App\Http\Controllers\Instructor\GradeManagementController;
 use App\Http\Controllers\Instructor\HonorTrackingController;
 use App\Http\Controllers\Instructor\ProfileController;
 use App\Http\Controllers\Instructor\CSVUploadController;
+use Illuminate\Support\Facades\Auth;
 
 /*
 |--------------------------------------------------------------------------
@@ -35,11 +36,39 @@ Route::middleware(['auth', 'instructor'])->prefix('instructor')->name('instructo
         Route::get('/', [GradeManagementController::class, 'index'])->name('index');
         Route::get('/create', [GradeManagementController::class, 'create'])->name('create');
         Route::post('/', [GradeManagementController::class, 'store'])->name('store');
+        Route::get('/student/{student}/subject/{subject}', [GradeManagementController::class, 'showStudent'])->name('show-student');
         Route::get('/{grade}/edit', [GradeManagementController::class, 'edit'])->name('edit');
         Route::put('/{grade}', [GradeManagementController::class, 'update'])->name('update');
         Route::delete('/{grade}', [GradeManagementController::class, 'destroy'])->name('destroy');
         Route::post('/{grade}/submit', [GradeManagementController::class, 'submitForValidation'])->name('submit');
         Route::post('/{grade}/unsubmit', [GradeManagementController::class, 'unsubmitFromValidation'])->name('unsubmit');
+        
+        // Debug route for testing
+        Route::get('/debug/grades/{studentId}/{subjectId}', function($studentId, $subjectId) {
+            $grades = \App\Models\StudentGrade::with(['student', 'gradingPeriod'])->where('student_id', $studentId)->where('subject_id', $subjectId)->get();
+            $periods = \App\Models\GradingPeriod::where('academic_level_id', 4)->get();
+            
+            return response()->json([
+                'grades' => $grades->map(function($grade) {
+                    return [
+                        'id' => $grade->id,
+                        'grade' => $grade->grade,
+                        'grading_period_id' => $grade->grading_period_id,
+                        'grading_period' => $grade->gradingPeriod ? [
+                            'id' => $grade->gradingPeriod->id,
+                            'name' => $grade->gradingPeriod->name
+                        ] : null
+                    ];
+                }),
+                'periods' => $periods->map(function($period) {
+                    return [
+                        'id' => $period->id,
+                        'name' => $period->name,
+                        'academic_level_id' => $period->academic_level_id
+                    ];
+                })
+            ]);
+        });
         
         // CSV Upload
         Route::get('/upload', [CSVUploadController::class, 'index'])->name('upload');
@@ -72,5 +101,17 @@ Route::middleware(['auth', 'instructor'])->prefix('instructor')->name('instructo
         Route::get('/stats', [DashboardController::class, 'getStats'])->name('stats');
         Route::get('/recent-grades', [DashboardController::class, 'getRecentGrades'])->name('recent-grades');
         Route::get('/upcoming-deadlines', [DashboardController::class, 'getUpcomingDeadlines'])->name('upcoming-deadlines');
+        Route::get('/debug-dashboard', [DashboardController::class, 'debugDashboard'])->name('debug-dashboard');
     });
+
+    Route::get('/test-auth', function () {
+        $user = Auth::user();
+        return response()->json([
+            'authenticated' => Auth::check(),
+            'user_id' => $user ? $user->id : null,
+            'user_name' => $user ? $user->name : null,
+            'user_email' => $user ? $user->email : null,
+            'user_role' => $user ? $user->user_role : null,
+        ]);
+    })->name('test-auth');
 });

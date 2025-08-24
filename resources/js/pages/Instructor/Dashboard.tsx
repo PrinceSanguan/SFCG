@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Link } from '@inertiajs/react';
-import { BookOpen, Users, GraduationCap, Crown, Clock, TrendingUp } from 'lucide-react';
+import { BookOpen, Users, GraduationCap, Crown, Clock, TrendingUp, User } from 'lucide-react';
 
 interface User {
     id: number;
@@ -13,12 +13,17 @@ interface User {
     user_role: string;
 }
 
-interface AssignedCourse {
+interface AssignedSubject {
     id: number;
-    course: {
+    subject: {
         id: number;
         name: string;
         code: string;
+        course?: {
+            id: number;
+            name: string;
+            code: string;
+        };
     };
     academicLevel: {
         id: number;
@@ -31,6 +36,18 @@ interface AssignedCourse {
     };
     school_year: string;
     is_active: boolean;
+    enrolled_students: Array<{
+        id: number;
+        student: {
+            id: number;
+            name: string;
+            email: string;
+        };
+        school_year: string;
+        semester?: string;
+        is_active: boolean;
+    }>;
+    student_count: number;
 }
 
 interface StudentGrade {
@@ -72,7 +89,7 @@ interface Stats {
 
 interface DashboardProps {
     user: User;
-    assignedCourses: AssignedCourse[];
+    assignedSubjects: AssignedSubject[];
     recentGrades: StudentGrade[];
     upcomingDeadlines: UpcomingDeadline[];
     stats: Stats;
@@ -80,7 +97,7 @@ interface DashboardProps {
 
 export default function InstructorDashboard({ 
     user, 
-    assignedCourses = [], 
+    assignedSubjects = [], 
     recentGrades = [], 
     upcomingDeadlines = [], 
     stats = {
@@ -95,7 +112,7 @@ export default function InstructorDashboard({
     }
 
     // Ensure arrays are always arrays to prevent mapping errors
-    const safeAssignedCourses = Array.isArray(assignedCourses) ? assignedCourses : [];
+    const safeAssignedSubjects = Array.isArray(assignedSubjects) ? assignedSubjects : [];
     const safeRecentGrades = Array.isArray(recentGrades) ? recentGrades : [];
     const safeUpcomingDeadlines = Array.isArray(upcomingDeadlines) ? upcomingDeadlines : [];
 
@@ -108,26 +125,29 @@ export default function InstructorDashboard({
 
                 <main className="flex-1 overflow-y-auto bg-gray-100 p-4 md:p-6 dark:bg-gray-900">
                     <div className="flex flex-col gap-6">
-                        <div className="flex flex-col gap-2">
-                            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                                Welcome back, {user.name}!
-                            </h1>
-                            <p className="text-gray-500 dark:text-gray-400">
-                                Manage your assigned courses and student grades from your instructor dashboard.
-                            </p>
+                        {/* Header */}
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                                    Welcome back, {user.name}!
+                                </h1>
+                                <p className="text-gray-600 dark:text-gray-400 mt-2">
+                                    Manage your assigned subjects and student grades from your instructor dashboard.
+                                </p>
+                            </div>
                         </div>
 
-                        {/* Stats Cards */}
+                        {/* Summary Cards */}
                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                             <Card>
                                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                    <CardTitle className="text-sm font-medium">Assigned Courses</CardTitle>
+                                    <CardTitle className="text-sm font-medium">Assigned Subjects</CardTitle>
                                     <BookOpen className="h-4 w-4 text-muted-foreground" />
                                 </CardHeader>
                                 <CardContent>
                                     <div className="text-2xl font-bold">{stats.assigned_courses}</div>
                                     <p className="text-xs text-muted-foreground">
-                                        Active course assignments
+                                        Active subject assignments
                                     </p>
                                 </CardContent>
                             </Card>
@@ -140,7 +160,7 @@ export default function InstructorDashboard({
                                 <CardContent>
                                     <div className="text-2xl font-bold">{stats.student_count}</div>
                                     <p className="text-xs text-muted-foreground">
-                                        Enrolled students
+                                        Total enrolled students
                                     </p>
                                 </CardContent>
                             </Card>
@@ -173,10 +193,10 @@ export default function InstructorDashboard({
                         </div>
 
                         <div className="grid gap-4 md:grid-cols-2">
-                            {/* Assigned Courses */}
+                            {/* Assigned Subjects */}
                             <Card>
                                 <CardHeader className="flex flex-row items-center justify-between">
-                                    <CardTitle>My Assigned Courses</CardTitle>
+                                    <CardTitle>My Assigned Subjects</CardTitle>
                                     <Link href={route('instructor.grades.index')}>
                                         <Button variant="outline" size="sm">
                                             View All
@@ -185,23 +205,59 @@ export default function InstructorDashboard({
                                 </CardHeader>
                                 <CardContent>
                                     <div className="space-y-4">
-                                        {safeAssignedCourses.length > 0 ? (
-                                            safeAssignedCourses.map((course) => (
-                                                <div key={course.id} className="flex items-center justify-between">
-                                                    <div>
-                                                        <p className="text-sm font-medium">{course.course?.name || 'Unknown Course'}</p>
-                                                        <p className="text-xs text-muted-foreground">
-                                                            {course.academicLevel?.name || 'Unknown Level'} • {course.school_year}
-                                                        </p>
+                                        {safeAssignedSubjects.length > 0 ? (
+                                            safeAssignedSubjects.map((assignment) => (
+                                                <div key={assignment.id} className="border rounded-lg p-3 space-y-3">
+                                                    <div className="flex items-center justify-between">
+                                                        <div>
+                                                            <p className="text-sm font-medium">{assignment.subject?.name || 'Unknown Subject'}</p>
+                                                            <p className="text-xs text-muted-foreground">
+                                                                {assignment.subject?.code || 'No Code'} • {assignment.academicLevel?.name || 'Unknown Level'} • {assignment.school_year}
+                                                            </p>
+                                                            {assignment.subject?.course && (
+                                                                <p className="text-xs text-blue-600">
+                                                                    Course: {assignment.subject.course.name} ({assignment.subject.course.code})
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                        <Badge variant={assignment.is_active ? "default" : "secondary"}>
+                                                            {assignment.is_active ? "Active" : "Inactive"}
+                                                        </Badge>
                                                     </div>
-                                                    <Badge variant={course.is_active ? "default" : "secondary"}>
-                                                        {course.is_active ? "Active" : "Inactive"}
-                                                    </Badge>
+                                                    
+                                                    {/* Enrolled Students */}
+                                                    <div className="border-t pt-2">
+                                                        <div className="flex items-center justify-between mb-2">
+                                                            <p className="text-xs font-medium text-gray-700">Enrolled Students ({assignment.student_count})</p>
+                                                        </div>
+                                                        {assignment.enrolled_students.length > 0 ? (
+                                                            <div className="space-y-2">
+                                                                {assignment.enrolled_students.map((enrollment) => (
+                                                                    <div key={enrollment.id} className="flex items-center justify-between bg-gray-50 rounded px-2 py-1">
+                                                                        <div className="flex items-center space-x-2">
+                                                                            <User className="h-3 w-3 text-gray-500" />
+                                                                            <span className="text-xs font-medium">{enrollment.student.name}</span>
+                                                                        </div>
+                                                                        <div className="flex items-center space-x-2">
+                                                                            <Badge variant="outline" className="text-xs">
+                                                                                {enrollment.semester || 'No Semester'}
+                                                                            </Badge>
+                                                                            <Badge variant={enrollment.is_active ? "default" : "secondary"} className="text-xs">
+                                                                                {enrollment.is_active ? "Active" : "Inactive"}
+                                                                            </Badge>
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <p className="text-xs text-gray-500 italic">No students enrolled yet</p>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             ))
                                         ) : (
                                             <p className="text-sm text-muted-foreground">
-                                                No courses assigned yet
+                                                No subjects assigned yet
                                             </p>
                                         )}
                                     </div>

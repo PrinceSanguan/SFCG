@@ -4,13 +4,14 @@ namespace App\Http\Controllers\Instructor;
 
 use App\Http\Controllers\Controller;
 use App\Models\StudentGrade;
-use App\Models\InstructorCourseAssignment;
+use App\Models\InstructorSubjectAssignment;
 use App\Models\User;
 use App\Models\Subject;
 use App\Models\AcademicLevel;
 use App\Models\GradingPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
 
@@ -23,17 +24,78 @@ class GradeManagementController extends Controller
     {
         $user = Auth::user();
         
-        // Get instructor's assigned courses
-        $assignedCourses = InstructorCourseAssignment::with(['course', 'academicLevel', 'gradingPeriod'])
+        // Debug logging
+        Log::info('Grades index accessed by user: ' . $user->id . ' - ' . $user->name);
+        
+        // Get instructor's assigned subjects
+        $assignedSubjects = InstructorSubjectAssignment::with(['subject.course', 'academicLevel', 'gradingPeriod'])
             ->where('instructor_id', $user->id)
             ->where('is_active', true)
             ->get();
         
-        // Get grades for assigned courses
+        // Debug logging
+        Log::info('Found assigned subjects: ' . $assignedSubjects->count());
+        foreach($assignedSubjects as $subject) {
+            Log::info('Subject: ' . $subject->subject->name . ' (ID: ' . $subject->subject_id . ')');
+        }
+        
+        // Debug: Check the exact data structure being sent
+        $debugData = $assignedSubjects->map(function($assignment) {
+            // Get enrolled students for this subject
+            $enrolledStudents = \App\Models\StudentSubjectAssignment::with(['student'])
+                ->where('subject_id', $assignment->subject_id)
+                ->where('school_year', $assignment->school_year)
+                ->where('is_active', true)
+                ->get();
+            
+            return [
+                'id' => $assignment->id,
+                'subject_id' => $assignment->subject_id,
+                'subject' => $assignment->subject ? [
+                    'id' => $assignment->subject->id,
+                    'name' => $assignment->subject->name,
+                    'code' => $assignment->subject->code,
+                    'course' => $assignment->subject->course ? [
+                        'id' => $assignment->subject->course->id,
+                        'name' => $assignment->subject->course->name,
+                        'code' => $assignment->subject->course->code,
+                    ] : null,
+                ] : null,
+                'academicLevel' => $assignment->academicLevel ? [
+                    'id' => $assignment->academicLevel->id,
+                    'name' => $assignment->academicLevel->name,
+                    'key' => $assignment->academicLevel->key,
+                ] : null,
+                'gradingPeriod' => $assignment->gradingPeriod ? [
+                    'id' => $assignment->gradingPeriod->id,
+                    'name' => $assignment->gradingPeriod->name,
+                ] : null,
+                'school_year' => $assignment->school_year,
+                'is_active' => $assignment->is_active,
+                'enrolled_students' => $enrolledStudents->map(function($enrollment) {
+                    return [
+                        'id' => $enrollment->id,
+                        'student' => [
+                            'id' => $enrollment->student->id,
+                            'name' => $enrollment->student->name,
+                            'email' => $enrollment->student->email,
+                        ],
+                        'semester' => $enrollment->semester,
+                        'is_active' => $enrollment->is_active,
+                        'school_year' => $enrollment->school_year,
+                    ];
+                }),
+                'student_count' => $enrolledStudents->count(),
+            ];
+        });
+        
+        Log::info('Debug data structure: ' . json_encode($debugData->first()));
+        
+        // Get grades for assigned subjects
         $grades = StudentGrade::with(['student', 'subject', 'academicLevel', 'gradingPeriod'])
-            ->whereHas('subject', function ($query) use ($assignedCourses) {
-                // Get subjects that belong to the academic levels of assigned courses
-                $query->whereIn('academic_level_id', $assignedCourses->pluck('academic_level_id'));
+            ->whereHas('subject', function ($query) use ($assignedSubjects) {
+                // Get subjects that the instructor is assigned to
+                $query->whereIn('id', $assignedSubjects->pluck('subject_id'));
             })
             ->whereHas('student') // Ensure student exists
             ->whereHas('academicLevel') // Ensure academic level exists
@@ -53,12 +115,18 @@ class GradeManagementController extends Controller
             ->paginate(15)
             ->withQueryString();
         
-
+        // Debug logging
+        Log::info('Found grades: ' . $grades->count());
+        
+        // Debug: Log the actual grades data
+        if ($grades->count() > 0) {
+            Log::info('Sample grade data: ' . json_encode($grades->first()));
+        }
         
         return Inertia::render('Instructor/Grades/Index', [
             'user' => $user,
             'grades' => $grades,
-            'assignedCourses' => $assignedCourses,
+            'assignedSubjects' => $debugData,
             'filters' => $request->only(['subject', 'academic_level', 'grading_period', 'school_year']),
         ]);
     }
@@ -70,23 +138,71 @@ class GradeManagementController extends Controller
     {
         $user = Auth::user();
         
-        // Get instructor's assigned courses
-        $assignedCourses = InstructorCourseAssignment::with(['course', 'academicLevel', 'gradingPeriod'])
+        // Get instructor's assigned subjects with enrolled students
+        $assignedSubjects = InstructorSubjectAssignment::with(['subject.course', 'academicLevel', 'gradingPeriod'])
             ->where('instructor_id', $user->id)
             ->where('is_active', true)
             ->get();
         
+        // Build the same data structure as index method
+        $debugData = $assignedSubjects->map(function($assignment) {
+            // Get enrolled students for this subject
+            $enrolledStudents = \App\Models\StudentSubjectAssignment::with(['student'])
+                ->where('subject_id', $assignment->subject_id)
+                ->where('school_year', $assignment->school_year)
+                ->where('is_active', true)
+                ->get();
+            
+            return [
+                'id' => $assignment->id,
+                'subject_id' => $assignment->subject_id,
+                'subject' => $assignment->subject ? [
+                    'id' => $assignment->subject->id,
+                    'name' => $assignment->subject->name,
+                    'code' => $assignment->subject->code,
+                    'course' => $assignment->subject->course ? [
+                        'id' => $assignment->subject->course->id,
+                        'name' => $assignment->subject->course->name,
+                        'code' => $assignment->subject->course->code,
+                    ] : null,
+                ] : null,
+                'academicLevel' => $assignment->academicLevel ? [
+                    'id' => $assignment->academicLevel->id,
+                    'name' => $assignment->academicLevel->name,
+                    'key' => $assignment->academicLevel->key,
+                ] : null,
+                'gradingPeriod' => $assignment->gradingPeriod ? [
+                    'id' => $assignment->gradingPeriod->id,
+                    'name' => $assignment->gradingPeriod->name,
+                ] : null,
+                'school_year' => $assignment->school_year,
+                'is_active' => $assignment->is_active,
+                'enrolled_students' => $enrolledStudents->map(function($enrollment) {
+                    return [
+                        'id' => $enrollment->id,
+                        'student' => [
+                            'id' => $enrollment->student->id,
+                            'name' => $enrollment->student->name,
+                            'email' => $enrollment->student->email,
+                        ],
+                        'semester' => $enrollment->semester,
+                        'is_active' => $enrollment->is_active,
+                        'school_year' => $enrollment->school_year,
+                    ];
+                }),
+                'student_count' => $enrolledStudents->count(),
+            ];
+        });
+        
         // Get available subjects, academic levels, and grading periods
-        $subjects = Subject::whereIn('academic_level_id', $assignedCourses->pluck('academic_level_id'))->get();
         $academicLevels = AcademicLevel::all();
         $gradingPeriods = GradingPeriod::all();
         
         return Inertia::render('Instructor/Grades/Create', [
             'user' => $user,
-            'subjects' => $subjects,
             'academicLevels' => $academicLevels,
             'gradingPeriods' => $gradingPeriods,
-            'assignedCourses' => $assignedCourses,
+            'assignedSubjects' => $debugData,
         ]);
     }
     
@@ -97,11 +213,17 @@ class GradeManagementController extends Controller
     {
         $user = Auth::user();
         
+        // Debug logging
+        Log::info('Grade creation attempt', [
+            'user_id' => $user->id,
+            'request_data' => $request->all()
+        ]);
+        
         $validator = Validator::make($request->all(), [
             'student_id' => 'required|exists:users,id',
             'subject_id' => 'required|exists:subjects,id',
             'academic_level_id' => 'required|exists:academic_levels,id',
-            'grading_period_id' => 'nullable|exists:grading_periods,id',
+            'grading_period_id' => 'nullable',
             'school_year' => 'required|string|max:20',
             'year_of_study' => 'nullable|integer|min:1|max:10',
             'grade' => 'required|numeric',
@@ -117,14 +239,19 @@ class GradeManagementController extends Controller
             }
         }
         
+        // Custom validation for grading_period_id
+        if ($request->grading_period_id && $request->grading_period_id !== '0') {
+            $validator->addRules(['grading_period_id' => 'exists:grading_periods,id']);
+        }
+        
         // Handle "0" value for grading_period_id (no period selected)
         if ($request->grading_period_id === '0') {
             $request->merge(['grading_period_id' => null]);
         }
         
-        // Verify the instructor is assigned to this subject's academic level
-        $isAssigned = InstructorCourseAssignment::where('instructor_id', $user->id)
-            ->where('academic_level_id', $request->academic_level_id)
+        // Verify the instructor is assigned to this subject
+        $isAssigned = InstructorSubjectAssignment::where('instructor_id', $user->id)
+            ->where('subject_id', $request->subject_id)
             ->where('is_active', true)
             ->exists();
         
@@ -152,12 +279,121 @@ class GradeManagementController extends Controller
             return back()->withErrors(['grade' => 'A grade already exists for this student, subject, and period.']);
         }
         
-        StudentGrade::create($validator->validated());
+        // Prepare data for grade creation
+        $gradeData = [
+            'student_id' => $request->student_id,
+            'subject_id' => $request->subject_id,
+            'academic_level_id' => $request->academic_level_id,
+            'grading_period_id' => $request->grading_period_id === '0' ? null : $request->grading_period_id,
+            'school_year' => $request->school_year,
+            'year_of_study' => $request->year_of_study ?: null,
+            'grade' => $request->grade,
+        ];
         
-        return redirect()->route('instructor.grades.index')
-            ->with('success', 'Grade created successfully.');
+        // Create the grade
+        try {
+            $grade = StudentGrade::create($gradeData);
+            Log::info('Grade created successfully', [
+                'grade_id' => $grade->id,
+                'grade_data' => $gradeData
+            ]);
+            
+            return redirect()->route('instructor.grades.index')
+                ->with('success', 'Grade created successfully.');
+        } catch (\Exception $e) {
+            Log::error('Grade creation failed', [
+                'error' => $e->getMessage(),
+                'grade_data' => $gradeData
+            ]);
+            
+            return back()->withErrors(['grade' => 'Failed to create grade: ' . $e->getMessage()])->withInput();
+        }
     }
     
+    /**
+     * Show student details and grades for a specific subject.
+     */
+    public function showStudent($studentId, $subjectId)
+    {
+        $user = Auth::user();
+        
+        // Verify the instructor is assigned to this subject
+        $isAssigned = InstructorSubjectAssignment::where('instructor_id', $user->id)
+            ->where('subject_id', $subjectId)
+            ->where('is_active', true)
+            ->exists();
+        
+        if (!$isAssigned) {
+            abort(403, 'You are not authorized to view this student.');
+        }
+        
+        // Get student information
+        $student = User::findOrFail($studentId);
+        
+        // Get subject information
+        $subject = Subject::with('course')->findOrFail($subjectId);
+        
+        // Get academic level from the assignment
+        $assignment = InstructorSubjectAssignment::where('instructor_id', $user->id)
+            ->where('subject_id', $subjectId)
+            ->where('is_active', true)
+            ->first();
+        
+        $academicLevel = $assignment->academicLevel;
+        
+        // Get all grades for this student in this subject
+        $grades = StudentGrade::with(['student:id,name,student_number', 'subject', 'academicLevel', 'gradingPeriod'])
+            ->where('student_id', $studentId)
+            ->where('subject_id', $subjectId)
+            ->orderBy('created_at', 'desc')
+            ->get();
+        
+        // Debug logging
+        Log::info('Grades found for student ' . $studentId . ' in subject ' . $subjectId . ': ' . $grades->count());
+        foreach ($grades as $grade) {
+            Log::info('Grade ID: ' . $grade->id . ', Value: ' . $grade->grade . ', Period ID: ' . ($grade->grading_period_id ?? 'NULL') . ', Period Name: ' . ($grade->gradingPeriod ? $grade->gradingPeriod->name : 'NULL'));
+        }
+        
+        // Get all grading periods for this academic level
+        $gradingPeriods = \App\Models\GradingPeriod::where('academic_level_id', $academicLevel->id)
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->get();
+        
+        // Debug logging for grading periods
+        Log::info('Grading periods found for academic level ' . $academicLevel->id . ': ' . $gradingPeriods->count());
+        foreach ($gradingPeriods as $period) {
+            Log::info('Period ID: ' . $period->id . ', Name: ' . $period->name . ', Academic Level: ' . $period->academic_level_id);
+        }
+        
+        return Inertia::render('Instructor/Grades/Show', [
+            'user' => $user,
+            'student' => [
+                'id' => $student->id,
+                'name' => $student->name,
+                'email' => $student->email,
+                'student_number' => $student->student_number,
+            ],
+            'subject' => [
+                'id' => $subject->id,
+                'name' => $subject->name,
+                'code' => $subject->code,
+                'course' => $subject->course ? [
+                    'id' => $subject->course->id,
+                    'name' => $subject->course->name,
+                    'code' => $subject->course->code,
+                ] : null,
+            ],
+            'academicLevel' => [
+                'id' => $academicLevel->id,
+                'name' => $academicLevel->name,
+                'key' => $academicLevel->key,
+            ],
+            'grades' => $grades,
+            'gradingPeriods' => $gradingPeriods,
+        ]);
+    }
+
     /**
      * Show the form for editing the specified grade.
      */
@@ -165,9 +401,9 @@ class GradeManagementController extends Controller
     {
         $user = Auth::user();
         
-        // Verify the instructor is assigned to this subject's academic level
-        $isAssigned = InstructorCourseAssignment::where('instructor_id', $user->id)
-            ->where('academic_level_id', $grade->academic_level_id)
+        // Verify the instructor is assigned to this subject
+        $isAssigned = InstructorSubjectAssignment::where('instructor_id', $user->id)
+            ->where('subject_id', $grade->subject_id)
             ->where('is_active', true)
             ->exists();
         
@@ -177,9 +413,16 @@ class GradeManagementController extends Controller
         
         $grade->load(['student', 'subject', 'academicLevel', 'gradingPeriod']);
         
+        // Get all grading periods for this academic level
+        $gradingPeriods = \App\Models\GradingPeriod::where('academic_level_id', $grade->academic_level_id)
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->get();
+        
         return Inertia::render('Instructor/Grades/Edit', [
             'user' => $user,
             'grade' => $grade,
+            'gradingPeriods' => $gradingPeriods,
         ]);
     }
     
@@ -191,8 +434,8 @@ class GradeManagementController extends Controller
         $user = Auth::user();
         
         // Verify the instructor is assigned to this subject
-        $isAssigned = InstructorCourseAssignment::where('instructor_id', $user->id)
-            ->where('course_id', $grade->subject_id)
+        $isAssigned = InstructorSubjectAssignment::where('instructor_id', $user->id)
+            ->where('subject_id', $grade->subject_id)
             ->where('is_active', true)
             ->exists();
         
@@ -201,14 +444,35 @@ class GradeManagementController extends Controller
         }
         
         $validator = Validator::make($request->all(), [
-            'grade' => 'required|numeric|min:0|max:100',
+            'grade' => 'required|numeric',
+            'grading_period_id' => 'nullable|exists:grading_periods,id',
         ]);
+        
+        // Custom validation for grade based on academic level
+        $academicLevel = $grade->academicLevel;
+        if ($academicLevel) {
+            if ($academicLevel->key === 'college') {
+                $validator->addRules(['grade' => 'numeric|min:1.0|max:5.0']);
+            } else {
+                $validator->addRules(['grade' => 'numeric|min:75|max:100']);
+            }
+        }
         
         if ($validator->fails()) {
             return back()->withErrors($validator)->withInput();
         }
         
-        $grade->update($validator->validated());
+        // Prepare update data
+        $updateData = [
+            'grade' => $request->grade,
+        ];
+        
+        // Handle grading period update
+        if ($request->has('grading_period_id')) {
+            $updateData['grading_period_id'] = $request->grading_period_id === '0' ? null : $request->grading_period_id;
+        }
+        
+        $grade->update($updateData);
         
         return redirect()->route('instructor.grades.index')
             ->with('success', 'Grade updated successfully.');
@@ -222,8 +486,8 @@ class GradeManagementController extends Controller
         $user = Auth::user();
         
         // Verify the instructor is assigned to this subject
-        $isAssigned = InstructorCourseAssignment::where('instructor_id', $user->id)
-            ->where('course_id', $grade->subject_id)
+        $isAssigned = InstructorSubjectAssignment::where('instructor_id', $user->id)
+            ->where('subject_id', $grade->subject_id)
             ->where('is_active', true)
             ->exists();
         
@@ -245,8 +509,8 @@ class GradeManagementController extends Controller
         $user = Auth::user();
         
         // Verify the instructor is assigned to this subject
-        $isAssigned = InstructorCourseAssignment::where('instructor_id', $user->id)
-            ->where('course_id', $grade->subject_id)
+        $isAssigned = InstructorSubjectAssignment::where('instructor_id', $user->id)
+            ->where('subject_id', $grade->subject_id)
             ->where('is_active', true)
             ->exists();
         
@@ -267,8 +531,8 @@ class GradeManagementController extends Controller
         $user = Auth::user();
         
         // Verify the instructor is assigned to this subject
-        $isAssigned = InstructorCourseAssignment::where('instructor_id', $user->id)
-            ->where('course_id', $grade->subject_id)
+        $isAssigned = InstructorSubjectAssignment::where('instructor_id', $user->id)
+            ->where('subject_id', $grade->subject_id)
             ->where('is_active', true)
             ->exists();
         
@@ -300,12 +564,12 @@ class GradeManagementController extends Controller
     {
         $user = Auth::user();
         
-        $assignedCourses = InstructorCourseAssignment::with(['course', 'academicLevel'])
+        $assignedSubjects = InstructorSubjectAssignment::with(['subject', 'academicLevel'])
             ->where('instructor_id', $user->id)
             ->where('is_active', true)
             ->get();
         
-        return Subject::whereIn('id', $assignedCourses->pluck('course_id'))->get();
+        return Subject::whereIn('id', $assignedSubjects->pluck('subject_id'))->get();
     }
     
     /**
