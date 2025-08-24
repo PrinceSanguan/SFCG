@@ -5,11 +5,11 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Registrar\RegistrarController;
 use App\Http\Controllers\Registrar\RegistrarUserManagementController;
 use App\Http\Controllers\Registrar\RegistrarParentManagementController;
-use App\Http\Controllers\Admin\ActivityLogController;
+
 use App\Http\Controllers\Registrar\RegistrarAcademicController;
 use App\Http\Controllers\Admin\CertificateController;
 use App\Http\Controllers\Admin\ReportsController;
-use App\Http\Controllers\Admin\NotificationController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -165,14 +165,7 @@ Route::middleware(['auth', 'registrar'])->prefix('registrar')->name('registrar.'
         Route::delete('/{user}', [RegistrarUserManagementController::class, 'destroyByRole'])->name('destroy');
     });
     
-    // Activity Logs (View Only)
-    Route::prefix('activity-logs')->name('activity-logs.')->group(function () {
-        // Get activity logs with filters
-        Route::get('/', [ActivityLogController::class, 'index'])->name('index');
-        
-        // Get activity logs for specific user
-        Route::get('/user/{user}', [ActivityLogController::class, 'userLogs'])->name('user');
-    });
+
     
     // API endpoints for AJAX calls
     Route::prefix('api')->name('api.')->group(function () {
@@ -182,8 +175,7 @@ Route::middleware(['auth', 'registrar'])->prefix('registrar')->name('registrar.'
         // Get user stats for dashboard
         Route::get('/stats', [RegistrarUserManagementController::class, 'stats'])->name('stats');
         
-        // Get recent activities
-        Route::get('/recent-activities', [ActivityLogController::class, 'recentActivities'])->name('recent-activities');
+
     });
 });
 
@@ -856,9 +848,4 @@ Route::middleware(['auth', 'registrar'])->prefix('registrar/reports')->name('reg
     Route::post('/archive-records', [ReportsController::class, 'archiveAcademicRecords'])->name('archive-records');
 });
 
-// Notification routes (Registrar has access but cannot send Gmail announcements)
-Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar/notifications')->name('registrar.notifications.')->group(function () {
-    Route::get('/', [NotificationController::class, 'index'])->name('index');
-    Route::get('/recipients', [NotificationController::class, 'getRecipients'])->name('recipients');
-    Route::get('/{notification}/resend', [NotificationController::class, 'resendFailed'])->name('resend');
-});
+

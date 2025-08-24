@@ -9,7 +9,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Link, usePage } from '@inertiajs/react';
-import { BarChart, Bell, ChevronDown, LayoutDashboard, Settings, Users, UserCheck, ChevronRight, GraduationCap, BookOpen, UserCog, Crown, Building2, Notebook, Shield } from 'lucide-react';
+import { BarChart, ChevronDown, LayoutDashboard, Settings, Users, UserCheck, ChevronRight, GraduationCap, BookOpen, UserCog, Crown, Building2, Notebook } from 'lucide-react';
 import { useState } from 'react';
 
 interface User {
@@ -277,27 +277,7 @@ export function Sidebar({ user }: SidebarProps) {
                         </Button>
                     </Link>
 
-                    {/* Notifications & Transparency (Limited - No Gmail announcements) */}
-                    <Link href={route('registrar.notifications.index')} className="w-full">
-                        <Button
-                            variant={isActive('/registrar/notifications') ? 'secondary' : 'ghost'}
-                            className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-                        >
-                            <Bell size={18} />
-                            Notifications
-                        </Button>
-                    </Link>
 
-                    {/* Activity Logs (View Only) */}
-                    <Link href={route('registrar.activity-logs.index')} className="w-full">
-                        <Button
-                            variant={isActive('/registrar/activity-logs') ? 'secondary' : 'ghost'}
-                            className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-                        >
-                            <Shield size={18} />
-                            Activity Logs
-                        </Button>
-                    </Link>
                 </nav>
             </div>
 
