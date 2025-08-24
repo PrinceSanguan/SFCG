@@ -87,10 +87,6 @@ export default function StudentSubjects({
     assignmentsByLevel, 
     students, 
     subjects,
-    search = '',
-    selectedLevel = '',
-    selectedYear = '',
-    schoolYears = []
 }: DashboardProps) {
     const [activeTab, setActiveTab] = useState('all');
     const [assignmentModal, setAssignmentModal] = useState(false);
