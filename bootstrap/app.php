@@ -6,6 +6,7 @@ use App\Http\Middleware\InstructorMiddleware;
 use App\Http\Middleware\RegistrarMiddleware;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\StudentMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -26,6 +27,9 @@ return Application::configure(basePath: dirname(__DIR__))
             
             Route::middleware('web')
                 ->group(base_path('routes/instructor.php'));
+            
+            Route::middleware('web')
+                ->group(base_path('routes/student.php'));
         }
     )
     ->withMiddleware(function (Middleware $middleware) {
@@ -42,6 +46,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => EnsureRole::class,
             'instructor' => InstructorMiddleware::class,
             'registrar' => RegistrarMiddleware::class,
+            'student' => StudentMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

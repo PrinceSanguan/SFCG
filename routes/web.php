@@ -135,13 +135,6 @@ Route::middleware(['auth'])->group(function () {
     })->name('principal.dashboard');
 });
 
-// Student Dashboard
-Route::middleware(['auth'])->group(function () {
-    Route::get('/student/dashboard', function () {
-        return Inertia::render('Welcome', ['message' => 'Welcome to Student Dashboard - Coming Soon!']);
-    })->name('student.dashboard');
-});
-
 // Parent Dashboard
 Route::middleware(['auth'])->group(function () {
     Route::get('/parent/dashboard', function () {

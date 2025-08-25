@@ -40,3 +40,32 @@ export interface User {
     updated_at: string;
     [key: string]: unknown; // This allows for additional properties...
 }
+
+export interface GradingPeriod {
+    id: number;
+    name: string;
+    code: string;
+    academic_level_id: number;
+    start_date: string;
+    end_date: string;
+    sort_order: number;
+    is_active: boolean;
+}
+
+export interface Grade {
+    id: number;
+    student_id: number;
+    subject_id: number;
+    academic_level_id: number;
+    grading_period_id: number;
+    school_year: string;
+    year_of_study: number | null;
+    grade: number;
+    is_submitted_for_validation: boolean;
+    submitted_at: string | null;
+    validated_at: string | null;
+    validated_by: number | null;
+    created_at: string;
+    updated_at: string;
+    gradingPeriod: GradingPeriod | null;
+}
