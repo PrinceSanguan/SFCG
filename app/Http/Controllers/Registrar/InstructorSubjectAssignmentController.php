@@ -12,6 +12,7 @@ use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class InstructorSubjectAssignmentController extends Controller
@@ -43,6 +44,9 @@ class InstructorSubjectAssignmentController extends Controller
 
     public function store(Request $request)
     {
+        // Debug logging
+        Log::info('InstructorSubjectAssignment store method called with data:', $request->all());
+        
         $validator = Validator::make($request->all(), [
             'instructor_id' => 'required|exists:users,id',
             'subject_id' => 'required|exists:subjects,id',
@@ -50,15 +54,18 @@ class InstructorSubjectAssignmentController extends Controller
             'grading_period_id' => 'nullable|exists:grading_periods,id',
             'school_year' => 'required|string',
             'notes' => 'nullable|string',
+            'auto_enroll_students' => 'boolean', // New field for auto-enrolling students
         ]);
 
         if ($validator->fails()) {
+            Log::error('Validation failed:', $validator->errors()->toArray());
             return back()->withErrors($validator)->withInput();
         }
 
         // Check if instructor has the correct role
         $instructor = User::find($request->instructor_id);
         if (!$instructor || $instructor->user_role !== 'instructor') {
+            Log::error('User is not an instructor:', ['user_id' => $request->instructor_id, 'role' => $instructor?->user_role]);
             return back()->with('error', 'Selected user is not an instructor.');
         }
 
@@ -67,15 +74,23 @@ class InstructorSubjectAssignmentController extends Controller
             'instructor_id' => $request->instructor_id,
             'subject_id' => $request->subject_id,
             'academic_level_id' => $request->academic_level_id,
-            'grading_period_id' => $request->grading_period_id,
             'school_year' => $request->school_year,
-        ])->first();
+        ])
+        ->where(function($query) use ($request) {
+            if ($request->grading_period_id) {
+                $query->where('grading_period_id', $request->grading_period_id);
+            } else {
+                $query->whereNull('grading_period_id');
+            }
+        })
+        ->first();
 
         if ($existingAssignment) {
+            Log::info('Assignment already exists:', ['existing_id' => $existingAssignment->id]);
             return back()->with('error', 'This instructor is already assigned to this subject for the specified period and school year.');
         }
 
-        $assignment = InstructorSubjectAssignment::create([
+        Log::info('Creating new assignment with data:', [
             'instructor_id' => $request->instructor_id,
             'subject_id' => $request->subject_id,
             'academic_level_id' => $request->academic_level_id,
@@ -84,6 +99,24 @@ class InstructorSubjectAssignmentController extends Controller
             'assigned_by' => Auth::id(),
             'notes' => $request->notes,
         ]);
+
+        $assignment = InstructorSubjectAssignment::create([
+            'instructor_id' => $request->instructor_id,
+            'subject_id' => $request->subject_id,
+            'academic_level_id' => $request->academic_level_id,
+            'grading_period_id' => $request->grading_period_id ?: null,
+            'school_year' => $request->school_year,
+            'assigned_by' => Auth::id(),
+            'notes' => $request->notes,
+        ]);
+
+        Log::info('Assignment created successfully:', ['assignment_id' => $assignment->id]);
+
+        // Auto-enroll students if requested
+        if ($request->boolean('auto_enroll_students', true)) {
+            $enrolledCount = $this->autoEnrollStudents($assignment);
+            Log::info('Auto-enrolled students:', ['count' => $enrolledCount]);
+        }
 
         // Log activity
         ActivityLog::create([
@@ -208,6 +241,9 @@ class InstructorSubjectAssignmentController extends Controller
         return back()->with('success', "Instructor subject assignment {$status} successfully!");
     }
 
+    /**
+     * Get subjects by course for AJAX requests.
+     */
     public function getSubjectsByCourse(Request $request)
     {
         $courseId = $request->course_id;
@@ -219,5 +255,124 @@ class InstructorSubjectAssignmentController extends Controller
             ->get(['id', 'name', 'code']);
 
         return response()->json($subjects);
+    }
+
+    /**
+     * Auto-enroll students in a subject when an instructor is assigned.
+     */
+    private function autoEnrollStudents(InstructorSubjectAssignment $assignment)
+    {
+        // Get students in the same academic level
+        $students = User::where('user_role', 'student')
+            ->where('academic_level_id', $assignment->academic_level_id)
+            ->get();
+
+        $enrolledCount = 0;
+        foreach ($students as $student) {
+            // Check if student is already enrolled in this subject
+            $existingEnrollment = \App\Models\StudentSubjectAssignment::where([
+                'student_id' => $student->id,
+                'subject_id' => $assignment->subject_id,
+                'school_year' => $assignment->school_year,
+            ])->first();
+
+            if (!$existingEnrollment) {
+                \App\Models\StudentSubjectAssignment::create([
+                    'student_id' => $student->id,
+                    'subject_id' => $assignment->subject_id,
+                    'school_year' => $assignment->school_year,
+                    'semester' => '1st Semester', // Default semester
+                    'is_active' => true,
+                    'enrolled_by' => Auth::id(),
+                    'notes' => 'Auto-enrolled when instructor was assigned',
+                ]);
+                $enrolledCount++;
+            }
+        }
+
+        return $enrolledCount;
+    }
+
+    /**
+     * Show students enrolled in a specific instructor assignment.
+     */
+    public function showStudents(InstructorSubjectAssignment $assignment)
+    {
+        $enrolledStudents = \App\Models\StudentSubjectAssignment::with(['student'])
+            ->where('subject_id', $assignment->subject_id)
+            ->where('school_year', $assignment->school_year)
+            ->where('is_active', true)
+            ->get();
+
+        $availableStudents = User::where('user_role', 'student')
+            ->where('academic_level_id', $assignment->academic_level_id)
+            ->whereNotIn('id', $enrolledStudents->pluck('student_id'))
+            ->get();
+
+        return Inertia::render('Registrar/Academic/InstructorAssignmentStudents', [
+            'user' => Auth::user(),
+            'assignment' => $assignment->load(['subject', 'instructor', 'academicLevel']),
+            'enrolledStudents' => $enrolledStudents,
+            'availableStudents' => $availableStudents,
+        ]);
+    }
+
+    /**
+     * Enroll a student in an instructor's subject.
+     */
+    public function enrollStudent(Request $request, InstructorSubjectAssignment $assignment)
+    {
+        $validator = Validator::make($request->all(), [
+            'student_id' => 'required|exists:users,id',
+            'semester' => 'nullable|string',
+            'notes' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput();
+        }
+
+        // Check if student is already enrolled
+        $existingEnrollment = \App\Models\StudentSubjectAssignment::where([
+            'student_id' => $request->student_id,
+            'subject_id' => $assignment->subject_id,
+            'school_year' => $assignment->school_year,
+        ])->first();
+
+        if ($existingEnrollment) {
+            return back()->with('error', 'This student is already enrolled in this subject.');
+        }
+
+        // Create enrollment
+        \App\Models\StudentSubjectAssignment::create([
+            'student_id' => $request->student_id,
+            'subject_id' => $assignment->subject_id,
+            'school_year' => $assignment->school_year,
+            'semester' => $request->semester ?? '1st Semester',
+            'is_active' => true,
+            'enrolled_by' => Auth::id(),
+            'notes' => $request->notes,
+        ]);
+
+        return back()->with('success', 'Student enrolled successfully!');
+    }
+
+    /**
+     * Remove a student from an instructor's subject.
+     */
+    public function removeStudent(Request $request, InstructorSubjectAssignment $assignment)
+    {
+        $enrollment = \App\Models\StudentSubjectAssignment::where([
+            'student_id' => $request->student_id,
+            'subject_id' => $assignment->subject_id,
+            'school_year' => $assignment->school_year,
+        ])->first();
+
+        if ($enrollment) {
+            $enrollment->delete();
+            return back()->with('success', 'Student removed from subject successfully!');
+        }
+
+        return back()->with('error', 'Student enrollment not found.');
     }
 }

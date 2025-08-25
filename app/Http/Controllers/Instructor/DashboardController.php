@@ -20,9 +20,10 @@ class DashboardController extends Controller
     public function index()
     {
         $user = Auth::user();
+        $schoolYear = request('school_year', '2024-2025'); // Default school year
         
         // Debug logging
-        Log::info('Dashboard accessed by user: ' . $user->id . ' - ' . $user->name);
+        Log::info('Dashboard accessed by user: ' . $user->id . ' - ' . $user->name . ' for school year: ' . $schoolYear);
         
         // Get instructor's assigned subjects (new system)
         $assignedSubjects = InstructorSubjectAssignment::with([
@@ -32,19 +33,20 @@ class DashboardController extends Controller
         ])
         ->where('instructor_id', $user->id)
         ->where('is_active', true)
+        ->where('school_year', $schoolYear)
         ->get();
         
         // Debug logging
-        Log::info('Found assigned subjects: ' . $assignedSubjects->count());
+        Log::info('Found assigned subjects: ' . $assignedSubjects->count() . ' for school year: ' . $schoolYear);
         foreach($assignedSubjects as $subject) {
             Log::info('Subject: ' . $subject->subject->name . ' (ID: ' . $subject->subject_id . ')');
         }
         
         // Get students enrolled in each assigned subject
-        $subjectsWithStudents = $assignedSubjects->map(function ($assignment) {
+        $subjectsWithStudents = $assignedSubjects->map(function ($assignment) use ($schoolYear) {
             $enrolledStudents = StudentSubjectAssignment::with(['student'])
                 ->where('subject_id', $assignment->subject_id)
-                ->where('school_year', $assignment->school_year)
+                ->where('school_year', $schoolYear)
                 ->where('is_active', true)
                 ->get();
             
@@ -68,6 +70,7 @@ class DashboardController extends Controller
             ->whereHas('subject', function ($query) use ($assignedSubjects) {
                 $query->whereIn('id', $assignedSubjects->pluck('subject_id'));
             })
+            ->where('school_year', $schoolYear)
             ->latest()
             ->take(5)
             ->get();
@@ -76,7 +79,7 @@ class DashboardController extends Controller
         $upcomingDeadlines = $this->getUpcomingDeadlines();
         
         // Get basic stats
-        $stats = $this->getStats();
+        $stats = $this->getStats($schoolYear);
         
         // Debug logging
         Log::info('Dashboard data prepared - Subjects: ' . $subjectsWithStudents->count() . ', Stats: ' . json_encode($stats));
@@ -87,36 +90,44 @@ class DashboardController extends Controller
             'recentGrades' => $recentGrades,
             'upcomingDeadlines' => $upcomingDeadlines,
             'stats' => $stats,
+            'currentSchoolYear' => $schoolYear,
+            'debug' => [
+                'total_assignments' => $assignedSubjects->count(),
+                'total_students' => $subjectsWithStudents->sum('student_count'),
+                'school_year' => $schoolYear,
+            ]
         ]);
     }
     
     /**
      * Get instructor statistics.
      */
-    public function getStats()
+    public function getStats($schoolYear = '2024-2025')
     {
         $user = Auth::user();
         
-        // Get assigned subjects
+        // Get assigned subjects for the specific school year
         $assignedSubjects = InstructorSubjectAssignment::where('instructor_id', $user->id)
             ->where('is_active', true)
+            ->where('school_year', $schoolYear)
             ->get();
         
-        // Count students in assigned subjects
+        // Count students in assigned subjects for the specific school year
         $studentCount = StudentSubjectAssignment::whereIn('subject_id', $assignedSubjects->pluck('subject_id'))
             ->where('is_active', true)
+            ->where('school_year', $schoolYear)
             ->distinct('student_id')
             ->count('student_id');
         
-        // Count grades entered
+        // Count grades entered for the specific school year
         $gradesEntered = StudentGrade::whereHas('subject', function ($query) use ($assignedSubjects) {
             $query->whereIn('id', $assignedSubjects->pluck('subject_id'));
-        })->count();
+        })->where('school_year', $schoolYear)->count();
         
-        // Count pending validations
+        // Count pending validations for the specific school year
         $pendingValidations = StudentGrade::whereHas('subject', function ($query) use ($assignedSubjects) {
             $query->whereIn('id', $assignedSubjects->pluck('subject_id'));
-        })->where('is_submitted_for_validation', true)->count();
+        })->where('school_year', $schoolYear)->where('is_submitted_for_validation', true)->count();
         
         return [
             'assigned_courses' => $assignedSubjects->count(),

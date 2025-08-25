@@ -263,6 +263,38 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
     Route::put('/assign-instructors-subjects/{assignment}', [InstructorSubjectAssignmentController::class, 'update'])->name('assign-instructors-subjects.update');
     Route::delete('/assign-instructors-subjects/{assignment}', [InstructorSubjectAssignmentController::class, 'destroy'])->name('assign-instructors-subjects.destroy');
     
+    // Manage students in instructor assignments
+    Route::get('/assign-instructors-subjects/{assignment}/students', [InstructorSubjectAssignmentController::class, 'showStudents'])->name('assign-instructors-subjects.students');
+    Route::post('/assign-instructors-subjects/{assignment}/enroll-student', [InstructorSubjectAssignmentController::class, 'enrollStudent'])->name('assign-instructors-subjects.enroll-student');
+    Route::delete('/assign-instructors-subjects/{assignment}/remove-student', [InstructorSubjectAssignmentController::class, 'removeStudent'])->name('assign-instructors-subjects.remove-student');
+    
+    // Test route for debugging
+    Route::get('/test-create-assignment', function() {
+        try {
+            $assignment = \App\Models\InstructorSubjectAssignment::create([
+                'instructor_id' => 2, // Assuming Jane Instructor has ID 2
+                'subject_id' => 1, // Mathematics
+                'academic_level_id' => 1, // Elementary
+                'grading_period_id' => null,
+                'school_year' => '2024-2025',
+                'assigned_by' => 1, // Admin user
+                'notes' => 'Test assignment',
+            ]);
+            
+            return response()->json([
+                'success' => true,
+                'assignment' => $assignment,
+                'message' => 'Test assignment created successfully'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ], 500);
+        }
+    })->name('test-create-assignment');
+    
     Route::post('/assign-instructors', function(\Illuminate\Http\Request $request) {
         $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
             'instructor_id' => 'required|exists:users,id',
@@ -305,6 +337,24 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
             'assigned_by' => \Illuminate\Support\Facades\Auth::id(),
             'notes' => $request->notes,
         ]);
+
+        // Also create subject-level assignments for all subjects in this course/level
+        $subjects = \App\Models\Subject::where('course_id', $request->course_id)
+            ->where('academic_level_id', $request->academic_level_id)
+            ->get();
+        foreach ($subjects as $subject) {
+            \App\Models\InstructorSubjectAssignment::firstOrCreate([
+                'instructor_id' => $request->instructor_id,
+                'subject_id' => $subject->id,
+                'academic_level_id' => $request->academic_level_id,
+                'school_year' => $request->school_year,
+                'grading_period_id' => $request->grading_period_id,
+            ], [
+                'assigned_by' => \Illuminate\Support\Facades\Auth::id(),
+                'is_active' => true,
+                'notes' => $request->notes,
+            ]);
+        }
 
         // Log activity
         \App\Models\ActivityLog::create([
@@ -364,6 +414,24 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
             'notes' => $request->notes,
         ]);
 
+        // Sync subject-level assignments for all subjects in this course/level
+        $subjects = \App\Models\Subject::where('course_id', $request->course_id)
+            ->where('academic_level_id', $request->academic_level_id)
+            ->get();
+        foreach ($subjects as $subject) {
+            \App\Models\InstructorSubjectAssignment::updateOrCreate([
+                'instructor_id' => $request->instructor_id,
+                'subject_id' => $subject->id,
+                'academic_level_id' => $request->academic_level_id,
+                'school_year' => $request->school_year,
+            ], [
+                'grading_period_id' => $request->grading_period_id,
+                'notes' => $request->notes,
+                'assigned_by' => \Illuminate\Support\Facades\Auth::id(),
+                'is_active' => true,
+            ]);
+        }
+
         // Log activity
         \App\Models\ActivityLog::create([
             'user_id' => \Illuminate\Support\Facades\Auth::id(),
@@ -381,7 +449,23 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
         return back()->with('success', 'Instructor assignment updated successfully!');
     })->name('assign-instructors.update');
     Route::delete('/assign-instructors/{assignment}', function(\App\Models\InstructorCourseAssignment $assignment) {
+        // Capture details before delete
+        $instructorId = $assignment->instructor_id;
+        $courseId = $assignment->course_id;
+        $academicLevelId = $assignment->academic_level_id;
+        $schoolYear = $assignment->school_year;
+
         $assignment->delete();
+
+        // Also remove subject-level assignments tied to this course/level + instructor + school year
+        $subjectIds = \App\Models\Subject::where('course_id', $courseId)
+            ->where('academic_level_id', $academicLevelId)
+            ->pluck('id');
+        \App\Models\InstructorSubjectAssignment::where('instructor_id', $instructorId)
+            ->whereIn('subject_id', $subjectIds)
+            ->where('academic_level_id', $academicLevelId)
+            ->where('school_year', $schoolYear)
+            ->delete();
 
         // Log activity
         \App\Models\ActivityLog::create([

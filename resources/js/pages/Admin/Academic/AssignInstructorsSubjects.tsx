@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ArrowLeft, Plus, Edit, Trash2, User, BookOpen, Calendar } from 'lucide-react';
+import { ArrowLeft, Plus, Edit, Trash2, User, BookOpen, Calendar, Users } from 'lucide-react';
 import { Link, router } from '@inertiajs/react';
 
 interface User {
@@ -71,6 +71,7 @@ interface InstructorSubjectAssignment {
     academicLevel: AcademicLevel;
     gradingPeriod: GradingPeriod | null;
     assignedBy: User;
+    auto_enroll_students?: boolean;
 }
 
 interface Props {
@@ -102,6 +103,7 @@ export default function AssignInstructorsSubjects({
         grading_period_id: '',
         school_year: '2024-2025',
         notes: '',
+        auto_enroll_students: true,
     });
 
     // Filter subjects based on selected academic level
@@ -146,6 +148,7 @@ export default function AssignInstructorsSubjects({
             grading_period_id: assignment.grading_period_id?.toString() || '',
             school_year: assignment.school_year,
             notes: assignment.notes || '',
+            auto_enroll_students: assignment.auto_enroll_students || true,
         });
         setSelectedAcademicLevel(assignment.academic_level_id.toString());
         setShowAssignmentModal(true);
@@ -165,6 +168,7 @@ export default function AssignInstructorsSubjects({
             grading_period_id: '',
             school_year: '2024-2025',
             notes: '',
+            auto_enroll_students: true,
         });
         setSelectedAcademicLevel('');
         setEditingAssignment(null);
@@ -297,6 +301,16 @@ export default function AssignInstructorsSubjects({
                                                         <Button 
                                                             variant="outline" 
                                                             size="sm"
+                                                            asChild
+                                                        >
+                                                            <Link href={route('admin.assign-instructors-subjects.students', assignment.id)}>
+                                                                <Users className="h-4 w-4 mr-2" />
+                                                                Manage Students
+                                                            </Link>
+                                                        </Button>
+                                                        <Button 
+                                                            variant="outline" 
+                                                            size="sm"
                                                             onClick={() => handleEdit(assignment)}
                                                         >
                                                             <Edit className="h-4 w-4" />
@@ -385,7 +399,14 @@ export default function AssignInstructorsSubjects({
                             <Label htmlFor="subject_id">Subject</Label>
                             <Select 
                                 value={formData.subject_id} 
-                                onValueChange={(value) => setFormData(prev => ({ ...prev, subject_id: value }))}
+                                onValueChange={(value) => {
+                                    const selectedSubject = subjects.find(s => s.id.toString() === value);
+                                    setFormData(prev => ({ 
+                                        ...prev, 
+                                        subject_id: value,
+                                        academic_level_id: selectedSubject ? selectedSubject.academic_level_id.toString() : prev.academic_level_id
+                                    }));
+                                }}
                                 disabled={!selectedAcademicLevel}
                                 required
                             >
@@ -456,6 +477,19 @@ export default function AssignInstructorsSubjects({
                                 placeholder="Additional notes about this assignment..."
                                 rows={3}
                             />
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                            <input
+                                type="checkbox"
+                                id="auto_enroll_students"
+                                checked={formData.auto_enroll_students}
+                                onChange={(e) => setFormData(prev => ({ ...prev, auto_enroll_students: e.target.checked }))}
+                                className="rounded border-gray-300"
+                            />
+                            <Label htmlFor="auto_enroll_students" className="text-sm">
+                                Automatically enroll all students in this academic level to this subject
+                            </Label>
                         </div>
 
                         <div className="flex justify-end gap-2 pt-4">

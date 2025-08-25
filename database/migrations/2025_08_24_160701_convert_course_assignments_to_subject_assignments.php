@@ -47,6 +47,9 @@ return new class extends Migration
                         'updated_at' => now(),
                     ]);
                 }
+                
+                // Note: Student enrollments are now managed manually through the interface
+                // This provides better control over which students are enrolled in which subjects
             }
         }
     }

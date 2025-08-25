@@ -24,6 +24,7 @@ use App\Models\ActivityLog;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Models\InstructorSubjectAssignment;
 
 class AcademicController extends Controller
 {
@@ -828,6 +829,34 @@ class AcademicController extends Controller
             'notes' => $request->notes,
         ]);
 
+        // Sync subject-level assignments
+        $subjectsQuery = Subject::query()
+            ->where('academic_level_id', $request->academic_level_id);
+        if ($request->filled('subject_id')) {
+            $subjectsQuery->where('id', $request->subject_id);
+        } else {
+            $subjectsQuery->where('course_id', $request->course_id);
+        }
+        $subjects = $subjectsQuery->get();
+        Log::info('Syncing instructor subject assignments', [
+            'instructor_id' => $request->instructor_id,
+            'subjects_count' => $subjects->count(),
+            'school_year' => $request->school_year,
+        ]);
+        foreach ($subjects as $subject) {
+            InstructorSubjectAssignment::updateOrCreate([
+                'instructor_id' => $request->instructor_id,
+                'subject_id' => $subject->id,
+                'academic_level_id' => $request->academic_level_id,
+                'school_year' => $request->school_year,
+            ], [
+                'grading_period_id' => $request->grading_period_id,
+                'assigned_by' => Auth::id(),
+                'is_active' => true,
+                'notes' => $request->notes,
+            ]);
+        }
+
         // Log activity
         ActivityLog::create([
             'user_id' => Auth::id(),
@@ -887,6 +916,33 @@ class AcademicController extends Controller
             'school_year' => $request->school_year,
             'notes' => $request->notes,
         ]);
+
+        // Sync subject-level assignments on update
+        $subjectsQuery = Subject::query()->where('academic_level_id', $request->academic_level_id);
+        if ($request->filled('subject_id')) {
+            $subjectsQuery->where('id', $request->subject_id);
+        } else {
+            $subjectsQuery->where('course_id', $request->course_id);
+        }
+        $subjects = $subjectsQuery->get();
+        Log::info('Syncing (update) instructor subject assignments', [
+            'instructor_id' => $request->instructor_id,
+            'subjects_count' => $subjects->count(),
+            'school_year' => $request->school_year,
+        ]);
+        foreach ($subjects as $subject) {
+            InstructorSubjectAssignment::updateOrCreate([
+                'instructor_id' => $request->instructor_id,
+                'subject_id' => $subject->id,
+                'academic_level_id' => $request->academic_level_id,
+                'school_year' => $request->school_year,
+            ], [
+                'grading_period_id' => $request->grading_period_id,
+                'assigned_by' => Auth::id(),
+                'is_active' => true,
+                'notes' => $request->notes,
+            ]);
+        }
 
         // Log activity
         ActivityLog::create([
@@ -1025,6 +1081,16 @@ class AcademicController extends Controller
     public function destroyInstructorAssignment(InstructorCourseAssignment $assignment)
     {
         $assignment->delete();
+
+        // Also remove subject-level assignments tied to this course/level + instructor + school year
+        $subjectIds = Subject::where('course_id', $assignment->course_id)
+            ->where('academic_level_id', $assignment->academic_level_id)
+            ->pluck('id');
+        InstructorSubjectAssignment::where('instructor_id', $assignment->instructor_id)
+            ->whereIn('subject_id', $subjectIds)
+            ->where('academic_level_id', $assignment->academic_level_id)
+            ->where('school_year', $assignment->school_year)
+            ->delete();
 
         // Log activity
         ActivityLog::create([

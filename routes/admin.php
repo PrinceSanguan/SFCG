@@ -390,12 +390,40 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/aca
     Route::post('/assign-instructors', [AcademicController::class, 'storeInstructorAssignment'])->name('assign-instructors.store');
     Route::put('/assign-instructors/{assignment}', [AcademicController::class, 'updateInstructorAssignment'])->name('assign-instructors.update');
     Route::delete('/assign-instructors/{assignment}', [AcademicController::class, 'destroyInstructorAssignment'])->name('assign-instructors.destroy');
+
+    // Hook into the same endpoints with inline syncing to subject-level assignments
+    Route::post('/assign-instructors-sync', function(\Illuminate\Http\Request $request) {
+        // Call existing controller handler first
+        app(\App\Http\Controllers\Admin\AcademicController::class)->storeInstructorAssignment($request);
+        // Then sync subjects
+        $subjects = \App\Models\Subject::where('course_id', $request->course_id)
+            ->where('academic_level_id', $request->academic_level_id)->get();
+        foreach ($subjects as $subject) {
+            \App\Models\InstructorSubjectAssignment::firstOrCreate([
+                'instructor_id' => $request->instructor_id,
+                'subject_id' => $subject->id,
+                'academic_level_id' => $request->academic_level_id,
+                'school_year' => $request->school_year,
+                'grading_period_id' => $request->grading_period_id,
+            ], [
+                'assigned_by' => \Illuminate\Support\Facades\Auth::id(),
+                'is_active' => true,
+                'notes' => $request->notes,
+            ]);
+        }
+        return back()->with('success', 'Instructor assigned and subjects synced.');
+    })->name('assign-instructors.store-sync');
     
     // New Subject-Based Instructor Assignments
     Route::get('/assign-instructors-subjects', [InstructorSubjectAssignmentController::class, 'index'])->name('assign-instructors-subjects');
     Route::post('/assign-instructors-subjects', [InstructorSubjectAssignmentController::class, 'store'])->name('assign-instructors-subjects.store');
     Route::put('/assign-instructors-subjects/{assignment}', [InstructorSubjectAssignmentController::class, 'update'])->name('assign-instructors-subjects.update');
     Route::delete('/assign-instructors-subjects/{assignment}', [InstructorSubjectAssignmentController::class, 'destroy'])->name('assign-instructors-subjects.destroy');
+    
+    // Manage students in instructor assignments
+    Route::get('/assign-instructors-subjects/{assignment}/students', [InstructorSubjectAssignmentController::class, 'showStudents'])->name('assign-instructors-subjects.students');
+    Route::post('/assign-instructors-subjects/{assignment}/enroll-student', [InstructorSubjectAssignmentController::class, 'enrollStudent'])->name('assign-instructors-subjects.enroll-student');
+    Route::delete('/assign-instructors-subjects/{assignment}/remove-student', [InstructorSubjectAssignmentController::class, 'removeStudent'])->name('assign-instructors-subjects.remove-student');
     
     Route::get('/assign-teachers', [AcademicController::class, 'assignTeachers'])->name('assign-teachers');
     Route::post('/assign-teachers', [AcademicController::class, 'storeTeacherAssignment'])->name('assign-teachers.store');

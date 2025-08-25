@@ -1,6 +1,0 @@
-import{c as d,r as p,j as e}from"./app-CTaF9v4Y.js";import{P as x}from"./index-BGgeSyzs.js";import{c as m}from"./button-pPGc82xo.js";/**
- * @license lucide-react v0.475.0 - ISC
- *
- * This source code is licensed under the ISC license.
- * See the LICENSE file in the root directory of this source tree.
- */const u=[["line",{x1:"12",x2:"12",y1:"20",y2:"10",key:"1vz5eb"}],["line",{x1:"18",x2:"18",y1:"20",y2:"4",key:"cun8e5"}],["line",{x1:"6",x2:"6",y1:"20",y2:"16",key:"hq0ia6"}]],A=d("ChartNoAxesColumnIncreasing",u);var v="Separator",n="horizontal",h=["horizontal","vertical"],s=p.forwardRef((a,r)=>{const{decorative:t,orientation:o=n,...c}=a,i=f(o)?o:n,l=t?{role:"none"}:{"aria-orientation":i==="vertical"?i:void 0,role:"separator"};return e.jsx(x.div,{"data-orientation":i,...l,...c,ref:r})});s.displayName=v;function f(a){return h.includes(a)}var y=s;function E({className:a,orientation:r="horizontal",decorative:t=!0,...o}){return e.jsx(y,{"data-slot":"separator-root",decorative:t,orientation:r,className:m("bg-border shrink-0 data-[orientation=horizontal]:h-px data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-px",a),...o})}export{A as C,E as S};
