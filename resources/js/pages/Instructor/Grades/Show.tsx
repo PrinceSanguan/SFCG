@@ -399,20 +399,7 @@ export default function Show({ user, student, subject, academicLevel, grades, gr
                                                         
                                                         const gradeValue = gradeForPeriod ? gradeForPeriod.grade : null;
                                                         
-                                                        // Debug logging
-                                                        console.log(`Period ${period.id} (${period.name}):`, {
-                                                            periodId: period.id,
-                                                            periodName: period.name,
-                                                            gradeForPeriod: gradeForPeriod,
-                                                            gradeValue: gradeValue,
-                                                            allGrades: grades.map(g => ({
-                                                                id: g.id,
-                                                                grade: g.grade,
-                                                                periodId: g.gradingPeriod?.id,
-                                                                periodName: g.gradingPeriod?.name,
-                                                                directPeriodId: g.grading_period_id
-                                                            }))
-                                                        });
+
                                                         
                                                         return (
                                                             <td key={period.id} className="p-3 border-r border-gray-200 dark:border-gray-600 text-center">

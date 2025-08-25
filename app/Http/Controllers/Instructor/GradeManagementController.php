@@ -348,11 +348,7 @@ class GradeManagementController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
         
-        // Debug logging
-        Log::info('Grades found for student ' . $studentId . ' in subject ' . $subjectId . ': ' . $grades->count());
-        foreach ($grades as $grade) {
-            Log::info('Grade ID: ' . $grade->id . ', Value: ' . $grade->grade . ', Period ID: ' . ($grade->grading_period_id ?? 'NULL') . ', Period Name: ' . ($grade->gradingPeriod ? $grade->gradingPeriod->name : 'NULL'));
-        }
+
         
         // Get all grading periods for this academic level
         $gradingPeriods = \App\Models\GradingPeriod::where('academic_level_id', $academicLevel->id)
@@ -360,11 +356,7 @@ class GradeManagementController extends Controller
             ->orderBy('sort_order')
             ->get();
         
-        // Debug logging for grading periods
-        Log::info('Grading periods found for academic level ' . $academicLevel->id . ': ' . $gradingPeriods->count());
-        foreach ($gradingPeriods as $period) {
-            Log::info('Period ID: ' . $period->id . ', Name: ' . $period->name . ', Academic Level: ' . $period->academic_level_id);
-        }
+
         
         return Inertia::render('Instructor/Grades/Show', [
             'user' => $user,

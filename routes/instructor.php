@@ -43,32 +43,7 @@ Route::middleware(['auth', 'instructor'])->prefix('instructor')->name('instructo
         Route::post('/{grade}/submit', [GradeManagementController::class, 'submitForValidation'])->name('submit');
         Route::post('/{grade}/unsubmit', [GradeManagementController::class, 'unsubmitFromValidation'])->name('unsubmit');
         
-        // Debug route for testing
-        Route::get('/debug/grades/{studentId}/{subjectId}', function($studentId, $subjectId) {
-            $grades = \App\Models\StudentGrade::with(['student', 'gradingPeriod'])->where('student_id', $studentId)->where('subject_id', $subjectId)->get();
-            $periods = \App\Models\GradingPeriod::where('academic_level_id', 4)->get();
-            
-            return response()->json([
-                'grades' => $grades->map(function($grade) {
-                    return [
-                        'id' => $grade->id,
-                        'grade' => $grade->grade,
-                        'grading_period_id' => $grade->grading_period_id,
-                        'grading_period' => $grade->gradingPeriod ? [
-                            'id' => $grade->gradingPeriod->id,
-                            'name' => $grade->gradingPeriod->name
-                        ] : null
-                    ];
-                }),
-                'periods' => $periods->map(function($period) {
-                    return [
-                        'id' => $period->id,
-                        'name' => $period->name,
-                        'academic_level_id' => $period->academic_level_id
-                    ];
-                })
-            ]);
-        });
+
         
         // CSV Upload
         Route::get('/upload', [CSVUploadController::class, 'index'])->name('upload');

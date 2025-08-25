@@ -21,15 +21,21 @@ class CSVUploadController extends Controller
     {
         $user = Auth::user();
         
-        // Get instructor's assigned courses
-        $assignedCourses = InstructorCourseAssignment::with(['course', 'academicLevel', 'gradingPeriod'])
+        // Get instructor's assigned subjects (new subject-based system)
+        $assignedSubjects = \App\Models\InstructorSubjectAssignment::with(['subject.course', 'academicLevel', 'gradingPeriod'])
             ->where('instructor_id', $user->id)
             ->where('is_active', true)
             ->get();
         
+        // Get academic levels and grading periods for the form
+        $academicLevels = \App\Models\AcademicLevel::orderBy('name')->get();
+        $gradingPeriods = \App\Models\GradingPeriod::where('is_active', true)->orderBy('sort_order')->get();
+        
         return Inertia::render('Instructor/Grades/Upload', [
             'user' => $user,
-            'assignedCourses' => $assignedCourses,
+            'assignedSubjects' => $assignedSubjects,
+            'academicLevels' => $academicLevels,
+            'gradingPeriods' => $gradingPeriods,
         ]);
     }
     
@@ -52,9 +58,9 @@ class CSVUploadController extends Controller
         // Get academic level for grade validation
         $academicLevel = \App\Models\AcademicLevel::find($request->academic_level_id);
         
-        // Verify the instructor is assigned to this subject's academic level
-        $isAssigned = InstructorCourseAssignment::where('instructor_id', $user->id)
-            ->where('academic_level_id', $request->academic_level_id)
+        // Verify the instructor is assigned to this subject (new subject-based system)
+        $isAssigned = \App\Models\InstructorSubjectAssignment::where('instructor_id', $user->id)
+            ->where('subject_id', $request->subject_id)
             ->where('is_active', true)
             ->exists();
         
@@ -91,9 +97,10 @@ class CSVUploadController extends Controller
             // Add headers
             fputcsv($file, ['Student ID', 'Student Name', 'Grade', 'Notes']);
             
-            // Add sample data
-            fputcsv($file, ['1', 'John Doe', '95.5', 'Excellent performance']);
-            fputcsv($file, ['2', 'Jane Smith', '88.0', 'Good work']);
+            // Add sample data for both grading systems
+            fputcsv($file, ['CO-2024-001', 'John Doe', '95.5', 'Excellent performance']);
+            fputcsv($file, ['CO-2024-002', 'Jane Smith', '88.0', 'Good work']);
+            fputcsv($file, ['CO-2024-003', 'Mike Johnson', '1.5', 'College grade example']);
             
             fclose($file);
         };
