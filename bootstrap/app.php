@@ -30,6 +30,9 @@ return Application::configure(basePath: dirname(__DIR__))
             
             Route::middleware('web')
                 ->group(base_path('routes/student.php'));
+            
+            Route::middleware('web')
+                ->group(base_path('routes/parent.php'));
         }
     )
     ->withMiddleware(function (Middleware $middleware) {
@@ -47,6 +50,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'instructor' => InstructorMiddleware::class,
             'registrar' => RegistrarMiddleware::class,
             'student' => StudentMiddleware::class,
+            'parent' => \App\Http\Middleware\ParentMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

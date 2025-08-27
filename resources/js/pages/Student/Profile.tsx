@@ -2,10 +2,26 @@ import React from 'react';
 import { Head } from '@inertiajs/react';
 import StudentLayout from '@/layouts/student/layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { User, Mail, GraduationCap, School } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { User, Mail, GraduationCap, School, Users } from 'lucide-react';
 
 interface Props {
-  user: { name: string; email: string; student_number?: string; year_level?: string };
+  user: { 
+    name: string; 
+    email: string; 
+    student_number?: string; 
+    year_level?: string;
+    parents?: Array<{
+      id: number;
+      name: string;
+      email: string;
+      pivot: {
+        relationship_type: string;
+        emergency_contact: string;
+        notes?: string;
+      };
+    }>;
+  };
 }
 
 export default function StudentProfile({ user }: Props) {
@@ -64,6 +80,60 @@ export default function StudentProfile({ user }: Props) {
                 </div>
               )}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Linked Parents */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Linked Parents
+            </CardTitle>
+            <CardDescription>Parents linked to your account</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {user.parents && user.parents.length > 0 ? (
+              <div className="space-y-3">
+                {user.parents.map((parent) => (
+                  <div key={parent.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        <div>
+                          <h4 className="font-medium text-gray-900 dark:text-gray-100">
+                            {parent.name}
+                          </h4>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {parent.email}
+                          </p>
+                        </div>
+                        <Badge variant="outline">
+                          {parent.pivot.relationship_type.charAt(0).toUpperCase() + parent.pivot.relationship_type.slice(1)}
+                        </Badge>
+                      </div>
+                      {parent.pivot.emergency_contact && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Emergency Contact: {parent.pivot.emergency_contact}
+                        </p>
+                      )}
+                      {parent.pivot.notes && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Notes: {parent.pivot.notes}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Users className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                <div className="text-lg font-medium text-gray-500">No parents linked</div>
+                <div className="text-sm text-muted-foreground">
+                  Contact the school administration to link parent accounts
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

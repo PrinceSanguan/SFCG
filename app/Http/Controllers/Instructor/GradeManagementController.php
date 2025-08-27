@@ -327,8 +327,10 @@ class GradeManagementController extends Controller
             abort(403, 'You are not authorized to view this student.');
         }
         
-        // Get student information
-        $student = User::findOrFail($studentId);
+        // Get student information with linked parents
+        $student = User::with(['parents' => function ($query) {
+            $query->withPivot(['relationship_type', 'emergency_contact', 'notes']);
+        }])->findOrFail($studentId);
         
         // Get subject information
         $subject = Subject::with('course')->findOrFail($subjectId);

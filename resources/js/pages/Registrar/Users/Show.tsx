@@ -14,6 +14,26 @@ interface User {
     email: string;
     user_role: string;
     created_at: string;
+    parents?: Array<{
+        id: number;
+        name: string;
+        email: string;
+        pivot: {
+            relationship_type: string;
+            emergency_contact: string;
+            notes?: string;
+        };
+    }>;
+    students?: Array<{
+        id: number;
+        name: string;
+        email: string;
+        pivot: {
+            relationship_type: string;
+            emergency_contact: string;
+            notes?: string;
+        };
+    }>;
 }
 
 interface ActivityLog {
@@ -111,6 +131,122 @@ export default function UsersShow({ user, targetUser, activityLogs }: UsersShowP
                                     </CardContent>
                                 </Card>
                             </div>
+
+                            {/* Linked Parents (for students) */}
+                            {targetUser.user_role === 'student' && (
+                                <div className="lg:col-span-2">
+                                    <Card>
+                                        <CardHeader>
+                                            <CardTitle className="flex items-center gap-2">
+                                                <User className="h-5 w-5" />
+                                                Linked Parents
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            {targetUser.parents && targetUser.parents.length > 0 ? (
+                                                <div className="space-y-3">
+                                                    {targetUser.parents.map((parent) => (
+                                                        <div key={parent.id} className="flex items-center justify-between p-3 border rounded-lg">
+                                                            <div className="flex-1">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div>
+                                                                        <h4 className="font-medium text-gray-900 dark:text-gray-100">
+                                                                            {parent.name}
+                                                                        </h4>
+                                                                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                                                                            {parent.email}
+                                                                        </p>
+                                                                    </div>
+                                                                    <Badge variant="outline">
+                                                                        {parent.pivot.relationship_type.charAt(0).toUpperCase() + parent.pivot.relationship_type.slice(1)}
+                                                                    </Badge>
+                                                                </div>
+                                                                {parent.pivot.emergency_contact && (
+                                                                    <p className="text-xs text-gray-500 mt-1">
+                                                                        Emergency Contact: {parent.pivot.emergency_contact}
+                                                                    </p>
+                                                                )}
+                                                                {parent.pivot.notes && (
+                                                                    <p className="text-xs text-gray-500 mt-1">
+                                                                        Notes: {parent.pivot.notes}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                            <Link href={route('registrar.parents.show', parent.id)}>
+                                                                <Button variant="outline" size="sm">
+                                                                    View Parent
+                                                                </Button>
+                                                            </Link>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="text-center py-8">
+                                                    <p className="text-gray-500">No parents linked to this student.</p>
+                                                </div>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                </div>
+                            )}
+
+                            {/* Linked Students (for parents) */}
+                            {targetUser.user_role === 'parent' && (
+                                <div className="lg:col-span-2">
+                                    <Card>
+                                        <CardHeader>
+                                            <CardTitle className="flex items-center gap-2">
+                                                <User className="h-5 w-5" />
+                                                Linked Students
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            {targetUser.students && targetUser.students.length > 0 ? (
+                                                <div className="space-y-3">
+                                                    {targetUser.students.map((student) => (
+                                                        <div key={student.id} className="flex items-center justify-between p-3 border rounded-lg">
+                                                            <div className="flex-1">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div>
+                                                                        <h4 className="font-medium text-gray-900 dark:text-gray-100">
+                                                                            {student.name}
+                                                                        </h4>
+                                                                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                                                                            {student.email}
+                                                                        </p>
+                                                                    </div>
+                                                                    <Badge variant="outline">
+                                                                        {student.pivot.relationship_type.charAt(0).toUpperCase() + student.pivot.relationship_type.slice(1)}
+                                                                    </Badge>
+                                                                </div>
+                                                                {student.pivot.emergency_contact && (
+                                                                    <p className="text-xs text-gray-500 mt-1">
+                                                                        Emergency Contact: {student.pivot.emergency_contact}
+                                                                    </p>
+                                                                )}
+                                                                {student.pivot.notes && (
+                                                                    <p className="text-xs text-gray-500 mt-1">
+                                                                        Notes: {student.pivot.notes}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                            <Link href={route('registrar.users.show', student.id)}>
+                                                                <Button variant="outline" size="sm">
+                                                                    View Student
+                                                                </Button>
+                                                            </Link>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="text-center py-8">
+                                                    <p className="text-gray-500">No students linked to this parent.</p>
+                                                </div>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                </div>
+                            )}
 
                             {/* Activity Logs */}
                             <div className="lg:col-span-2">

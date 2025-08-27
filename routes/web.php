@@ -135,9 +135,7 @@ Route::middleware(['auth'])->group(function () {
     })->name('principal.dashboard');
 });
 
-// Parent Dashboard
-Route::middleware(['auth'])->group(function () {
-    Route::get('/parent/dashboard', function () {
-        return Inertia::render('Parent/Dashboard');
-    })->name('parent.dashboard');
-});
+// Parent Dashboard - Now handled by dedicated routes file
+// Route::get('/parent/dashboard', function () {
+//     return Inertia::render('Parent/Dashboard');
+// })->name('parent.dashboard');

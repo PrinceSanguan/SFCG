@@ -236,6 +236,138 @@ class NotificationService
     }
 
     /**
+     * Send honor qualification notifications to parents (MANUAL TRIGGER)
+     */
+    public function sendParentHonorNotifications($schoolYear, $academicLevelId = null)
+    {
+        try {
+            $query = HonorResult::with(['student.parents', 'honorType', 'academicLevel'])
+                ->where('school_year', $schoolYear);
+
+            if ($academicLevelId && $academicLevelId !== 'all') {
+                $query->where('academic_level_id', $academicLevelId);
+            }
+
+            $honorResults = $query->get();
+            
+            if ($honorResults->isEmpty()) {
+                Log::info('No honor results found for parent notifications', ['school_year' => $schoolYear]);
+                return [
+                    'success' => false,
+                    'message' => 'No honor results found for the selected criteria',
+                    'count' => 0
+                ];
+            }
+
+            $successCount = 0;
+            $failedCount = 0;
+            $totalParentsNotified = 0;
+
+            foreach ($honorResults as $honorResult) {
+                $student = $honorResult->student;
+                
+                if (!$student) {
+                    continue;
+                }
+
+                // Get linked parents
+                $parents = $student->parents;
+                
+                if ($parents->isEmpty()) {
+                    Log::info('No parents linked to student', [
+                        'student_id' => $student->id,
+                        'student_name' => $student->name
+                    ]);
+                    continue;
+                }
+
+                foreach ($parents as $parent) {
+                    // Create notification record
+                    $notification = Notification::create([
+                        'type' => Notification::TYPE_HONOR_QUALIFICATION,
+                        'title' => 'Child Honor Qualification Achievement',
+                        'message' => "Your child {$student->name} qualified for {$honorResult->honorType->name}",
+                        'recipients' => [$parent->email],
+                        'status' => Notification::STATUS_PENDING,
+                        'metadata' => [
+                            'parent_id' => $parent->id,
+                            'student_id' => $student->id,
+                            'honor_result_id' => $honorResult->id,
+                            'honor_type' => $honorResult->honorType->name,
+                            'gpa' => $honorResult->gpa,
+                            'school_year' => $schoolYear,
+                        ],
+                        'email_subject' => "Honor Qualification Achievement - {$student->name} - {$schoolYear}",
+                        'email_body' => "Congratulations! Your child has qualified for {$honorResult->honorType->name}.",
+                    ]);
+
+                    // Send email
+                    try {
+                        Mail::mailer('gmail')->to($parent->email)->send(
+                            new \App\Mail\ParentHonorNotificationEmail($parent, $student, $honorResult, $schoolYear)
+                        );
+                        
+                        $notification->markAsSent();
+                        $successCount++;
+                        $totalParentsNotified++;
+                        
+                        Log::info('Parent honor notification email sent successfully', [
+                            'parent_id' => $parent->id,
+                            'parent_email' => $parent->email,
+                            'student_id' => $student->id,
+                            'student_name' => $student->name,
+                            'honor_type' => $honorResult->honorType->name,
+                            'notification_id' => $notification->id
+                        ]);
+                    } catch (\Exception $e) {
+                        $notification->markAsFailed();
+                        $failedCount++;
+                        
+                        Log::error('Failed to send parent honor notification email', [
+                            'parent_id' => $parent->id,
+                            'parent_email' => $parent->email,
+                            'student_id' => $student->id,
+                            'student_name' => $student->name,
+                            'error' => $e->getMessage(),
+                            'notification_id' => $notification->id
+                        ]);
+                    }
+                }
+            }
+
+            Log::info('Parent honor notifications completed', [
+                'school_year' => $schoolYear,
+                'total_honors' => $honorResults->count(),
+                'total_parents_notified' => $totalParentsNotified,
+                'success_count' => $successCount,
+                'failed_count' => $failedCount
+            ]);
+
+            return [
+                'success' => true,
+                'message' => "Parent honor notifications sent successfully! {$successCount} emails sent, {$failedCount} failed.",
+                'count' => $honorResults->count(),
+                'total_parents_notified' => $totalParentsNotified,
+                'success_count' => $successCount,
+                'failed_count' => $failedCount
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Error sending parent honor notifications', [
+                'school_year' => $schoolYear,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return [
+                'success' => false,
+                'message' => 'Error sending parent honor notifications: ' . $e->getMessage(),
+                'count' => 0
+            ];
+        }
+    }
+
+    /**
      * Send general announcement to multiple recipients (MANUAL TRIGGER)
      */
     public function sendGeneralAnnouncement($title, $message, $recipients, $emailSubject = null, $emailBody = null)

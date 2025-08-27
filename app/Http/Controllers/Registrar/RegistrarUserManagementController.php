@@ -66,6 +66,17 @@ class RegistrarUserManagementController extends Controller
             abort(403, 'Access denied. Cannot view admin users.');
         }
 
+        // Load additional relationships based on user role
+        if ($user->user_role === 'student') {
+            $user->load(['parents' => function ($query) {
+                $query->withPivot(['relationship_type', 'emergency_contact', 'notes']);
+            }]);
+        } elseif ($user->user_role === 'parent') {
+            $user->load(['students' => function ($query) {
+                $query->withPivot(['relationship_type', 'emergency_contact', 'notes']);
+            }]);
+        }
+
         $activityLogs = ActivityLog::where('user_id', $user->id)
             ->orWhere('target_user_id', $user->id)
             ->with(['user', 'targetUser'])

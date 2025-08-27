@@ -43,6 +43,17 @@ interface StudentGrade {
     updated_at: string;
 }
 
+interface Parent {
+    id: number;
+    name: string;
+    email: string;
+    pivot: {
+        relationship_type: string;
+        emergency_contact: string;
+        notes?: string;
+    };
+}
+
 
 
 interface GradingPeriod {
@@ -62,6 +73,7 @@ interface ShowProps {
         name: string;
         email: string;
         student_number?: string;
+        parents?: Parent[];
     };
     subject: {
         id: number;
@@ -189,6 +201,51 @@ export default function Show({ user, student, subject, academicLevel, grades, gr
                                 </div>
                             </CardContent>
                         </Card>
+
+                        {/* Linked Parents */}
+                        {student.parents && student.parents.length > 0 && (
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <User className="h-5 w-5" />
+                                        Linked Parents
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-3">
+                                        {student.parents.map((parent) => (
+                                            <div key={parent.id} className="flex items-center justify-between p-3 border rounded-lg">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-3">
+                                                        <div>
+                                                            <h4 className="font-medium text-gray-900 dark:text-gray-100">
+                                                                {parent.name}
+                                                            </h4>
+                                                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                                                                {parent.email}
+                                                            </p>
+                                                        </div>
+                                                        <Badge variant="outline">
+                                                            {parent.pivot.relationship_type.charAt(0).toUpperCase() + parent.pivot.relationship_type.slice(1)}
+                                                        </Badge>
+                                                    </div>
+                                                    {parent.pivot.emergency_contact && (
+                                                        <p className="text-xs text-gray-500 mt-1">
+                                                            Emergency Contact: {parent.pivot.emergency_contact}
+                                                        </p>
+                                                    )}
+                                                    {parent.pivot.notes && (
+                                                        <p className="text-xs text-gray-500 mt-1">
+                                                            Notes: {parent.pivot.notes}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
 
                         {/* Subject Information */}
                         <Card>
