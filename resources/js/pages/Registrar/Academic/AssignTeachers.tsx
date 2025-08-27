@@ -48,6 +48,7 @@ interface TeacherSubjectAssignment {
     teacher_id: number;
     subject_id: number;
     academic_level_id: number;
+    grade_level: string | null;
     grading_period_id: number | null;
     school_year: string;
     notes: string | null;
@@ -72,6 +73,7 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
         teacher_id: '',
         subject_id: '',
         academic_level_id: '',
+        grade_level: '',
         grading_period_id: '',
         school_year: '',
         notes: '',
@@ -185,6 +187,7 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
             teacher_id: assignment.teacher_id.toString(),
             subject_id: assignment.subject_id.toString(),
             academic_level_id: assignment.academic_level_id.toString(),
+            grade_level: assignment.grade_level || '',
             grading_period_id: assignment.grading_period_id?.toString() || '',
             school_year: assignment.school_year,
             notes: assignment.notes || '',
@@ -319,6 +322,23 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
                                                 {subject.name} ({subject.code})
                                             </SelectItem>
                                         ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div>
+                                <Label htmlFor="grade_level">Grade Level *</Label>
+                                <Select
+                                    value={assignmentForm.grade_level}
+                                    onValueChange={(value) => setAssignmentForm({ ...assignmentForm, grade_level: value })}
+                                    required
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select grade level" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="grade_11">Grade 11</SelectItem>
+                                        <SelectItem value="grade_12">Grade 12</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>

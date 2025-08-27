@@ -6,6 +6,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -26,6 +27,9 @@ class User extends Authenticatable
         'google_id',
         'user_role',
         'year_level',
+        'specific_year_level',
+        'strand_id',
+        'course_id',
         'student_number',
         'last_login_at',
     ];
@@ -98,6 +102,39 @@ class User extends Authenticatable
             'junior_highschool' => 'Junior High School',
             'senior_highschool' => 'Senior High School',
             'college' => 'College',
+        ];
+    }
+
+    /**
+     * Get specific year levels for each academic level.
+     */
+    public static function getSpecificYearLevels(): array
+    {
+        return [
+            'elementary' => [
+                'grade_1' => 'Grade 1',
+                'grade_2' => 'Grade 2',
+                'grade_3' => 'Grade 3',
+                'grade_4' => 'Grade 4',
+                'grade_5' => 'Grade 5',
+                'grade_6' => 'Grade 6',
+            ],
+            'junior_highschool' => [
+                'grade_7' => 'Grade 7',
+                'grade_8' => 'Grade 8',
+                'grade_9' => 'Grade 9',
+                'grade_10' => 'Grade 10',
+            ],
+            'senior_highschool' => [
+                'grade_11' => 'Grade 11',
+                'grade_12' => 'Grade 12',
+            ],
+            'college' => [
+                'first_year' => 'First Year',
+                'second_year' => 'Second Year',
+                'third_year' => 'Third Year',
+                'fourth_year' => 'Fourth Year',
+            ],
         ];
     }
 
@@ -276,5 +313,21 @@ class User extends Authenticatable
     public function isAdviser(): bool
     {
         return $this->user_role === 'adviser';
+    }
+
+    /**
+     * Get the strand for this user (for Senior High School students).
+     */
+    public function strand(): BelongsTo
+    {
+        return $this->belongsTo(Strand::class);
+    }
+
+    /**
+     * Get the course for this user (for College students).
+     */
+    public function course(): BelongsTo
+    {
+        return $this->belongsTo(Course::class);
     }
 }

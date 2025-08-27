@@ -201,7 +201,7 @@ export function Sidebar({ user }: SidebarProps) {
                                                     Elementary
                                                 </Button>
                                             </Link>
-                                            <Link href={route('admin.students.junior_highschool')} className="w-full">
+                                            <Link href={route('admin.students.junior-highschool')} className="w-full">
                                                 <Button
                                                     variant={isActive('/admin/students/junior-highschool') ? 'secondary' : 'ghost'}
                                                     className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
@@ -209,7 +209,7 @@ export function Sidebar({ user }: SidebarProps) {
                                                     Junior Highschool
                                                 </Button>
                                             </Link>
-                                            <Link href={route('admin.students.senior_highschool')} className="w-full">
+                                            <Link href={route('admin.students.senior-highschool')} className="w-full">
                                                 <Button
                                                     variant={isActive('/admin/students/senior-highschool') ? 'secondary' : 'ghost'}
                                                     className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"

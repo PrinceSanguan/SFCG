@@ -389,13 +389,20 @@ class UserManagementController extends Controller
 
         $folderName = $this->getRoleFolderName($role);
 
-        return Inertia::render('Admin/AccountManagement/' . $folderName . '/List', [
+        $data = [
             'user' => Auth::user(),
             'users' => $users,
             'filters' => $request->only(['search', 'role', 'sort_by', 'sort_direction', 'year_level']),
             'roles' => User::getAvailableRoles(),
             'yearLevels' => User::getYearLevels(),
-        ]);
+        ];
+
+        // Add current academic level for student pages
+        if ($role === 'student' && $request->filled('year_level')) {
+            $data['currentAcademicLevel'] = $request->get('year_level');
+        }
+
+        return Inertia::render('Admin/AccountManagement/' . $folderName . '/List', $data);
     }
 
     /**
@@ -407,11 +414,41 @@ class UserManagementController extends Controller
         
         $folderName = $this->getRoleFolderName($role);
         
-        return Inertia::render('Admin/AccountManagement/' . $folderName . '/Create', [
+        // Get additional data for student creation
+        $data = [
             'user' => Auth::user(),
             'roles' => User::getAvailableRoles(),
             'yearLevels' => User::getYearLevels(),
-        ]);
+        ];
+
+        // Add specific year levels and other data for students
+        if ($role === 'student') {
+            $data['specificYearLevels'] = User::getSpecificYearLevels();
+            $data['strands'] = \App\Models\Strand::where('is_active', true)->get();
+            $data['departments'] = \App\Models\Department::where('is_active', true)->get();
+            $data['courses'] = \App\Models\Course::where('is_active', true)->get();
+        }
+        
+        return Inertia::render('Admin/AccountManagement/' . $folderName . '/Create', $data);
+    }
+
+    /**
+     * Show the form for creating a new student by academic level.
+     */
+    public function createByAcademicLevel()
+    {
+        $academicLevel = $this->getAcademicLevelFromRoute();
+        
+        // Get additional data for student creation
+        $data = [
+            'user' => Auth::user(),
+            'academicLevel' => $academicLevel,
+            'specificYearLevels' => User::getSpecificYearLevels(),
+            'strands' => \App\Models\Strand::where('is_active', true)->get(),
+            'courses' => \App\Models\Course::where('is_active', true)->get(),
+        ];
+        
+        return Inertia::render('Admin/AccountManagement/Students/Create', $data);
     }
 
     /**
@@ -425,9 +462,22 @@ class UserManagementController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
-            'year_level' => 'required_if:user_role,student|string|in:elementary,junior_highschool,senior_highschool,college|nullable',
+            'academic_level' => 'required_if:user_role,student|string|in:elementary,junior_highschool,senior_highschool,college|nullable',
+            'specific_year_level' => 'required_if:user_role,student|string|nullable',
+            'strand_id' => 'nullable|exists:strands,id',
+            'course_id' => 'nullable|exists:courses,id',
             'student_number' => 'nullable|string|max:40|unique:users,student_number',
         ]);
+
+        // Additional validation for strands and courses
+        if ($role === 'student') {
+            if ($request->academic_level === 'senior_highschool' && !$request->strand_id) {
+                $validator->errors()->add('strand_id', 'Strand is required for Senior High School students.');
+            }
+            if ($request->academic_level === 'college' && !$request->course_id) {
+                $validator->errors()->add('course_id', 'Course is required for College students.');
+            }
+        }
 
         if ($validator->fails()) {
             return back()->withErrors($validator)->withInput();
@@ -438,7 +488,10 @@ class UserManagementController extends Controller
             'email' => $request->email,
             'user_role' => $role,
             'password' => Hash::make($request->password),
-            'year_level' => $role === 'student' ? $request->year_level : null,
+            'year_level' => $role === 'student' ? $request->academic_level : null,
+            'specific_year_level' => $role === 'student' ? $request->specific_year_level : null,
+            'strand_id' => $role === 'student' ? $request->strand_id : null,
+            'course_id' => $role === 'student' ? $request->course_id : null,
             'student_number' => $role === 'student' ? $request->student_number : null,
         ]);
 
@@ -461,6 +514,10 @@ class UserManagementController extends Controller
         ]);
 
         // Redirect back to the role-specific index page instead of external dashboards
+        if ($role === 'student' && $request->academic_level) {
+            $academicLevelRoute = str_replace('_', '-', $request->academic_level);
+            return redirect()->route('admin.students.' . $academicLevelRoute)->with('success', ucfirst($request->academic_level) . ' student created successfully!');
+        }
         return redirect()->route('admin.' . $this->getRoleRouteName($role))->with('success', ucfirst($role) . ' created successfully!');
     }
 
@@ -826,5 +883,31 @@ class UserManagementController extends Controller
         ];
 
         return $roleRouteMap[$role] ?? 'admin.users.index';
+    }
+
+    /**
+     * Get the academic level from the current route.
+     */
+    private function getAcademicLevelFromRoute(): string
+    {
+        $route = request()->route();
+        $segments = explode('/', $route->uri());
+        
+        // Map route segments to academic level values
+        $routeToAcademicLevelMap = [
+            'elementary' => 'elementary',
+            'junior-highschool' => 'junior_highschool',
+            'senior-highschool' => 'senior_highschool',
+            'college' => 'college',
+        ];
+        
+        // Find the academic level from the route segments
+        foreach ($segments as $segment) {
+            if (isset($routeToAcademicLevelMap[$segment])) {
+                return $routeToAcademicLevelMap[$segment];
+            }
+        }
+        
+        return 'elementary'; // fallback
     }
 }

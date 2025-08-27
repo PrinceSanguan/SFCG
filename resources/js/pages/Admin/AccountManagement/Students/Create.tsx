@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Link, useForm } from '@inertiajs/react';
 import { ArrowLeft, Save } from 'lucide-react';
 import { FormEvent } from 'react';
+import React from 'react';
 
 interface User {
     id: number;
@@ -19,21 +20,33 @@ interface User {
 
 interface CreateProps {
     user: User;
-    roles: Record<string, string>;
     errors?: Record<string, string>;
-    yearLevels?: Record<string, string>;
+    academicLevel?: string;
+    specificYearLevels?: Record<string, Record<string, string>>;
+    strands?: Array<{ id: number; name: string; code: string }>;
+    courses?: Array<{ id: number; name: string; code: string; department_id: number }>;
 }
 
-export default function CreateStudent({ user, roles, errors, yearLevels }: CreateProps) {
+export default function CreateStudent({ user, errors, academicLevel, specificYearLevels, strands, courses }: CreateProps) {
     const { data, setData, post, processing } = useForm({
         name: '',
         email: '',
-        user_role: '',
+        user_role: 'student', // Auto-set to student since this is a student creation form
         password: '',
         password_confirmation: '',
-        year_level: '',
+        academic_level: academicLevel || '',
+        specific_year_level: '',
+        strand_id: '',
+        course_id: '',
         student_number: '',
     });
+
+    // Auto-set academic level when component mounts or academicLevel changes
+    React.useEffect(() => {
+        if (academicLevel && !data.academic_level) {
+            setData('academic_level', academicLevel);
+        }
+    }, [academicLevel]);
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
@@ -50,16 +63,18 @@ export default function CreateStudent({ user, roles, errors, yearLevels }: Creat
                 <main className="flex-1 overflow-y-auto bg-gray-100 p-4 md:p-6 dark:bg-gray-900">
                     <div className="flex flex-col gap-6">
                         <div className="flex items-center gap-4">
-                            <Link href={route('admin.students.index')}>
+                            <Link href={academicLevel ? route(`admin.students.${academicLevel.replace('_', '-')}`) : route('admin.students.index')}>
                                 <Button variant="outline" size="sm" className="flex items-center gap-2">
                                     <ArrowLeft className="h-4 w-4" />
-                                    Back to Students
+                                    Back to {academicLevel ? academicLevel.charAt(0).toUpperCase() + academicLevel.slice(1).replace('_', ' ') : 'Students'}
                                 </Button>
                             </Link>
                             <div>
-                                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Create New Student</h1>
+                                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                                    Create New {academicLevel ? academicLevel.charAt(0).toUpperCase() + academicLevel.slice(1).replace('_', ' ') : 'Student'}
+                                </h1>
                                 <p className="text-gray-500 dark:text-gray-400">
-                                    Add a new student to the school management system.
+                                    Add a new {academicLevel ? academicLevel.replace('_', ' ') : 'student'} to the school management system.
                                 </p>
                             </div>
                         </div>
@@ -107,47 +122,87 @@ export default function CreateStudent({ user, roles, errors, yearLevels }: Creat
                                             )}
                                         </div>
 
-                                        {/* Role */}
-                                        <div className="space-y-2">
-                                            <Label htmlFor="user_role">User Role *</Label>
-                                            <Select value={data.user_role} onValueChange={(value) => setData('user_role', value)}>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select a role" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {roles && Object.entries(roles).map(([key, label]) => (
-                                                        <SelectItem key={key} value={key}>
-                                                            {label}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            {errors?.user_role && (
-                                                <Alert variant="destructive">
-                                                    <AlertDescription>{errors.user_role}</AlertDescription>
-                                                </Alert>
-                                            )}
-                                        </div>
+                                        {/* Role field removed since it's always "Student" for all student creation forms */}
+
+                                        {/* Academic Level field removed since it's always auto-selected for all student creation forms */}
 
                                         {/* Year Level (Students) */}
-                                        <div className="space-y-2">
-                                            <Label htmlFor="year_level">Year Level</Label>
-                                            <Select value={data.year_level} onValueChange={(value) => setData('year_level', value)}>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select year level" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {(yearLevels || {
-                                                        elementary: 'Elementary',
-                                                        junior_highschool: 'Junior High School',
-                                                        senior_highschool: 'Senior High School',
-                                                        college: 'College',
-                                                    }) && Object.entries(yearLevels || {}).map(([key, label]) => (
-                                                        <SelectItem key={key} value={key}>{label}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
+                                        {data.academic_level && (
+                                            <div className="space-y-2">
+                                                <Label htmlFor="specific_year_level">Year Level *</Label>
+                                                <Select value={data.specific_year_level} onValueChange={(value) => setData('specific_year_level', value)}>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select year level" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {specificYearLevels && specificYearLevels[data.academic_level] && 
+                                                            Object.entries(specificYearLevels[data.academic_level]).map(([key, label]) => (
+                                                                <SelectItem key={key} value={key}>{label}</SelectItem>
+                                                            ))
+                                                        }
+                                                    </SelectContent>
+                                                </Select>
+                                                {errors?.specific_year_level && (
+                                                    <Alert variant="destructive">
+                                                        <AlertDescription>{errors.specific_year_level}</AlertDescription>
+                                                    </Alert>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Strand Selection (Senior High School) */}
+                                        {data.academic_level === 'senior_highschool' && data.specific_year_level && (
+                                            <div className="space-y-2">
+                                                <Label htmlFor="strand_id">Strand *</Label>
+                                                <Select value={data.strand_id} onValueChange={(value) => setData('strand_id', value)}>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select a strand" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {strands && strands.map((strand) => (
+                                                            <SelectItem key={strand.id} value={strand.id.toString()}>
+                                                                {strand.name} ({strand.code})
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                {errors?.strand_id && (
+                                                    <Alert variant="destructive">
+                                                        <AlertDescription>{errors.strand_id}</AlertDescription>
+                                                    </Alert>
+                                                )}
+                                                <p className="text-sm text-gray-500">
+                                                    Strands are required for Senior High School students to specialize in their chosen field
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        {/* Course Selection (College) */}
+                                        {data.academic_level === 'college' && (
+                                            <div className="space-y-2">
+                                                <Label htmlFor="course_id">Course *</Label>
+                                                <Select value={data.course_id} onValueChange={(value) => setData('course_id', value)}>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select a course" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {courses && courses.map((course) => (
+                                                            <SelectItem key={course.id} value={course.id.toString()}>
+                                                                {course.name} ({course.code})
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                {errors?.course_id && (
+                                                    <Alert variant="destructive">
+                                                        <AlertDescription>{errors.course_id}</AlertDescription>
+                                                    </Alert>
+                                                )}
+                                                <p className="text-sm text-gray-500">
+                                                    Courses are required for College students to define their academic program
+                                                </p>
+                                            </div>
+                                        )}
 
                                         {/* Student ID - optional (auto-generated if blank) */}
                                         <div className="space-y-2">
@@ -238,9 +293,9 @@ export default function CreateStudent({ user, roles, errors, yearLevels }: Creat
                                     <div className="flex items-center gap-4 pt-6">
                                         <Button type="submit" disabled={processing} className="flex items-center gap-2">
                                             <Save className="h-4 w-4" />
-                                            {processing ? 'Creating...' : 'Create Student'}
+                                            {processing ? 'Creating...' : `Create ${academicLevel ? academicLevel.charAt(0).toUpperCase() + academicLevel.slice(1).replace('_', ' ') : 'Student'}`}
                                         </Button>
-                                        <Link href={route('admin.students.index')}>
+                                        <Link href={academicLevel ? route(`admin.students.${academicLevel.replace('_', '-')}`) : route('admin.students.index')}>
                                             <Button type="button" variant="outline">
                                                 Cancel
                                             </Button>

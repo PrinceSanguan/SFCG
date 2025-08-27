@@ -181,10 +181,14 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
         Route::get('/', [UserManagementController::class, 'indexByRole'])->name('index');
         // Year-level dedicated pages (filter param handled in controller)
         Route::get('/elementary', function() { request()->merge(['year_level' => 'elementary']); return app(UserManagementController::class)->indexByRole(request()); })->name('elementary');
-        Route::get('/junior-highschool', function() { request()->merge(['year_level' => 'junior_highschool']); return app(UserManagementController::class)->indexByRole(request()); })->name('junior_highschool');
-        Route::get('/senior-highschool', function() { request()->merge(['year_level' => 'senior_highschool']); return app(UserManagementController::class)->indexByRole(request()); })->name('senior_highschool');
+        Route::get('/junior-highschool', function() { request()->merge(['year_level' => 'junior_highschool']); return app(UserManagementController::class)->indexByRole(request()); })->name('junior-highschool');
+        Route::get('/senior-highschool', function() { request()->merge(['year_level' => 'senior_highschool']); return app(UserManagementController::class)->indexByRole(request()); })->name('senior-highschool');
         Route::get('/college', function() { request()->merge(['year_level' => 'college']); return app(UserManagementController::class)->indexByRole(request()); })->name('college');
         Route::get('/create', [UserManagementController::class, 'createByRole'])->name('create');
+        Route::get('/elementary/create', [UserManagementController::class, 'createByAcademicLevel'])->name('elementary.create');
+        Route::get('/junior-highschool/create', [UserManagementController::class, 'createByAcademicLevel'])->name('junior-highschool.create');
+        Route::get('/senior-highschool/create', [UserManagementController::class, 'createByAcademicLevel'])->name('senior-highschool.create');
+        Route::get('/college/create', [UserManagementController::class, 'createByAcademicLevel'])->name('college.create');
         Route::post('/', [UserManagementController::class, 'storeByRole'])->name('store');
         Route::get('/{user}', [UserManagementController::class, 'showByRole'])->name('show');
         Route::get('/{user}/edit', [UserManagementController::class, 'editByRole'])->name('edit');

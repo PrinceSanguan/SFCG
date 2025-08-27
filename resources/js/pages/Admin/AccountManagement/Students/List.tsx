@@ -43,9 +43,10 @@ interface ListProps {
     users: PaginatedUsers;
     filters: Filters;
     roles: Record<string, string>;
+    currentAcademicLevel?: string;
 }
 
-export default function StudentsList({ user, users, filters, roles }: ListProps) {
+export default function StudentsList({ user, users, filters, roles, currentAcademicLevel }: ListProps) {
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
     const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
     const { errors } = usePage().props;
@@ -156,9 +157,11 @@ export default function StudentsList({ user, users, filters, roles }: ListProps)
                 <main className="flex-1 overflow-y-auto bg-gray-100 p-4 md:p-6 dark:bg-gray-900">
                     <div className="flex flex-col gap-6">
                         <div className="flex flex-col gap-2">
-                            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Students Management</h1>
+                            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                                {currentAcademicLevel ? currentAcademicLevel.charAt(0).toUpperCase() + currentAcademicLevel.slice(1).replace('_', ' ') : 'Students'} Management
+                            </h1>
                             <p className="text-gray-500 dark:text-gray-400">
-                                Create, manage, and monitor student accounts in the school system.
+                                Create, manage, and monitor {currentAcademicLevel ? currentAcademicLevel.replace('_', ' ') : 'student'} accounts in the school system.
                             </p>
                         </div>
 
@@ -182,12 +185,15 @@ export default function StudentsList({ user, users, filters, roles }: ListProps)
                                         {/* Year level filter removed on all Students pages */}
                                     </div>
                                     <div className="flex flex-wrap gap-2 justify-end w-full lg:w-auto">
-                                        <Link href={route('admin.students.create')}>
-                                            <Button className="flex items-center gap-2">
-                                                <Plus className="h-4 w-4" />
-                                                Add New Student
-                                            </Button>
-                                        </Link>
+                                        {/* Only show Add New Student button when viewing a specific academic level */}
+                                        {currentAcademicLevel && (
+                                            <Link href={route(`admin.students.${currentAcademicLevel.replace('_', '-')}.create`)}>
+                                                <Button className="flex items-center gap-2">
+                                                    <Plus className="h-4 w-4" />
+                                                    Add New {currentAcademicLevel.charAt(0).toUpperCase() + currentAcademicLevel.slice(1).replace('_', ' ')}
+                                                </Button>
+                                            </Link>
+                                        )}
                                         <input
                                             type="file"
                                             accept=".csv,text/csv"
@@ -212,7 +218,7 @@ export default function StudentsList({ user, users, filters, roles }: ListProps)
                         <Card>
                             <CardHeader>
                                 <CardTitle>
-                                    Students ({users.total} total)
+                                    {currentAcademicLevel ? currentAcademicLevel.charAt(0).toUpperCase() + currentAcademicLevel.slice(1).replace('_', ' ') : 'Students'} ({users.total} total)
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>

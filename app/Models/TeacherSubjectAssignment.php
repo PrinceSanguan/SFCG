@@ -14,6 +14,7 @@ class TeacherSubjectAssignment extends Model
         'teacher_id',
         'subject_id',
         'academic_level_id',
+        'grade_level',
         'grading_period_id',
         'school_year',
         'is_active',
