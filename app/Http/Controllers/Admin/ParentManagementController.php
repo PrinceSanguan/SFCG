@@ -10,6 +10,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\ParentAccountCreatedEmail;
 use Inertia\Inertia;
 
 /**
@@ -84,6 +86,15 @@ class ParentManagementController extends Controller
             'user_role' => 'parent',
             'password' => Hash::make($request->password),
         ]);
+
+        // Send email to parent with their credentials
+        try {
+            Mail::mailer('gmail')->to($parent->email)->send(
+                new ParentAccountCreatedEmail($parent, $request->password)
+            );
+        } catch (\Exception $e) {
+            // Continue flow even if email fails; optionally log if you have logging here
+        }
 
         // Log the activity
         $currentUser = Auth::user();

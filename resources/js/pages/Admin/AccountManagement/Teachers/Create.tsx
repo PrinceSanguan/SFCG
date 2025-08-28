@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Link, useForm } from '@inertiajs/react';
 import { ArrowLeft, Save } from 'lucide-react';
@@ -19,15 +19,15 @@ interface User {
 
 interface CreateProps {
     user: User;
-    roles: Record<string, string>;
+    currentRole: string;
     errors?: Record<string, string>;
 }
 
-export default function CreateTeacher({ user, roles, errors }: CreateProps) {
+export default function CreateTeacher({ user, currentRole, errors }: CreateProps) {
     const { data, setData, post, processing } = useForm({
         name: '',
         email: '',
-        user_role: '',
+        user_role: currentRole, // Auto-set the role based on current page
         password: '',
         password_confirmation: '',
     });
@@ -104,27 +104,8 @@ export default function CreateTeacher({ user, roles, errors }: CreateProps) {
                                             )}
                                         </div>
 
-                                        {/* Role */}
-                                        <div className="space-y-2">
-                                            <Label htmlFor="user_role">User Role *</Label>
-                                            <Select value={data.user_role} onValueChange={(value) => setData('user_role', value)}>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select a role" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {roles && Object.entries(roles).map(([key, label]) => (
-                                                        <SelectItem key={key} value={key}>
-                                                            {label}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            {errors?.user_role && (
-                                                <Alert variant="destructive">
-                                                    <AlertDescription>{errors.user_role}</AlertDescription>
-                                                </Alert>
-                                            )}
-                                        </div>
+                                        {/* Role - Hidden since it's automatically set */}
+                                        <input type="hidden" name="user_role" value={data.user_role} />
 
                                         {/* Empty space for grid alignment */}
                                         <div></div>

@@ -417,8 +417,8 @@ class UserManagementController extends Controller
         // Get additional data for student creation
         $data = [
             'user' => Auth::user(),
-            'roles' => User::getAvailableRoles(),
             'yearLevels' => User::getYearLevels(),
+            'currentRole' => $role, // Pass the current role to the form
         ];
 
         // Add specific year levels and other data for students
@@ -518,7 +518,7 @@ class UserManagementController extends Controller
             $academicLevelRoute = str_replace('_', '-', $request->academic_level);
             return redirect()->route('admin.students.' . $academicLevelRoute)->with('success', ucfirst($request->academic_level) . ' student created successfully!');
         }
-        return redirect()->route('admin.' . $this->getRoleRouteName($role))->with('success', ucfirst($role) . ' created successfully!');
+        return redirect()->route($this->getRoleRouteName($role))->with('success', ucfirst($role) . ' created successfully!');
     }
 
     /**
@@ -725,7 +725,7 @@ class UserManagementController extends Controller
             'user_agent' => $request->userAgent(),
         ]);
 
-        return redirect()->route('admin.' . $this->getRoleRouteName($role))->with('success', ucfirst($role) . ' updated successfully!');
+        return redirect()->route($this->getRoleRouteName($role))->with('success', ucfirst($role) . ' updated successfully!');
     }
 
     /**
@@ -771,7 +771,7 @@ class UserManagementController extends Controller
         Log::info('Deleting user: ' . $user->id);
         $user->delete();
 
-        return redirect()->route('admin.' . $this->getRoleRouteName($role))->with('success', ucfirst($role) . ' deleted successfully!');
+        return redirect()->route($this->getRoleRouteName($role))->with('success', ucfirst($role) . ' deleted successfully!');
     }
 
     /**
