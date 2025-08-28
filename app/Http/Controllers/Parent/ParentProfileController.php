@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Parent;
 use App\Http\Controllers\Controller;
 use App\Models\StudentGrade;
 use App\Models\HonorResult;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -16,10 +17,11 @@ class ParentProfileController extends Controller
      */
     public function index(Request $request)
     {
+        /** @var User $user */
         $user = Auth::user();
         $schoolYear = request('school_year', '2024-2025');
         
-        // Get linked students with their relationships
+        // Get linked students with their relationships and counts
         $linkedStudents = $user->students()->with([
             'parentRelationships' => function ($query) use ($user) {
                 $query->where('parent_id', $user->id);
@@ -30,7 +32,16 @@ class ParentProfileController extends Controller
             'honorResults' => function ($query) use ($schoolYear) {
                 $query->where('school_year', $schoolYear);
             }
-        ])->orderBy('name')->get();
+        ])
+        ->withCount([
+            'studentGrades as grades_count' => function ($q) use ($schoolYear) {
+                $q->where('school_year', $schoolYear)->whereNotNull('grade');
+            },
+            'honorResults as honors_count' => function ($q) use ($schoolYear) {
+                $q->where('school_year', $schoolYear);
+            },
+        ])
+        ->orderBy('name')->get();
         
         return Inertia::render('Parent/Profile/Index', [
             'user' => $user,
@@ -44,6 +55,7 @@ class ParentProfileController extends Controller
      */
     public function show(Request $request, $studentId)
     {
+        /** @var User $user */
         $user = Auth::user();
         $schoolYear = request('school_year', '2024-2025');
         

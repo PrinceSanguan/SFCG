@@ -12,6 +12,8 @@ interface LinkedStudent {
   email: string;
   student_number?: string;
   year_level?: string;
+  grades_count?: number;
+  honors_count?: number;
   parentRelationships?: Array<{
     relationship_type: string;
     emergency_contact: string;
@@ -48,8 +50,8 @@ export default function ParentProfileIndex({ schoolYear, linkedStudents }: Props
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             {linkedStudents.map((student) => {
               const relationship = student.parentRelationships?.[0];
-              const totalGrades = student.studentGrades?.length || 0;
-              const totalHonors = student.honorResults?.length || 0;
+              const totalGrades = (student.grades_count ?? student.studentGrades?.length ?? 0) as number;
+              const totalHonors = (student.honors_count ?? student.honorResults?.length ?? 0) as number;
               
               return (
                 <Card key={student.id} className="hover:shadow-lg transition-shadow">

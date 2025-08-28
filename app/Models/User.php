@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -329,5 +330,29 @@ class User extends Authenticatable
     public function course(): BelongsTo
     {
         return $this->belongsTo(Course::class);
+    }
+
+    /**
+     * Grades for this user when they are a student.
+     */
+    public function studentGrades(): HasMany
+    {
+        return $this->hasMany(StudentGrade::class, 'student_id');
+    }
+
+    /**
+     * Honor results for this user when they are a student.
+     */
+    public function honorResults(): HasMany
+    {
+        return $this->hasMany(HonorResult::class, 'student_id');
+    }
+
+    /**
+     * Certificates for this user when they are a student.
+     */
+    public function certificates(): HasMany
+    {
+        return $this->hasMany(Certificate::class, 'student_id');
     }
 }
