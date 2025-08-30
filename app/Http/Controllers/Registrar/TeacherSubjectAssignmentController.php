@@ -1,0 +1,337 @@
+<?php
+
+namespace App\Http\Controllers\Registrar;
+
+use App\Http\Controllers\Controller;
+use App\Models\TeacherSubjectAssignment;
+use App\Models\User;
+use App\Models\Subject;
+use App\Models\AcademicLevel;
+use App\Models\GradingPeriod;
+use App\Models\ActivityLog;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
+use Inertia\Inertia;
+
+class TeacherSubjectAssignmentController extends Controller
+{
+    public function index()
+    {
+        $assignments = TeacherSubjectAssignment::with([
+            'teacher',
+            'subject',
+            'academicLevel',
+            'gradingPeriod',
+            'strand',
+            'assignedBy'
+        ])->latest()->paginate(15);
+
+        $teachers = User::where('user_role', 'teacher')->get();
+        $subjects = Subject::with(['academicLevel'])->get();
+        $academicLevels = AcademicLevel::all();
+        $gradingPeriods = GradingPeriod::all();
+
+        return Inertia::render('Registrar/Academic/AssignTeachersSubjects', [
+            'user' => Auth::user(),
+            'assignments' => $assignments,
+            'teachers' => $teachers,
+            'subjects' => $subjects,
+            'academicLevels' => $academicLevels,
+            'gradingPeriods' => $gradingPeriods,
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        Log::info('TeacherSubjectAssignment store called', $request->all());
+
+        $validator = Validator::make($request->all(), [
+            'teacher_id' => 'required|exists:users,id',
+            'subject_id' => 'required|exists:subjects,id',
+            'academic_level_id' => 'required|exists:academic_levels,id',
+            'grade_level' => 'nullable|in:grade_11,grade_12',
+            'strand_id' => 'nullable|exists:strands,id',
+            'grading_period_id' => 'nullable|exists:grading_periods,id',
+            'school_year' => 'required|string',
+            'notes' => 'nullable|string',
+            'auto_enroll_students' => 'boolean',
+        ]);
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput();
+        }
+
+        $teacher = User::find($request->teacher_id);
+        if (!$teacher || $teacher->user_role !== 'teacher') {
+            return back()->with('error', 'Selected user is not a teacher.');
+        }
+
+        $existing = TeacherSubjectAssignment::where([
+            'teacher_id' => $request->teacher_id,
+            'subject_id' => $request->subject_id,
+            'academic_level_id' => $request->academic_level_id,
+            'school_year' => $request->school_year,
+        ])
+        ->when($request->filled('grading_period_id'), function ($q) use ($request) {
+            $q->where('grading_period_id', $request->grading_period_id);
+        }, function ($q) {
+            $q->whereNull('grading_period_id');
+        })
+        ->first();
+
+        if ($existing) {
+            return back()->with('error', 'This teacher is already assigned to this subject for the specified period and school year.');
+        }
+
+        $assignment = TeacherSubjectAssignment::create([
+            'teacher_id' => $request->teacher_id,
+            'subject_id' => $request->subject_id,
+            'academic_level_id' => $request->academic_level_id,
+            'grade_level' => $request->grade_level,
+            'strand_id' => $request->strand_id,
+            'grading_period_id' => $request->grading_period_id ?: null,
+            'school_year' => $request->school_year,
+            'assigned_by' => Auth::id(),
+            'notes' => $request->notes,
+        ]);
+
+        if ($request->boolean('auto_enroll_students', true)) {
+            $this->autoEnrollStudents($assignment);
+        }
+
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'target_user_id' => $request->teacher_id,
+            'action' => 'assigned_teacher_subject',
+            'entity_type' => 'teacher_subject_assignment',
+            'entity_id' => $assignment->id,
+            'details' => [
+                'teacher' => $teacher->name,
+                'subject' => $assignment->subject->name,
+                'school_year' => $request->school_year,
+            ],
+        ]);
+
+        return back()->with('success', 'Teacher assigned to subject successfully!');
+    }
+
+    public function update(Request $request, TeacherSubjectAssignment $assignment)
+    {
+        $validator = Validator::make($request->all(), [
+            'teacher_id' => 'required|exists:users,id',
+            'subject_id' => 'required|exists:subjects,id',
+            'academic_level_id' => 'required|exists:academic_levels,id',
+            'grade_level' => 'nullable|in:grade_11,grade_12',
+            'strand_id' => 'nullable|exists:strands,id',
+            'grading_period_id' => 'nullable|exists:grading_periods,id',
+            'school_year' => 'required|string',
+            'notes' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput();
+        }
+
+        $teacher = User::find($request->teacher_id);
+        if (!$teacher || $teacher->user_role !== 'teacher') {
+            return back()->with('error', 'Selected user is not a teacher.');
+        }
+
+        $dup = TeacherSubjectAssignment::where([
+            'teacher_id' => $request->teacher_id,
+            'subject_id' => $request->subject_id,
+            'academic_level_id' => $request->academic_level_id,
+            'grading_period_id' => $request->grading_period_id,
+            'school_year' => $request->school_year,
+        ])->where('id', '!=', $assignment->id)->first();
+
+        if ($dup) {
+            return back()->with('error', 'This teacher is already assigned to this subject for the specified period and school year.');
+        }
+
+        $assignment->update([
+            'teacher_id' => $request->teacher_id,
+            'subject_id' => $request->subject_id,
+            'academic_level_id' => $request->academic_level_id,
+            'grade_level' => $request->grade_level,
+            'strand_id' => $request->strand_id,
+            'grading_period_id' => $request->grading_period_id,
+            'school_year' => $request->school_year,
+            'notes' => $request->notes,
+        ]);
+
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'target_user_id' => $request->teacher_id,
+            'action' => 'updated_teacher_subject_assignment',
+            'entity_type' => 'teacher_subject_assignment',
+            'entity_id' => $assignment->id,
+            'details' => [
+                'teacher' => $teacher->name,
+                'subject' => $assignment->subject->name,
+                'school_year' => $request->school_year,
+            ],
+        ]);
+
+        return back()->with('success', 'Teacher subject assignment updated successfully!');
+    }
+
+    public function destroy(TeacherSubjectAssignment $assignment)
+    {
+        $teacherName = $assignment->teacher->name;
+        $subjectName = $assignment->subject->name;
+
+        $assignment->delete();
+
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'target_user_id' => $assignment->teacher_id,
+            'action' => 'deleted_teacher_subject_assignment',
+            'entity_type' => 'teacher_subject_assignment',
+            'entity_id' => $assignment->id,
+            'details' => [
+                'teacher' => $teacherName,
+                'subject' => $subjectName,
+            ],
+        ]);
+
+        return back()->with('success', 'Teacher subject assignment deleted successfully!');
+    }
+
+    public function toggleStatus(TeacherSubjectAssignment $assignment)
+    {
+        $assignment->update(['is_active' => !$assignment->is_active]);
+        $status = $assignment->is_active ? 'activated' : 'deactivated';
+
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'target_user_id' => $assignment->teacher_id,
+            'action' => $status . '_teacher_subject_assignment',
+            'entity_type' => 'teacher_subject_assignment',
+            'entity_id' => $assignment->id,
+            'details' => [
+                'teacher' => $assignment->teacher->name,
+                'subject' => $assignment->subject->name,
+                'status' => $status,
+            ],
+        ]);
+
+        return back()->with('success', "Teacher subject assignment {$status} successfully!");
+    }
+
+    public function getSubjectsByLevel(Request $request)
+    {
+        $academicLevelId = $request->academic_level_id;
+        $subjects = Subject::where('academic_level_id', $academicLevelId)
+            ->where('is_active', true)
+            ->get(['id', 'name', 'code']);
+        return response()->json($subjects);
+    }
+
+    private function autoEnrollStudents(TeacherSubjectAssignment $assignment)
+    {
+        $students = User::where('user_role', 'student')
+            ->where('academic_level_id', $assignment->academic_level_id)
+            ->get();
+
+        $enrolledCount = 0;
+        foreach ($students as $student) {
+            $existing = \App\Models\StudentSubjectAssignment::where([
+                'student_id' => $student->id,
+                'subject_id' => $assignment->subject_id,
+                'school_year' => $assignment->school_year,
+            ])->first();
+
+            if (!$existing) {
+                \App\Models\StudentSubjectAssignment::create([
+                    'student_id' => $student->id,
+                    'subject_id' => $assignment->subject_id,
+                    'school_year' => $assignment->school_year,
+                    'semester' => '1st Semester',
+                    'is_active' => true,
+                    'enrolled_by' => Auth::id(),
+                    'notes' => 'Auto-enrolled when teacher was assigned',
+                ]);
+                $enrolledCount++;
+            }
+        }
+
+        return $enrolledCount;
+    }
+
+    public function showStudents(TeacherSubjectAssignment $assignment)
+    {
+        $enrolledStudents = \App\Models\StudentSubjectAssignment::with(['student'])
+            ->where('subject_id', $assignment->subject_id)
+            ->where('school_year', $assignment->school_year)
+            ->where('is_active', true)
+            ->get();
+
+        $availableStudents = User::where('user_role', 'student')
+            ->where('academic_level_id', $assignment->academic_level_id)
+            ->whereNotIn('id', $enrolledStudents->pluck('student_id'))
+            ->get();
+
+        return Inertia::render('Registrar/Academic/TeacherAssignmentStudents', [
+            'user' => Auth::user(),
+            'assignment' => $assignment->load(['subject', 'teacher', 'academicLevel']),
+            'enrolledStudents' => $enrolledStudents,
+            'availableStudents' => $availableStudents,
+        ]);
+    }
+
+    public function enrollStudent(Request $request, TeacherSubjectAssignment $assignment)
+    {
+        $validator = Validator::make($request->all(), [
+            'student_id' => 'required|exists:users,id',
+            'semester' => 'nullable|string',
+            'notes' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput();
+        }
+
+        $existing = \App\Models\StudentSubjectAssignment::where([
+            'student_id' => $request->student_id,
+            'subject_id' => $assignment->subject_id,
+            'school_year' => $assignment->school_year,
+        ])->first();
+
+        if ($existing) {
+            return back()->with('error', 'This student is already enrolled in this subject.');
+        }
+
+        \App\Models\StudentSubjectAssignment::create([
+            'student_id' => $request->student_id,
+            'subject_id' => $assignment->subject_id,
+            'school_year' => $assignment->school_year,
+            'semester' => $request->semester ?? '1st Semester',
+            'is_active' => true,
+            'enrolled_by' => Auth::id(),
+            'notes' => $request->notes,
+        ]);
+
+        return back()->with('success', 'Student enrolled successfully!');
+    }
+
+    public function removeStudent(Request $request, TeacherSubjectAssignment $assignment)
+    {
+        $enrollment = \App\Models\StudentSubjectAssignment::where([
+            'student_id' => $request->student_id,
+            'subject_id' => $assignment->subject_id,
+            'school_year' => $assignment->school_year,
+        ])->first();
+
+        if ($enrollment) {
+            $enrollment->delete();
+            return back()->with('success', 'Student removed from subject successfully!');
+        }
+
+        return back()->with('error', 'Student enrollment not found.');
+    }
+}
+
+

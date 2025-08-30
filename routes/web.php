@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Auth;
 use App\Http\Middleware\GuestMiddleware;
 
 
@@ -107,12 +108,10 @@ Route::middleware([UserMiddleware::class])->group(function () {
 //     return Inertia::render('Welcome', ['message' => 'Welcome to Instructor Dashboard - Coming Soon!']);
 // })->name('instructor.dashboard');
 
-// Teacher Dashboard
-Route::middleware(['auth'])->group(function () {
-    Route::get('/teacher/dashboard', function () {
-        return Inertia::render('Welcome', ['message' => 'Welcome to Teacher Dashboard - Coming Soon!']);
-    })->name('teacher.dashboard');
-});
+// Teacher Dashboard - Now handled by dedicated routes file
+// Route::get('/teacher/dashboard', function () {
+//     return Inertia::render('Welcome', ['message' => 'Welcome to Teacher Dashboard - Coming Soon!']);
+// })->name('teacher.dashboard');
 
 // Adviser Dashboard
 Route::middleware(['auth'])->group(function () {

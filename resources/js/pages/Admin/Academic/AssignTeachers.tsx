@@ -43,6 +43,13 @@ interface Subject {
     academicLevel: AcademicLevel;
 }
 
+interface Strand {
+    id: number;
+    name: string;
+    code: string;
+    academic_level_id: number;
+}
+
 interface TeacherSubjectAssignment {
     id: number;
     teacher_id: number;
@@ -57,6 +64,7 @@ interface TeacherSubjectAssignment {
     subject: Subject;
     academicLevel: AcademicLevel;
     gradingPeriod: GradingPeriod | null;
+    strand?: Strand | null;
 }
 
 interface Props {
@@ -66,14 +74,16 @@ interface Props {
     subjects: Subject[];
     gradingPeriods: GradingPeriod[];
     academicLevels: AcademicLevel[];
+    strands: Strand[];
 }
 
-export default function AssignTeachers({ user, assignments, teachers, subjects, gradingPeriods, academicLevels }: Props) {
+export default function AssignTeachers({ user, assignments, teachers, subjects, gradingPeriods, academicLevels, strands }: Props) {
     const [assignmentForm, setAssignmentForm] = useState({
         teacher_id: '',
         subject_id: '',
         academic_level_id: '',
         grade_level: '',
+        strand_id: '',
         grading_period_id: '',
         school_year: '',
         notes: '',
@@ -159,6 +169,7 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
             subject_id: assignment.subject_id.toString(),
             academic_level_id: assignment.academic_level_id.toString(),
             grade_level: assignment.grade_level || '',
+            strand_id: assignment.strand ? assignment.strand.id.toString() : '',
             grading_period_id: assignment.grading_period_id?.toString() || '',
             school_year: assignment.school_year,
             notes: assignment.notes || '',
@@ -188,6 +199,7 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
             teacher_id: '',
             subject_id: '',
             academic_level_id: '',
+            strand_id: '',
             grading_period_id: '',
             school_year: '',
             notes: '',
@@ -291,6 +303,25 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                                         {shsSubjects.map((subject) => (
                                             <SelectItem key={subject.id} value={subject.id.toString()}>
                                                 {subject.name} ({subject.code})
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div>
+                                <Label htmlFor="strand_id">Strand</Label>
+                                <Select
+                                    value={assignmentForm.strand_id}
+                                    onValueChange={(value) => setAssignmentForm({ ...assignmentForm, strand_id: value })}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select strand (optional)" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {strands.filter(s => s.academic_level_id === (shsLevel?.id ?? 0)).map((strand) => (
+                                            <SelectItem key={strand.id} value={strand.id.toString()}>
+                                                {strand.name} ({strand.code})
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
@@ -509,6 +540,25 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                                     {shsSubjects.map((subject) => (
                                         <SelectItem key={subject.id} value={subject.id.toString()}>
                                             {subject.name} ({subject.code})
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div>
+                            <Label htmlFor="edit_strand_id">Strand</Label>
+                            <Select
+                                value={assignmentForm.strand_id}
+                                onValueChange={(value) => setAssignmentForm({ ...assignmentForm, strand_id: value })}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select strand (optional)" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {strands.filter(s => s.academic_level_id === (shsLevel?.id ?? 0)).map((strand) => (
+                                        <SelectItem key={strand.id} value={strand.id.toString()}>
+                                            {strand.name} ({strand.code})
                                         </SelectItem>
                                     ))}
                                 </SelectContent>

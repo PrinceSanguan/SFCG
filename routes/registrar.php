@@ -9,6 +9,7 @@ use App\Http\Controllers\Registrar\RegistrarParentManagementController;
 use App\Http\Controllers\Registrar\RegistrarAcademicController;
 use App\Http\Controllers\Registrar\StudentSubjectController;
 use App\Http\Controllers\Registrar\InstructorSubjectAssignmentController;
+use App\Http\Controllers\Registrar\TeacherSubjectAssignmentController;
 use App\Http\Controllers\Admin\CertificateController;
 use App\Http\Controllers\Admin\ReportsController;
 
@@ -267,6 +268,16 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
     Route::get('/assign-instructors-subjects/{assignment}/students', [InstructorSubjectAssignmentController::class, 'showStudents'])->name('assign-instructors-subjects.students');
     Route::post('/assign-instructors-subjects/{assignment}/enroll-student', [InstructorSubjectAssignmentController::class, 'enrollStudent'])->name('assign-instructors-subjects.enroll-student');
     Route::delete('/assign-instructors-subjects/{assignment}/remove-student', [InstructorSubjectAssignmentController::class, 'removeStudent'])->name('assign-instructors-subjects.remove-student');
+
+    // New Subject-Based Teacher Assignments (mirror of instructors)
+    Route::get('/assign-teachers-subjects', [TeacherSubjectAssignmentController::class, 'index'])->name('assign-teachers-subjects');
+    Route::post('/assign-teachers-subjects', [TeacherSubjectAssignmentController::class, 'store'])->name('assign-teachers-subjects.store');
+    Route::put('/assign-teachers-subjects/{assignment}', [TeacherSubjectAssignmentController::class, 'update'])->name('assign-teachers-subjects.update');
+    Route::delete('/assign-teachers-subjects/{assignment}', [TeacherSubjectAssignmentController::class, 'destroy'])->name('assign-teachers-subjects.destroy');
+    Route::patch('/assign-teachers-subjects/{assignment}/toggle', [TeacherSubjectAssignmentController::class, 'toggleStatus'])->name('assign-teachers-subjects.toggle');
+    Route::get('/assign-teachers-subjects/{assignment}/students', [TeacherSubjectAssignmentController::class, 'showStudents'])->name('assign-teachers-subjects.students');
+    Route::post('/assign-teachers-subjects/{assignment}/enroll-student', [TeacherSubjectAssignmentController::class, 'enrollStudent'])->name('assign-teachers-subjects.enroll-student');
+    Route::delete('/assign-teachers-subjects/{assignment}/remove-student', [TeacherSubjectAssignmentController::class, 'removeStudent'])->name('assign-teachers-subjects.remove-student');
     
     // Test route for debugging
     Route::get('/test-create-assignment', function() {
@@ -484,6 +495,7 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
             'subject_id' => 'required|exists:subjects,id',
             'academic_level_id' => 'required|exists:academic_levels,id',
             'grade_level' => 'required|in:grade_11,grade_12',
+            'strand_id' => 'nullable|exists:strands,id',
             'grading_period_id' => 'nullable|exists:grading_periods,id',
             'school_year' => 'required|string',
             'notes' => 'nullable|string',
@@ -504,6 +516,7 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
             'subject_id' => $request->subject_id,
             'academic_level_id' => $request->academic_level_id,
             'grade_level' => $request->grade_level,
+            'strand_id' => $request->strand_id,
             'grading_period_id' => $request->grading_period_id,
             'school_year' => $request->school_year,
             'assigned_by' => \Illuminate\Support\Facades\Auth::id(),
@@ -532,6 +545,7 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
             'subject_id' => 'required|exists:subjects,id',
             'academic_level_id' => 'required|exists:academic_levels,id',
             'grade_level' => 'required|in:grade_11,grade_12',
+            'strand_id' => 'nullable|exists:strands,id',
             'grading_period_id' => 'nullable|exists:grading_periods,id',
             'school_year' => 'required|string',
             'notes' => 'nullable|string',
@@ -552,6 +566,7 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
             'subject_id' => $request->subject_id,
             'academic_level_id' => $request->academic_level_id,
             'grade_level' => $request->grade_level,
+            'strand_id' => $request->strand_id,
             'grading_period_id' => $request->grading_period_id,
             'school_year' => $request->school_year,
             'notes' => $request->notes,

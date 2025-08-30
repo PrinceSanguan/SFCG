@@ -123,7 +123,8 @@ class AcademicController extends Controller
             'teacher', 
             'subject', 
             'academicLevel', 
-            'gradingPeriod'
+            'gradingPeriod',
+            'strand'
         ])->where('academic_level_id', $shsLevel->id)
           ->orderBy('school_year', 'desc')->get();
         
@@ -131,6 +132,7 @@ class AcademicController extends Controller
         $subjects = Subject::where('academic_level_id', $shsLevel->id)->orderBy('name')->get();
         $academicLevels = AcademicLevel::orderBy('sort_order')->get();
         $gradingPeriods = GradingPeriod::where('academic_level_id', $shsLevel->id)->orderBy('sort_order')->get();
+        $strands = Strand::where('academic_level_id', $shsLevel->id)->orderBy('name')->get();
         
         return Inertia::render('Admin/Academic/AssignTeachers', [
             'user' => $this->sharedUser(),
@@ -139,6 +141,7 @@ class AcademicController extends Controller
             'subjects' => $subjects,
             'academicLevels' => $academicLevels,
             'gradingPeriods' => $gradingPeriods,
+            'strands' => $strands,
         ]);
     }
 
@@ -697,6 +700,7 @@ class AcademicController extends Controller
             'subject_id' => 'required|exists:subjects,id',
             'academic_level_id' => 'required|exists:academic_levels,id',
             'grade_level' => 'required|in:grade_11,grade_12',
+            'strand_id' => 'nullable|exists:strands,id',
             'grading_period_id' => 'nullable|exists:grading_periods,id',
             'school_year' => 'required|string',
             'notes' => 'nullable|string',
@@ -717,6 +721,7 @@ class AcademicController extends Controller
             'subject_id' => $request->subject_id,
             'academic_level_id' => $request->academic_level_id,
             'grade_level' => $request->grade_level,
+            'strand_id' => $request->strand_id,
             'grading_period_id' => $request->grading_period_id,
             'school_year' => $request->school_year,
             'assigned_by' => Auth::id(),
@@ -747,6 +752,7 @@ class AcademicController extends Controller
             'subject_id' => 'required|exists:subjects,id',
             'academic_level_id' => 'required|exists:academic_levels,id',
             'grade_level' => 'required|in:grade_11,grade_12',
+            'strand_id' => 'nullable|exists:strands,id',
             'grading_period_id' => 'nullable|exists:grading_periods,id',
             'school_year' => 'required|string',
             'notes' => 'nullable|string',
@@ -767,6 +773,7 @@ class AcademicController extends Controller
             'subject_id' => $request->subject_id,
             'academic_level_id' => $request->academic_level_id,
             'grade_level' => $request->grade_level,
+            'strand_id' => $request->strand_id,
             'grading_period_id' => $request->grading_period_id,
             'school_year' => $request->school_year,
             'notes' => $request->notes,

@@ -130,7 +130,8 @@ class RegistrarAcademicController extends Controller
             'teacher', 
             'subject', 
             'academicLevel', 
-            'gradingPeriod'
+            'gradingPeriod',
+            'strand'
         ])->where('academic_level_id', $shsLevel->id)
           ->orderBy('school_year', 'desc')->get();
         
@@ -139,6 +140,7 @@ class RegistrarAcademicController extends Controller
         
         $academicLevels = AcademicLevel::orderBy('sort_order')->get();
         $gradingPeriods = GradingPeriod::orderBy('academic_level_id')->orderBy('sort_order')->get();
+        $strands = Strand::where('academic_level_id', $shsLevel->id)->orderBy('name')->get();
         
         return Inertia::render('Registrar/Academic/AssignTeachers', [
             'user' => $this->sharedUser(),
@@ -147,6 +149,7 @@ class RegistrarAcademicController extends Controller
             'subjects' => $subjects,
             'academicLevels' => $academicLevels,
             'gradingPeriods' => $gradingPeriods,
+            'strands' => $strands,
         ]);
     }
 

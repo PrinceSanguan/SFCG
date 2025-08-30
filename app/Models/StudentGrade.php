@@ -37,6 +37,12 @@ class StudentGrade extends Model
     public function academicLevel(): BelongsTo { return $this->belongsTo(AcademicLevel::class); }
     public function gradingPeriod(): BelongsTo { return $this->belongsTo(GradingPeriod::class); }
     public function validatedBy(): BelongsTo { return $this->belongsTo(User::class, 'validated_by'); }
+
+    public function teacherSubjectAssignment(): BelongsTo
+    {
+        return $this->belongsTo(TeacherSubjectAssignment::class, 'subject_id', 'subject_id')
+            ->where('school_year', $this->school_year);
+    }
 }
 
 

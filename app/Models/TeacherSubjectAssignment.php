@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TeacherSubjectAssignment extends Model
 {
@@ -15,6 +16,7 @@ class TeacherSubjectAssignment extends Model
         'subject_id',
         'academic_level_id',
         'grade_level',
+        'strand_id',
         'grading_period_id',
         'school_year',
         'is_active',
@@ -43,6 +45,11 @@ class TeacherSubjectAssignment extends Model
         return $this->belongsTo(AcademicLevel::class);
     }
 
+    public function strand(): BelongsTo
+    {
+        return $this->belongsTo(Strand::class);
+    }
+
     public function gradingPeriod(): BelongsTo
     {
         return $this->belongsTo(GradingPeriod::class);
@@ -51,6 +58,12 @@ class TeacherSubjectAssignment extends Model
     public function assignedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_by');
+    }
+
+    public function enrolledStudents(): HasMany
+    {
+        return $this->hasMany(StudentSubjectAssignment::class, 'subject_id', 'subject_id')
+            ->where('school_year', $this->school_year);
     }
 
     public function scopeActive($query)

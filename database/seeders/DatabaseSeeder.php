@@ -23,6 +23,9 @@ class DatabaseSeeder extends Seeder
             HonorSampleDataSeeder::class,
             CertificateTemplatesSeeder::class,
             SampleGradesSeeder::class,
+            InstructorAssignmentSeeder::class,
+            StudentEnrollmentSeeder::class,
+            TeacherAssignmentSeeder::class,
         ]);
     }
 }

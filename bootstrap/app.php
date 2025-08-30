@@ -3,6 +3,7 @@
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\EnsureRole;
 use App\Http\Middleware\InstructorMiddleware;
+use App\Http\Middleware\TeacherMiddleware;
 use App\Http\Middleware\AdviserMiddleware;
 use App\Http\Middleware\RegistrarMiddleware;
 use App\Http\Middleware\HandleAppearance;
@@ -30,6 +31,9 @@ return Application::configure(basePath: dirname(__DIR__))
                 ->group(base_path('routes/instructor.php'));
 
             Route::middleware('web')
+                ->group(base_path('routes/teacher.php'));
+
+            Route::middleware('web')
                 ->group(base_path('routes/adviser.php'));
             
             Route::middleware('web')
@@ -52,6 +56,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => EnsureAdmin::class,
             'role' => EnsureRole::class,
             'instructor' => InstructorMiddleware::class,
+            'teacher' => TeacherMiddleware::class,
             'registrar' => RegistrarMiddleware::class,
             'student' => StudentMiddleware::class,
             'parent' => \App\Http\Middleware\ParentMiddleware::class,
