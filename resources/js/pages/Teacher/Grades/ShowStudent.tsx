@@ -61,9 +61,20 @@ interface ShowStudentProps {
     student: Student;
     subject: Subject;
     grades: Grade[];
+    gradingPeriods: GradingPeriod[];
 }
 
-export default function ShowStudent({ user, student, subject, grades }: ShowStudentProps) {
+interface TableGradingPeriod {
+    id: number;
+    name: string;
+    code: string;
+    gradingPeriodId: number;
+}
+
+export default function ShowStudent({ user, student, subject, grades, gradingPeriods }: ShowStudentProps) {
+    // Debug logging
+    console.log('ShowStudent props:', { user, student, subject, grades, gradingPeriods });
+    
     const getGradeColor = (grade: number, academicLevelKey: string) => {
         if (academicLevelKey === 'college') {
             if (grade <= 1.5) return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
@@ -100,14 +111,51 @@ export default function ShowStudent({ user, student, subject, grades }: ShowStud
     const latestGrade = grades.length > 0 ? grades[0] : null;
     const academicLevelKey = latestGrade?.academicLevel?.key || 'senior_high';
     const academicLevelName = latestGrade?.academicLevel?.name || 'Senior High School';
+    
+    // Create dynamic grading period display based on what's actually available
+    const getTableGradingPeriods = (): TableGradingPeriod[] => {
+        // Filter grading periods to only show those relevant to the current subject's academic level
+        const relevantGradingPeriods = gradingPeriods.filter(period => {
+            const currentAcademicLevel = academicLevelKey; // e.g., 'senior_highschool'
+            return period.code.toLowerCase().includes(currentAcademicLevel.toLowerCase());
+        });
+        
+        // Sort by ID for consistent ordering
+        return relevantGradingPeriods
+            .sort((a, b) => a.id - b.id)
+            .map((period) => ({
+                id: period.id,
+                name: period.name, // Use the actual name from database (e.g., "First Quarter", "Second Quarter")
+                code: period.code, // Use the actual code from database (e.g., "Q1_senior_highschool")
+                gradingPeriodId: period.id // Use the period ID directly
+            }));
+    };
+    
+    const tableGradingPeriods = getTableGradingPeriods();
+    
 
-    // Get unique grading periods from grades
-    const gradingPeriods = grades
-        .filter(grade => grade.gradingPeriod)
-        .map(grade => grade.gradingPeriod!)
-        .filter((period, index, self) => 
-            index === self.findIndex(p => p.id === period.id)
-        );
+    
+    // Debug logging to see what's available
+    console.log('ShowStudent component data:', {
+        gradingPeriods: gradingPeriods.map(period => ({ id: period.id, name: period.name, code: period.code })),
+        tableGradingPeriods: tableGradingPeriods.map(period => ({ 
+            id: period.id, 
+            name: period.name, 
+            code: period.code, 
+            gradingPeriodId: period.gradingPeriodId 
+        })),
+        availableQuarters: tableGradingPeriods.map(q => q.name),
+        academicLevelKey: academicLevelKey,
+        academicLevelName: academicLevelName,
+        grades: grades.map(g => ({ 
+            id: g.id, 
+            grade: g.grade, 
+            grading_period_id: g.grading_period_id,
+            academicLevel: g.academicLevel?.key 
+        }))
+    });
+
+
 
     return (
         <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
@@ -245,24 +293,29 @@ export default function ShowStudent({ user, student, subject, grades }: ShowStud
                                     </CardHeader>
                                     <CardContent>
                                         <div className="space-y-4">
-                                            {gradingPeriods.map((period) => (
-                                                <div key={period.id} className="relative border rounded-lg p-4 bg-gray-50">
-                                                    <div className="absolute top-2 right-2">
-                                                        <Badge variant="outline" className="text-xs bg-gray-100 text-gray-600">
-                                                            {period.code}
+                                            {gradingPeriods
+                                                .filter(period => {
+                                                    const currentAcademicLevel = academicLevelKey;
+                                                    return period.code.toLowerCase().includes(currentAcademicLevel.toLowerCase());
+                                                })
+                                                .map((period) => (
+                                                    <div key={period.id} className="relative border rounded-lg p-4 bg-gray-50">
+                                                        <div className="absolute top-2 right-2">
+                                                            <Badge variant="outline" className="text-xs bg-gray-100 text-gray-600">
+                                                                {period.code}
+                                                            </Badge>
+                                                        </div>
+                                                        <h4 className="font-medium mb-2 text-gray-900">{period.name}</h4>
+                                                        {period.start_date && period.end_date && (
+                                                            <p className="text-sm text-gray-600 mb-2">
+                                                                {new Date(period.start_date).toLocaleDateString()} - {new Date(period.end_date).toLocaleDateString()}
+                                                            </p>
+                                                        )}
+                                                        <Badge variant={period.is_active ? "default" : "secondary"} className="text-xs">
+                                                            {period.is_active ? "Active" : "Inactive"}
                                                         </Badge>
                                                     </div>
-                                                    <h4 className="font-medium mb-2 text-gray-900">{period.name}</h4>
-                                                    {period.start_date && period.end_date && (
-                                                        <p className="text-sm text-gray-600 mb-2">
-                                                            {new Date(period.start_date).toLocaleDateString()} - {new Date(period.end_date).toLocaleDateString()}
-                                                        </p>
-                                                    )}
-                                                    <Badge variant={period.is_active ? "default" : "secondary"} className="text-xs">
-                                                        {period.is_active ? "Active" : "Inactive"}
-                                                    </Badge>
-                                                </div>
-                                            ))}
+                                                ))}
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -277,33 +330,51 @@ export default function ShowStudent({ user, student, subject, grades }: ShowStud
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    {latestGrade ? (
-                                        <div className="grid gap-4 md:grid-cols-3">
-                                            <div className="bg-gray-50 rounded-lg p-4 text-center">
-                                                <p className="text-sm font-medium text-gray-500 mb-2">Latest Grade</p>
-                                                <div className={`inline-flex items-center justify-center w-16 h-16 rounded-lg text-2xl font-bold ${getGradeColor(latestGrade.grade, academicLevelKey)}`}>
-                                                    {latestGrade.grade}
+                                    {(() => {
+                                        // Calculate average grade across all grading periods
+                                        const validGrades = grades
+                                            .filter(g => g.grade !== null && g.grade !== undefined)
+                                            .map(g => g.grade);
+                                        
+                                        if (validGrades.length > 0) {
+                                            const average = validGrades.reduce((sum, grade) => sum + grade, 0) / validGrades.length;
+                                            const status = getGradeStatus(average, academicLevelKey);
+                                            
+                                            return (
+                                                <div className="grid gap-4 md:grid-cols-3">
+                                                    <div className="bg-gray-50 rounded-lg p-4 text-center">
+                                                        <p className="text-sm font-medium text-gray-500 mb-2">Average Grade</p>
+                                                        <div className={`inline-flex items-center justify-center w-16 h-16 rounded-lg text-2xl font-bold ${getGradeColor(average, academicLevelKey)}`}>
+                                                            {average.toFixed(1)}
+                                                        </div>
+                                                    </div>
+                                                    <div className="bg-gray-50 rounded-lg p-4 text-center">
+                                                        <p className="text-sm font-medium text-gray-500 mb-2">Status</p>
+                                                        <p className={`text-lg font-semibold ${
+                                                            ['Superior', 'Very Good', 'Good', 'Satisfactory', 'Fair', 'Outstanding'].includes(status)
+                                                                ? 'text-green-600' 
+                                                                : 'text-red-600'
+                                                        }`}>
+                                                            {status}
+                                                        </p>
+                                                    </div>
+                                                    <div className="bg-gray-50 rounded-lg p-4 text-center">
+                                                        <p className="text-sm font-medium text-gray-500 mb-2">Periods Graded</p>
+                                                        <p className="text-lg font-semibold text-blue-600">
+                                                            {validGrades.length} of {tableGradingPeriods.length}
+                                                        </p>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <div className="bg-gray-50 rounded-lg p-4 text-center">
-                                                <p className="text-sm font-medium text-gray-500 mb-2">Status</p>
-                                                <p className="text-lg font-semibold text-green-600">
-                                                    {getGradeStatus(latestGrade.grade, academicLevelKey)}
-                                                </p>
-                                            </div>
-                                            <div className="bg-gray-50 rounded-lg p-4 text-center">
-                                                <p className="text-sm font-medium text-gray-500 mb-2">Last Updated</p>
-                                                <p className="text-lg font-semibold">
-                                                    {new Date(latestGrade.updated_at).toLocaleDateString()}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="text-center py-8">
-                                            <div className="h-16 w-16 text-gray-400 mx-auto mb-4">📊</div>
-                                            <p className="text-gray-500">No grades recorded yet</p>
-                                        </div>
-                                    )}
+                                            );
+                                        } else {
+                                            return (
+                                                <div className="text-center py-8">
+                                                    <div className="h-16 w-16 text-gray-400 mx-auto mb-4">📊</div>
+                                                    <p className="text-gray-500">No grades recorded yet</p>
+                                                </div>
+                                            );
+                                        }
+                                    })()}
                                 </CardContent>
                             </Card>
 
@@ -318,40 +389,48 @@ export default function ShowStudent({ user, student, subject, grades }: ShowStud
                                 <CardContent>
                                     {grades.length > 0 ? (
                                         <div className="overflow-x-auto">
-                                            <table className="w-full">
+                                            <table className="w-full border-collapse">
                                                 <thead>
-                                                    <tr className="border-b">
-                                                        <th className="text-left p-3 font-medium">Student ID</th>
-                                                        <th className="text-left p-3 font-medium">Subject</th>
-                                                        <th className="text-left p-3 font-medium">Faculty</th>
-                                                        {gradingPeriods.map((period) => (
-                                                            <th key={period.id} className="text-left p-3 font-medium">{period.name}</th>
+                                                    <tr className="bg-gray-800 text-white">
+                                                        <th className="text-left p-3 font-medium border-r border-gray-700">Student ID</th>
+                                                        <th className="text-left p-3 font-medium border-r border-gray-700">Subject</th>
+                                                        <th className="text-left p-3 font-medium border-r border-gray-700">Faculty</th>
+                                                        {tableGradingPeriods.map((period) => (
+                                                            <th key={period.id} className="text-left p-3 font-medium border-r border-gray-700">
+                                                                {period.name}
+                                                            </th>
                                                         ))}
-                                                        <th className="text-left p-3 font-medium">AVERAGE</th>
-                                                        <th className="text-left p-3 font-medium">Grade Status</th>
+                                                        <th className="text-left p-3 font-medium border-r border-gray-700">AVERAGE</th>
+                                                        <th className="text-left p-3 font-medium border-r border-gray-700">Grade Status</th>
                                                         <th className="text-left p-3 font-medium">Actions</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    <tr className="border-b hover:bg-gray-50">
-                                                        <td className="p-3">
+                                                    <tr className="border-b bg-gray-100 dark:bg-gray-800">
+                                                        <td className="p-3 border-r border-gray-200 dark:border-gray-600 font-medium">
                                                             <span className="font-medium">{student.student_number || student.id}</span>
                                                         </td>
-                                                        <td className="p-3">
+                                                        <td className="p-3 border-r border-gray-200 dark:border-gray-600">
                                                             <div>
-                                                                <p className="font-medium">{subject.name}</p>
-                                                                <p className="text-sm text-gray-500">{subject.code}</p>
+                                                                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                                                    {subject.name}
+                                                                </p>
+                                                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                                                    {subject.code}
+                                                                </p>
                                                             </div>
                                                         </td>
-                                                        <td className="p-3">
-                                                            <span className="font-medium">{user.name}</span>
+                                                        <td className="p-3 border-r border-gray-200 dark:border-gray-600">
+                                                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                                                                {user.name}
+                                                            </p>
                                                         </td>
-                                                        {gradingPeriods.map((period) => {
-                                                            const grade = grades.find(g => g.grading_period_id === period.id);
+                                                        {tableGradingPeriods.map((period) => {
+                                                            const grade = grades.find(g => g.grading_period_id === period.gradingPeriodId);
                                                             return (
-                                                                <td key={period.id} className="p-3">
+                                                                <td key={period.id} className="p-3 border-r border-gray-200 dark:border-gray-600 text-center">
                                                                     {grade ? (
-                                                                        <Badge className={getGradeColor(grade.grade, grade.academicLevel.key)}>
+                                                                        <Badge className={getGradeColor(grade.grade, grade.academicLevel?.key || 'senior_high')}>
                                                                             {grade.grade}
                                                                         </Badge>
                                                                     ) : (
@@ -360,29 +439,54 @@ export default function ShowStudent({ user, student, subject, grades }: ShowStud
                                                                 </td>
                                                             );
                                                         })}
-                                                        <td className="p-3">
-                                                            {latestGrade && (
-                                                                <Badge variant="outline" className="text-blue-600">
-                                                                    {latestGrade.grade}
-                                                                </Badge>
-                                                            )}
+                                                        <td className="p-3 border-r border-gray-200 dark:border-gray-600 text-center">
+                                                            {(() => {
+                                                                // Calculate average grade across all grading periods
+                                                                const validGrades = grades
+                                                                    .filter(g => g.grade !== null && g.grade !== undefined)
+                                                                    .map(g => g.grade);
+                                                                
+                                                                if (validGrades.length > 0) {
+                                                                    const average = validGrades.reduce((sum, grade) => sum + grade, 0) / validGrades.length;
+                                                                    return (
+                                                                        <Badge className={`text-lg px-3 py-1 ${getGradeColor(average, academicLevelKey)}`}>
+                                                                            {average.toFixed(1)}
+                                                                        </Badge>
+                                                                    );
+                                                                } else {
+                                                                    return <span className="text-gray-400">-</span>;
+                                                                }
+                                                            })()}
                                                         </td>
-                                                        <td className="p-3">
-                                                            {latestGrade && (
-                                                                <span className={`text-sm ${
-                                                                    getGradeStatus(latestGrade.grade, latestGrade.academicLevel.key) === 'Failed'
-                                                                        ? 'text-red-600'
-                                                                        : 'text-green-600'
-                                                                }`}>
-                                                                    {getGradeStatus(latestGrade.grade, latestGrade.academicLevel.key)}
-                                                                </span>
-                                                            )}
+                                                        <td className="p-3 border-r border-gray-200 dark:border-gray-600 text-center">
+                                                            {(() => {
+                                                                // Calculate average grade across all grading periods for status
+                                                                const validGrades = grades
+                                                                    .filter(g => g.grade !== null && g.grade !== undefined)
+                                                                    .map(g => g.grade);
+                                                                
+                                                                if (validGrades.length > 0) {
+                                                                    const average = validGrades.reduce((sum, grade) => sum + grade, 0) / validGrades.length;
+                                                                    const status = getGradeStatus(average, academicLevelKey);
+                                                                    return (
+                                                                        <span className={`text-sm font-medium ${
+                                                                            ['Superior', 'Very Good', 'Good', 'Satisfactory', 'Fair', 'Outstanding'].includes(status)
+                                                                                ? 'text-green-600 dark:text-green-400' 
+                                                                                : 'text-red-600 dark:text-red-400'
+                                                                        }`}>
+                                                                            {status}
+                                                                        </span>
+                                                                    );
+                                                                } else {
+                                                                    return <span className="text-gray-400">No Grade</span>;
+                                                                }
+                                                            })()}
                                                         </td>
-                                                        <td className="p-3">
-                                                            <div className="flex gap-2">
+                                                        <td className="p-3 border-r border-gray-200 dark:border-gray-600 text-center">
+                                                            <div className="flex justify-center gap-2">
                                                                 {latestGrade && (
                                                                     <Link href={route('teacher.grades.edit', latestGrade.id)}>
-                                                                        <Button variant="outline" size="sm">
+                                                                        <Button size="sm" variant="outline">
                                                                             <Edit className="h-4 w-4 mr-2" />
                                                                             Edit
                                                                         </Button>

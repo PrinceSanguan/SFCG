@@ -328,11 +328,27 @@ class GradeManagementController extends Controller
                 ->orderBy('grading_period_id')
                 ->get();
             
+            // Get grading periods relevant to the teacher's assigned subjects
+            // For now, get all active grading periods, but we could filter by academic level later
+            $gradingPeriods = GradingPeriod::where('is_active', true)
+                ->orderBy('id')
+                ->get();
+            
+            // Log the grading periods for debugging
+            Log::info('Grading periods for teacher showStudent', [
+                'teacher_id' => $user->id,
+                'grading_periods_count' => $gradingPeriods->count(),
+                'grading_periods' => $gradingPeriods->map(function($p) {
+                    return ['id' => $p->id, 'name' => $p->name, 'code' => $p->code];
+                })
+            ]);
+            
             return Inertia::render('Teacher/Grades/ShowStudent', [
                 'user' => $user,
                 'student' => $studentData,
                 'subject' => $subjectData,
                 'grades' => $grades,
+                'gradingPeriods' => $gradingPeriods,
             ]);
             
         } catch (\Exception $e) {

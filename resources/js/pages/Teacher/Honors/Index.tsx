@@ -53,8 +53,8 @@ interface IndexProps {
     assignedCourses: AssignedCourse[];
 }
 
-export default function HonorsIndex({ user, academicLevels, honorTypes, assignedCourses }: IndexProps) {
-    const [selectedLevel, setSelectedLevel] = useState<string>('');
+export default function HonorsIndex({ user, academicLevels = [], honorTypes = [], assignedCourses = [] }: IndexProps) {
+    const [selectedLevel, setSelectedLevel] = useState<string>('all');
     const [selectedYear, setSelectedYear] = useState<string>('2024-2025');
 
     const getHonorIcon = (honorType: string) => {
@@ -109,8 +109,8 @@ export default function HonorsIndex({ user, academicLevels, honorTypes, assigned
                                                 <SelectValue placeholder="Select Academic Level" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="">All Levels</SelectItem>
-                                                {academicLevels.map((level) => (
+                                                <SelectItem value="all">All Levels</SelectItem>
+                                                {academicLevels?.map((level) => (
                                                     <SelectItem key={level.id} value={level.id.toString()}>
                                                         {level.name}
                                                     </SelectItem>
@@ -125,7 +125,7 @@ export default function HonorsIndex({ user, academicLevels, honorTypes, assigned
                                                 <SelectValue placeholder="Select School Year" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {Array.from(new Set(assignedCourses.map(course => course.school_year))).map((year) => (
+                                                {Array.from(new Set(assignedCourses?.map(course => course.school_year) || [])).map((year) => (
                                                     <SelectItem key={year} value={year}>
                                                         {year}
                                                     </SelectItem>
@@ -147,60 +147,74 @@ export default function HonorsIndex({ user, academicLevels, honorTypes, assigned
                             </CardHeader>
                             <CardContent>
                                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                                    {honorTypes.map((honorType) => (
-                                        <div key={honorType.id} className="p-4 border rounded-lg">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                {getHonorIcon(honorType.name)}
-                                                <h3 className="font-medium">{honorType.name}</h3>
+                                    {honorTypes && honorTypes.length > 0 ? (
+                                        honorTypes.map((honorType) => (
+                                            <div key={honorType.id} className="p-4 border rounded-lg">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    {getHonorIcon(honorType.name)}
+                                                    <h3 className="font-medium">{honorType.name}</h3>
+                                                </div>
+                                                <p className="text-sm text-muted-foreground mb-2">
+                                                    {honorType.description}
+                                                </p>
+                                                <div className="flex items-center gap-2">
+                                                    <Badge variant="outline">
+                                                        Min GPA: {honorType.minimum_gpa}
+                                                    </Badge>
+                                                </div>
                                             </div>
-                                            <p className="text-sm text-muted-foreground mb-2">
-                                                {honorType.description}
-                                            </p>
-                                            <div className="flex items-center gap-2">
-                                                <Badge variant="outline">
-                                                    Min GPA: {honorType.minimum_gpa}
-                                                </Badge>
-                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="col-span-full text-center py-8">
+                                            <div className="h-16 w-16 text-gray-400 mx-auto mb-4">🏆</div>
+                                            <p className="text-gray-500">No honor types configured yet</p>
                                         </div>
-                                    ))}
+                                    )}
                                 </div>
                             </CardContent>
                         </Card>
 
                         {/* Academic Levels */}
                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                            {academicLevels.map((level) => (
-                                <Card key={level.id} className="hover:shadow-md transition-shadow">
-                                    <CardHeader>
-                                        <CardTitle className="flex items-center gap-2">
-                                            <Users className="h-5 w-5" />
-                                            {level.name}
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="space-y-3">
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-sm text-muted-foreground">Students</span>
-                                                <Badge variant="outline">0</Badge>
+                            {academicLevels && academicLevels.length > 0 ? (
+                                academicLevels.map((level) => (
+                                    <Card key={level.id} className="hover:shadow-md transition-shadow">
+                                        <CardHeader>
+                                            <CardTitle className="flex items-center gap-2">
+                                                <Users className="h-5 w-5" />
+                                                {level.name}
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="space-y-3">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-sm text-muted-foreground">Students</span>
+                                                    <Badge variant="outline">0</Badge>
+                                                </div>
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-sm text-muted-foreground">Honor Students</span>
+                                                    <Badge variant="default">0</Badge>
+                                                </div>
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-sm text-muted-foreground">Average GPA</span>
+                                                    <span className="text-sm font-medium">0.00</span>
+                                                </div>
+                                                <Link href={route('teacher.honors.show-by-level', level.id)}>
+                                                    <Button className="w-full" variant="outline">
+                                                        <BarChart3 className="h-4 w-4 mr-2" />
+                                                        View Details
+                                                    </Button>
+                                                </Link>
                                             </div>
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-sm text-muted-foreground">Honor Students</span>
-                                                <Badge variant="default">0</Badge>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-sm text-muted-foreground">Average GPA</span>
-                                                <span className="text-sm font-medium">0.00</span>
-                                            </div>
-                                            <Link href={route('teacher.honors.show-by-level', level.id)}>
-                                                <Button className="w-full" variant="outline">
-                                                    <BarChart3 className="h-4 w-4 mr-2" />
-                                                    View Details
-                                                </Button>
-                                            </Link>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
+                                        </CardContent>
+                                    </Card>
+                                ))
+                            ) : (
+                                <div className="col-span-full text-center py-8">
+                                    <div className="h-16 w-16 text-gray-400 mx-auto mb-4">🎓</div>
+                                    <p className="text-gray-500">No academic levels available</p>
+                                </div>
+                            )}
                         </div>
 
                         {/* Quick Stats */}

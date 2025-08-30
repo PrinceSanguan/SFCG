@@ -1,87 +1,208 @@
-import React from 'react';
-import { Head } from '@inertiajs/react';
-import StudentLayout from '@/layouts/student/layout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { StudentHeader } from '@/components/student/app-header';
+import { StudentAppSidebar } from '@/components/student/app-sidebar';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { FileText, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Link } from '@inertiajs/react';
+import { Award, Calendar, GraduationCap, Eye, ExternalLink } from 'lucide-react';
 
 interface Certificate {
-  id: number;
-  school_year: string;
-  type: string;
-  status?: string;
-  template?: { name: string };
+    id: number;
+    serial_number: string;
+    school_year: string;
+    status: string;
+    generated_at: string;
+    template: {
+        name: string;
+    };
+    academicLevel: {
+        name: string;
+    };
 }
 
-interface Props {
-  user: { name: string };
-  schoolYear: string;
-  certificates: Certificate[];
+interface IndexProps {
+    user: {
+        name: string;
+        email: string;
+        user_role: string;
+    };
+    certificates: Certificate[];
 }
 
-export default function StudentCertificatesIndex({ schoolYear, certificates }: Props) {
-  return (
-    <StudentLayout>
-      <Head title="Certificates" />
-      <div className="container mx-auto px-4 md:px-6 py-6 space-y-6">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-3xl font-semibold">Certificates</h1>
-          <p className="text-sm text-muted-foreground">School Year: {schoolYear}</p>
-        </div>
+export default function CertificatesIndex({ user, certificates }: IndexProps) {
+    const getStatusColor = (status: string) => {
+        switch (status) {
+            case 'generated':
+                return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
+            case 'downloaded':
+                return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
+            case 'printed':
+                return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300';
+            default:
+                return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
+        }
+    };
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Available Certificates
-            </CardTitle>
-            <CardDescription>Download your earned certificates and achievements</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {certificates.map((c) => (
-                <div key={c.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 rounded-full">
-                      <FileText className="h-5 w-5 text-blue-600" />
+    const formatDate = (dateString: string) => {
+        return new Date(dateString).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        });
+    };
+
+    return (
+        <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
+            <StudentAppSidebar user={user} />
+
+            <div className="flex flex-1 flex-col overflow-hidden">
+                <StudentHeader user={user} />
+
+                <main className="flex-1 overflow-y-auto bg-gray-100 p-4 md:p-6 dark:bg-gray-900">
+                    <div className="flex flex-col gap-6">
+                        {/* Header */}
+                        <div className="flex flex-col gap-2">
+                            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                                My Honor Certificates
+                            </h1>
+                            <p className="text-gray-500 dark:text-gray-400">
+                                View and manage your academic achievement certificates.
+                            </p>
+                        </div>
+
+                        {/* Statistics */}
+                        <div className="grid gap-4 md:grid-cols-3">
+                            <Card>
+                                <CardContent className="p-6">
+                                    <div className="flex items-center gap-4">
+                                        <div className="h-12 w-12 rounded-lg bg-blue-100 p-3 dark:bg-blue-900">
+                                            <Award className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                                                Total Certificates
+                                            </p>
+                                            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                                                {certificates.length}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            <Card>
+                                <CardContent className="p-6">
+                                    <div className="flex items-center gap-4">
+                                        <div className="h-12 w-12 rounded-lg bg-green-100 p-3 dark:bg-green-900">
+                                            <GraduationCap className="h-6 w-6 text-green-600 dark:text-green-400" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                                                Academic Levels
+                                            </p>
+                                            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                                                {new Set(certificates.map(c => c.academicLevel.name)).size}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            <Card>
+                                <CardContent className="p-6">
+                                    <div className="flex items-center gap-4">
+                                        <div className="h-12 w-12 rounded-lg bg-purple-100 p-3 dark:bg-purple-900">
+                                            <Calendar className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                                                School Years
+                                            </p>
+                                            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                                                {new Set(certificates.map(c => c.school_year)).size}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+
+                        {/* Certificates List */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Award className="h-5 w-5" />
+                                    Honor Certificates
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {certificates.length > 0 ? (
+                                    <div className="space-y-4">
+                                        {certificates.map((certificate) => (
+                                            <div
+                                                key={certificate.id}
+                                                className="flex items-center justify-between rounded-lg border p-4 hover:bg-gray-50 dark:hover:bg-gray-800"
+                                            >
+                                                <div className="flex items-center gap-4">
+                                                    <div className="h-10 w-10 rounded-full bg-blue-100 p-2 dark:bg-blue-900">
+                                                        <Award className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="font-medium text-gray-900 dark:text-gray-100">
+                                                            {certificate.template.name}
+                                                        </h3>
+                                                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                                                            {certificate.academicLevel.name} • {certificate.school_year}
+                                                        </p>
+                                                        <p className="text-xs text-gray-400 dark:text-gray-500">
+                                                            Serial: {certificate.serial_number}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center gap-3">
+                                                    <Badge className={getStatusColor(certificate.status)}>
+                                                        {certificate.status.charAt(0).toUpperCase() + certificate.status.slice(1)}
+                                                    </Badge>
+                                                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                                                        {formatDate(certificate.generated_at)}
+                                                    </p>
+                                                    <div className="flex gap-2">
+                                                        <Link href={route('student.certificates.show', certificate.id)}>
+                                                            <Button variant="outline" size="sm">
+                                                                <Eye className="h-4 w-4 mr-2" />
+                                                                View
+                                                            </Button>
+                                                        </Link>
+                                                        <Link href={route('student.certificates.view', certificate.id)}>
+                                                            <Button variant="outline" size="sm">
+                                                                <ExternalLink className="h-4 w-4 mr-2" />
+                                                                Full View
+                                                            </Button>
+                                                        </Link>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-12">
+                                        <div className="h-16 w-16 text-gray-400 mx-auto mb-4">
+                                            <Award className="h-16 w-16" />
+                                        </div>
+                                        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                                            No certificates yet
+                                        </h3>
+                                        <p className="text-gray-500 dark:text-gray-400">
+                                            Your honor certificates will appear here once you qualify for academic honors.
+                                        </p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
                     </div>
-                    <div>
-                      <div className="font-semibold text-gray-900">{c.template?.name ?? c.type}</div>
-                      <div className="text-sm text-muted-foreground">{c.school_year}</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Badge 
-                      variant="secondary" 
-                      className={`${
-                        c.status === 'Ready' 
-                          ? 'bg-green-100 text-green-800 border-green-200' 
-                          : 'bg-gray-100 text-gray-800 border-gray-200'
-                      }`}
-                    >
-                      {c.status ?? 'Ready'}
-                    </Badge>
-                    {c.status === 'Ready' && (
-                      <Button variant="outline" size="sm" className="flex items-center gap-2">
-                        <Download className="h-4 w-4" />
-                        Download
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {certificates.length === 0 && (
-                <div className="text-center py-8">
-                  <FileText className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                  <div className="text-lg font-medium text-gray-500">No certificates available</div>
-                  <div className="text-sm text-muted-foreground">Your earned certificates will appear here when available</div>
-                </div>
-              )}
+                </main>
             </div>
-          </CardContent>
-        </Card>
-      </div>
-    </StudentLayout>
-  );
+        </div>
+    );
 }

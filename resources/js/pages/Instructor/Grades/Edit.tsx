@@ -82,7 +82,37 @@ export default function Edit({ user, grade, gradingPeriods }: EditProps) {
 
     // Get current academic level key for grade validation
     const getCurrentAcademicLevelKey = () => {
-        return grade.academicLevel?.key;
+        // Debug logging to see what we're getting
+        console.log('Academic Level Data:', grade.academicLevel);
+        console.log('Academic Level Key:', grade.academicLevel?.key);
+        console.log('Academic Level Name:', grade.academicLevel?.name);
+        console.log('Subject Course:', grade.subject?.course);
+        console.log('Full Grade Object:', grade);
+        
+        // First try to get from the direct academic level relationship
+        if (grade.academicLevel?.key) {
+            const isCollege = grade.academicLevel.key === 'college';
+            console.log('Using direct academic level, Is College:', isCollege);
+            return isCollege ? 'college' : grade.academicLevel.key;
+        }
+        
+        // Fallback: try to determine from subject course or other indicators
+        if (grade.subject?.course) {
+            // If there's a course, it's likely college level
+            console.log('Using course fallback, assuming college level');
+            return 'college';
+        }
+        
+        // Check if the grade value itself suggests college level (1-5 scale)
+        const currentGrade = parseFloat(grade.grade);
+        if (currentGrade >= 1 && currentGrade <= 5) {
+            console.log('Using grade value fallback, assuming college level (1-5 scale)');
+            return 'college';
+        }
+        
+        // Default to elementary if we can't determine
+        console.log('Using default fallback: elementary');
+        return 'elementary';
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -152,6 +182,11 @@ export default function Edit({ user, grade, gradingPeriods }: EditProps) {
                                         <div>
                                             <span className="text-gray-500 dark:text-gray-400">Academic Level:</span>
                                             <p className="font-medium">{grade.academicLevel?.name || 'Unknown'}</p>
+                                            {!grade.academicLevel?.name && (
+                                                <p className="text-xs text-yellow-600 mt-1">
+                                                    Detected: {getCurrentAcademicLevelKey() === 'college' ? 'College (5-1 scale)' : 'Elementary/Senior High (75-100 scale)'}
+                                                </p>
+                                            )}
                                         </div>
                                         <div>
                                             <span className="text-gray-500 dark:text-gray-400">School Year:</span>
@@ -171,10 +206,24 @@ export default function Edit({ user, grade, gradingPeriods }: EditProps) {
                                     <div className="grid gap-4 md:grid-cols-2">
                                         <div>
                                             <Label htmlFor="grade">Grade</Label>
+                                            <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded text-sm">
+                                                <p className="font-medium text-blue-800">
+                                                    {getCurrentAcademicLevelKey() === 'college' 
+                                                        ? '🎓 College Grading Scale (5-1)' 
+                                                        : '🏫 Elementary/Senior High Scale (75-100)'
+                                                    }
+                                                </p>
+                                                <p className="text-blue-600">
+                                                    {getCurrentAcademicLevelKey() === 'college' 
+                                                        ? '1.0 = Highest, 5.0 = Lowest, 3.0 = Passing' 
+                                                        : '75 = Passing, 100 = Highest'
+                                                    }
+                                                </p>
+                                            </div>
                                             <Input
                                                 id="grade"
                                                 type="number"
-                                                step="0.01"
+                                                step={getCurrentAcademicLevelKey() === 'college' ? '0.1' : '0.01'}
                                                 min={getCurrentAcademicLevelKey() === 'college' ? '1.0' : '75'}
                                                 max={getCurrentAcademicLevelKey() === 'college' ? '5.0' : '100'}
                                                 placeholder={getCurrentAcademicLevelKey() === 'college' ? 'Enter grade (1.0-5.0)' : 'Enter grade (75-100)'}

@@ -89,6 +89,45 @@ interface CreateProps {
 }
 
 export default function Create({ user, academicLevels, gradingPeriods, assignedSubjects, selectedStudent }: CreateProps) {
+    // Get the academic levels that the teacher is actually assigned to teach
+    const teacherAcademicLevels = assignedSubjects.map(subject => subject.academicLevel);
+    
+    // Get grading periods that are relevant to the teacher's assigned subjects
+    const teacherGradingPeriods = gradingPeriods.filter(period => 
+        teacherAcademicLevels.some(level => level.id === period.academic_level_id)
+    );
+    
+    // Create quarter options based on what the teacher actually has access to
+    const getQuarterOptions = () => {
+        const availableQuarters = new Set<number>();
+        
+        // Check which quarters are available for the teacher's academic levels
+        teacherGradingPeriods.forEach(period => {
+            if (period.code.includes('Q1')) availableQuarters.add(1);
+            if (period.code.includes('Q2')) availableQuarters.add(2);
+            if (period.code.includes('Q3')) availableQuarters.add(3);
+            if (period.code.includes('Q4')) availableQuarters.add(4);
+        });
+        
+        // Convert to array and sort
+        return Array.from(availableQuarters)
+            .sort()
+            .map((quarter: number) => ({
+                id: quarter,
+                name: `${quarter}${quarter === 1 ? 'st' : quarter === 2 ? 'nd' : quarter === 3 ? 'rd' : 'th'} Quarter`,
+                value: quarter.toString()
+            }));
+    };
+    
+    const quarterOptions = getQuarterOptions();
+    
+    // Debug logging to see what's available
+    console.log('Teacher Create component data:', {
+        teacherAcademicLevels: teacherAcademicLevels.map(level => ({ id: level.id, name: level.name, key: level.key })),
+        teacherGradingPeriods: teacherGradingPeriods.map(period => ({ id: period.id, name: period.name, code: period.code, academic_level_id: period.academic_level_id })),
+        availableQuarters: quarterOptions.map(q => q.name)
+    });
+    
     const { data, setData, post, processing, errors } = useForm({
         student_id: '',
         subject_id: '',
@@ -189,8 +228,25 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         
+        // Map quarter values back to grading period IDs
+        const formData = { ...data };
+        if (data.grading_period_id && data.grading_period_id !== '0') {
+            // Find the grading period that matches the selected quarter and academic level
+            const currentLevel = academicLevels.find(l => l.id.toString() === data.academic_level_id);
+            if (currentLevel) {
+                // Use the filtered grading periods that are relevant to the teacher
+                const matchingPeriod = teacherGradingPeriods.find(period => 
+                    period.academic_level_id === currentLevel.id && 
+                    period.code.includes(`Q${data.grading_period_id}`)
+                );
+                if (matchingPeriod) {
+                    formData.grading_period_id = matchingPeriod.id.toString();
+                }
+            }
+        }
+        
         // Debug logging
-        console.log('Form submitted with data:', data);
+        console.log('Form submitted with data:', formData);
         console.log('Has pre-selected student:', hasPreSelectedStudent);
         
         post(route('teacher.grades.store'), {
@@ -317,25 +373,28 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                                         <SelectValue placeholder="Select grading period" />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        {gradingPeriods
-                                                            .filter(period => {
-                                                                // Filter periods for the current academic level
-                                                                const currentLevel = academicLevels.find(l => l.id.toString() === data.academic_level_id);
-                                                                return currentLevel ? period.academic_level_id === currentLevel.id : true;
-                                                            })
-                                                            .map((period) => (
-                                                                <SelectItem key={period.id} value={period.id.toString()}>
-                                                                    {period.name}
+                                                        <SelectItem value="0">No Period</SelectItem>
+                                                        {quarterOptions.length > 0 ? (
+                                                            quarterOptions.map((quarter) => (
+                                                                <SelectItem key={quarter.id} value={quarter.value}>
+                                                                    {quarter.name}
                                                                 </SelectItem>
                                                             ))
-                                                        }
+                                                        ) : (
+                                                            <SelectItem value="none" disabled>
+                                                                No grading periods available
+                                                            </SelectItem>
+                                                        )}
                                                     </SelectContent>
                                                 </Select>
                                                 {errors.grading_period_id && (
                                                     <p className="text-sm text-red-500 mt-1">{errors.grading_period_id}</p>
                                                 )}
                                                 <p className="text-sm text-muted-foreground mt-1">
-                                                    Select which grading period this grade belongs to
+                                                    {quarterOptions.length > 0 
+                                                        ? 'Select which grading period this grade belongs to'
+                                                        : 'No grading periods are configured for your assigned subjects'
+                                                    }
                                                 </p>
                                             </div>
                                         </div>
@@ -428,9 +487,9 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="0">No Period</SelectItem>
-                                                    {gradingPeriods.map((period) => (
-                                                        <SelectItem key={period.id} value={period.id.toString()}>
-                                                            {period.name}
+                                                    {quarterOptions.map((quarter) => (
+                                                        <SelectItem key={quarter.id} value={quarter.value}>
+                                                            {quarter.name}
                                                         </SelectItem>
                                                     ))}
                                                 </SelectContent>

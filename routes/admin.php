@@ -268,6 +268,8 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/aca
     // Honors
     Route::get('/honors', [AcademicController::class, 'honors'])->name('honors');
     Route::post('/honors/criteria', [AcademicController::class, 'saveHonorCriteria'])->name('honors.criteria.save');
+    Route::put('/honors/criteria/{criterion}', [AcademicController::class, 'updateHonorCriterion'])->name('honors.criteria.update');
+    Route::delete('/honors/criteria/{criterion}', [AcademicController::class, 'destroyHonorCriterion'])->name('honors.criteria.destroy');
     Route::post('/honors/generate', [AcademicController::class, 'generateHonorRoll'])->name('honors.generate');
     Route::post('/honors/{result}/override', [AcademicController::class, 'overrideHonorResult'])->name('honors.override');
     Route::get('/honors/export', [AcademicController::class, 'exportHonorRoll'])->name('honors.export');

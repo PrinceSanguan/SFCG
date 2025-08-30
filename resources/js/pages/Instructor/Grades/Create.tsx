@@ -181,9 +181,20 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
     // Get current academic level key for grade validation
     const getCurrentAcademicLevelKey = () => {
         if (data.academic_level_id) {
-            return academicLevels.find(level => level.id.toString() === data.academic_level_id)?.key;
+            const level = academicLevels.find(level => level.id.toString() === data.academic_level_id);
+            console.log('Selected Academic Level:', level);
+            console.log('Level Key:', level?.key);
+            console.log('Level Name:', level?.name);
+            
+            // Check if it's college level by key or name
+            const isCollege = level?.key === 'college' || 
+                             level?.name?.toLowerCase().includes('college');
+            
+            console.log('Is College Level:', isCollege);
+            
+            return isCollege ? 'college' : level?.key || 'elementary';
         }
-        return null;
+        return 'elementary'; // Default fallback
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -290,7 +301,7 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                                 <Input
                                                     id="grade"
                                                     type="number"
-                                                    step="0.01"
+                                                    step={getCurrentAcademicLevelKey() === 'college' ? '0.1' : '0.01'}
                                                     min={getCurrentAcademicLevelKey() === 'college' ? '1.0' : '75'}
                                                     max={getCurrentAcademicLevelKey() === 'college' ? '5.0' : '100'}
                                                     placeholder={getCurrentAcademicLevelKey() === 'college' ? 'Enter grade (1.0-5.0)' : 'Enter grade (75-100)'}
@@ -480,7 +491,7 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                         <Input
                                             id="grade"
                                             type="number"
-                                            step="0.01"
+                                            step={getCurrentAcademicLevelKey() === 'college' ? '0.1' : '0.01'}
                                             min={getCurrentAcademicLevelKey() === 'college' ? '1.0' : '75'}
                                             max={getCurrentAcademicLevelKey() === 'college' ? '5.0' : '100'}
                                             placeholder={getCurrentAcademicLevelKey() === 'college' ? 'Enter grade (1.0-5.0)' : 'Enter grade (75-100)'}

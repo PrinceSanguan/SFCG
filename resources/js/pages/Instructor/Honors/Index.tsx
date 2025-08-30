@@ -54,7 +54,7 @@ interface IndexProps {
 }
 
 export default function HonorsIndex({ user, academicLevels, honorTypes, assignedCourses }: IndexProps) {
-    const [selectedLevel, setSelectedLevel] = useState<string>('');
+    const [selectedLevel, setSelectedLevel] = useState<string>('all');
     const [selectedYear, setSelectedYear] = useState<string>('2024-2025');
 
     const getHonorIcon = (honorType: string) => {
@@ -109,8 +109,8 @@ export default function HonorsIndex({ user, academicLevels, honorTypes, assigned
                                                 <SelectValue placeholder="Select Academic Level" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="">All Levels</SelectItem>
-                                                {academicLevels.map((level) => (
+                                                <SelectItem value="all">All Levels</SelectItem>
+                                                {academicLevels.filter(level => level.id && level.name).map((level) => (
                                                     <SelectItem key={level.id} value={level.id.toString()}>
                                                         {level.name}
                                                     </SelectItem>
@@ -125,7 +125,7 @@ export default function HonorsIndex({ user, academicLevels, honorTypes, assigned
                                                 <SelectValue placeholder="Select School Year" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {Array.from(new Set(assignedCourses.map(course => course.school_year))).map((year) => (
+                                                {Array.from(new Set(assignedCourses.map(course => course.school_year).filter(year => year && year.trim() !== ''))).map((year) => (
                                                     <SelectItem key={year} value={year}>
                                                         {year}
                                                     </SelectItem>

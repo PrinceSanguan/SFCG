@@ -20,7 +20,9 @@ Route::middleware(['auth', 'student'])->prefix('student')->name('student.')->gro
     });
 
     Route::prefix('certificates')->name('certificates.')->group(function () {
-        Route::get('/', [CertificatesController::class, 'index'])->name('index');
+        Route::get('/', [App\Http\Controllers\Student\CertificateController::class, 'index'])->name('index');
+        Route::get('/{certificate}', [App\Http\Controllers\Student\CertificateController::class, 'show'])->name('show');
+        Route::get('/{certificate}/view', [App\Http\Controllers\Student\CertificateController::class, 'view'])->name('view');
     });
 
     Route::prefix('profile')->name('profile.')->group(function () {

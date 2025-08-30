@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             HonorDemoSeeder::class,
             HonorSampleDataSeeder::class,
             CertificateTemplatesSeeder::class,
+            HonorCertificateTemplatesSeeder::class,
             SampleGradesSeeder::class,
             InstructorAssignmentSeeder::class,
             StudentEnrollmentSeeder::class,

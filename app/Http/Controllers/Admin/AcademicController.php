@@ -234,6 +234,20 @@ class AcademicController extends Controller
             'groupedKeys' => array_keys($groupedHonorResults),
         ]);
 
+        // Additional debugging for criteria relationships
+        if ($criteria->count() > 0) {
+            $firstCriterion = $criteria->first();
+            \Illuminate\Support\Facades\Log::info('🔍 DEBUG: First criterion details:', [
+                'id' => $firstCriterion->id,
+                'academic_level_id' => $firstCriterion->academic_level_id,
+                'honor_type_id' => $firstCriterion->honor_type_id,
+                'hasHonorType' => $firstCriterion->relationLoaded('honorType'),
+                'honorTypeData' => $firstCriterion->honorType,
+                'honorTypeKeys' => $firstCriterion->honorType ? array_keys($firstCriterion->honorType->toArray()) : 'N/A',
+                'rawHonorType' => $firstCriterion->getRawOriginal('honor_type_id'),
+            ]);
+        }
+
         return Inertia::render('Admin/Academic/Honors/Index', [
             'user' => $this->sharedUser(),
             'academicLevels' => $academicLevels,
