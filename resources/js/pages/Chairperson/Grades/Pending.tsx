@@ -1,0 +1,277 @@
+import { Header } from '@/components/admin/header';
+import { Sidebar } from '@/components/chairperson/sidebar';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Link, useForm } from '@inertiajs/react';
+import { GraduationCap, Clock, CheckCircle, XCircle, Eye, ArrowLeft } from 'lucide-react';
+import { useState } from 'react';
+
+interface User {
+    id: number;
+    name: string;
+    email: string;
+    user_role: string;
+}
+
+interface Grade {
+    id: number;
+    student: {
+        id: number;
+        name: string;
+        student_number: string;
+    };
+    subject: {
+        id: number;
+        name: string;
+        course: {
+            name: string;
+        };
+    };
+    academicLevel: {
+        name: string;
+    };
+    gradingPeriod?: {
+        name: string;
+    };
+    grade: number;
+    school_year: string;
+    is_submitted_for_validation: boolean;
+    submitted_at?: string;
+}
+
+interface PendingGradesProps {
+    user: User;
+    grades: {
+        data: Grade[];
+        current_page: number;
+        last_page: number;
+        per_page: number;
+        total: number;
+    };
+}
+
+export default function PendingGrades({ user, grades }: PendingGradesProps) {
+    if (!user) {
+        return <div>Loading...</div>;
+    }
+
+    // Add safety checks for undefined props
+    const safeGrades = grades || { data: [], current_page: 1, last_page: 1, per_page: 20, total: 0 };
+
+    const [selectedGrade, setSelectedGrade] = useState<Grade | null>(null);
+    const [showReturnForm, setShowReturnForm] = useState(false);
+
+    const { data, setData, post, processing, errors } = useForm({
+        return_reason: '',
+    });
+
+    const handleApprove = (gradeId: number) => {
+        post(route('chairperson.grades.approve', gradeId));
+    };
+
+    const handleReturn = (gradeId: number) => {
+        if (data.return_reason.trim()) {
+            post(route('chairperson.grades.return', gradeId));
+            setShowReturnForm(false);
+            setSelectedGrade(null);
+            setData('return_reason', '');
+        }
+    };
+
+    const openReturnForm = (grade: Grade) => {
+        setSelectedGrade(grade);
+        setShowReturnForm(true);
+    };
+
+    const closeReturnForm = () => {
+        setShowReturnForm(false);
+        setSelectedGrade(null);
+        setData('return_reason', '');
+    };
+
+    return (
+        <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
+            <Sidebar user={user} />
+
+            <div className="flex flex-1 flex-col overflow-hidden">
+                <Header user={user} />
+
+                <main className="flex-1 overflow-y-auto bg-gray-100 p-4 md:p-6 dark:bg-gray-900">
+                    <div className="flex flex-col gap-6">
+                        {/* Header */}
+                        <div className="flex items-center gap-4">
+                            <Button asChild variant="outline" size="sm">
+                                <Link href={route('chairperson.grades.index')}>
+                                    <ArrowLeft className="h-4 w-4" />
+                                    Back to Grades
+                                </Link>
+                            </Button>
+                            <div>
+                                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                                    Pending Grades
+                                </h1>
+                                <p className="text-gray-500 dark:text-gray-400">
+                                    Review and approve grades submitted for validation
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Summary Card */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Clock className="h-5 w-5" />
+                                    Summary
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="grid gap-4 md:grid-cols-3">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Pending</p>
+                                        <p className="text-2xl font-bold">{safeGrades.total}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Current Page</p>
+                                        <p className="text-2xl font-bold">{safeGrades.current_page} of {safeGrades.last_page}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Grades per Page</p>
+                                        <p className="text-2xl font-bold">{safeGrades.per_page}</p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Grades Table */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Grades Pending Approval</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {safeGrades.data.length === 0 ? (
+                                    <p className="text-center text-gray-500 dark:text-gray-400 py-8">
+                                        No pending grades found
+                                    </p>
+                                ) : (
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full">
+                                            <thead>
+                                                <tr className="border-b">
+                                                    <th className="text-left p-2">Student</th>
+                                                    <th className="text-left p-2">Subject</th>
+                                                    <th className="text-left p-2">Grade</th>
+                                                    <th className="text-left p-2">Academic Level</th>
+                                                    <th className="text-left p-2">Grading Period</th>
+                                                    <th className="text-left p-2">School Year</th>
+                                                    <th className="text-left p-2">Submitted</th>
+                                                    <th className="text-left p-2">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {safeGrades.data.map((grade) => (
+                                                    <tr key={grade.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800">
+                                                        <td className="p-2">
+                                                            <div>
+                                                                <div className="font-medium">{grade.student?.name || 'N/A'}</div>
+                                                                <div className="text-sm text-gray-500">{grade.student?.student_number || 'N/A'}</div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-2">
+                                                            <div>
+                                                                <div className="font-medium">{grade.subject?.name || 'N/A'}</div>
+                                                                <div className="text-sm text-gray-500">{grade.subject?.course?.name || 'N/A'}</div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-2 font-medium">{grade.grade}</td>
+                                                        <td className="p-2">{grade.academicLevel?.name || 'N/A'}</td>
+                                                        <td className="p-2">{grade.gradingPeriod?.name || 'N/A'}</td>
+                                                        <td className="p-2">{grade.school_year}</td>
+                                                        <td className="p-2">
+                                                            {grade.submitted_at ? (
+                                                                <span className="text-sm text-gray-500">
+                                                                    {new Date(grade.submitted_at).toLocaleDateString()}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-sm text-gray-400">Not specified</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="p-2">
+                                                            <div className="flex gap-2">
+                                                                <Button asChild size="sm" variant="outline">
+                                                                    <Link href={route('chairperson.grades.review', grade.id)}>
+                                                                        <Eye className="h-4 w-4" />
+                                                                    </Link>
+                                                                </Button>
+                                                                <Button
+                                                                    size="sm"
+                                                                    onClick={() => handleApprove(grade.id)}
+                                                                    disabled={processing}
+                                                                    className="bg-green-600 hover:bg-green-700"
+                                                                >
+                                                                    <CheckCircle className="h-4 w-4" />
+                                                                </Button>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="destructive"
+                                                                    onClick={() => openReturnForm(grade)}
+                                                                    disabled={processing}
+                                                                >
+                                                                    <XCircle className="h-4 w-4" />
+                                                                </Button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
+                </main>
+            </div>
+
+            {/* Return Grade Modal */}
+            {showReturnForm && selectedGrade && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
+                        <h3 className="text-lg font-semibold mb-4">Return Grade for Correction</h3>
+                        <div className="mb-4">
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                                Returning grade for <strong>{selectedGrade.student?.name}</strong> in <strong>{selectedGrade.subject?.name}</strong>
+                            </p>
+                            <Label htmlFor="return_reason">Reason for Return</Label>
+                            <Textarea
+                                id="return_reason"
+                                value={data.return_reason}
+                                onChange={(e) => setData('return_reason', e.target.value)}
+                                placeholder="Please provide a reason for returning this grade..."
+                                className="mt-2"
+                                rows={4}
+                            />
+                            {errors.return_reason && (
+                                <p className="text-sm text-red-500 mt-1">{errors.return_reason}</p>
+                            )}
+                        </div>
+                        <div className="flex gap-2 justify-end">
+                            <Button variant="outline" onClick={closeReturnForm}>
+                                Cancel
+                            </Button>
+                            <Button
+                                variant="destructive"
+                                onClick={() => handleReturn(selectedGrade.id)}
+                                disabled={processing || !data.return_reason.trim()}
+                            >
+                                {processing ? 'Returning...' : 'Return Grade'}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}

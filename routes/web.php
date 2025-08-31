@@ -120,12 +120,12 @@ Route::middleware(['auth'])->group(function () {
     })->name('adviser.dashboard');
 });
 
-// Chairperson Dashboard
-Route::middleware(['auth'])->group(function () {
-    Route::get('/chairperson/dashboard', function () {
-        return Inertia::render('Welcome', ['message' => 'Welcome to Chairperson Dashboard - Coming Soon!']);
-    })->name('chairperson.dashboard');
-});
+// Chairperson Dashboard - Now handled by dedicated routes file
+// Route::get('/chairperson/dashboard', function () {
+//     return Inertia::render('Welcome', ['message' => 'Welcome to Chairperson Dashboard - Coming Soon!']);
+// })->name('chairperson.dashboard');
+
+
 
 // Principal Dashboard
 Route::middleware(['auth'])->group(function () {

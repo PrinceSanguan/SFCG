@@ -31,6 +31,7 @@ class User extends Authenticatable
         'specific_year_level',
         'strand_id',
         'course_id',
+        'department_id',
         'student_number',
         'last_login_at',
     ];
@@ -330,6 +331,14 @@ class User extends Authenticatable
     public function course(): BelongsTo
     {
         return $this->belongsTo(Course::class);
+    }
+
+    /**
+     * Get the department for this user (for chairpersons and other staff).
+     */
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class);
     }
 
     /**

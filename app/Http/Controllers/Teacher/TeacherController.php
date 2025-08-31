@@ -22,7 +22,7 @@ class TeacherController extends Controller
             abort(403, 'Unauthorized. You must be a teacher to access this resource.');
         }
         
-        // Get teacher's assigned subjects
+        // Get teacher's assigned subjects (Senior High School level only)
         $assignedSubjects = TeacherSubjectAssignment::with([
             'subject.course',
             'academicLevel',
@@ -31,6 +31,9 @@ class TeacherController extends Controller
         ])
         ->where('teacher_id', $user->id)
         ->where('is_active', true)
+        ->whereHas('academicLevel', function ($query) {
+            $query->where('key', 'senior_highschool');
+        })
         ->get()
         ->map(function ($assignment) {
             return [
@@ -73,7 +76,7 @@ class TeacherController extends Controller
             ];
         });
 
-        // Get recent grades entered by this teacher
+        // Get recent grades entered by this teacher (Senior High School level only)
         $recentGrades = StudentGrade::with([
             'student',
             'subject',
@@ -81,7 +84,10 @@ class TeacherController extends Controller
             'gradingPeriod'
         ])
         ->whereHas('teacherSubjectAssignment', function ($query) use ($user) {
-            $query->where('teacher_id', $user->id);
+            $query->where('teacher_id', $user->id)
+                ->whereHas('academicLevel', function ($q) {
+                    $q->where('key', 'senior_highschool');
+                });
         })
         ->orderBy('created_at', 'desc')
         ->limit(5)
@@ -116,7 +122,10 @@ class TeacherController extends Controller
             'assigned_courses' => $assignedSubjects->count(),
             'student_count' => $assignedSubjects->sum('student_count'),
             'grades_entered' => StudentGrade::whereHas('teacherSubjectAssignment', function ($query) use ($user) {
-                $query->where('teacher_id', $user->id);
+                $query->where('teacher_id', $user->id)
+                    ->whereHas('academicLevel', function ($q) {
+                        $q->where('key', 'senior_highschool');
+                    });
             })->count(),
             'pending_validations' => 0, // Placeholder for future implementation
         ];

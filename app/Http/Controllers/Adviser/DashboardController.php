@@ -18,10 +18,13 @@ class DashboardController extends Controller
         $user = Auth::user();
         $schoolYear = request('school_year', '2024-2025');
 
-        // Get adviser's class assignments for current school year
+        // Get adviser's class assignments for current school year (Elementary and Junior High School only)
         $assignments = ClassAdviserAssignment::with(['academicLevel', 'adviser'])
             ->where('adviser_id', $user->id)
             ->where('school_year', $schoolYear)
+            ->whereHas('academicLevel', function ($query) {
+                $query->whereIn('key', ['elementary', 'junior_highschool']);
+            })
             ->orderBy('academic_level_id')
             ->get();
 

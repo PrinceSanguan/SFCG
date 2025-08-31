@@ -25,7 +25,7 @@ class DashboardController extends Controller
         // Debug logging
         Log::info('Dashboard accessed by user: ' . $user->id . ' - ' . $user->name . ' for school year: ' . $schoolYear);
         
-        // Get instructor's assigned subjects (new system)
+        // Get instructor's assigned subjects (College level only)
         $assignedSubjects = InstructorSubjectAssignment::with([
             'subject.course', 
             'academicLevel', 
@@ -34,6 +34,9 @@ class DashboardController extends Controller
         ->where('instructor_id', $user->id)
         ->where('is_active', true)
         ->where('school_year', $schoolYear)
+        ->whereHas('academicLevel', function ($query) {
+            $query->where('key', 'college');
+        })
         ->get();
         
         // Debug logging
@@ -146,6 +149,9 @@ class DashboardController extends Controller
         
         $assignedSubjects = InstructorSubjectAssignment::where('instructor_id', $user->id)
             ->where('is_active', true)
+            ->whereHas('academicLevel', function ($query) {
+                $query->where('key', 'college');
+            })
             ->get();
         
         return StudentGrade::with(['student', 'subject', 'academicLevel', 'gradingPeriod'])
@@ -174,7 +180,7 @@ class DashboardController extends Controller
     {
         $user = Auth::user();
         
-        // Get instructor's assigned subjects
+        // Get instructor's assigned subjects (College level only)
         $assignedSubjects = InstructorSubjectAssignment::with([
             'subject.course', 
             'academicLevel', 
@@ -182,6 +188,9 @@ class DashboardController extends Controller
         ])
         ->where('instructor_id', $user->id)
         ->where('is_active', true)
+        ->whereHas('academicLevel', function ($query) {
+            $query->where('key', 'college');
+        })
         ->get();
         
         // Get students enrolled in each assigned subject

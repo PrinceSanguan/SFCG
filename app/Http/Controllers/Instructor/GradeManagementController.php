@@ -27,10 +27,13 @@ class GradeManagementController extends Controller
         // Debug logging
         Log::info('Grades index accessed by user: ' . $user->id . ' - ' . $user->name);
         
-        // Get instructor's assigned subjects
+        // Get instructor's assigned subjects (College level only)
         $assignedSubjects = InstructorSubjectAssignment::with(['subject.course', 'academicLevel', 'gradingPeriod'])
             ->where('instructor_id', $user->id)
             ->where('is_active', true)
+            ->whereHas('academicLevel', function ($query) {
+                $query->where('key', 'college');
+            })
             ->get();
         
         // Debug logging
@@ -253,6 +256,9 @@ class GradeManagementController extends Controller
         $isAssigned = InstructorSubjectAssignment::where('instructor_id', $user->id)
             ->where('subject_id', $request->subject_id)
             ->where('is_active', true)
+            ->whereHas('academicLevel', function ($query) {
+                $query->where('key', 'college');
+            })
             ->exists();
         
         if (!$isAssigned) {
@@ -321,6 +327,9 @@ class GradeManagementController extends Controller
         $isAssigned = InstructorSubjectAssignment::where('instructor_id', $user->id)
             ->where('subject_id', $subjectId)
             ->where('is_active', true)
+            ->whereHas('academicLevel', function ($query) {
+                $query->where('key', 'college');
+            })
             ->exists();
         
         if (!$isAssigned) {
@@ -339,6 +348,9 @@ class GradeManagementController extends Controller
         $assignment = InstructorSubjectAssignment::where('instructor_id', $user->id)
             ->where('subject_id', $subjectId)
             ->where('is_active', true)
+            ->whereHas('academicLevel', function ($query) {
+                $query->where('key', 'college');
+            })
             ->first();
         
         $academicLevel = $assignment->academicLevel;
@@ -399,6 +411,9 @@ class GradeManagementController extends Controller
         $isAssigned = InstructorSubjectAssignment::where('instructor_id', $user->id)
             ->where('subject_id', $grade->subject_id)
             ->where('is_active', true)
+            ->whereHas('academicLevel', function ($query) {
+                $query->where('key', 'college');
+            })
             ->exists();
         
         if (!$isAssigned) {
@@ -431,6 +446,9 @@ class GradeManagementController extends Controller
         $isAssigned = InstructorSubjectAssignment::where('instructor_id', $user->id)
             ->where('subject_id', $grade->subject_id)
             ->where('is_active', true)
+            ->whereHas('academicLevel', function ($query) {
+                $query->where('key', 'college');
+            })
             ->exists();
         
         if (!$isAssigned) {
@@ -483,6 +501,9 @@ class GradeManagementController extends Controller
         $isAssigned = InstructorSubjectAssignment::where('instructor_id', $user->id)
             ->where('subject_id', $grade->subject_id)
             ->where('is_active', true)
+            ->whereHas('academicLevel', function ($query) {
+                $query->where('key', 'college');
+            })
             ->exists();
         
         if (!$isAssigned) {
@@ -506,6 +527,9 @@ class GradeManagementController extends Controller
         $isAssigned = InstructorSubjectAssignment::where('instructor_id', $user->id)
             ->where('subject_id', $grade->subject_id)
             ->where('is_active', true)
+            ->whereHas('academicLevel', function ($query) {
+                $query->where('key', 'college');
+            })
             ->exists();
         
         if (!$isAssigned) {
@@ -528,6 +552,9 @@ class GradeManagementController extends Controller
         $isAssigned = InstructorSubjectAssignment::where('instructor_id', $user->id)
             ->where('subject_id', $grade->subject_id)
             ->where('is_active', true)
+            ->whereHas('academicLevel', function ($query) {
+                $query->where('key', 'college');
+            })
             ->exists();
         
         if (!$isAssigned) {
@@ -561,6 +588,9 @@ class GradeManagementController extends Controller
         $assignedSubjects = InstructorSubjectAssignment::with(['subject', 'academicLevel'])
             ->where('instructor_id', $user->id)
             ->where('is_active', true)
+            ->whereHas('academicLevel', function ($query) {
+                $query->where('key', 'college');
+            })
             ->get();
         
         return Subject::whereIn('id', $assignedSubjects->pluck('subject_id'))->get();
