@@ -37,6 +37,11 @@ class ChairpersonController extends Controller
         // Get pending honors for approval
         $pendingHonors = $this->getPendingHonors($user);
         
+        // Determine dashboard message
+        $dashboardMessage = $department 
+            ? "Welcome back, {$user->name}! Managing {$department->name}."
+            : "Welcome back, {$user->name}! No specific department assigned - viewing all data.";
+        
         return Inertia::render('Chairperson/Dashboard', [
             'user' => $user,
             'department' => $department,
@@ -44,6 +49,7 @@ class ChairpersonController extends Controller
             'recentActivities' => $recentActivities,
             'pendingGrades' => $pendingGrades,
             'pendingHonors' => $pendingHonors,
+            'dashboardMessage' => $dashboardMessage,
         ]);
     }
     
@@ -52,13 +58,14 @@ class ChairpersonController extends Controller
         $departmentId = $user->department_id;
         
         if (!$departmentId) {
+            // If no department assigned, show general stats
             return [
-                'total_students' => 0,
-                'total_courses' => 0,
-                'total_instructors' => 0,
-                'pending_grades' => 0,
-                'pending_honors' => 0,
-                'average_gpa' => 0,
+                'total_students' => User::where('user_role', 'student')->count(),
+                'total_courses' => Course::count(),
+                'total_instructors' => User::where('user_role', 'instructor')->count(),
+                'pending_grades' => StudentGrade::where('is_submitted_for_validation', true)->count(),
+                'pending_honors' => HonorResult::where('is_pending_approval', true)->count(),
+                'average_gpa' => StudentGrade::avg('grade') ?? 0,
             ];
         }
         
@@ -99,7 +106,7 @@ class ChairpersonController extends Controller
         $averageGpa = StudentGrade::whereHas('subject.course', function ($query) use ($departmentId) {
                 $query->where('department_id', $departmentId);
             })
-            ->avg('grade');
+            ->avg('grade') ?? 0;
         
         return [
             'total_students' => $totalStudents,

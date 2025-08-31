@@ -14,6 +14,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             UserSeeder::class,
             BasicStructureSeeder::class,
+            AssignChairpersonToDepartmentSeeder::class,
             // Commented out temporarily - keeping only one user per role
             // AcademicManagementSeeder::class,
             // ParentStudentSeeder::class,
@@ -29,7 +30,6 @@ class DatabaseSeeder extends Seeder
             // InstructorAssignmentSeeder::class,
             // StudentEnrollmentSeeder::class,
             // TeacherAssignmentSeeder::class,
-            // AssignChairpersonToDepartmentSeeder::class,
             // CreateSampleGradesForChairpersonSeeder::class,
             // CreateSampleHonorsForChairpersonSeeder::class,
         ]);
