@@ -2,7 +2,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Link, usePage } from '@inertiajs/react';
-import { LayoutDashboard, BookOpen, Crown, User, FileText, ChevronDown, ChevronRight, Settings } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Crown, User, FileText, ChevronDown, ChevronRight, Settings, GraduationCap } from 'lucide-react';
 import { useState } from 'react';
 
 interface UserProps { name?: string; email?: string }
@@ -31,7 +31,7 @@ export function StudentAppSidebar({ user }: { user: UserProps }) {
           {/* Academic Section */}
           <div className="w-full">
             <Button
-              variant={isActive('/student/grades') || isActive('/student/honors') || isActive('/student/certificates') ? 'secondary' : 'ghost'}
+              variant={isActive('/student/subjects') || isActive('/student/grades') || isActive('/student/honors') || isActive('/student/certificates') ? 'secondary' : 'ghost'}
               onClick={() => setIsAcademicExpanded(!isAcademicExpanded)}
               className="flex w-full items-center justify-between rounded-md px-3 py-2 text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
             >
@@ -50,6 +50,11 @@ export function StudentAppSidebar({ user }: { user: UserProps }) {
             {/* Academic Submenu */}
             {isAcademicExpanded && (
               <div className="ml-6 mt-1 space-y-1">
+                <Link href={route('student.subjects.index')} className="w-full">
+                  <Button variant={isActive('/student/subjects') ? 'secondary' : 'ghost'} className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+                    <GraduationCap size={16} /> Subjects
+                  </Button>
+                </Link>
                 <Link href={route('student.grades.index')} className="w-full">
                   <Button variant={isActive('/student/grades') ? 'secondary' : 'ghost'} className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
                     <BookOpen size={16} /> My Grades

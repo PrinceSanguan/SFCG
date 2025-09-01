@@ -141,6 +141,34 @@ class GradeManagementController extends Controller
     {
         $user = Auth::user();
         
+        // Check for URL parameters to pre-select student
+        $selectedStudent = null;
+        if (request()->has('student_id') && request()->has('subject_id') && request()->has('academic_level_id')) {
+            $studentId = request('student_id');
+            $subjectId = request('subject_id');
+            $academicLevelId = request('academic_level_id');
+            
+            // Verify the instructor is assigned to this subject
+            $isAssigned = InstructorSubjectAssignment::where('instructor_id', $user->id)
+                ->where('subject_id', $subjectId)
+                ->where('academic_level_id', $academicLevelId)
+                ->where('is_active', true)
+                ->exists();
+            
+            if ($isAssigned) {
+                $student = User::find($studentId);
+                if ($student) {
+                    $selectedStudent = [
+                        'id' => $student->id,
+                        'name' => $student->name,
+                        'email' => $student->email,
+                        'subjectId' => (int) $subjectId,
+                        'academicLevelKey' => request('academic_level_key'),
+                    ];
+                }
+            }
+        }
+        
         // Get instructor's assigned subjects with enrolled students
         $assignedSubjects = InstructorSubjectAssignment::with(['subject.course', 'academicLevel', 'gradingPeriod'])
             ->where('instructor_id', $user->id)
@@ -206,6 +234,7 @@ class GradeManagementController extends Controller
             'academicLevels' => $academicLevels,
             'gradingPeriods' => $gradingPeriods,
             'assignedSubjects' => $debugData,
+            'selectedStudent' => $selectedStudent,
         ]);
     }
     

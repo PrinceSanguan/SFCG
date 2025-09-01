@@ -6,9 +6,14 @@ use App\Http\Controllers\Student\GradesController;
 use App\Http\Controllers\Student\HonorsController;
 use App\Http\Controllers\Student\CertificatesController;
 use App\Http\Controllers\Student\ProfileController;
+use App\Http\Controllers\Student\SubjectsController;
 
 Route::middleware(['auth', 'student'])->prefix('student')->name('student.')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    Route::prefix('subjects')->name('subjects.')->group(function () {
+        Route::get('/', [SubjectsController::class, 'index'])->name('index');
+    });
 
     Route::prefix('grades')->name('grades.')->group(function () {
         Route::get('/', [GradesController::class, 'index'])->name('index');

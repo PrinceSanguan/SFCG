@@ -25,14 +25,16 @@ interface Certificate {
 }
 
 interface Props {
-  user: { name: string };
-  schoolYear: string;
-  linkedStudents: LinkedStudent[];
-  certificates: Certificate[];
-  selectedStudent: LinkedStudent | null;
+  user?: { name: string };
+  schoolYear?: string;
+  linkedStudents?: LinkedStudent[];
+  certificates?: Certificate[];
+  selectedStudent?: LinkedStudent | null;
 }
 
 export default function ParentCertificatesIndex({ schoolYear, certificates, linkedStudents, selectedStudent }: Props) {
+  const safeLinked = linkedStudents ?? [];
+  const safeCertificates = certificates ?? [];
   const [selectedStudentId, setSelectedStudentId] = useState(selectedStudent?.id?.toString() || '');
 
   const handleStudentChange = (studentId: string) => {
@@ -51,7 +53,7 @@ export default function ParentCertificatesIndex({ schoolYear, certificates, link
         </div>
 
         {/* Student Selector */}
-        {linkedStudents.length > 0 && (
+        {safeLinked.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -65,7 +67,7 @@ export default function ParentCertificatesIndex({ schoolYear, certificates, link
                   <SelectValue placeholder="Select a child" />
                 </SelectTrigger>
                 <SelectContent>
-                  {linkedStudents.map((student) => (
+                  {safeLinked.map((student) => (
                     <SelectItem key={student.id} value={student.id.toString()}>
                       {student.name} {student.student_number && `(${student.student_number})`}
                     </SelectItem>
@@ -88,7 +90,7 @@ export default function ParentCertificatesIndex({ schoolYear, certificates, link
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {certificates.map((c) => (
+                {safeCertificates.map((c) => (
                   <div key={c.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-blue-100 rounded-full">
@@ -119,7 +121,7 @@ export default function ParentCertificatesIndex({ schoolYear, certificates, link
                     </div>
                   </div>
                 ))}
-                {certificates.length === 0 && (
+                {safeCertificates.length === 0 && (
                   <div className="text-center py-8">
                     <FileText className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                     <div className="text-lg font-medium text-gray-500">No certificates available</div>
@@ -134,7 +136,7 @@ export default function ParentCertificatesIndex({ schoolYear, certificates, link
         )}
 
         {/* No Students Message */}
-        {linkedStudents.length === 0 && (
+        {safeLinked.length === 0 && (
           <Card>
             <CardContent className="text-center py-8">
               <User className="h-12 w-12 text-gray-300 mx-auto mb-3" />

@@ -527,11 +527,29 @@ export default function Show({ user, student, subject, academicLevel, grades, gr
                             </Card>
                         )}
 
-                        {/* Action Buttons */}
+                                                {/* Action Buttons */}
                         <Card>
                             <CardContent className="pt-6">
                                 <div className="flex gap-4">
-                                    <Link href={route('instructor.grades.create')} className="flex-1">
+                                    <Link 
+                                        href={route('instructor.grades.create') + 
+                                            `?student_id=${student.id}` +
+                                            `&subject_id=${subject.id}` +
+                                            `&academic_level_id=${academicLevel.id}` +
+                                            `&academic_level_key=${academicLevel.key}` +
+                                            `&school_year=${latestGrade?.school_year || '2024-2025'}`
+                                        } 
+                                        className="flex-1"
+                                        onClick={() => {
+                                            console.log('Navigating to grade creation with params:', {
+                                                student_id: student.id,
+                                                subject_id: subject.id,
+                                                academic_level_id: academicLevel.id,
+                                                academic_level_key: academicLevel.key,
+                                                school_year: latestGrade?.school_year || '2024-2025'
+                                            });
+                                        }}
+                                    >
                                         <Button className="w-full">
                                             <Plus className="h-4 w-4 mr-2" />
                                             Input New Grade
@@ -540,8 +558,8 @@ export default function Show({ user, student, subject, academicLevel, grades, gr
                                     {latestGrade && (
                                         <Link href={route('instructor.grades.edit', latestGrade.id)} className="flex-1">
                                             <Button variant="outline" className="w-full">
-                                                                                            <EditIcon className="h-4 w-4 mr-2" />
-                                            Edit Current Grade
+                                                <EditIcon className="h-4 w-4 mr-2" />
+                                                Edit Current Grade
                                             </Button>
                                         </Link>
                                     )}

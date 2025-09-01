@@ -41,7 +41,8 @@ Route::middleware(['auth', 'parent'])->prefix('parent')->name('parent.')->group(
     
     // Children's Certificates
     Route::prefix('certificates')->name('certificates.')->group(function () {
-        Route::get('/', [App\Http\Controllers\Parent\CertificateController::class, 'index'])->name('index');
+        // Use the dedicated ParentCertificatesController for the index page payload
+        Route::get('/', [ParentCertificatesController::class, 'index'])->name('index');
         Route::get('/{certificate}', [App\Http\Controllers\Parent\CertificateController::class, 'show'])->name('show');
         Route::get('/{certificate}/view', [App\Http\Controllers\Parent\CertificateController::class, 'view'])->name('view');
         Route::get('/child/{childId}', [App\Http\Controllers\Parent\CertificateController::class, 'showByChild'])->name('showByChild');

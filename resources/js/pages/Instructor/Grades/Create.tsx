@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useForm } from '@inertiajs/react';
 import { ArrowLeft, Save, Plus } from 'lucide-react';
 import { Link } from '@inertiajs/react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 
 interface User {
@@ -89,57 +89,46 @@ interface CreateProps {
 }
 
 export default function Create({ user, academicLevels, gradingPeriods, assignedSubjects, selectedStudent }: CreateProps) {
+    // Get URL parameters for initial form state
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialStudentId = urlParams.get('student_id') || '';
+    const initialSubjectId = urlParams.get('subject_id') || '';
+    const initialAcademicLevelId = urlParams.get('academic_level_id') || '';
+    const initialSchoolYear = urlParams.get('school_year') || '2024-2025';
+    
     const { data, setData, post, processing, errors } = useForm({
-        student_id: '',
-        subject_id: '',
-        academic_level_id: '',
+        student_id: initialStudentId,
+        subject_id: initialSubjectId,
+        academic_level_id: initialAcademicLevelId,
         grading_period_id: '0',
-        school_year: '2024-2025',
+        school_year: initialSchoolYear,
         year_of_study: '',
         grade: '',
     });
+    
+    const [isInitialized, setIsInitialized] = useState(false);
 
     useEffect(() => {
-        // Check for URL parameters first
-        const urlParams = new URLSearchParams(window.location.search);
-        const studentId = urlParams.get('student_id');
-        const subjectId = urlParams.get('subject_id');
-        const academicLevelId = urlParams.get('academic_level_id');
-        const academicLevelKey = urlParams.get('academic_level_key');
-        const schoolYear = urlParams.get('school_year');
-        
-        if (studentId && subjectId && academicLevelId) {
-            // Auto-populate form from URL parameters
-            setData('student_id', studentId);
-            setData('subject_id', subjectId);
-            setData('academic_level_id', academicLevelId);
-            setData('school_year', schoolYear || '2024-2025');
-            setData('year_of_study', '');
-            setData('grade', '');
-            
-            // Store academic level key for grade validation
-            if (academicLevelKey) {
-                // Find the academic level object to get the key
-                const academicLevel = academicLevels.find(level => level.id.toString() === academicLevelId);
-                if (academicLevel) {
-                    // Update the form data to trigger grade field updates
-                    setData('academic_level_id', academicLevelId);
-                }
-            }
-            
+        // Clear URL parameters after form is initialized
+        if (initialStudentId || initialSubjectId || initialAcademicLevelId) {
+            console.log('Form initialized with URL params:', { initialStudentId, initialSubjectId, initialAcademicLevelId, initialSchoolYear });
             // Clear URL parameters after populating
             const newUrl = window.location.pathname;
             window.history.replaceState({}, '', newUrl);
         } else if (selectedStudent) {
-            // Fallback to selectedStudent prop
+            // Fallback to selectedStudent prop if no URL params
             setData('student_id', selectedStudent.id.toString());
             setData('subject_id', selectedStudent.subjectId?.toString() || '');
             setData('academic_level_id', selectedStudent.academicLevelKey || '');
             setData('school_year', '2024-2025');
             setData('year_of_study', '');
             setData('grade', '');
+            
+            console.log('Form data set from selectedStudent prop');
         }
-    }, [selectedStudent, setData]);
+        
+        setIsInitialized(true);
+    }, [selectedStudent, setData, initialStudentId, initialSubjectId, initialAcademicLevelId]);
 
     // Function to get subject and academic level when student is selected
     const getStudentSubjectInfo = (studentId: string) => {
@@ -180,21 +169,8 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
 
     // Get current academic level key for grade validation
     const getCurrentAcademicLevelKey = () => {
-        if (data.academic_level_id) {
-            const level = academicLevels.find(level => level.id.toString() === data.academic_level_id);
-            console.log('Selected Academic Level:', level);
-            console.log('Level Key:', level?.key);
-            console.log('Level Name:', level?.name);
-            
-            // Check if it's college level by key or name
-            const isCollege = level?.key === 'college' || 
-                             level?.name?.toLowerCase().includes('college');
-            
-            console.log('Is College Level:', isCollege);
-            
-            return isCollege ? 'college' : level?.key || 'elementary';
-        }
-        return 'elementary'; // Default fallback
+        // For instructors, always use college grading scale since they work with college students
+        return 'college';
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -216,6 +192,30 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
 
     // Check if we have a pre-selected student (from URL params or props)
     const hasPreSelectedStudent = data.student_id && data.subject_id && data.academic_level_id;
+    
+    // Debug logging (can be removed in production)
+    // console.log('Form data:', data);
+    // console.log('hasPreSelectedStudent:', hasPreSelectedStudent);
+
+    // Show loading state while initializing
+    if (!isInitialized) {
+        return (
+            <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
+                <Sidebar user={user} />
+                <div className="flex flex-1 flex-col overflow-hidden">
+                    <Header user={user} />
+                    <main className="flex-1 overflow-y-auto bg-gray-100 p-4 md:p-6 dark:bg-gray-900">
+                        <div className="flex items-center justify-center h-full">
+                            <div className="text-center">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                                <p className="text-gray-600">Loading form...</p>
+                            </div>
+                        </div>
+                    </main>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
@@ -284,7 +284,7 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                                 <div>
                                                     <span className="text-gray-500 dark:text-gray-400">Academic Level:</span>
                                                     <p className="font-medium">
-                                                        {academicLevels.find(l => l.id.toString() === data.academic_level_id)?.name || 'Unknown'}
+                                                        {academicLevels.find(l => l.id.toString() === data.academic_level_id)?.name || 'College'}
                                                     </p>
                                                 </div>
                                                 <div>
@@ -540,7 +540,7 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                         • <strong>Subject:</strong> Automatically populated when student is selected
                                     </p>
                                     <p>
-                                        • <strong>Grade Scale:</strong> College uses 1.0-5.0 scale (1.0 highest, 3.0 passing), Elementary/Senior High uses 75-100 scale (75 passing)
+                                        • <strong>Grade Scale:</strong> College uses 1.0-5.0 scale (1.0 highest, 5.0 lowest, 3.0 passing equivalent to 75%)
                                     </p>
                                     <p>
                                         • <strong>Validation:</strong> Grades are automatically submitted for validation after saving
