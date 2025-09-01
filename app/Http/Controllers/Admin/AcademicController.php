@@ -103,6 +103,9 @@ class AcademicController extends Controller
         $academicLevels = AcademicLevel::orderBy('sort_order')->get();
         $gradingPeriods = GradingPeriod::where('academic_level_id', $collegeLevel->id)->orderBy('sort_order')->get();
         
+        // Get year level options for college
+        $yearLevels = User::getSpecificYearLevels()['college'] ?? [];
+        
         return Inertia::render('Admin/Academic/AssignInstructors', [
             'user' => $this->sharedUser(),
             'assignments' => $assignments,
@@ -111,6 +114,7 @@ class AcademicController extends Controller
             'subjects' => $subjects,
             'academicLevels' => $academicLevels,
             'gradingPeriods' => $gradingPeriods,
+            'yearLevels' => $yearLevels,
         ]);
     }
 
@@ -816,6 +820,7 @@ class AcademicController extends Controller
             'instructor_id' => 'required|exists:users,id',
             'course_id' => 'required|exists:courses,id',
             'academic_level_id' => 'required|exists:academic_levels,id',
+            'year_level' => 'nullable|string|in:first_year,second_year,third_year,fourth_year',
             'grading_period_id' => 'nullable|exists:grading_periods,id',
             'school_year' => 'required|string',
             'notes' => 'nullable|string',
@@ -848,6 +853,7 @@ class AcademicController extends Controller
             'instructor_id' => $request->instructor_id,
             'course_id' => $request->course_id,
             'academic_level_id' => $request->academic_level_id,
+            'year_level' => $request->year_level,
             'grading_period_id' => $request->grading_period_id,
             'school_year' => $request->school_year,
             'assigned_by' => Auth::id(),
@@ -905,6 +911,7 @@ class AcademicController extends Controller
             'instructor_id' => 'required|exists:users,id',
             'course_id' => 'required|exists:courses,id',
             'academic_level_id' => 'required|exists:academic_levels,id',
+            'year_level' => 'nullable|string|in:first_year,second_year,third_year,fourth_year',
             'grading_period_id' => 'nullable|exists:grading_periods,id',
             'school_year' => 'required|string',
             'notes' => 'nullable|string',
@@ -937,6 +944,7 @@ class AcademicController extends Controller
             'instructor_id' => $request->instructor_id,
             'course_id' => $request->course_id,
             'academic_level_id' => $request->academic_level_id,
+            'year_level' => $request->year_level,
             'grading_period_id' => $request->grading_period_id,
             'school_year' => $request->school_year,
             'notes' => $request->notes,

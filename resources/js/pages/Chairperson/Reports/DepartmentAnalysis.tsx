@@ -2,10 +2,10 @@ import { Header } from '@/components/admin/header';
 import { Sidebar } from '@/components/chairperson/sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Link, useForm } from '@inertiajs/react';
-import { ArrowLeft, Building2, Users, BookOpen, TrendingUp, Download } from 'lucide-react';
+import { ArrowLeft, Users, BookOpen, TrendingUp, Download } from 'lucide-react';
 
 interface User {
     id: number;
@@ -14,16 +14,33 @@ interface User {
     user_role: string;
 }
 
+interface CoursePerformance {
+    course_name: string;
+    average_grade: number;
+    total_grades: number;
+}
+
+interface InstructorPerformance {
+    instructor_name: string;
+    average_grade: number;
+    total_grades: number;
+}
+
+interface PerformanceTrend {
+    school_year: string;
+    avg_grade: number;
+}
+
 interface DepartmentStats {
     total_students: number;
     total_courses: number;
     total_instructors: number;
     average_gpa: number;
     student_enrollment: Record<string, number>;
-    course_performance: any[];
-    instructor_performance: any[];
+    course_performance: CoursePerformance[];
+    instructor_performance: InstructorPerformance[];
     honor_statistics: Record<string, number>;
-    performance_trends: any[];
+    performance_trends: PerformanceTrend[];
 }
 
 interface Filters {
@@ -31,21 +48,29 @@ interface Filters {
     academic_level_id?: string;
 }
 
+interface AcademicLevel {
+    id: number;
+    name: string;
+    key: string;
+}
+
 interface DepartmentAnalysisProps {
     user: User;
     stats: DepartmentStats;
     filters: Filters;
+    availableSchoolYears: string[];
+    academicLevels: AcademicLevel[];
 }
 
-export default function DepartmentAnalysis({ user, stats, filters }: DepartmentAnalysisProps) {
-    if (!user) {
-        return <div>Loading...</div>;
-    }
-
+export default function DepartmentAnalysis({ user, stats, filters, availableSchoolYears, academicLevels }: DepartmentAnalysisProps) {
     const { data, setData, post, processing } = useForm({
         school_year: filters.school_year || '',
         academic_level_id: filters.academic_level_id || '',
     });
+
+    if (!user) {
+        return <div>Loading...</div>;
+    }
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -88,23 +113,33 @@ export default function DepartmentAnalysis({ user, stats, filters }: DepartmentA
                                 <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
                                     <div>
                                         <Label htmlFor="school_year">School Year</Label>
-                                        <Input
-                                            id="school_year"
-                                            type="text"
-                                            value={data.school_year}
-                                            onChange={(e) => setData('school_year', e.target.value)}
-                                            placeholder="e.g., 2024-2025"
-                                        />
+                                        <Select onValueChange={(value) => setData('school_year', value)} value={data.school_year}>
+                                            <SelectTrigger id="school_year" className="w-full">
+                                                <SelectValue placeholder="Select a school year" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {availableSchoolYears.map((year: string) => (
+                                                    <SelectItem key={year} value={year}>
+                                                        {year}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                     </div>
                                     <div>
                                         <Label htmlFor="academic_level_id">Academic Level</Label>
-                                        <Input
-                                            id="academic_level_id"
-                                            type="text"
-                                            value={data.academic_level_id}
-                                            onChange={(e) => setData('academic_level_id', e.target.value)}
-                                            placeholder="Optional"
-                                        />
+                                        <Select onValueChange={(value) => setData('academic_level_id', value)} value={data.academic_level_id}>
+                                            <SelectTrigger id="academic_level_id" className="w-full">
+                                                <SelectValue placeholder="Select an academic level" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {academicLevels.map((level: AcademicLevel) => (
+                                                    <SelectItem key={level.id} value={level.id.toString()}>
+                                                        {level.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                     </div>
                                     <div className="md:col-span-2">
                                         <Button type="submit" disabled={processing}>
@@ -329,16 +364,24 @@ export default function DepartmentAnalysis({ user, stats, filters }: DepartmentA
                             <CardContent>
                                 <div className="flex gap-4">
                                     <Button asChild>
-                                        <Link href={route('chairperson.reports.export', 'department-analysis')}>
+                                        <a 
+                                            href={route('chairperson.reports.export', 'department-analysis')}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
                                             <Download className="mr-2 h-4 w-4" />
                                             Export Full Report
-                                        </Link>
+                                        </a>
                                     </Button>
                                     <Button asChild variant="outline">
-                                        <Link href={route('chairperson.reports.export', 'department-analysis-csv')}>
+                                        <a 
+                                            href={route('chairperson.reports.export', 'department-analysis-csv')}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
                                             <Download className="mr-2 h-4 w-4" />
                                             Export as CSV
-                                        </Link>
+                                        </a>
                                     </Button>
                                 </div>
                             </CardContent>

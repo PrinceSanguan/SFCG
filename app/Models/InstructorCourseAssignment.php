@@ -14,6 +14,7 @@ class InstructorCourseAssignment extends Model
         'instructor_id',
         'course_id',
         'academic_level_id',
+        'year_level',
         'grading_period_id',
         'school_year',
         'is_active',

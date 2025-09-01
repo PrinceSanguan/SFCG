@@ -8,10 +8,13 @@ use App\Models\HonorResult;
 use App\Models\Department;
 use App\Models\Course;
 use App\Models\User;
+use App\Models\AcademicLevel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class ReportsController extends Controller
 {
@@ -98,7 +101,7 @@ class ReportsController extends Controller
         
         $performance = [
             'total_grades' => $grades->count(),
-            'average_grade' => round($grades->avg('grade'), 2),
+            'average_grade' => round($grades->avg('grade') ?? 0, 2),
             'grade_distribution' => $this->getGradeDistribution($grades),
             'subject_performance' => $this->getSubjectPerformance($grades),
             'student_performance' => $this->getStudentPerformance($grades),
@@ -129,6 +132,28 @@ class ReportsController extends Controller
                 'academic_level_id' => '',
             ];
             
+            // Get available school years from the database
+            $availableSchoolYears = StudentGrade::distinct()
+                ->pluck('school_year')
+                ->sort()
+                ->values()
+                ->toArray();
+            
+            // If no school years in database, provide current and next year
+            if (empty($availableSchoolYears)) {
+                $currentYear = date('Y');
+                $availableSchoolYears = [
+                    ($currentYear - 1) . '-' . $currentYear,
+                    $currentYear . '-' . ($currentYear + 1),
+                    ($currentYear + 1) . '-' . ($currentYear + 2),
+                ];
+            }
+            
+            // Get available academic levels
+            $academicLevels = AcademicLevel::where('is_active', true)
+                ->orderBy('sort_order')
+                ->get(['id', 'name', 'key']);
+            
             $stats = [
                 'total_students' => 0,
                 'total_courses' => 0,
@@ -146,6 +171,8 @@ class ReportsController extends Controller
                 'department' => $department,
                 'stats' => $stats,
                 'filters' => $defaultFilters,
+                'availableSchoolYears' => $availableSchoolYears,
+                'academicLevels' => $academicLevels,
             ]);
         }
         
@@ -155,11 +182,12 @@ class ReportsController extends Controller
             'academic_level_id' => 'nullable|exists:academic_levels,id',
         ]);
         
+        $departmentStats = $this->getDepartmentStats($user);
         $stats = [
-            'total_students' => $this->getDepartmentStats($departmentId)['total_students'],
-            'total_courses' => $this->getDepartmentStats($departmentId)['total_courses'],
-            'total_instructors' => $this->getDepartmentStats($departmentId)['total_instructors'],
-            'average_gpa' => $this->getDepartmentStats($departmentId)['average_gpa'],
+            'total_students' => $departmentStats['total_students'] ?? 0,
+            'total_courses' => $departmentStats['total_courses'] ?? 0,
+            'total_instructors' => $departmentStats['total_instructors'] ?? 0,
+            'average_gpa' => $departmentStats['average_gpa'] ?? 0,
             'student_enrollment' => $this->getStudentEnrollment($departmentId),
             'course_performance' => $this->getCoursePerformance($departmentId),
             'instructor_performance' => $this->getInstructorPerformance($departmentId),
@@ -167,11 +195,33 @@ class ReportsController extends Controller
             'performance_trends' => $this->getPerformanceTrends($departmentId),
         ];
         
+        // Get available school years and academic levels for the form
+        $availableSchoolYears = StudentGrade::distinct()
+            ->pluck('school_year')
+            ->sort()
+            ->values()
+            ->toArray();
+        
+        if (empty($availableSchoolYears)) {
+            $currentYear = date('Y');
+            $availableSchoolYears = [
+                ($currentYear - 1) . '-' . $currentYear,
+                $currentYear . '-' . ($currentYear + 1),
+                ($currentYear + 1) . '-' . ($currentYear + 2),
+            ];
+        }
+        
+        $academicLevels = AcademicLevel::where('is_active', true)
+            ->orderBy('sort_order')
+            ->get(['id', 'name', 'key']);
+        
         return Inertia::render('Chairperson/Reports/DepartmentAnalysis', [
             'user' => $user,
             'department' => $department,
             'stats' => $stats,
             'filters' => $validated,
+            'availableSchoolYears' => $availableSchoolYears,
+            'academicLevels' => $academicLevels,
         ]);
     }
     
@@ -188,6 +238,8 @@ class ReportsController extends Controller
             case 'academic-performance':
                 return $this->exportAcademicPerformance($user);
             case 'department-analysis':
+                return $this->exportDepartmentAnalysisPDF($user);
+            case 'department-analysis-csv':
                 return $this->exportDepartmentAnalysis($user);
             default:
                 abort(404, 'Export type not found.');
@@ -263,7 +315,7 @@ class ReportsController extends Controller
             'total_students' => $totalStudents,
             'total_courses' => $totalCourses,
             'total_instructors' => $totalInstructors,
-            'average_gpa' => round($averageGpa, 2),
+            'average_gpa' => round($averageGpa ?? 0, 2),
         ];
     }
     
@@ -319,7 +371,7 @@ class ReportsController extends Controller
             ->map(function ($subjectGrades) {
                 return [
                     'subject_name' => $subjectGrades->first()->subject->name,
-                    'average_grade' => round($subjectGrades->avg('grade'), 2),
+                    'average_grade' => round($subjectGrades->avg('grade') ?? 0, 2),
                     'total_students' => $subjectGrades->count(),
                 ];
             })
@@ -332,7 +384,7 @@ class ReportsController extends Controller
             ->map(function ($studentGrades) {
                 return [
                     'student_name' => $studentGrades->first()->student->name,
-                    'average_grade' => round($studentGrades->avg('grade'), 2),
+                    'average_grade' => round($studentGrades->avg('grade') ?? 0, 2),
                     'total_subjects' => $studentGrades->count(),
                 ];
             })
@@ -363,7 +415,7 @@ class ReportsController extends Controller
                 $grades = $course->subjects->flatMap->grades;
                 return [
                     'course_name' => $course->name,
-                    'average_grade' => round($grades->avg('grade'), 2),
+                    'average_grade' => round($grades->avg('grade') ?? 0, 2),
                     'total_grades' => $grades->count(),
                 ];
             });
@@ -386,7 +438,7 @@ class ReportsController extends Controller
                 
                 return [
                     'instructor_name' => $instructor->name,
-                    'average_grade' => round($grades->avg('grade'), 2),
+                    'average_grade' => round($grades->avg('grade') ?? 0, 2),
                     'total_grades' => $grades->count(),
                 ];
             });
@@ -418,15 +470,219 @@ class ReportsController extends Controller
     
     private function exportAcademicPerformance($user)
     {
-        // Implementation for exporting academic performance data
-        // This would typically generate a CSV or Excel file
-        return response()->json(['message' => 'Export functionality to be implemented']);
+        $departmentId = $user->department_id;
+        
+        if (!$departmentId) {
+            abort(403, 'No department assigned.');
+        }
+        
+        $grades = StudentGrade::whereHas('subject.course', function ($query) use ($departmentId) {
+                $query->where('department_id', $departmentId);
+            })
+            ->with(['student', 'subject', 'academicLevel', 'gradingPeriod'])
+            ->get();
+        
+        $filename = 'academic_performance_' . date('Y-m-d_H-i-s') . '.csv';
+        
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ];
+        
+        $callback = function() use ($grades) {
+            $file = fopen('php://output', 'w');
+            
+            // CSV Headers
+            fputcsv($file, [
+                'Student Name',
+                'Subject',
+                'Grade',
+                'Academic Level',
+                'Grading Period',
+                'School Year',
+                'Year of Study'
+            ]);
+            
+            // CSV Data
+            foreach ($grades as $grade) {
+                fputcsv($file, [
+                    $grade->student->name ?? 'N/A',
+                    $grade->subject->name ?? 'N/A',
+                    $grade->grade,
+                    $grade->academicLevel->name ?? 'N/A',
+                    $grade->gradingPeriod->name ?? 'N/A',
+                    $grade->school_year,
+                    $grade->year_of_study
+                ]);
+            }
+            
+            fclose($file);
+        };
+        
+        return response()->stream($callback, 200, $headers);
     }
     
     private function exportDepartmentAnalysis($user)
     {
-        // Implementation for exporting department analysis data
-        // This would typically generate a CSV or Excel file
-        return response()->json(['message' => 'Export functionality to be implemented']);
+        $departmentId = $user->department_id;
+        
+        if (!$departmentId) {
+            abort(403, 'No department assigned.');
+        }
+        
+        $department = Department::find($departmentId);
+        $departmentStats = $this->getDepartmentStats($user);
+        $studentEnrollment = $this->getStudentEnrollment($departmentId);
+        $coursePerformance = $this->getCoursePerformance($departmentId);
+        $instructorPerformance = $this->getInstructorPerformance($departmentId);
+        $honorStatistics = $this->getHonorStatistics($departmentId);
+        $performanceTrends = $this->getPerformanceTrends($departmentId);
+        
+        $filename = 'department_analysis_' . date('Y-m-d_H-i-s') . '.csv';
+        
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ];
+        
+        $callback = function() use ($department, $departmentStats, $studentEnrollment, $coursePerformance, $instructorPerformance, $honorStatistics, $performanceTrends) {
+            $file = fopen('php://output', 'w');
+            
+            // Department Overview
+            fputcsv($file, ['DEPARTMENT ANALYSIS REPORT']);
+            fputcsv($file, ['Department:', $department->name ?? 'N/A']);
+            fputcsv($file, ['Generated:', date('Y-m-d H:i:s')]);
+            fputcsv($file, []);
+            
+            // Key Metrics
+            fputcsv($file, ['KEY METRICS']);
+            fputcsv($file, ['Total Students', $departmentStats['total_students']]);
+            fputcsv($file, ['Total Courses', $departmentStats['total_courses']]);
+            fputcsv($file, ['Total Instructors', $departmentStats['total_instructors']]);
+            fputcsv($file, ['Average GPA', $departmentStats['average_gpa']]);
+            fputcsv($file, []);
+            
+            // Student Enrollment by Course
+            fputcsv($file, ['STUDENT ENROLLMENT BY COURSE']);
+            fputcsv($file, ['Course', 'Enrollment Count']);
+            foreach ($studentEnrollment as $course => $count) {
+                fputcsv($file, [$course, $count]);
+            }
+            fputcsv($file, []);
+            
+            // Course Performance
+            fputcsv($file, ['COURSE PERFORMANCE']);
+            fputcsv($file, ['Course', 'Average Grade', 'Total Grades']);
+            foreach ($coursePerformance as $course) {
+                fputcsv($file, [$course['course_name'], $course['average_grade'], $course['total_grades']]);
+            }
+            fputcsv($file, []);
+            
+            // Instructor Performance
+            fputcsv($file, ['INSTRUCTOR PERFORMANCE']);
+            fputcsv($file, ['Instructor', 'Average Grade', 'Total Grades']);
+            foreach ($instructorPerformance as $instructor) {
+                fputcsv($file, [$instructor['instructor_name'], $instructor['average_grade'], $instructor['total_grades']]);
+            }
+            fputcsv($file, []);
+            
+            // Honor Statistics
+            fputcsv($file, ['HONOR STATISTICS']);
+            fputcsv($file, ['Honor Type', 'Count']);
+            foreach ($honorStatistics as $honorType => $count) {
+                fputcsv($file, [$honorType, $count]);
+            }
+            fputcsv($file, []);
+            
+            // Performance Trends
+            fputcsv($file, ['PERFORMANCE TRENDS']);
+            fputcsv($file, ['School Year', 'Average Grade']);
+            foreach ($performanceTrends as $trend) {
+                fputcsv($file, [$trend['school_year'], $trend['avg_grade']]);
+            }
+            
+            fclose($file);
+        };
+        
+        return response()->stream($callback, 200, $headers);
+    }
+    
+    private function exportDepartmentAnalysisPDF($user)
+    {
+        try {
+            $departmentId = $user->department_id;
+            
+            if (!$departmentId) {
+                abort(403, 'No department assigned.');
+            }
+            
+            $department = Department::find($departmentId);
+            $departmentStats = $this->getDepartmentStats($user);
+            $studentEnrollment = $this->getStudentEnrollment($departmentId);
+            $coursePerformance = $this->getCoursePerformance($departmentId);
+            $instructorPerformance = $this->getInstructorPerformance($departmentId);
+            $honorStatistics = $this->getHonorStatistics($departmentId);
+            $performanceTrends = $this->getPerformanceTrends($departmentId);
+            
+            $html = view('reports.department-analysis', [
+                'department' => $department,
+                'stats' => $departmentStats,
+                'studentEnrollment' => $studentEnrollment,
+                'coursePerformance' => $coursePerformance,
+                'instructorPerformance' => $instructorPerformance,
+                'honorStatistics' => $honorStatistics,
+                'performanceTrends' => $performanceTrends,
+                'generatedAt' => now()->format('Y-m-d H:i:s')
+            ])->render();
+            
+            // Debug: Log the HTML content length
+            Log::info('PDF Export Debug - HTML Length: ' . strlen($html));
+            
+            $pdf = Pdf::loadHTML($html);
+            
+            // Debug: Check if PDF was created successfully
+            Log::info('PDF Export Debug - PDF object created: ' . ($pdf ? 'Yes' : 'No'));
+            
+            $pdfContent = $pdf->output();
+            
+            // Debug: Log PDF content length and first 100 characters
+            Log::info('PDF Export Debug - PDF Content Length: ' . strlen($pdfContent));
+            Log::info('PDF Export Debug - PDF Content Start: ' . substr($pdfContent, 0, 100));
+            
+            $filename = 'department_analysis_' . date('Y-m-d_H-i-s') . '.pdf';
+            
+            // Debug: Log response headers
+            Log::info('PDF Export Debug - Filename: ' . $filename);
+            Log::info('PDF Export Debug - Content Length: ' . strlen($pdfContent));
+            
+            // Force download with explicit headers
+            Log::info('PDF Export Debug - Attempting download with explicit headers');
+            
+            return response($pdfContent, 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+                'Content-Length' => strlen($pdfContent),
+                'Accept-Ranges' => 'bytes',
+                'Cache-Control' => 'no-cache, no-store, must-revalidate',
+                'Pragma' => 'no-cache',
+                'Expires' => '0',
+                'X-Content-Type-Options' => 'nosniff',
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('PDF Export Error: ' . $e->getMessage());
+            Log::error('PDF Export Error Stack: ' . $e->getTraceAsString());
+            
+            // Return error response instead of crashing
+            return response()->json([
+                'error' => 'PDF generation failed',
+                'message' => $e->getMessage(),
+                'debug_info' => [
+                    'department_id' => $departmentId ?? 'not set',
+                    'user_id' => $user->id,
+                    'timestamp' => now()->toISOString()
+                ]
+            ], 500);
+        }
     }
 }

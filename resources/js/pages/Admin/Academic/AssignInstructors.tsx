@@ -63,6 +63,7 @@ interface InstructorCourseAssignment {
     instructor_id: number;
     course_id: number;
     academic_level_id: number;
+    year_level: string | null;
     grading_period_id: number | null;
     school_year: string;
     notes: string | null;
@@ -81,14 +82,16 @@ interface Props {
     subjects: Subject[];
     gradingPeriods: GradingPeriod[];
     academicLevels: AcademicLevel[];
+    yearLevels: Record<string, string>;
 }
 
-export default function AssignInstructors({ user, assignments, instructors, courses, subjects, gradingPeriods, academicLevels }: Props) {
+export default function AssignInstructors({ user, assignments, instructors, courses, subjects, gradingPeriods, academicLevels, yearLevels }: Props) {
     const [assignmentForm, setAssignmentForm] = useState({
         instructor_id: '',
         course_id: '',
         subject_id: '',
         academic_level_id: '',
+        year_level: '',
         grading_period_id: '',
         school_year: '',
         notes: '',
@@ -184,6 +187,7 @@ export default function AssignInstructors({ user, assignments, instructors, cour
             course_id: assignment.course_id.toString(),
             subject_id: '', // Will be filled from assignment data when we update the backend
             academic_level_id: assignment.academic_level_id.toString(),
+            year_level: assignment.year_level || '',
             grading_period_id: assignment.grading_period_id?.toString() || '',
             school_year: assignment.school_year,
             notes: assignment.notes || '',
@@ -206,6 +210,7 @@ export default function AssignInstructors({ user, assignments, instructors, cour
             course_id: '',
             subject_id: '',
             academic_level_id: '',
+            year_level: '',
             grading_period_id: '',
             school_year: '',
             notes: '',
@@ -339,6 +344,25 @@ export default function AssignInstructors({ user, assignments, instructors, cour
                             </div>
 
                             <div>
+                                <Label htmlFor="year_level">Year Level</Label>
+                                <Select
+                                    value={assignmentForm.year_level}
+                                    onValueChange={(value) => setAssignmentForm({ ...assignmentForm, year_level: value })}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select year level (optional)" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {Object.entries(yearLevels).map(([key, value]) => (
+                                            <SelectItem key={key} value={key}>
+                                                {value}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div>
                                 <Label htmlFor="grading_period_id">Grading Period</Label>
                                 <Select
                                     value={assignmentForm.grading_period_id}
@@ -453,6 +477,9 @@ export default function AssignInstructors({ user, assignments, instructors, cour
                                             <Calendar className="h-4 w-4" />
                                             <span>{assignment.school_year}</span>
                                         </div>
+                                        {assignment.year_level && (
+                                            <Badge variant="outline">{yearLevels[assignment.year_level] || assignment.year_level}</Badge>
+                                        )}
                                         {assignment.gradingPeriod && (
                                             <Badge variant="secondary">{assignment.gradingPeriod.name}</Badge>
                                         )}
@@ -564,6 +591,25 @@ export default function AssignInstructors({ user, assignments, instructors, cour
                                     {subjects.map((subject) => (
                                         <SelectItem key={subject.id} value={subject.id.toString()}>
                                             {subject.name} ({subject.code})
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div>
+                            <Label htmlFor="edit_year_level">Year Level</Label>
+                            <Select
+                                value={assignmentForm.year_level}
+                                onValueChange={(value) => setAssignmentForm({ ...assignmentForm, year_level: value })}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select year level (optional)" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {Object.entries(yearLevels).map(([key, value]) => (
+                                        <SelectItem key={key} value={key}>
+                                            {value}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>

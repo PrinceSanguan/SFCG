@@ -110,6 +110,9 @@ class RegistrarAcademicController extends Controller
         $academicLevels = AcademicLevel::orderBy('sort_order')->get();
         $gradingPeriods = GradingPeriod::orderBy('academic_level_id')->orderBy('sort_order')->get();
         
+        // Get year level options for college
+        $yearLevels = User::getSpecificYearLevels()['college'] ?? [];
+        
         return Inertia::render('Registrar/Academic/AssignInstructors', [
             'user' => $this->sharedUser(),
             'assignments' => $assignments,
@@ -118,6 +121,7 @@ class RegistrarAcademicController extends Controller
             'subjects' => $subjects,
             'academicLevels' => $academicLevels,
             'gradingPeriods' => $gradingPeriods,
+            'yearLevels' => $yearLevels,
         ]);
     }
 
