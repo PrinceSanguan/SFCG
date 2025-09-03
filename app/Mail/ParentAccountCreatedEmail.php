@@ -2,56 +2,34 @@
 
 namespace App\Mail;
 
-use App\Models\User;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
-use Illuminate\Mail\Mailables\Content;
-use Illuminate\Mail\Mailables\Envelope;
-use Illuminate\Mail\Mailables\Address;
 use Illuminate\Queue\SerializesModels;
 
-class ParentAccountCreatedEmail extends Mailable implements ShouldQueue
+class ParentAccountCreatedEmail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    /**
-     * The parent user instance.
-     */
-    public User $parent;
+    public $parent;
+    public $plainPassword;
 
     /**
-     * The plaintext password to show once.
+     * Create a new message instance.
      */
-    public string $plainPassword;
-
-    public function __construct(User $parent, string $plainPassword)
+    public function __construct($parent, $plainPassword)
     {
         $this->parent = $parent;
         $this->plainPassword = $plainPassword;
     }
 
-    public function envelope()
+    /**
+     * Build the message.
+     */
+    public function build()
     {
-        return new Envelope(
-            subject: 'Your Parent Account Has Been Created',
-            from: new Address(
-                config('mail.from.address', 'no-reply@sfcg.psanguan.com'),
-                config('app.name', 'SFCG')
-            ),
-        );
-    }
-
-    public function content()
-    {
-        return new Content(
-            view: 'emails.parent-account-created',
-        );
-    }
-
-    public function attachments()
-    {
-        return [];
+        return $this->subject('Your Parent Account Has Been Created - ' . config('app.name'))
+            ->from(config('mail.from.address'), config('mail.from.name'))
+            ->view('emails.parent-account-created');
     }
 }
 
