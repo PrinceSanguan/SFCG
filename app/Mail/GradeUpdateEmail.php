@@ -32,6 +32,7 @@ class GradeUpdateEmail extends Mailable implements ShouldQueue
     {
         return new Envelope(
             subject: 'Grade Update Notification - ' . $this->schoolYear,
+            from: 'hansel.canete24@gmail.com',
         );
     }
 

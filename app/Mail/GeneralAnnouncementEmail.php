@@ -28,6 +28,7 @@ class GeneralAnnouncementEmail extends Mailable implements ShouldQueue
     {
         return new Envelope(
             subject: $this->announcementTitle,
+            from: 'hansel.canete24@gmail.com',
         );
     }
 
