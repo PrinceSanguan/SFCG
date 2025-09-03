@@ -49,6 +49,12 @@ class TestEmailCommand extends Command
             $this->info("From address: " . config('mail.from.address'));
             $this->info("SMTP Host: " . config('mail.mailers.gmail.host'));
             $this->info("SMTP Port: " . config('mail.mailers.gmail.port'));
+            $this->info("Queue Connection: " . config('queue.default'));
+            
+            if (config('queue.default') !== 'sync') {
+                $this->warn("⚠️  WARNING: Queue is not 'sync' - emails will be queued!");
+                $this->warn("   Set QUEUE_CONNECTION=sync in .env for immediate sending");
+            }
 
             // Send the email
             Mail::to($email)->send(new WelcomeEmail($user));
