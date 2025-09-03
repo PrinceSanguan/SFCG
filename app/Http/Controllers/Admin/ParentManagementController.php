@@ -93,6 +93,10 @@ class ParentManagementController extends Controller
             Mail::to($parent->email)->send(
                 new ParentAccountCreatedEmail($parent, $request->password)
             );
+            Log::info('Parent account creation email sent successfully', [
+                'parent_id' => $parent->id,
+                'parent_email' => $parent->email,
+            ]);
         } catch (\Exception $e) {
             Log::error('Parent account creation email failed to send', [
                 'parent_id' => $parent->id,
