@@ -23,252 +23,91 @@ class HonorCertificateTemplatesSeeder extends Seeder
             return;
         }
 
-        // Create Elementary Certificate Template
-        $this->createElementaryTemplate($elementary);
+        // Base HTML template for honor certificates
+        $baseTemplate = $this->getBaseTemplate();
 
-        // Create Junior High School Certificate Template
-        $this->createJuniorHighTemplate($juniorHigh);
+        // Template configurations
+        $templates = [
+            // Elementary
+            ['key' => 'elementary_honor_certificate', 'name' => 'Elementary With Honors Certificate', 'level' => $elementary],
+            ['key' => 'elementary_high_honor_certificate', 'name' => 'Elementary With High Honors Certificate', 'level' => $elementary],
+            ['key' => 'elementary_highest_honor_certificate', 'name' => 'Elementary With Highest Honors Certificate', 'level' => $elementary],
+            
+            // Junior High School
+            ['key' => 'junior_high_honor_certificate', 'name' => 'Junior High School With Honors Certificate', 'level' => $juniorHigh],
+            ['key' => 'junior_high_high_honor_certificate', 'name' => 'Junior High School With High Honors Certificate', 'level' => $juniorHigh],
+            ['key' => 'junior_high_highest_honor_certificate', 'name' => 'Junior High School With Highest Honors Certificate', 'level' => $juniorHigh],
+            
+            // Senior High School
+            ['key' => 'senior_high_honor_certificate', 'name' => 'Senior High School With Honors Certificate', 'level' => $seniorHigh],
+            ['key' => 'senior_high_high_honor_certificate', 'name' => 'Senior High School With High Honors Certificate', 'level' => $seniorHigh],
+            ['key' => 'senior_high_highest_honor_certificate', 'name' => 'Senior High School With Highest Honors Certificate', 'level' => $seniorHigh],
+            
+            // College
+            ['key' => 'college_deans_list_certificate', 'name' => 'College Dean\'s List Certificate', 'level' => $college],
+            ['key' => 'college_honors_certificate', 'name' => 'College Honors Certificate', 'level' => $college],
+            ['key' => 'college_cum_laude_certificate', 'name' => 'College Cum Laude Certificate', 'level' => $college],
+            ['key' => 'college_magna_cum_laude_certificate', 'name' => 'College Magna Cum Laude Certificate', 'level' => $college],
+            ['key' => 'college_summa_cum_laude_certificate', 'name' => 'College Summa Cum Laude Certificate', 'level' => $college],
+        ];
 
-        // Create Senior High School Certificate Template
-        $this->createSeniorHighTemplate($seniorHigh);
+        $created = 0;
+        $updated = 0;
 
-        // Create College Certificate Template
-        $this->createCollegeTemplate($college);
+        foreach ($templates as $templateData) {
+            $template = CertificateTemplate::updateOrCreate(
+                ['key' => $templateData['key']],
+                [
+                    'academic_level_id' => $templateData['level']->id,
+                    'name' => $templateData['name'],
+                    'content_html' => $baseTemplate,
+                    'is_active' => true,
+                    'created_by' => 1, // Admin user
+                ]
+            );
+            
+            if ($template->wasRecentlyCreated) {
+                $this->command->info("✅ Created: {$template->name} ({$template->key})");
+                $created++;
+            } else {
+                $this->command->info("🔄 Updated: {$template->name} ({$template->key})");
+                $updated++;
+            }
+        }
 
-        $this->command->info('Honor Certificate Templates seeded successfully!');
+        $this->command->info("📊 Template Creation Summary:");
+        $this->command->info("Created: {$created}");
+        $this->command->info("Updated: {$updated}");
+        $this->command->info("Total Templates: " . CertificateTemplate::count());
+        $this->command->info("✅ Honor-specific certificate templates created successfully!");
     }
 
-    private function createElementaryTemplate(AcademicLevel $level): void
+    private function getBaseTemplate(): string
     {
-        $html = <<<HTML
+        return <<<'HTML'
 <div style="text-align: center; padding: 40px; border: 8px double #2c5aa0; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); font-family: 'Times New Roman', serif; max-width: 800px; margin: 0 auto;">
-    <div style="margin-bottom: 30px;">
-        <img src="{{logo_url}}" alt="School Logo" style="width: 80px; height: 80px; margin-bottom: 20px;">
-        <h1 style="color: #2c5aa0; margin: 0; font-size: 36px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px;">Certificate of Recognition</h1>
-    </div>
-    
-    <div style="margin: 40px 0; line-height: 1.8;">
-        <p style="font-size: 18px; color: #495057; margin: 0;">This is to certify that</p>
-        <h2 style="color: #2c5aa0; margin: 20px 0; font-size: 28px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">{{student_name}}</h2>
-        <p style="font-size: 16px; color: #6c757d; margin: 0;">Student ID: <strong>{{student_number}}</strong></p>
-        <p style="font-size: 16px; color: #6c757d; margin: 0;">Grade Level: <strong>{{grade_level}}</strong></p>
-    </div>
-    
-    <div style="margin: 30px 0; padding: 20px; background: rgba(44, 90, 160, 0.1); border-radius: 10px;">
-        <p style="font-size: 18px; color: #495057; margin: 0;">has achieved</p>
-        <h3 style="color: #2c5aa0; margin: 15px 0; font-size: 24px; font-weight: bold; text-transform: uppercase;">{{honor_type}}</h3>
-        <p style="font-size: 16px; color: #6c757d; margin: 0;">for the School Year <strong>{{school_year}}</strong></p>
-        <p style="font-size: 16px; color: #6c757d; margin: 0;">with an average grade of <strong>{{average_grade}}</strong></p>
-    </div>
-    
-    <div style="margin: 40px 0; line-height: 1.6;">
-        <p style="font-size: 16px; color: #495057; margin: 0;">This certificate is awarded in recognition of</p>
-        <p style="font-size: 16px; color: #495057; margin: 0;">outstanding academic performance and dedication to learning.</p>
-    </div>
-    
-    <div style="margin-top: 50px;">
-        <p style="font-size: 14px; color: #6c757d; margin: 0;">Issued on {{date_issued}}</p>
-        <p style="font-size: 14px; color: #6c757d; margin: 0;">Certificate Serial: <strong>{{serial_number}}</strong></p>
-    </div>
-    
-    <div style="margin-top: 60px; display: flex; justify-content: space-between; align-items: flex-end;">
-        <div style="text-align: center; flex: 1;">
-            <div style="border-top: 2px solid #2c5aa0; padding-top: 10px; margin-bottom: 10px; width: 200px; margin-left: auto; margin-right: auto;"></div>
-            <p style="margin: 0; font-size: 14px; color: #495057;">Class Adviser</p>
+    <div style="border: 2px solid #2c5aa0; padding: 30px; background: white;">
+        <h1 style="color: #2c5aa0; font-size: 36px; margin: 0 0 20px 0; text-transform: uppercase; letter-spacing: 2px;">Certificate of Achievement</h1>
+        <div style="border-top: 2px solid #2c5aa0; border-bottom: 2px solid #2c5aa0; padding: 20px 0; margin: 20px 0;">
+            <h2 style="color: #1a365d; font-size: 28px; margin: 0; font-weight: bold;">{{student_name}}</h2>
+            <p style="color: #4a5568; font-size: 16px; margin: 10px 0;">Student ID: {{student_number}}</p>
         </div>
-        <div style="text-align: center; flex: 1;">
-            <div style="border-top: 2px solid #2c5aa0; padding-top: 10px; margin-bottom: 10px; width: 200px; margin-left: auto; margin-right: auto;"></div>
-            <p style="margin: 0; font-size: 14px; color: #495057;">School Principal</p>
+        <p style="font-size: 18px; color: #2d3748; margin: 20px 0;">is hereby recognized for achieving</p>
+        <h3 style="color: #2c5aa0; font-size: 24px; margin: 20px 0; text-transform: uppercase; font-weight: bold;">{{honor_type}}</h3>
+        <p style="font-size: 16px; color: #4a5568; margin: 15px 0;">{{honor_description}}</p>
+        <div style="margin: 30px 0; padding: 20px; background: #f7fafc; border-left: 4px solid #2c5aa0;">
+            <p style="margin: 5px 0; font-size: 16px;"><strong>Academic Level:</strong> {{academic_level}}</p>
+            <p style="margin: 5px 0; font-size: 16px;"><strong>School Year:</strong> {{school_year}}</p>
+            <p style="margin: 5px 0; font-size: 16px;"><strong>GPA:</strong> {{gpa}}</p>
         </div>
+        <p style="font-size: 16px; color: #2d3748; margin: 20px 0;">Given this {{date_generated}}</p>
+        <div style="margin-top: 40px; text-align: center;">
+            <div style="border-top: 1px solid #2c5aa0; width: 200px; margin: 0 auto 10px auto;"></div>
+            <p style="margin: 0; font-size: 14px; color: #4a5568;">Authorized Signature</p>
+        </div>
+        <div style="margin-top: 20px; font-size: 10px; color: #718096;">Certificate Serial: {{serial_number}}</div>
     </div>
 </div>
 HTML;
-
-        CertificateTemplate::updateOrCreate(
-            ['key' => 'elementary_honor_certificate'],
-            [
-                'academic_level_id' => $level->id,
-                'name' => 'Elementary Honor Certificate',
-                'content_html' => $html,
-                'is_active' => true,
-            ]
-        );
-    }
-
-    private function createJuniorHighTemplate(AcademicLevel $level): void
-    {
-        $html = <<<HTML
-<div style="text-align: center; padding: 40px; border: 8px double #6f42c1; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); font-family: 'Times New Roman', serif; max-width: 800px; margin: 0 auto;">
-    <div style="margin-bottom: 30px;">
-        <img src="{{logo_url}}" alt="School Logo" style="width: 80px; height: 80px; margin-bottom: 20px;">
-        <h1 style="color: #6f42c1; margin: 0; font-size: 36px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px;">Certificate of Academic Excellence</h1>
-    </div>
-    
-    <div style="margin: 40px 0; line-height: 1.8;">
-        <p style="font-size: 18px; color: #495057; margin: 0;">This is to certify that</p>
-        <h2 style="color: #6f42c1; margin: 20px 0; font-size: 28px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">{{student_name}}</h2>
-        <p style="font-size: 16px; color: #6c757d; margin: 0;">Student ID: <strong>{{student_number}}</strong></p>
-        <p style="font-size: 16px; color: #6c757d; margin: 0;">Grade Level: <strong>{{grade_level}}</strong></p>
-    </div>
-    
-    <div style="margin: 30px 0; padding: 20px; background: rgba(111, 66, 193, 0.1); border-radius: 10px;">
-        <p style="font-size: 18px; color: #495057; margin: 0;">has achieved</p>
-        <h3 style="color: #6f42c1; margin: 15px 0; font-size: 24px; font-weight: bold; text-transform: uppercase;">{{honor_type}}</h3>
-        <p style="font-size: 16px; color: #6c757d; margin: 0;">for the School Year <strong>{{school_year}}</strong></p>
-        <p style="font-size: 16px; color: #6c757d; margin: 0;">with an average grade of <strong>{{average_grade}}</strong></p>
-    </div>
-    
-    <div style="margin: 40px 0; line-height: 1.6;">
-        <p style="font-size: 16px; color: #495057; margin: 0;">This certificate is awarded in recognition of</p>
-        <p style="font-size: 16px; color: #495057; margin: 0;">exceptional academic achievement and commitment to excellence.</p>
-    </div>
-    
-    <div style="margin-top: 50px;">
-        <p style="font-size: 14px; color: #6c757d; margin: 0;">Issued on {{date_issued}}</p>
-        <p style="font-size: 14px; color: #6c757d; margin: 0;">Certificate Serial: <strong>{{serial_number}}</strong></p>
-    </div>
-    
-    <div style="margin-top: 60px; display: flex; justify-content: space-between; align-items: flex-end;">
-        <div style="text-align: center; flex: 1;">
-            <div style="border-top: 2px solid #6f42c1; padding-top: 10px; margin-bottom: 10px; width: 200px; margin-left: auto; margin-right: auto;"></div>
-            <p style="margin: 0; font-size: 14px; color: #495057;">Class Adviser</p>
-        </div>
-        <div style="text-align: center; flex: 1;">
-            <div style="border-top: 2px solid #6f42c1; padding-top: 10px; margin-bottom: 10px; width: 200px; margin-left: auto; margin-right: auto;"></div>
-            <p style="margin: 0; font-size: 14px; color: #495057;">School Principal</p>
-        </div>
-    </div>
-</div>
-HTML;
-
-        CertificateTemplate::updateOrCreate(
-            ['key' => 'junior_high_honor_certificate'],
-            [
-                'academic_level_id' => $level->id,
-                'name' => 'Junior High School Honor Certificate',
-                'content_html' => $html,
-                'is_active' => true,
-            ]
-        );
-    }
-
-    private function createSeniorHighTemplate(AcademicLevel $level): void
-    {
-        $html = <<<HTML
-<div style="text-align: center; padding: 40px; border: 8px double #dc3545; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); font-family: 'Times New Roman', serif; max-width: 800px; margin: 0 auto;">
-    <div style="margin-bottom: 30px;">
-        <img src="{{logo_url}}" alt="School Logo" style="width: 80px; height: 80px; margin-bottom: 20px;">
-        <h1 style="color: #dc3545; margin: 0; font-size: 36px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px;">Certificate of Academic Distinction</h1>
-    </div>
-    
-    <div style="margin: 40px 0; line-height: 1.8;">
-        <p style="font-size: 18px; color: #495057; margin: 0;">This is to certify that</p>
-        <h2 style="color: #dc3545; margin: 20px 0; font-size: 28px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">{{student_name}}</h2>
-        <p style="font-size: 16px; color: #6c757d; margin: 0;">Student ID: <strong>{{student_number}}</strong></p>
-        <p style="font-size: 16px; color: #6c757d; margin: 0;">Grade Level: <strong>{{grade_level}}</strong></p>
-        <p style="font-size: 16px; color: #6c757d; margin: 0;">Strand: <strong>{{strand_name}}</strong></p>
-    </div>
-    
-    <div style="margin: 30px 0; padding: 20px; background: rgba(220, 53, 69, 0.1); border-radius: 10px;">
-        <p style="font-size: 18px; color: #495057; margin: 0;">has achieved</p>
-        <h3 style="color: #dc3545; margin: 15px 0; font-size: 24px; font-weight: bold; text-transform: uppercase;">{{honor_type}}</h3>
-        <p style="font-size: 16px; color: #6c757d; margin: 0;">for the School Year <strong>{{school_year}}</strong></p>
-        <p style="font-size: 16px; color: #6c757d; margin: 0;">with an average grade of <strong>{{average_grade}}</strong></p>
-    </div>
-    
-    <div style="margin: 40px 0; line-height: 1.6;">
-        <p style="font-size: 16px; color: #495057; margin: 0;">This certificate is awarded in recognition of</p>
-        <p style="font-size: 16px; color: #495057; margin: 0;">outstanding academic performance and dedication to excellence</p>
-        <p style="font-size: 16px; color: #495057; margin: 0;">in the <strong>{{strand_name}}</strong> strand.</p>
-    </div>
-    
-    <div style="margin-top: 50px;">
-        <p style="font-size: 14px; color: #6c757d; margin: 0;">Issued on {{date_issued}}</p>
-        <p style="font-size: 14px; color: #6c757d; margin: 0;">Certificate Serial: <strong>{{serial_number}}</strong></p>
-    </div>
-    
-    <div style="margin-top: 60px; display: flex; justify-content: space-between; align-items: flex-end;">
-        <div style="text-align: center; flex: 1;">
-            <div style="border-top: 2px solid #dc3545; padding-top: 10px; margin-bottom: 10px; width: 200px; margin-left: auto; margin-right: auto;"></div>
-            <p style="margin: 0; font-size: 14px; color: #495057;">Strand Coordinator</p>
-        </div>
-        <div style="text-align: center; flex: 1;">
-            <div style="border-top: 2px solid #dc3545; padding-top: 10px; margin-bottom: 10px; width: 200px; margin-left: auto; margin-right: auto;"></div>
-            <p style="margin: 0; font-size: 14px; color: #495057;">School Principal</p>
-        </div>
-    </div>
-</div>
-HTML;
-
-        CertificateTemplate::updateOrCreate(
-            ['key' => 'senior_high_honor_certificate'],
-            [
-                'academic_level_id' => $level->id,
-                'name' => 'Senior High School Honor Certificate',
-                'content_html' => $html,
-                'is_active' => true,
-            ]
-        );
-    }
-
-    private function createCollegeTemplate(AcademicLevel $level): void
-    {
-        $html = <<<HTML
-<div style="text-align: center; padding: 40px; border: 8px double #28a745; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); font-family: 'Times New Roman', serif; max-width: 800px; margin: 0 auto;">
-    <div style="margin-bottom: 30px;">
-        <img src="{{logo_url}}" alt="School Logo" style="width: 80px; height: 80px; margin-bottom: 20px;">
-        <h1 style="color: #28a745; margin: 0; font-size: 36px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px;">Certificate of Academic Achievement</h1>
-    </div>
-    
-    <div style="margin: 40px 0; line-height: 1.8;">
-        <p style="font-size: 18px; color: #495057; margin: 0;">This is to certify that</p>
-        <h2 style="color: #28a745; margin: 20px 0; font-size: 28px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">{{student_name}}</h2>
-        <p style="font-size: 16px; color: #6c757d; margin: 0;">Student ID: <strong>{{student_number}}</strong></p>
-        <p style="font-size: 16px; color: #6c757d; margin: 0;">Course: <strong>{{course_name}}</strong></p>
-        <p style="font-size: 16px; color: #6c757d; margin: 0;">Department: <strong>{{department_name}}</strong></p>
-        <p style="font-size: 16px; color: #6c757d; margin: 0;">Year Level: <strong>{{year_level}}</strong></p>
-    </div>
-    
-    <div style="margin: 30px 0; padding: 20px; background: rgba(40, 167, 69, 0.1); border-radius: 10px;">
-        <p style="font-size: 18px; color: #495057; margin: 0;">has achieved</p>
-        <h3 style="color: #28a745; margin: 15px 0; font-size: 24px; font-weight: bold; text-transform: uppercase;">{{honor_type}}</h3>
-        <p style="font-size: 16px; color: #6c757d; margin: 0;">for the School Year <strong>{{school_year}}</strong></p>
-        <p style="font-size: 16px; color: #6c757d; margin: 0;">with a GPA of <strong>{{gpa}}</strong></p>
-    </div>
-    
-    <div style="margin: 40px 0; line-height: 1.6;">
-        <p style="font-size: 16px; color: #495057; margin: 0;">This certificate is awarded in recognition of</p>
-        <p style="font-size: 16px; color: #495057; margin: 0;">exceptional academic performance and dedication to excellence</p>
-        <p style="font-size: 16px; color: #495057; margin: 0;">in the <strong>{{course_name}}</strong> program.</p>
-    </div>
-    
-    <div style="margin-top: 50px;">
-        <p style="font-size: 14px; color: #6c757d; margin: 0;">Issued on {{date_issued}}</p>
-        <p style="font-size: 14px; color: #6c757d; margin: 0;">Certificate Serial: <strong>{{serial_number}}</strong></p>
-    </div>
-    
-    <div style="margin-top: 60px; display: flex; justify-content: space-between; align-items: flex-end;">
-        <div style="text-align: center; flex: 1;">
-            <div style="border-top: 2px solid #28a745; padding-top: 10px; margin-bottom: 10px; width: 200px; margin-left: auto; margin-right: auto;"></div>
-            <p style="margin: 0; font-size: 14px; color: #495057;">Department Head</p>
-        </div>
-        <div style="text-align: center; flex: 1;">
-            <div style="border-top: 2px solid #28a745; padding-top: 10px; margin-bottom: 10px; width: 200px; margin-left: auto; margin-right: auto;"></div>
-            <p style="margin: 0; font-size: 14px; color: #495057;">Dean</p>
-        </div>
-    </div>
-</div>
-HTML;
-
-        CertificateTemplate::updateOrCreate(
-            ['key' => 'college_honor_certificate'],
-            [
-                'academic_level_id' => $level->id,
-                'name' => 'College Honor Certificate',
-                'content_html' => $html,
-                'is_active' => true,
-            ]
-        );
     }
 }
-

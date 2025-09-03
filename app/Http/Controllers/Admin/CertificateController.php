@@ -31,7 +31,15 @@ class CertificateController extends Controller
         $templates = CertificateTemplate::with(['academicLevel', 'creator'])->orderBy('name')->get();
         $recentCertificates = Certificate::with(['student', 'template', 'academicLevel'])
             ->orderByDesc('created_at')
-            ->limit(25)
+            ->limit(5)
+            ->get();
+
+        // Get qualified students for certificate generation
+        $qualifiedStudents = \App\Models\HonorResult::with(['student', 'honorType', 'academicLevel'])
+            ->where('is_approved', true)
+            ->where('school_year', '2024-2025') // Current school year
+            ->orderBy('academic_level_id')
+            ->orderBy('honor_type_id')
             ->get();
 
         return Inertia::render('Admin/Academic/Certificates/Index', [
@@ -39,6 +47,7 @@ class CertificateController extends Controller
             'academicLevels' => $academicLevels,
             'templates' => $templates,
             'recentCertificates' => $recentCertificates,
+            'qualifiedStudents' => $qualifiedStudents,
             'schoolYears' => $this->getSchoolYears(),
         ]);
     }
@@ -187,13 +196,43 @@ class CertificateController extends Controller
             return back()->withErrors(['student_id' => 'Student not found by ID or student number.'])->withInput();
         }
 
+        // Validate that the student is qualified for honors
+        $honorValidation = $this->validateStudentHonorQualification(
+            $resolvedStudentId, 
+            $validated['academic_level_id'], 
+            $validated['school_year']
+        );
+
+        if (!$honorValidation['qualified']) {
+            return back()->withErrors([
+                'student_id' => 'Student is not qualified for honors. ' . $honorValidation['reason']
+            ])->withInput();
+        }
+
+        // Get the student's honor result to determine the appropriate template
+        $honorResult = $honorValidation['honor_result'];
+        $student = User::find($resolvedStudentId);
+        $academicLevel = AcademicLevel::find($validated['academic_level_id']);
+
+        // Auto-select the appropriate template based on the honor type and academic level
+        $template = $this->getTemplateForHonorType($honorResult->honorType, $academicLevel);
+        
+        if (!$template) {
+            return back()->withErrors([
+                'template_id' => 'No certificate template found for ' . $honorResult->honorType->name . ' in ' . $academicLevel->name
+            ])->withInput();
+        }
+
+        // Generate certificate payload with honor-specific data
+        $payload = $this->generateHonorCertificatePayload($student, $academicLevel, $honorResult);
+
         $certificate = new Certificate();
         $certificate->fill([
-            'template_id' => $validated['template_id'],
+            'template_id' => $template->id, // Use the auto-selected template
             'student_id' => $resolvedStudentId,
             'academic_level_id' => $validated['academic_level_id'],
             'school_year' => $validated['school_year'],
-            'payload' => $validated['payload'] ?? [],
+            'payload' => $payload, // Use the generated payload
         ]);
         $certificate->serial_number = $this->generateSerialNumber($validated['school_year']);
         $certificate->status = 'generated';
@@ -201,7 +240,7 @@ class CertificateController extends Controller
         $certificate->generated_by = Auth::id();
         $certificate->save();
 
-        return back();
+        return back()->with('success', 'Certificate generated successfully!');
     }
 
     public function generateBulk(Request $request)
@@ -216,18 +255,50 @@ class CertificateController extends Controller
         ]);
 
         $errors = [];
+        $unqualifiedStudents = [];
+        
         foreach ($validated['student_ids'] as $identifier) {
             $studentId = $this->resolveStudentId($identifier);
             if ($studentId === null) {
                 $errors[] = $identifier;
                 continue;
             }
+
+            // Validate honor qualification for each student
+            $honorValidation = $this->validateStudentHonorQualification(
+                $studentId, 
+                $validated['academic_level_id'], 
+                $validated['school_year']
+            );
+
+            if (!$honorValidation['qualified']) {
+                $student = User::find($studentId);
+                $unqualifiedStudents[] = $student->name . ' (' . $student->student_number . '): ' . $honorValidation['reason'];
+                continue;
+            }
+
+            // Get the student's honor result and auto-select template
+            $honorResult = $honorValidation['honor_result'];
+            $student = User::find($studentId);
+            $academicLevel = AcademicLevel::find($validated['academic_level_id']);
+
+            // Auto-select the appropriate template based on the honor type
+            $template = $this->getTemplateForHonorType($honorResult->honorType, $academicLevel);
+            
+            if (!$template) {
+                $unqualifiedStudents[] = $student->name . ' (' . $student->student_number . '): No certificate template found for ' . $honorResult->honorType->name;
+                continue;
+            }
+
+            // Generate certificate payload with honor-specific data
+            $payload = $this->generateHonorCertificatePayload($student, $academicLevel, $honorResult);
+
             $certificate = new Certificate();
-            $certificate->template_id = $validated['template_id'];
+            $certificate->template_id = $template->id; // Use the auto-selected template
             $certificate->student_id = $studentId;
             $certificate->academic_level_id = $validated['academic_level_id'];
             $certificate->school_year = $validated['school_year'];
-            $certificate->payload = $validated['payload'] ?? [];
+            $certificate->payload = $payload; // Use the generated payload
             $certificate->serial_number = $this->generateSerialNumber($validated['school_year']);
             $certificate->status = 'generated';
             $certificate->generated_at = now();
@@ -235,12 +306,22 @@ class CertificateController extends Controller
             $certificate->save();
         }
 
+        $errorMessages = [];
         if (!empty($errors)) {
-            return back()->withErrors(['student_ids' => 'Some identifiers could not be resolved: '.implode(', ', $errors)])->withInput();
+            $errorMessages['student_ids'] = 'Some identifiers could not be resolved: '.implode(', ', $errors);
+        }
+        if (!empty($unqualifiedStudents)) {
+            $errorMessages['unqualified'] = 'Some students are not qualified for honors: ' . implode('; ', $unqualifiedStudents);
+        }
+
+        if (!empty($errorMessages)) {
+            return back()->withErrors($errorMessages)->withInput();
         }
 
         return back();
     }
+
+
 
     public function download(Certificate $certificate)
     {
@@ -347,6 +428,130 @@ class CertificateController extends Controller
             'name' => $user->name,
             'student_number' => $user->student_number,
         ]);
+    }
+
+    /**
+     * Validate if a student is qualified for honors in the given academic level and school year
+     */
+    private function validateStudentHonorQualification(int $studentId, int $academicLevelId, string $schoolYear): array
+    {
+        // Check if student has any honor results for this academic level and school year
+        $honorResult = \App\Models\HonorResult::where([
+            'student_id' => $studentId,
+            'academic_level_id' => $academicLevelId,
+            'school_year' => $schoolYear,
+        ])->where('is_approved', true) // Only approved honor results
+        ->first();
+
+        if (!$honorResult) {
+            return [
+                'qualified' => false,
+                'reason' => 'No approved honor qualification found for this academic level and school year.'
+            ];
+        }
+
+        // Check if the honor result is not rejected
+        if ($honorResult->is_rejected) {
+            return [
+                'qualified' => false,
+                'reason' => 'Honor qualification was rejected. Reason: ' . ($honorResult->rejection_reason ?? 'No reason provided.')
+            ];
+        }
+
+        // Check if the honor result is pending approval
+        if ($honorResult->is_pending_approval && !$honorResult->is_approved) {
+            return [
+                'qualified' => false,
+                'reason' => 'Honor qualification is pending approval.'
+            ];
+        }
+
+        return [
+            'qualified' => true,
+            'reason' => 'Student is qualified for ' . $honorResult->honorType->name . ' (GPA: ' . $honorResult->gpa . ')',
+            'honor_result' => $honorResult
+        ];
+    }
+
+    /**
+     * Get the appropriate certificate template for a specific honor type and academic level
+     */
+    private function getTemplateForHonorType(\App\Models\HonorType $honorType, \App\Models\AcademicLevel $academicLevel): ?\App\Models\CertificateTemplate
+    {
+        // Map honor types to template keys based on academic level
+        $templateKey = match ($academicLevel->key) {
+            'elementary' => match ($honorType->key) {
+                'with_honors' => 'elementary_honor_certificate',
+                'with_high_honors' => 'elementary_high_honor_certificate',
+                'with_highest_honors' => 'elementary_highest_honor_certificate',
+                default => 'elementary_honor_certificate',
+            },
+            'junior_highschool' => match ($honorType->key) {
+                'with_honors' => 'junior_high_honor_certificate',
+                'with_high_honors' => 'junior_high_high_honor_certificate',
+                'with_highest_honors' => 'junior_high_highest_honor_certificate',
+                default => 'junior_high_honor_certificate',
+            },
+            'senior_highschool' => match ($honorType->key) {
+                'with_honors' => 'senior_high_honor_certificate',
+                'with_high_honors' => 'senior_high_high_honor_certificate',
+                'with_highest_honors' => 'senior_high_highest_honor_certificate',
+                default => 'senior_high_honor_certificate',
+            },
+            'college' => match ($honorType->key) {
+                'deans_list' => 'college_deans_list_certificate',
+                'college_honors' => 'college_honors_certificate',
+                'cum_laude' => 'college_cum_laude_certificate',
+                'magna_cum_laude' => 'college_magna_cum_laude_certificate',
+                'summa_cum_laude' => 'college_summa_cum_laude_certificate',
+                default => 'college_honor_certificate',
+            },
+            default => null,
+        };
+
+        if (!$templateKey) {
+            return null;
+        }
+
+        return \App\Models\CertificateTemplate::where('key', $templateKey)
+            ->where('academic_level_id', $academicLevel->id)
+            ->where('is_active', true)
+            ->first();
+    }
+
+    /**
+     * Generate certificate payload with honor-specific data
+     */
+    private function generateHonorCertificatePayload(\App\Models\User $student, \App\Models\AcademicLevel $academicLevel, \App\Models\HonorResult $honorResult): array
+    {
+        return [
+            'student_name' => $student->name,
+            'student_number' => $student->student_number ?? '',
+            'academic_level' => $academicLevel->name,
+            'honor_type' => $honorResult->honorType->name,
+            'gpa' => $honorResult->gpa,
+            'school_year' => $honorResult->school_year,
+            'date_generated' => now()->format('F d, Y'),
+            'honor_description' => $this->getHonorDescription($honorResult->honorType, $academicLevel),
+        ];
+    }
+
+    /**
+     * Get a description for the honor type
+     */
+    private function getHonorDescription(\App\Models\HonorType $honorType, \App\Models\AcademicLevel $academicLevel): string
+    {
+        return match ($honorType->key) {
+            'with_honors' => 'For achieving academic excellence with a GPA of 90 and above',
+            'with_high_honors' => 'For achieving high academic excellence with a GPA of 95-97 and no grade below 90',
+            'with_highest_honors' => 'For achieving the highest academic excellence with a GPA of 98-100 and no grade below 93',
+            'deans_list' => 'For being included in the Dean\'s List with outstanding academic performance',
+            'college_honors' => 'For achieving college honors with consistent academic excellence',
+            'cum_laude' => 'For graduating with honors (Cum Laude)',
+            'magna_cum_laude' => 'For graduating with high honors (Magna Cum Laude)',
+            'summa_cum_laude' => 'For graduating with highest honors (Summa Cum Laude)',
+            default => 'For achieving academic excellence',
+        };
     }
 }
 

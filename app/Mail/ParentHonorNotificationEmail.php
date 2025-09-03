@@ -32,7 +32,7 @@ class ParentHonorNotificationEmail extends Mailable implements ShouldQueue
     {
         return new Envelope(
             subject: 'Honor Qualification Achievement - ' . $this->student->name . ' - ' . $this->schoolYear,
-            from: 'hansel.canete24@gmail.com',
+            from: config('mail.from.address'),
         );
     }
 

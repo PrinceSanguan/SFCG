@@ -29,11 +29,36 @@ interface Certificate {
   printed_at?: string;
 }
 
+interface HonorType {
+  id: number;
+  name: string;
+  key: string;
+}
+
+interface QualifiedStudent {
+  id: number;
+  student_id: number;
+  honor_type_id: number;
+  academic_level_id: number;
+  school_year: string;
+  gpa: number;
+  student: {
+    id: number;
+    name: string;
+    student_number: string;
+  };
+  honor_type: HonorType;
+  academic_level: AcademicLevel;
+}
+
+
+
 interface Props {
   user: User;
   academicLevels: AcademicLevel[];
   templates: Template[];
   recentCertificates: Certificate[];
+  qualifiedStudents: QualifiedStudent[];
   schoolYears: string[];
 }
 
@@ -74,10 +99,18 @@ class ErrorBoundary extends React.Component<
   }
 }
 
-export default function CertificatesIndex({ user, academicLevels, templates, recentCertificates, schoolYears }: Props) {
+export default function CertificatesIndex({ user, academicLevels, templates, recentCertificates, qualifiedStudents = [], schoolYears }: Props) {
   const [selectedLevel, setSelectedLevel] = useState<number | null>(academicLevels?.[0]?.id ?? null);
   const [schoolYear, setSchoolYear] = useState<string>(schoolYears?.[0] ?? '2024-2025');
   const [activeTab, setActiveTab] = useState('templates');
+
+  // Debug logging
+  React.useEffect(() => {
+    console.log('Qualified Students Data:', qualifiedStudents);
+    console.log('Academic Levels Data:', academicLevels);
+  }, [qualifiedStudents, academicLevels]);
+
+
 
   // Search and filter state
   const [searchFilters, setSearchFilters] = useState({
@@ -105,6 +138,8 @@ export default function CertificatesIndex({ user, academicLevels, templates, rec
   });
 
   const [resolvedStudentName, setResolvedStudentName] = useState<string>('');
+
+
 
   // Form-based template builder state and submitter
   const [builder, setBuilder] = useState({
@@ -522,6 +557,94 @@ export default function CertificatesIndex({ user, academicLevels, templates, rec
                       </form>
                     </CardContent>
                   </Card>
+                  {/* Qualified Students Section */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <span>🏆</span>
+                        Qualified Students for Certificate Generation
+                      </CardTitle>
+                      <p className="text-sm text-gray-600">
+                        Students who have qualified for honors and are eligible for certificate generation.
+                      </p>
+                    </CardHeader>
+                    <CardContent>
+                      {qualifiedStudents && qualifiedStudents.length > 0 ? (
+                        <div className="space-y-4">
+                          {/* Group by Academic Level */}
+                          {academicLevels && academicLevels.map(level => {
+                            if (!level || !level.id) return null;
+                            
+                            const levelStudents = qualifiedStudents.filter(student => 
+                              student && student.academic_level_id === level.id
+                            );
+                            
+                            if (levelStudents.length === 0) return null;
+                            
+                            return (
+                              <div key={level.id} className="border rounded-lg p-4">
+                                <h3 className="text-lg font-semibold mb-3 text-blue-600">
+                                  {level.name || 'Unknown Level'} ({levelStudents.length} student{levelStudents.length !== 1 ? 's' : ''})
+                                </h3>
+                                <div className="grid gap-3">
+                                  {levelStudents.map(student => {
+                                    if (!student || !student.student || !student.honor_type) return null;
+                                    
+                                    return (
+                                      <div key={student.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-3">
+                                            <div>
+                                              <p className="font-medium text-gray-900">
+                                                {student.student.name || 'Unknown Student'}
+                                              </p>
+                                              <p className="text-sm text-gray-600">
+                                                ID: {student.student.student_number || 'N/A'}
+                                              </p>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                              <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                                                {student.honor_type.name || 'Unknown Honor'}
+                                              </Badge>
+                                              <Badge variant="outline" className="bg-green-100 text-green-800">
+                                                GPA: {student.gpa || 'N/A'}
+                                              </Badge>
+                                            </div>
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => {
+                                              if (student.student && student.student.student_number) {
+                                                setGenData('student_id', student.student.student_number);
+                                                setGenData('academic_level_id', student.academic_level_id?.toString() || '');
+                                                setGenData('school_year', student.school_year || '2024-2025');
+                                              }
+                                            }}
+                                            className="text-blue-600 hover:text-blue-800"
+                                            disabled={!student.student || !student.student.student_number}
+                                          >
+                                            Generate Certificate
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 text-gray-500">
+                          <p className="text-lg font-medium">No qualified students found</p>
+                          <p className="text-sm">Students need to have approved honor qualifications to appear here.</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
                 </TabsContent>
 
                 <TabsContent value="bulk" className="space-y-6">
@@ -875,8 +998,8 @@ export default function CertificatesIndex({ user, academicLevels, templates, rec
                           <TableCell>{c.downloaded_at ? new Date(c.downloaded_at).toLocaleString() : '-'}</TableCell>
                           <TableCell>{c.printed_at ? new Date(c.printed_at).toLocaleString() : '-'}</TableCell>
                           <TableCell className="space-x-2">
-                            <a className="text-blue-600" href={route('admin.academic.certificates.download', { certificate: c.id })}>Download</a>
-                            <a className="text-blue-600" href={route('admin.academic.certificates.print', { certificate: c.id })} target="_blank">Print</a>
+                            <a className="text-blue-600 hover:text-blue-800" href={route('admin.academic.certificates.download', { certificate: c.id })}>Download</a>
+                            <a className="text-blue-600 hover:text-blue-800" href={route('admin.academic.certificates.print', { certificate: c.id })} target="_blank">Print</a>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -888,6 +1011,8 @@ export default function CertificatesIndex({ user, academicLevels, templates, rec
           </main>
         </div>
       </div>
+
+
     </ErrorBoundary>
   );
 }

@@ -473,6 +473,7 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/aca
     Route::post('/certificates/generate', [CertificateController::class, 'generate'])->name('certificates.generate');
     Route::post('/certificates/generate-bulk', [CertificateController::class, 'generateBulk'])->name('certificates.generate-bulk');
     Route::get('/certificates/resolve-student', [CertificateController::class, 'resolveStudentApi'])->name('certificates.resolve-student');
+
     Route::get('/certificates/{certificate}/download', [CertificateController::class, 'download'])->name('certificates.download');
     Route::get('/certificates/{certificate}/print', [CertificateController::class, 'print'])->name('certificates.print');
 });
