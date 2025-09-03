@@ -6,18 +6,20 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
 
-class WelcomeEmail extends Mailable
+class UserAccountCreatedEmail extends Mailable
 {
     use Queueable, SerializesModels;
 
     public $user;
+    public $plainPassword;
 
     /**
      * Create a new message instance.
      */
-    public function __construct($user)
+    public function __construct($user, $plainPassword = null)
     {
         $this->user = $user;
+        $this->plainPassword = $plainPassword;
     }
 
     /**
@@ -25,8 +27,10 @@ class WelcomeEmail extends Mailable
      */
     public function build()
     {
-        return $this->subject('Welcome to ' . config('app.name'))
+        $subject = 'Your Account Has Been Created - ' . config('app.name');
+        
+        return $this->subject($subject)
             ->from(config('mail.from.address'), config('mail.from.name'))
-            ->view('emails.welcome');
+            ->view('emails.user-account-created');
     }
 }

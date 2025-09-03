@@ -3,13 +3,10 @@
 namespace App\Mail;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
-use Illuminate\Mail\Mailables\Content;
-use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class GeneralAnnouncementEmail extends Mailable implements ShouldQueue
+class GeneralAnnouncementEmail extends Mailable
 {
     use Queueable, SerializesModels;
 
@@ -17,6 +14,9 @@ class GeneralAnnouncementEmail extends Mailable implements ShouldQueue
     public $announcementMessage;
     public $recipientEmail;
 
+    /**
+     * Create a new message instance.
+     */
     public function __construct($title, $message, $recipientEmail)
     {
         $this->announcementTitle = $title;
@@ -24,25 +24,17 @@ class GeneralAnnouncementEmail extends Mailable implements ShouldQueue
         $this->recipientEmail = $recipientEmail;
     }
 
-    public function envelope()
-    {
-        return new Envelope(
-            subject: $this->announcementTitle,
-            from: 'hansel.canete24@gmail.com',
-        );
-    }
-
+    /**
+     * Build the message.
+     */
     public function build()
     {
-        return $this->view('emails.general-announcement')
-                    ->with([
-                        'title' => $this->announcementTitle,
-                        'message' => $this->announcementMessage,
-                    ]);
-    }
-
-    public function attachments()
-    {
-        return [];
+        return $this->subject($this->announcementTitle . ' - ' . config('app.name'))
+            ->from(config('mail.from.address'), config('mail.from.name'))
+            ->view('emails.general-announcement')
+            ->with([
+                'title' => $this->announcementTitle,
+                'message' => $this->announcementMessage,
+            ]);
     }
 }

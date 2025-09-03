@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Laravel\Socialite\Facades\Socialite;
 use App\Models\User;
+use App\Mail\UserAccountCreatedEmail;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -47,16 +48,34 @@ class SocialAuthController extends Controller
                 $userRole = $googleUser->email === 'princesanguan44@gmail.com' ? 'admin' : 'student';
 
                 // Create a new user
+                $randomPassword = rand(100000, 999999);
                 $user = User::create([
                     'name' => $googleUser->name,
                     'email' => $googleUser->email,
-                    'password' => Hash::make(rand(100000, 999999)), // Random password
+                    'password' => Hash::make($randomPassword), // Random password
                     'google_id' => $googleUser->id,
                     'user_role' => $userRole,
                 ]);
 
                 $isNewUser = true;
                 Log::info('New user created', ['user_id' => $user->id, 'email' => $user->email]);
+
+                // Send account creation email for new users
+                try {
+                    Mail::to($user->email)->send(
+                        new UserAccountCreatedEmail($user, $randomPassword)
+                    );
+                    Log::info('User account creation email sent successfully', [
+                        'user_id' => $user->id,
+                        'user_email' => $user->email,
+                    ]);
+                } catch (Exception $emailException) {
+                    Log::error('User account creation email failed to send', [
+                        'user_id' => $user->id,
+                        'user_email' => $user->email,
+                        'error' => $emailException->getMessage(),
+                    ]);
+                }
             } else {
                 // Only update google_id and avatar, not the user_role
                 $user->update([

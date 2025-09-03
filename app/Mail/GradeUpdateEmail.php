@@ -3,15 +3,10 @@
 namespace App\Mail;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
-use Illuminate\Mail\Mailables\Content;
-use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
-use App\Models\User;
-use App\Models\StudentGrade;
 
-class GradeUpdateEmail extends Mailable implements ShouldQueue
+class GradeUpdateEmail extends Mailable
 {
     use Queueable, SerializesModels;
 
@@ -20,7 +15,10 @@ class GradeUpdateEmail extends Mailable implements ShouldQueue
     public $schoolYear;
     public $academicLevel;
 
-    public function __construct(User $user, $grades, $schoolYear, $academicLevel)
+    /**
+     * Create a new message instance.
+     */
+    public function __construct($user, $grades, $schoolYear, $academicLevel)
     {
         $this->user = $user;
         $this->grades = $grades;
@@ -28,23 +26,13 @@ class GradeUpdateEmail extends Mailable implements ShouldQueue
         $this->academicLevel = $academicLevel;
     }
 
-    public function envelope()
+    /**
+     * Build the message.
+     */
+    public function build()
     {
-        return new Envelope(
-            subject: 'Grade Update Notification - ' . $this->schoolYear,
-            from: 'hansel.canete24@gmail.com',
-        );
-    }
-
-    public function content()
-    {
-        return new Content(
-            view: 'emails.grade-update',
-        );
-    }
-
-    public function attachments()
-    {
-        return [];
+        return $this->subject('Grade Update Notification - ' . $this->schoolYear . ' - ' . config('app.name'))
+            ->from(config('mail.from.address'), config('mail.from.name'))
+            ->view('emails.grade-update');
     }
 }

@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\User;
+use App\Mail\UserAccountCreatedEmail;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 
 class RegisterController extends Controller
@@ -27,11 +29,25 @@ class RegisterController extends Controller
         ]);
 
         // Create a new user
-        User::create([
+        $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password), // Hash the password
         ]);
+
+        // Send email to user with their credentials
+        try {
+            Mail::to($user->email)->send(
+                new UserAccountCreatedEmail($user, $request->password)
+            );
+        } catch (\Exception $e) {
+            // Log error but don't fail the registration
+            \Log::error('User account creation email failed to send', [
+                'user_id' => $user->id,
+                'user_email' => $user->email,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         // Redirect to login or dashboard
         return redirect()->route('auth.login')->with('success', 'Account created successfully!');

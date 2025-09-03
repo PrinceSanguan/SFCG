@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\User;
+use App\Mail\UserAccountCreatedEmail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -128,6 +130,24 @@ class UserManagementController extends Controller
             'year_level' => $request->user_role === 'student' ? $request->year_level : null,
             'student_number' => $request->user_role === 'student' ? $request->student_number : null,
         ]);
+
+        // Send email to user with their credentials
+        try {
+            Mail::to($user->email)->send(
+                new UserAccountCreatedEmail($user, $request->password)
+            );
+            Log::info('User account creation email sent successfully', [
+                'user_id' => $user->id,
+                'user_email' => $user->email,
+                'user_role' => $user->user_role,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('User account creation email failed to send', [
+                'user_id' => $user->id,
+                'user_email' => $user->email,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         // Log the activity
         $currentUser = Auth::user();
@@ -494,6 +514,24 @@ class UserManagementController extends Controller
             'course_id' => $role === 'student' ? $request->course_id : null,
             'student_number' => $role === 'student' ? $request->student_number : null,
         ]);
+
+        // Send email to user with their credentials
+        try {
+            Mail::to($user->email)->send(
+                new UserAccountCreatedEmail($user, $request->password)
+            );
+            Log::info('User account creation email sent successfully', [
+                'user_id' => $user->id,
+                'user_email' => $user->email,
+                'user_role' => $user->user_role,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('User account creation email failed to send', [
+                'user_id' => $user->id,
+                'user_email' => $user->email,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         // Log the activity
         $currentUser = Auth::user();

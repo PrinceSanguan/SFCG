@@ -3,15 +3,10 @@
 namespace App\Mail;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
-use Illuminate\Mail\Mailables\Content;
-use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
-use App\Models\User;
-use App\Models\HonorResult;
 
-class HonorQualificationEmail extends Mailable implements ShouldQueue
+class HonorQualificationEmail extends Mailable
 {
     use Queueable, SerializesModels;
 
@@ -19,30 +14,23 @@ class HonorQualificationEmail extends Mailable implements ShouldQueue
     public $honorResult;
     public $schoolYear;
 
-    public function __construct(User $user, HonorResult $honorResult, $schoolYear)
+    /**
+     * Create a new message instance.
+     */
+    public function __construct($user, $honorResult, $schoolYear)
     {
         $this->user = $user;
         $this->honorResult = $honorResult;
         $this->schoolYear = $schoolYear;
     }
 
-    public function envelope()
+    /**
+     * Build the message.
+     */
+    public function build()
     {
-        return new Envelope(
-            subject: 'Honor Qualification Achievement - ' . $this->schoolYear,
-            from: 'hansel.canete24@gmail.com',
-        );
-    }
-
-    public function content()
-    {
-        return new Content(
-            view: 'emails.honor-qualification',
-        );
-    }
-
-    public function attachments()
-    {
-        return [];
+        return $this->subject('Honor Qualification Achievement - ' . $this->schoolYear . ' - ' . config('app.name'))
+            ->from(config('mail.from.address'), config('mail.from.name'))
+            ->view('emails.honor-qualification');
     }
 }
