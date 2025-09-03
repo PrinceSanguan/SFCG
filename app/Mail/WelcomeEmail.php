@@ -40,8 +40,7 @@ class WelcomeEmail extends Mailable implements ShouldQueue
     public function envelope()
     {
         return new Envelope(
-            subject: 'Welcome to SFCG System',
-            from: config('mail.from.address'),
+            subject: 'Welcome to SFCG - Your Account is Ready',
         );
     }
 

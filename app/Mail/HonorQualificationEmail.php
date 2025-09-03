@@ -30,7 +30,6 @@ class HonorQualificationEmail extends Mailable implements ShouldQueue
     {
         return new Envelope(
             subject: 'Honor Qualification Achievement - ' . $this->schoolYear,
-            from: config('mail.from.address'),
         );
     }
 

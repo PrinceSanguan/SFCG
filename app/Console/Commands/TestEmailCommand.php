@@ -2,10 +2,9 @@
 
 namespace App\Console\Commands;
 
-use App\Mail\WelcomeEmail;
-use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 
 class TestEmailCommand extends Command
 {
@@ -21,52 +20,39 @@ class TestEmailCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Test email functionality by sending a test email';
+    protected $description = 'Test email configuration by sending a test email';
 
     /**
      * Execute the console command.
      */
     public function handle()
     {
-        $email = $this->argument('email');
+        $testEmail = $this->argument('email');
         
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $this->error('Invalid email address provided.');
+        if (!filter_var($testEmail, FILTER_VALIDATE_EMAIL)) {
+            $this->error('Please provide a valid email address.');
             return 1;
         }
 
+        $this->info('Testing email configuration...');
+        $this->info('Mail Driver: ' . config('mail.default'));
+        $this->info('Gmail Username: ' . config('mail.mailers.gmail.username'));
+        $this->info('From Address: ' . config('mail.from.address'));
+        $this->info('From Name: ' . config('mail.from.name'));
+
         try {
-            // Get the first user or create a test user
-            $user = User::first();
-            
-            if (!$user) {
-                $this->error('No users found in database. Please create a user first.');
-                return 1;
-            }
+            Mail::raw('This is a test email from SFCG. If you receive this, your email configuration is working correctly!', function ($message) use ($testEmail) {
+                $message->to($testEmail)
+                        ->subject('SFCG Email Test - ' . now()->format('Y-m-d H:i:s'));
+            });
 
-            $this->info("Sending test email to: {$email}");
-            $this->info("Using mailer: " . config('mail.default'));
-            $this->info("From address: " . config('mail.from.address'));
-            $this->info("SMTP Host: " . config('mail.mailers.gmail.host'));
-            $this->info("SMTP Port: " . config('mail.mailers.gmail.port'));
-            $this->info("Queue Connection: " . config('queue.default'));
-            
-            if (config('queue.default') !== 'sync') {
-                $this->warn("⚠️  WARNING: Queue is not 'sync' - emails will be queued!");
-                $this->warn("   Set QUEUE_CONNECTION=sync in .env for immediate sending");
-            }
-
-            // Send the email
-            Mail::to($email)->send(new WelcomeEmail($user));
-
-            $this->info('✅ Test email sent successfully!');
-            $this->info('Check your inbox and spam folder.');
+            $this->info('✅ Test email sent successfully to: ' . $testEmail);
+            $this->info('Please check your inbox (and spam folder) for the test email.');
             
             return 0;
-            
         } catch (\Exception $e) {
-            $this->error('❌ Failed to send email: ' . $e->getMessage());
-            $this->error('Stack trace: ' . $e->getTraceAsString());
+            $this->error('❌ Failed to send test email: ' . $e->getMessage());
+            Log::error('Email test failed: ' . $e->getMessage());
             
             return 1;
         }
