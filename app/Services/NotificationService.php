@@ -70,7 +70,7 @@ class NotificationService
 
                 // Send email
                 try {
-                    Mail::mailer('gmail')->to($student->email)->send(
+                    Mail::to($student->email)->send(
                         new GradeUpdateEmail($student, $studentGradeList, $schoolYear, $academicLevel)
                     );
                     
@@ -179,7 +179,7 @@ class NotificationService
 
                 // Send email
                 try {
-                    Mail::mailer('gmail')->to($student->email)->send(
+                    Mail::to($student->email)->send(
                         new HonorQualificationEmail($student, $honorResult, $schoolYear)
                     );
                     
@@ -303,7 +303,7 @@ class NotificationService
 
                     // Send email
                     try {
-                        Mail::mailer('gmail')->to($parent->email)->send(
+                        Mail::to($parent->email)->send(
                             new \App\Mail\ParentHonorNotificationEmail($parent, $student, $honorResult, $schoolYear)
                         );
                         
@@ -393,7 +393,7 @@ class NotificationService
             // Send emails to each recipient
             foreach ($recipients as $recipientEmail) {
                 try {
-                    Mail::mailer('gmail')->raw($message, function($mailMessage) use ($title, $recipientEmail) {
+                    Mail::raw($message, function($mailMessage) use ($title, $recipientEmail) {
                         $mailMessage->to($recipientEmail)->subject($title);
                     });
                     
