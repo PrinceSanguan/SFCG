@@ -37,17 +37,6 @@ return [
 
     'mailers' => [
 
-        'gmail' => [
-            'transport' => 'smtp',
-            'host' => 'smtp.gmail.com',
-            'port' => 587,
-            'encryption' => 'tls',
-            'username' => env('GMAIL_USERNAME', 'hansel.canete24@gmail.com'),
-            'password' => env('GMAIL_PASSWORD', 'zgvs hkdf zsvw darp'),
-            'timeout' => null,
-            'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url(env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
-        ],
-
         'smtp' => [
             'transport' => 'smtp',
             'scheme' => env('MAIL_SCHEME'),
