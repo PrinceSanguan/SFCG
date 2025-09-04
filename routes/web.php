@@ -127,12 +127,10 @@ Route::middleware(['auth'])->group(function () {
 
 
 
-// Principal Dashboard
-Route::middleware(['auth'])->group(function () {
-    Route::get('/principal/dashboard', function () {
-        return Inertia::render('Welcome', ['message' => 'Welcome to Principal Dashboard - Coming Soon!']);
-    })->name('principal.dashboard');
-});
+// Principal Dashboard - Now handled by dedicated routes file
+// Route::get('/principal/dashboard', function () {
+//     return Inertia::render('Welcome', ['message' => 'Welcome to Principal Dashboard - Coming Soon!']);
+// })->name('principal.dashboard');
 
 // Parent Dashboard - Now handled by dedicated routes file
 // Route::get('/parent/dashboard', function () {

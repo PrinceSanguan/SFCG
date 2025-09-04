@@ -7,6 +7,7 @@ use App\Http\Middleware\TeacherMiddleware;
 use App\Http\Middleware\AdviserMiddleware;
 use App\Http\Middleware\RegistrarMiddleware;
 use App\Http\Middleware\ChairpersonMiddleware;
+use App\Http\Middleware\PrincipalMiddleware;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\StudentMiddleware;
@@ -45,6 +46,9 @@ return Application::configure(basePath: dirname(__DIR__))
             
             Route::middleware('web')
                 ->group(base_path('routes/chairperson.php'));
+            
+            Route::middleware('web')
+                ->group(base_path('routes/principal.php'));
         }
     )
     ->withMiddleware(function (Middleware $middleware) {
@@ -66,6 +70,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'parent' => \App\Http\Middleware\ParentMiddleware::class,
             'adviser' => AdviserMiddleware::class,
             'chairperson' => ChairpersonMiddleware::class,
+            'principal' => PrincipalMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

@@ -423,6 +423,9 @@ class AcademicController extends Controller
                 ], [
                     'gpa' => $student['gpa'],
                     'is_overridden' => false,
+                    'is_pending_approval' => true, // Set as pending for Principal approval
+                    'is_approved' => false,
+                    'is_rejected' => false,
                 ]);
             }
         }
