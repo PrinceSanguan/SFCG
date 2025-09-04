@@ -72,13 +72,15 @@ class AcademicController extends Controller
 
     public function programs()
     {
-        $academicLevels = AcademicLevel::with(['strands'])->orderBy('sort_order')->get();
+        $academicLevels = AcademicLevel::with(['strands.track'])->orderBy('sort_order')->get();
         $departments = Department::with(['courses'])->orderBy('name')->get();
+        $tracks = \App\Models\Track::where('is_active', true)->orderBy('name')->get();
         
         return Inertia::render('Admin/Academic/Programs', [
             'user' => $this->sharedUser(),
             'academicLevels' => $academicLevels,
             'departments' => $departments,
+            'tracks' => $tracks,
         ]);
     }
 

@@ -15,6 +15,7 @@ class Strand extends Model
         'name',
         'code',
         'description',
+        'track_id',
         'academic_level_id',
         'is_active',
     ];
@@ -22,6 +23,11 @@ class Strand extends Model
     protected $casts = [
         'is_active' => 'boolean',
     ];
+
+    public function track(): BelongsTo
+    {
+        return $this->belongsTo(Track::class);
+    }
 
     public function academicLevel(): BelongsTo
     {

@@ -612,6 +612,7 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'code' => ['required', 'string', 'max:20', 'unique:strands,code'],
+            'academic_track' => ['nullable', 'string', 'max:50'],
             'academic_level_id' => ['required', 'exists:academic_levels,id'],
         ]);
         
@@ -636,6 +637,7 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'code' => ['required', 'string', 'max:20', 'unique:strands,code,' . $strand->id],
+            'academic_track' => ['nullable', 'string', 'max:50'],
             'academic_level_id' => ['required', 'exists:academic_levels,id'],
         ]);
         

@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ArrowLeft, Plus, Edit, Trash2, GraduationCap, Calendar, User, BookOpen } from 'lucide-react';
+import { useToast } from '@/components/ui/toast';
 
 interface User {
     id: number;
@@ -78,6 +79,7 @@ interface Props {
 }
 
 export default function AssignTeachers({ user, assignments = [], teachers = [], subjects = [], gradingPeriods = [], academicLevels = [], strands = [] }: Props) {
+    const { addToast } = useToast();
     const [assignmentForm, setAssignmentForm] = useState({
         teacher_id: '',
         subject_id: '',
@@ -158,8 +160,13 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
             },
             {
                 onSuccess: () => {
+                    addToast('Teacher assigned successfully!', 'success');
                     setAssignmentModal(false);
                     resetForm();
+                },
+                onError: (errors) => {
+                    addToast('Failed to assign teacher. Please try again.', 'error');
+                    console.error(errors);
                 },
                 preserveScroll: true,
             }
@@ -178,7 +185,12 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
             },
             {
                 onSuccess: () => {
+                    addToast('Teacher assignment updated successfully!', 'success');
                     setEditModal(false);
+                },
+                onError: (errors) => {
+                    addToast('Failed to update teacher assignment. Please try again.', 'error');
+                    console.error(errors);
                 },
                 preserveScroll: true,
             }
@@ -187,7 +199,15 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
 
     const destroyAssignment = (id: number) => {
         if (confirm('Are you sure you want to delete this assignment?')) {
-            router.delete(`/registrar/academic/assign-teachers/${id}`);
+            router.delete(`/registrar/academic/assign-teachers/${id}`, {
+                onSuccess: () => {
+                    addToast('Teacher assignment removed successfully!', 'success');
+                },
+                onError: (errors) => {
+                    addToast('Failed to remove teacher assignment. Please try again.', 'error');
+                    console.error(errors);
+                },
+            });
         }
     };
 

@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\AcademicController;
 use App\Http\Controllers\Admin\CertificateController;
 use App\Http\Controllers\Admin\ReportsController;
 use App\Http\Controllers\Admin\NotificationController;
+use App\Models\Track;
 use App\Http\Controllers\Admin\SecurityController;
 use App\Http\Controllers\Admin\StudentSubjectController;
 use App\Http\Controllers\Admin\InstructorSubjectAssignmentController;
@@ -284,12 +285,44 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/aca
     Route::get('/student-subjects/students/{levelId}', [StudentSubjectController::class, 'getStudentsByLevel'])->name('student-subjects.students-by-level');
     Route::get('/student-subjects/subjects/{levelId}', [StudentSubjectController::class, 'getSubjectsByLevel'])->name('student-subjects.subjects-by-level');
     
+    // Tracks CRUD
+    Route::post('/tracks', function(\Illuminate\Http\Request $request) {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'code' => ['required', 'string', 'max:20', 'unique:tracks,code'],
+            'description' => ['nullable', 'string'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+        
+        $validated['is_active'] = $validated['is_active'] ?? true;
+        Track::create($validated);
+        return back()->with('success', 'Track created successfully!');
+    })->name('tracks.store');
+    
+    Route::put('/tracks/{track}', function(\Illuminate\Http\Request $request, Track $track) {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'code' => ['required', 'string', 'max:20', 'unique:tracks,code,' . $track->id],
+            'description' => ['nullable', 'string'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+        
+        $track->update($validated);
+        return back()->with('success', 'Track updated successfully!');
+    })->name('tracks.update');
+    
+    Route::delete('/tracks/{track}', function(Track $track) {
+        $track->delete();
+        return back()->with('success', 'Track deleted successfully!');
+    })->name('tracks.destroy');
+    
     // Strands CRUD
     Route::post('/strands', function(\Illuminate\Http\Request $request) {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'code' => ['required', 'string', 'max:20', 'unique:strands,code'],
             'description' => ['nullable', 'string'],
+            'track_id' => ['nullable', 'exists:tracks,id'],
             'academic_level_id' => ['required', 'exists:academic_levels,id'],
             'is_active' => ['nullable', 'boolean'],
         ]);
@@ -309,6 +342,7 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/aca
             'name' => ['required', 'string', 'max:100'],
             'code' => ['required', 'string', 'max:20', 'unique:strands,code,' . $strand->id],
             'description' => ['nullable', 'string'],
+            'track_id' => ['nullable', 'exists:tracks,id'],
             'academic_level_id' => ['required', 'exists:academic_levels,id'],
             'is_active' => ['nullable', 'boolean'],
         ]);

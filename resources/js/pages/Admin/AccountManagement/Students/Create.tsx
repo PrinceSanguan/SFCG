@@ -18,16 +18,25 @@ interface User {
     user_role: string;
 }
 
+interface Department {
+    id: number;
+    name: string;
+    code: string;
+    description: string;
+    academic_level_id: number;
+}
+
 interface CreateProps {
     user: User;
     errors?: Record<string, string>;
     academicLevel?: string;
     specificYearLevels?: Record<string, Record<string, string>>;
-    strands?: Array<{ id: number; name: string; code: string }>;
+    strands?: Array<{ id: number; name: string; code: string; track?: { id: number; name: string; code: string } }>;
     courses?: Array<{ id: number; name: string; code: string; department_id: number }>;
+    departments?: Department[];
 }
 
-export default function CreateStudent({ user, errors, academicLevel, specificYearLevels, strands, courses }: CreateProps) {
+export default function CreateStudent({ user, errors, academicLevel, specificYearLevels, strands, courses, departments }: CreateProps) {
     const { data, setData, post, processing } = useForm({
         name: '',
         email: '',
@@ -38,6 +47,7 @@ export default function CreateStudent({ user, errors, academicLevel, specificYea
         specific_year_level: '',
         strand_id: '',
         course_id: '',
+        department_id: '',
         student_number: '',
     });
 
@@ -161,7 +171,7 @@ export default function CreateStudent({ user, errors, academicLevel, specificYea
                                                     <SelectContent>
                                                         {strands && strands.map((strand) => (
                                                             <SelectItem key={strand.id} value={strand.id.toString()}>
-                                                                {strand.name} ({strand.code})
+                                                                {strand.name} ({strand.code}){strand.track ? ` - ${strand.track.name}` : ''}
                                                             </SelectItem>
                                                         ))}
                                                     </SelectContent>
@@ -177,20 +187,58 @@ export default function CreateStudent({ user, errors, academicLevel, specificYea
                                             </div>
                                         )}
 
+                                        {/* Department Selection (College) */}
+                                        {data.academic_level === 'college' && (
+                                            <div className="space-y-2">
+                                                <Label htmlFor="department_id">Department *</Label>
+                                                <Select value={data.department_id} onValueChange={(value) => {
+                                                    setData('department_id', value);
+                                                    setData('course_id', ''); // Reset course when department changes
+                                                }}>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select a department" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {departments && departments
+                                                            .filter(dept => dept.academic_level_id === 4) // Filter for college departments
+                                                            .map((department) => (
+                                                                <SelectItem key={department.id} value={department.id.toString()}>
+                                                                    {department.name} ({department.code})
+                                                                </SelectItem>
+                                                            ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                {errors?.department_id && (
+                                                    <Alert variant="destructive">
+                                                        <AlertDescription>{errors.department_id}</AlertDescription>
+                                                    </Alert>
+                                                )}
+                                                <p className="text-sm text-gray-500">
+                                                    Departments are required for College students to organize their academic program
+                                                </p>
+                                            </div>
+                                        )}
+
                                         {/* Course Selection (College) */}
                                         {data.academic_level === 'college' && (
                                             <div className="space-y-2">
                                                 <Label htmlFor="course_id">Course *</Label>
-                                                <Select value={data.course_id} onValueChange={(value) => setData('course_id', value)}>
+                                                <Select 
+                                                    value={data.course_id} 
+                                                    onValueChange={(value) => setData('course_id', value)}
+                                                    disabled={!data.department_id}
+                                                >
                                                     <SelectTrigger>
-                                                        <SelectValue placeholder="Select a course" />
+                                                        <SelectValue placeholder={data.department_id ? "Select a course" : "Select department first"} />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        {courses && courses.map((course) => (
-                                                            <SelectItem key={course.id} value={course.id.toString()}>
-                                                                {course.name} ({course.code})
-                                                            </SelectItem>
-                                                        ))}
+                                                        {courses && courses
+                                                            .filter(course => !data.department_id || course.department_id.toString() === data.department_id)
+                                                            .map((course) => (
+                                                                <SelectItem key={course.id} value={course.id.toString()}>
+                                                                    {course.name} ({course.code})
+                                                                </SelectItem>
+                                                            ))}
                                                     </SelectContent>
                                                 </Select>
                                                 {errors?.course_id && (

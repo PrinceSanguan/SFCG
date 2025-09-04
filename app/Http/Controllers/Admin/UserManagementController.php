@@ -115,6 +115,9 @@ class UserManagementController extends Controller
             'user_role' => 'required|in:admin,registrar,instructor,teacher,adviser,chairperson,principal,student,parent',
             'password' => 'required|string|min:8|confirmed',
             'year_level' => 'required_if:user_role,student|string|in:elementary,junior_highschool,senior_highschool,college|nullable',
+            'strand_id' => 'nullable|exists:strands,id',
+            'course_id' => 'nullable|exists:courses,id',
+            'department_id' => 'nullable|exists:departments,id',
             'student_number' => 'nullable|string|max:40|unique:users,student_number',
         ]);
 
@@ -128,6 +131,9 @@ class UserManagementController extends Controller
             'user_role' => $request->user_role,
             'password' => Hash::make($request->password),
             'year_level' => $request->user_role === 'student' ? $request->year_level : null,
+            'strand_id' => $request->user_role === 'student' ? $request->strand_id : null,
+            'course_id' => $request->user_role === 'student' ? $request->course_id : null,
+            'department_id' => $request->user_role === 'student' ? $request->department_id : null,
             'student_number' => $request->user_role === 'student' ? $request->student_number : null,
         ]);
 
@@ -444,7 +450,7 @@ class UserManagementController extends Controller
         // Add specific year levels and other data for students
         if ($role === 'student') {
             $data['specificYearLevels'] = User::getSpecificYearLevels();
-            $data['strands'] = \App\Models\Strand::where('is_active', true)->get();
+            $data['strands'] = \App\Models\Strand::with('track')->where('is_active', true)->get();
             $data['departments'] = \App\Models\Department::where('is_active', true)->get();
             $data['courses'] = \App\Models\Course::where('is_active', true)->get();
         }
@@ -464,7 +470,8 @@ class UserManagementController extends Controller
             'user' => Auth::user(),
             'academicLevel' => $academicLevel,
             'specificYearLevels' => User::getSpecificYearLevels(),
-            'strands' => \App\Models\Strand::where('is_active', true)->get(),
+            'strands' => \App\Models\Strand::with('track')->where('is_active', true)->get(),
+            'departments' => \App\Models\Department::where('is_active', true)->get(),
             'courses' => \App\Models\Course::where('is_active', true)->get(),
         ];
         
@@ -486,13 +493,17 @@ class UserManagementController extends Controller
             'specific_year_level' => 'required_if:user_role,student|string|nullable',
             'strand_id' => 'nullable|exists:strands,id',
             'course_id' => 'nullable|exists:courses,id',
+            'department_id' => 'nullable|exists:departments,id',
             'student_number' => 'nullable|string|max:40|unique:users,student_number',
         ]);
 
-        // Additional validation for strands and courses
+        // Additional validation for strands, courses, and departments
         if ($role === 'student') {
             if ($request->academic_level === 'senior_highschool' && !$request->strand_id) {
                 $validator->errors()->add('strand_id', 'Strand is required for Senior High School students.');
+            }
+            if ($request->academic_level === 'college' && !$request->department_id) {
+                $validator->errors()->add('department_id', 'Department is required for College students.');
             }
             if ($request->academic_level === 'college' && !$request->course_id) {
                 $validator->errors()->add('course_id', 'Course is required for College students.');
@@ -512,6 +523,7 @@ class UserManagementController extends Controller
             'specific_year_level' => $role === 'student' ? $request->specific_year_level : null,
             'strand_id' => $role === 'student' ? $request->strand_id : null,
             'course_id' => $role === 'student' ? $request->course_id : null,
+            'department_id' => $role === 'student' ? $request->department_id : null,
             'student_number' => $role === 'student' ? $request->student_number : null,
         ]);
 

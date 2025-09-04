@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ArrowLeft, Plus, Edit, Trash2, Users, Calendar, User, School } from 'lucide-react';
+import { useToast } from '@/components/ui/toast';
 
 interface User {
     id: number;
@@ -55,6 +56,7 @@ interface Props {
 }
 
 export default function AssignAdvisers({ user, assignments, advisers, subjects, academicLevels }: Props) {
+    const { addToast } = useToast();
     const [assignmentForm, setAssignmentForm] = useState({
         adviser_id: '',
         subject_id: '',
@@ -136,19 +138,46 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
 
     const submitAssignment = (e: React.FormEvent) => {
         e.preventDefault();
-        router.post('/admin/academic/assign-advisers', assignmentForm);
+        router.post('/admin/academic/assign-advisers', assignmentForm, {
+            onSuccess: () => {
+                addToast('Adviser assigned successfully!', 'success');
+                setAssignmentModal(false);
+                resetForm();
+            },
+            onError: (errors) => {
+                addToast('Failed to assign adviser. Please try again.', 'error');
+                console.error(errors);
+            },
+        });
     };
 
     const updateAssignment = (e: React.FormEvent) => {
         e.preventDefault();
         if (!editAssignment) return;
         
-        router.put(`/admin/academic/assign-advisers/${editAssignment.id}`, assignmentForm);
+        router.put(`/admin/academic/assign-advisers/${editAssignment.id}`, assignmentForm, {
+            onSuccess: () => {
+                addToast('Adviser assignment updated successfully!', 'success');
+                setEditModal(false);
+            },
+            onError: (errors) => {
+                addToast('Failed to update adviser assignment. Please try again.', 'error');
+                console.error(errors);
+            },
+        });
     };
 
     const destroyAssignment = (id: number) => {
         if (confirm('Are you sure you want to delete this assignment?')) {
-            router.delete(`/admin/academic/assign-advisers/${id}`);
+            router.delete(`/admin/academic/assign-advisers/${id}`, {
+                onSuccess: () => {
+                    addToast('Adviser assignment removed successfully!', 'success');
+                },
+                onError: (errors) => {
+                    addToast('Failed to remove adviser assignment. Please try again.', 'error');
+                    console.error(errors);
+                },
+            });
         }
     };
 

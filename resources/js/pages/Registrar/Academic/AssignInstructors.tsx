@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ArrowLeft, Plus, Edit, Trash2, Building2, Calendar, User, BookOpen } from 'lucide-react';
+import { useToast } from '@/components/ui/toast';
 
 interface User {
     id: number;
@@ -50,6 +51,7 @@ interface Subject {
     description: string;
     units: number;
     academic_level_id: number;
+    course_id?: number;
 }
 
 interface InstructorCourseAssignment {
@@ -80,6 +82,7 @@ interface Props {
 }
 
 export default function AssignInstructors({ user, assignments = [], instructors = [], courses = [], subjects = [], gradingPeriods = [], academicLevels = [], yearLevels = {} }: Props) {
+    const { addToast } = useToast();
     const [assignmentForm, setAssignmentForm] = useState({
         instructor_id: '',
         course_id: '',
@@ -155,6 +158,16 @@ export default function AssignInstructors({ user, assignments = [], instructors 
         router.post('/registrar/academic/assign-instructors', {
             ...assignmentForm,
             academic_level_id: collegeLevel?.id,
+        }, {
+            onSuccess: () => {
+                addToast('Instructor assigned successfully!', 'success');
+                setAssignmentModal(false);
+                resetForm();
+            },
+            onError: (errors) => {
+                addToast('Failed to assign instructor. Please try again.', 'error');
+                console.error(errors);
+            },
         });
     };
 
@@ -165,12 +178,29 @@ export default function AssignInstructors({ user, assignments = [], instructors 
         router.put(`/registrar/academic/assign-instructors/${editAssignment.id}`, {
             ...assignmentForm,
             academic_level_id: collegeLevel?.id,
+        }, {
+            onSuccess: () => {
+                addToast('Instructor assignment updated successfully!', 'success');
+                setEditModal(false);
+            },
+            onError: (errors) => {
+                addToast('Failed to update instructor assignment. Please try again.', 'error');
+                console.error(errors);
+            },
         });
     };
 
     const destroyAssignment = (id: number) => {
         if (confirm('Are you sure you want to delete this assignment?')) {
-            router.delete(`/registrar/academic/assign-instructors/${id}`);
+            router.delete(`/registrar/academic/assign-instructors/${id}`, {
+                onSuccess: () => {
+                    addToast('Instructor assignment removed successfully!', 'success');
+                },
+                onError: (errors) => {
+                    addToast('Failed to remove instructor assignment. Please try again.', 'error');
+                    console.error(errors);
+                },
+            });
         }
     };
 

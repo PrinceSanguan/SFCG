@@ -6,31 +6,106 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Link, router } from '@inertiajs/react';
 import { useState } from 'react';
 import { ArrowLeft, Plus } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useToast } from '@/components/ui/toast';
 
 interface User { name: string; email: string; user_role: string }
 interface AcademicLevel { id: number; name: string; key: string; strands: Strand[] }
 interface Department { id: number; name: string; code: string; courses: Course[] }
-interface Strand { id: number; name: string; code: string; academic_level_id: number; academic_level: AcademicLevel }
+interface Track { id: number; name: string; code: string; description?: string; is_active?: boolean }
+interface Strand { id: number; name: string; code: string; track_id?: number; track?: Track; academic_level_id: number; academic_level: AcademicLevel }
 interface Course { id: number; name: string; code: string; department_id: number; description?: string; units?: number; is_active?: boolean }
 
-export default function Programs({ user, academicLevels = [], departments = [], formErrors }: { user: User; academicLevels?: AcademicLevel[]; departments?: Department[]; formErrors?: Record<string, string> }) {
-    const [activeTab, setActiveTab] = useState('strands');
+export default function Programs({ user, academicLevels = [], departments = [], tracks = [], formErrors }: { user: User; academicLevels?: AcademicLevel[]; departments?: Department[]; tracks?: Track[]; formErrors?: Record<string, string> }) {
+    const [activeTab, setActiveTab] = useState('tracks');
+    const { addToast } = useToast();
+    
+    // Track form state
+    const [trackForm, setTrackForm] = useState({ name: '', code: '', description: '' });
+    const [trackModal, setTrackModal] = useState(false);
+    const [editTrack, setEditTrack] = useState<Track | null>(null);
     
     // Strand form state
-    const [strandForm, setStrandForm] = useState({ name: '', code: '', academic_level_id: '' });
+    const [strandForm, setStrandForm] = useState({ name: '', code: '', track_id: '', academic_level_id: '' });
     const [strandModal, setStrandModal] = useState(false);
     const [editStrand, setEditStrand] = useState<Strand | null>(null);
+
+    // Track handlers
+    const submitTrack = () => {
+        // Basic validation
+        if (!trackForm.name.trim()) {
+            addToast('Track name is required', 'error');
+            return;
+        }
+        if (!trackForm.code.trim()) {
+            addToast('Track code is required', 'error');
+            return;
+        }
+        
+        router.post(route('admin.academic.tracks.store'), trackForm, {
+            preserveScroll: true,
+            onSuccess: () => { 
+                addToast('Track created successfully!', 'success');
+                setTrackForm({ name: '', code: '', description: '' }); 
+                setTrackModal(false); 
+            },
+            onError: (errors) => {
+                console.error('Track creation errors:', errors);
+                // Display first error
+                const firstError = Object.values(errors)[0];
+                if (firstError && firstError.length > 0) {
+                    addToast(firstError[0], 'error');
+                } else {
+                    addToast('Failed to create track. Please try again.', 'error');
+                }
+            },
+        });
+    };
+    
+    const updateTrack = (track: Track) => {
+        const data = { name: track.name, code: track.code, description: track.description };
+        router.put(route('admin.academic.tracks.update', track.id), data, { 
+            preserveScroll: true, 
+            onSuccess: () => {
+                addToast('Track updated successfully!', 'success');
+                setEditTrack(null);
+            },
+            onError: (errors) => {
+                console.error('Track update errors:', errors);
+                const firstError = Object.values(errors)[0];
+                if (firstError && firstError.length > 0) {
+                    addToast(firstError[0], 'error');
+                } else {
+                    addToast('Failed to update track. Please try again.', 'error');
+                }
+            }
+        });
+    };
+    
+    const destroyTrack = (track: Track) => {
+        if (confirm(`Delete track ${track.name}?`)) {
+            router.delete(route('admin.academic.tracks.destroy', track.id), { 
+                preserveScroll: true,
+                onSuccess: () => {
+                    addToast('Track deleted successfully!', 'success');
+                },
+                onError: (errors) => {
+                    console.error('Track deletion errors:', errors);
+                    addToast('Failed to delete track. Please try again.', 'error');
+                }
+            });
+        }
+    };
 
     // Auto-set Senior High School when modal opens
     const openStrandModal = () => {
         const seniorHighLevel = academicLevels.find(level => level.key === 'senior_highschool');
         if (seniorHighLevel) {
-            setStrandForm({ name: '', code: '', academic_level_id: seniorHighLevel.id.toString() });
+            setStrandForm({ name: '', code: '', track_id: '', academic_level_id: seniorHighLevel.id.toString() });
         }
         setStrandModal(true);
     };
@@ -49,21 +124,55 @@ export default function Programs({ user, academicLevels = [], departments = [], 
     const submitStrand = () => {
         router.post(route('admin.academic.strands.store'), strandForm, {
             preserveScroll: true,
-            onSuccess: () => { setStrandForm({ name: '', code: '', academic_level_id: '' }); setStrandModal(false); },
+            onSuccess: () => { 
+                addToast('Strand created successfully!', 'success');
+                setStrandForm({ name: '', code: '', track_id: '', academic_level_id: '' }); 
+                setStrandModal(false); 
+            },
+            onError: (errors) => {
+                console.error('Strand creation errors:', errors);
+                const firstError = Object.values(errors)[0];
+                if (firstError && firstError.length > 0) {
+                    addToast(firstError[0], 'error');
+                } else {
+                    addToast('Failed to create strand. Please try again.', 'error');
+                }
+            }
         });
     };
     
     const updateStrand = (strand: Strand) => {
-        const data = { name: strand.name, code: strand.code, academic_level_id: strand.academic_level_id };
+        const data = { name: strand.name, code: strand.code, track_id: strand.track_id, academic_level_id: strand.academic_level_id };
         router.put(route('admin.academic.strands.update', strand.id), data, { 
             preserveScroll: true, 
-            onSuccess: () => setEditStrand(null) 
+            onSuccess: () => {
+                addToast('Strand updated successfully!', 'success');
+                setEditStrand(null);
+            },
+            onError: (errors) => {
+                console.error('Strand update errors:', errors);
+                const firstError = Object.values(errors)[0];
+                if (firstError && firstError.length > 0) {
+                    addToast(firstError[0], 'error');
+                } else {
+                    addToast('Failed to update strand. Please try again.', 'error');
+                }
+            }
         });
     };
     
     const destroyStrand = (strand: Strand) => {
         if (confirm(`Delete strand ${strand.name}?`)) {
-            router.delete(route('admin.academic.strands.destroy', strand.id), { preserveScroll: true });
+            router.delete(route('admin.academic.strands.destroy', strand.id), { 
+                preserveScroll: true,
+                onSuccess: () => {
+                    addToast('Strand deleted successfully!', 'success');
+                },
+                onError: (errors) => {
+                    console.error('Strand deletion errors:', errors);
+                    addToast('Failed to delete strand. Please try again.', 'error');
+                }
+            });
         }
     };
 
@@ -71,7 +180,20 @@ export default function Programs({ user, academicLevels = [], departments = [], 
     const submitDepartment = () => {
         router.post(route('admin.academic.departments.store'), deptForm, {
             preserveScroll: true,
-            onSuccess: () => { setDeptForm({ name: '', code: '' }); setDeptModal(false); },
+            onSuccess: () => { 
+                addToast('Department created successfully!', 'success');
+                setDeptForm({ name: '', code: '' }); 
+                setDeptModal(false); 
+            },
+            onError: (errors) => {
+                console.error('Department creation errors:', errors);
+                const firstError = Object.values(errors)[0];
+                if (firstError && firstError.length > 0) {
+                    addToast(firstError[0], 'error');
+                } else {
+                    addToast('Failed to create department. Please try again.', 'error');
+                }
+            }
         });
     };
     
@@ -79,13 +201,34 @@ export default function Programs({ user, academicLevels = [], departments = [], 
         const data = { name: dept.name, code: dept.code };
         router.put(route('admin.academic.departments.update', dept.id), data, { 
             preserveScroll: true, 
-            onSuccess: () => setEditDept(null) 
+            onSuccess: () => {
+                addToast('Department updated successfully!', 'success');
+                setEditDept(null);
+            },
+            onError: (errors) => {
+                console.error('Department update errors:', errors);
+                const firstError = Object.values(errors)[0];
+                if (firstError && firstError.length > 0) {
+                    addToast(firstError[0], 'error');
+                } else {
+                    addToast('Failed to update department. Please try again.', 'error');
+                }
+            }
         });
     };
     
     const destroyDepartment = (dept: Department) => {
         if (confirm(`Delete department ${dept.name}?`)) {
-            router.delete(route('admin.academic.departments.destroy', dept.id), { preserveScroll: true });
+            router.delete(route('admin.academic.departments.destroy', dept.id), { 
+                preserveScroll: true,
+                onSuccess: () => {
+                    addToast('Department deleted successfully!', 'success');
+                },
+                onError: (errors) => {
+                    console.error('Department deletion errors:', errors);
+                    addToast('Failed to delete department. Please try again.', 'error');
+                }
+            });
         }
     };
 
@@ -93,7 +236,20 @@ export default function Programs({ user, academicLevels = [], departments = [], 
     const submitCourse = () => {
         router.post(route('admin.academic.courses.store'), courseForm, {
             preserveScroll: true,
-            onSuccess: () => { setCourseForm({ name: '', code: '', department_id: '' }); setCourseModal(false); },
+            onSuccess: () => { 
+                addToast('Course created successfully!', 'success');
+                setCourseForm({ name: '', code: '', department_id: '' }); 
+                setCourseModal(false); 
+            },
+            onError: (errors) => {
+                console.error('Course creation errors:', errors);
+                const firstError = Object.values(errors)[0];
+                if (firstError && firstError.length > 0) {
+                    addToast(firstError[0], 'error');
+                } else {
+                    addToast('Failed to create course. Please try again.', 'error');
+                }
+            }
         });
     };
     
@@ -101,13 +257,34 @@ export default function Programs({ user, academicLevels = [], departments = [], 
         const data = { name: course.name, code: course.code, department_id: course.department_id };
         router.put(route('admin.academic.courses.update', course.id), data, { 
             preserveScroll: true, 
-            onSuccess: () => setEditCourse(null) 
+            onSuccess: () => {
+                addToast('Course updated successfully!', 'success');
+                setEditCourse(null);
+            },
+            onError: (errors) => {
+                console.error('Course update errors:', errors);
+                const firstError = Object.values(errors)[0];
+                if (firstError && firstError.length > 0) {
+                    addToast(firstError[0], 'error');
+                } else {
+                    addToast('Failed to update course. Please try again.', 'error');
+                }
+            }
         });
     };
     
     const destroyCourse = (course: Course) => {
         if (confirm(`Delete course ${course.name}?`)) {
-            router.delete(route('admin.academic.courses.destroy', course.id), { preserveScroll: true });
+            router.delete(route('admin.academic.courses.destroy', course.id), { 
+                preserveScroll: true,
+                onSuccess: () => {
+                    addToast('Course deleted successfully!', 'success');
+                },
+                onError: (errors) => {
+                    console.error('Course deletion errors:', errors);
+                    addToast('Failed to delete course. Please try again.', 'error');
+                }
+            });
         }
     };
 
@@ -131,11 +308,84 @@ export default function Programs({ user, academicLevels = [], departments = [], 
                         </CardHeader>
                         <CardContent>
                             <Tabs value={activeTab} onValueChange={setActiveTab}>
-                                <TabsList className="grid w-full grid-cols-3">
+                                <TabsList className="grid w-full grid-cols-4">
+                                    <TabsTrigger value="tracks">Tracks</TabsTrigger>
                                     <TabsTrigger value="strands">Strands</TabsTrigger>
                                     <TabsTrigger value="departments">Departments</TabsTrigger>
                                     <TabsTrigger value="courses">Courses</TabsTrigger>
                                 </TabsList>
+                                
+                                <TabsContent value="tracks" className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="font-semibold">Academic Tracks</h3>
+                                        <Dialog open={trackModal} onOpenChange={setTrackModal}>
+                                            <DialogTrigger asChild>
+                                                <Button className="flex items-center gap-2">
+                                                    <Plus className="h-4 w-4" />
+                                                    Add Track
+                                                </Button>
+                                            </DialogTrigger>
+                                            <DialogContent>
+                                                <DialogHeader>
+                                                    <DialogTitle>Add new track</DialogTitle>
+                                                    <DialogDescription>
+                                                        Create a new academic track for Senior High School students.
+                                                    </DialogDescription>
+                                                </DialogHeader>
+                                                <div className="space-y-3">
+                                                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                                        <p className="text-sm text-blue-800">
+                                                            <strong>Note:</strong> Tracks are the main categories of study paths for Senior High School students (Academic, TVL, Sports, Arts and Design).
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <Label htmlFor="track-name">Name</Label>
+                                                        <Input id="track-name" value={trackForm.name} onChange={(e) => setTrackForm({ ...trackForm, name: e.target.value })} />
+                                                    </div>
+                                                    <div>
+                                                        <Label htmlFor="track-code">Code</Label>
+                                                        <Input id="track-code" value={trackForm.code} onChange={(e) => setTrackForm({ ...trackForm, code: e.target.value })} />
+                                                    </div>
+                                                    <div>
+                                                        <Label htmlFor="track-description">Description</Label>
+                                                        <Input id="track-description" value={trackForm.description} onChange={(e) => setTrackForm({ ...trackForm, description: e.target.value })} />
+                                                    </div>
+                                                </div>
+                                                <DialogFooter>
+                                                    <Button onClick={submitTrack}>Save</Button>
+                                                </DialogFooter>
+                                            </DialogContent>
+                                        </Dialog>
+                                    </div>
+                                    
+                                    <div className="overflow-x-auto rounded border">
+                                        <table className="w-full text-sm">
+                                            <thead className="bg-gray-50 dark:bg-gray-800">
+                                                <tr>
+                                                    <th className="text-left p-3">Code</th>
+                                                    <th className="text-left p-3">Name</th>
+                                                    <th className="text-left p-3">Description</th>
+                                                    <th className="text-left p-3">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {tracks && tracks.map((track) => (
+                                                    <tr key={track.id} className="border-t">
+                                                        <td className="p-3">{track.code}</td>
+                                                        <td className="p-3">{track.name}</td>
+                                                        <td className="p-3">{track.description || '-'}</td>
+                                                        <td className="p-3">
+                                                            <div className="flex gap-2">
+                                                                <Button variant="outline" size="sm" onClick={() => setEditTrack(track)}>Edit</Button>
+                                                                <Button variant="destructive" size="sm" onClick={() => destroyTrack(track)}>Delete</Button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </TabsContent>
                                 
                                 <TabsContent value="strands" className="space-y-4">
                                     <div className="flex items-center justify-between">
@@ -150,11 +400,32 @@ export default function Programs({ user, academicLevels = [], departments = [], 
                                             <DialogContent>
                                                 <DialogHeader>
                                                     <DialogTitle>Add new strand</DialogTitle>
+                                                    <DialogDescription>
+                                                        Create a new strand under a specific track for Senior High School students.
+                                                    </DialogDescription>
                                                 </DialogHeader>
                                                 <div className="space-y-3">
                                                     <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                                                         <p className="text-sm text-blue-800">
-                                                            <strong>Note:</strong> Strands are only available for Senior High School students as academic tracks (STEM, ABM, HUMSS, GAS).
+                                                            <strong>Note:</strong> Strands are subdivisions under tracks. Select a track first, then specify the strand details.
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <Label htmlFor="strand-track">Track *</Label>
+                                                        <Select value={strandForm.track_id} onValueChange={(value) => setStrandForm({ ...strandForm, track_id: value })}>
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder="Select a track" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {tracks && tracks.map((track) => (
+                                                                    <SelectItem key={track.id} value={track.id.toString()}>
+                                                                        {track.name} ({track.code})
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                        <p className="text-sm text-gray-500 mt-1">
+                                                            Select the track this strand belongs to (e.g., Academic Track, TVL Track)
                                                         </p>
                                                     </div>
                                                     <div>
@@ -204,6 +475,7 @@ export default function Programs({ user, academicLevels = [], departments = [], 
                                                 <tr>
                                                     <th className="text-left p-3">Code</th>
                                                     <th className="text-left p-3">Name</th>
+                                                    <th className="text-left p-3">Track</th>
                                                     <th className="text-left p-3">Academic Level</th>
                                                     <th className="text-left p-3">Actions</th>
                                                 </tr>
@@ -213,6 +485,7 @@ export default function Programs({ user, academicLevels = [], departments = [], 
                                                     <tr key={strand.id} className="border-t">
                                                         <td className="p-3">{strand.code}</td>
                                                         <td className="p-3">{strand.name}</td>
+                                                        <td className="p-3">{strand.track?.name || '-'}</td>
                                                         <td className="p-3">
                                                             {academicLevels.find(l => l.id === strand.academic_level_id)?.name || '-'}
                                                         </td>
@@ -371,7 +644,25 @@ export default function Programs({ user, academicLevels = [], departments = [], 
                                 <div className="space-y-3">
                                     <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                                         <p className="text-sm text-blue-800">
-                                            <strong>Note:</strong> Strands are only available for Senior High School students as academic tracks (STEM, ABM, HUMSS, GAS).
+                                            <strong>Note:</strong> Strands are subdivisions under tracks. Select a track first, then specify the strand details.
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <Label>Track *</Label>
+                                        <Select value={editStrand.track_id?.toString() || ''} onValueChange={(value) => setEditStrand({ ...editStrand, track_id: Number(value) })}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select a track" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {tracks && tracks.map((track) => (
+                                                    <SelectItem key={track.id} value={track.id.toString()}>
+                                                        {track.name} ({track.code})
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <p className="text-sm text-gray-500 mt-1">
+                                            Select the track this strand belongs to (e.g., Academic Track, TVL Track)
                                         </p>
                                     </div>
                                     <div>
@@ -405,6 +696,33 @@ export default function Programs({ user, academicLevels = [], departments = [], 
                                 </div>
                                 <DialogFooter>
                                     <Button onClick={() => updateStrand(editStrand)}>Save</Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    )}
+
+                    {editTrack && (
+                        <Dialog open={!!editTrack} onOpenChange={(open) => !open && setEditTrack(null)}>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Edit track</DialogTitle>
+                                </DialogHeader>
+                                <div className="space-y-3">
+                                    <div>
+                                        <Label>Name</Label>
+                                        <Input value={editTrack.name} onChange={(e) => setEditTrack({ ...editTrack, name: e.target.value })} />
+                                    </div>
+                                    <div>
+                                        <Label>Code</Label>
+                                        <Input value={editTrack.code} onChange={(e) => setEditTrack({ ...editTrack, code: e.target.value })} />
+                                    </div>
+                                    <div>
+                                        <Label>Description</Label>
+                                        <Input value={editTrack.description || ''} onChange={(e) => setEditTrack({ ...editTrack, description: e.target.value })} />
+                                    </div>
+                                </div>
+                                <DialogFooter>
+                                    <Button onClick={() => updateTrack(editTrack)}>Save</Button>
                                 </DialogFooter>
                             </DialogContent>
                         </Dialog>
