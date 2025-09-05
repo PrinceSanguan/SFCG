@@ -34,6 +34,21 @@ class User extends Authenticatable
         'department_id',
         'student_number',
         'last_login_at',
+        // Personal Information
+        'birth_date',
+        'gender',
+        'phone_number',
+        'address',
+        'city',
+        'province',
+        'postal_code',
+        'nationality',
+        'religion',
+        'emergency_contact_name',
+        'emergency_contact_phone',
+        'emergency_contact_relationship',
+        'lrn',
+        'previous_school',
     ];
 
     /**
@@ -64,6 +79,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'last_login_at' => 'datetime',
             'password' => 'hashed',
+            'birth_date' => 'date',
         ];
     }
 

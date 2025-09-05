@@ -18,6 +18,9 @@ class SubjectsController extends Controller
         $user = Auth::user();
         $schoolYear = request('school_year', '2024-2025');
         
+        // Load user relationships for course and strand
+        $user->load(['course', 'strand']);
+        
         // Get assigned subjects for the current school year
         $assignedSubjects = StudentSubjectAssignment::with([
             'subject.course',

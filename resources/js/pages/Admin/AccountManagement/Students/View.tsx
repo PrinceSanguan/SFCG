@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Link, usePage } from '@inertiajs/react';
-import { ArrowLeft, Edit, RotateCcw, Activity, Calendar, Mail, UserCheck, Clock } from 'lucide-react';
+import { ArrowLeft, Edit, RotateCcw, Activity, Calendar, Mail, UserCheck, Clock, Phone, MapPin, Flag, BookOpen, GraduationCap, School, BookOpen as BookIcon, Users, Award, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
 import PasswordResetModal from '@/components/admin/PasswordResetModal';
 
@@ -16,6 +16,62 @@ interface User {
     user_role: string;
 }
 
+interface Subject {
+    id: number;
+    name: string;
+    code: string;
+    description?: string;
+    units?: number;
+    hours_per_week?: number;
+    is_core: boolean;
+    course?: {
+        id: number;
+        name: string;
+    };
+    academicLevel?: {
+        id: number;
+        name: string;
+    };
+    teacherAssignments?: Array<{
+        id: number;
+        teacher: {
+            id: number;
+            name: string;
+            email: string;
+        };
+    }>;
+}
+
+interface SubjectAssignment {
+    id: number;
+    semester?: string;
+    is_active: boolean;
+    enrolled_at: string;
+    notes?: string;
+    subject: Subject;
+}
+
+interface StudentGrade {
+    id: number;
+    grade: number;
+    grading_period_id: number;
+    gradingPeriod: {
+        id: number;
+        name: string;
+    };
+    is_approved: boolean;
+    validated_at?: string;
+    approved_at?: string;
+    validatedBy?: {
+        id: number;
+        name: string;
+    };
+    approvedBy?: {
+        id: number;
+        name: string;
+    };
+}
+
 interface ViewUser {
     id: number;
     name: string;
@@ -23,6 +79,24 @@ interface ViewUser {
     user_role: string;
     created_at: string;
     last_login_at?: string;
+    student_number?: string;
+    year_level?: string;
+    specific_year_level?: string;
+    // Personal Information
+    birth_date?: string;
+    gender?: string;
+    phone_number?: string;
+    address?: string;
+    city?: string;
+    province?: string;
+    postal_code?: string;
+    nationality?: string;
+    religion?: string;
+    emergency_contact_name?: string;
+    emergency_contact_phone?: string;
+    emergency_contact_relationship?: string;
+    lrn?: string;
+    previous_school?: string;
     parents?: Array<{ id: number; name: string; email: string; pivot?: { relationship_type?: string } }>;
 }
 
@@ -48,9 +122,12 @@ interface ViewProps {
     user: User; // Current admin user
     targetUser: ViewUser; // User being viewed
     activityLogs: PaginatedActivityLogs;
+    assignedSubjects: SubjectAssignment[];
+    subjectGrades: Record<number, StudentGrade[]>;
+    currentSchoolYear: string;
 }
 
-export default function ViewStudent({ user, targetUser, activityLogs }: ViewProps) {
+export default function ViewStudent({ user, targetUser, activityLogs, assignedSubjects, subjectGrades, currentSchoolYear }: ViewProps) {
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const { errors } = usePage().props;
 
@@ -190,6 +267,318 @@ export default function ViewStudent({ user, targetUser, activityLogs }: ViewProp
                                 </div>
                             </CardContent>
                         </Card>
+
+                        {/* Student Information */}
+                        {(targetUser.student_number || targetUser.year_level || targetUser.specific_year_level) && (
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Student Information</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="grid gap-4 md:grid-cols-2">
+                                        {targetUser.student_number && (
+                                            <div className="flex items-center gap-3">
+                                                <GraduationCap className="h-5 w-5 text-gray-500" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Student Number</p>
+                                                    <p className="text-sm">{targetUser.student_number}</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {targetUser.year_level && (
+                                            <div className="flex items-center gap-3">
+                                                <School className="h-5 w-5 text-gray-500" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Academic Level</p>
+                                                    <p className="text-sm capitalize">{targetUser.year_level.replace('_', ' ')}</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {targetUser.specific_year_level && (
+                                            <div className="flex items-center gap-3">
+                                                <School className="h-5 w-5 text-gray-500" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Year Level</p>
+                                                    <p className="text-sm capitalize">{targetUser.specific_year_level.replace('_', ' ')}</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {/* Personal Information */}
+                        {(targetUser.birth_date || targetUser.gender || targetUser.phone_number || targetUser.nationality || targetUser.religion || targetUser.lrn || targetUser.previous_school) && (
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Personal Information</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="grid gap-4 md:grid-cols-2">
+                                        {targetUser.birth_date && (
+                                            <div className="flex items-center gap-3">
+                                                <Calendar className="h-5 w-5 text-gray-500" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Birth Date</p>
+                                                    <p className="text-sm">
+                                                        {new Date(targetUser.birth_date).toLocaleDateString('en-US', {
+                                                            year: 'numeric',
+                                                            month: 'long',
+                                                            day: 'numeric'
+                                                        })}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {targetUser.gender && (
+                                            <div className="flex items-center gap-3">
+                                                <UserCheck className="h-5 w-5 text-gray-500" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Gender</p>
+                                                    <p className="text-sm capitalize">{targetUser.gender}</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {targetUser.phone_number && (
+                                            <div className="flex items-center gap-3">
+                                                <Phone className="h-5 w-5 text-gray-500" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Phone Number</p>
+                                                    <p className="text-sm">{targetUser.phone_number}</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {targetUser.nationality && (
+                                            <div className="flex items-center gap-3">
+                                                <Flag className="h-5 w-5 text-gray-500" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Nationality</p>
+                                                    <p className="text-sm">{targetUser.nationality}</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {targetUser.religion && (
+                                            <div className="flex items-center gap-3">
+                                                <BookOpen className="h-5 w-5 text-gray-500" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Religion</p>
+                                                    <p className="text-sm">{targetUser.religion}</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {targetUser.lrn && (targetUser.year_level === 'elementary' || targetUser.year_level === 'junior_highschool') && (
+                                            <div className="flex items-center gap-3">
+                                                <GraduationCap className="h-5 w-5 text-gray-500" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">LRN</p>
+                                                    <p className="text-sm">{targetUser.lrn}</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {targetUser.previous_school && (
+                                            <div className="flex items-center gap-3">
+                                                <School className="h-5 w-5 text-gray-500" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Previous School</p>
+                                                    <p className="text-sm">{targetUser.previous_school}</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {/* Address Information */}
+                        {(targetUser.address || targetUser.city || targetUser.province || targetUser.postal_code) && (
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Address Information</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="grid gap-4 md:grid-cols-2">
+                                        {targetUser.address && (
+                                            <div className="flex items-start gap-3 md:col-span-2">
+                                                <MapPin className="h-5 w-5 text-gray-500 mt-0.5" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Complete Address</p>
+                                                    <p className="text-sm">{targetUser.address}</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {targetUser.city && (
+                                            <div className="flex items-center gap-3">
+                                                <MapPin className="h-5 w-5 text-gray-500" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">City</p>
+                                                    <p className="text-sm">{targetUser.city}</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {targetUser.province && (
+                                            <div className="flex items-center gap-3">
+                                                <MapPin className="h-5 w-5 text-gray-500" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Province</p>
+                                                    <p className="text-sm">{targetUser.province}</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {targetUser.postal_code && (
+                                            <div className="flex items-center gap-3">
+                                                <MapPin className="h-5 w-5 text-gray-500" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Postal Code</p>
+                                                    <p className="text-sm">{targetUser.postal_code}</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {/* Emergency Contact Information */}
+                        {(targetUser.emergency_contact_name || targetUser.emergency_contact_phone || targetUser.emergency_contact_relationship) && (
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Emergency Contact</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="grid gap-4 md:grid-cols-2">
+                                        {targetUser.emergency_contact_name && (
+                                            <div className="flex items-center gap-3">
+                                                <UserCheck className="h-5 w-5 text-gray-500" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Contact Name</p>
+                                                    <p className="text-sm">{targetUser.emergency_contact_name}</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {targetUser.emergency_contact_phone && (
+                                            <div className="flex items-center gap-3">
+                                                <Phone className="h-5 w-5 text-gray-500" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Contact Phone</p>
+                                                    <p className="text-sm">{targetUser.emergency_contact_phone}</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {targetUser.emergency_contact_relationship && (
+                                            <div className="flex items-center gap-3">
+                                                <UserCheck className="h-5 w-5 text-gray-500" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Relationship</p>
+                                                    <p className="text-sm">{targetUser.emergency_contact_relationship}</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {/* Academic Information - Subjects and Grades */}
+                        {assignedSubjects && assignedSubjects.length > 0 && (
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <BookIcon className="h-5 w-5" />
+                                        Academic Information - {currentSchoolYear}
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-6">
+                                        {assignedSubjects.map((assignment) => {
+                                            const grades = subjectGrades[assignment.subject.id] || [];
+                                            const teacher = assignment.subject.teacherAssignments?.[0]?.teacher;
+                                            
+                                            return (
+                                                <div key={assignment.id} className="border rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
+                                                    <div className="flex items-start justify-between mb-3">
+                                                        <div className="flex-1">
+                                                            <h4 className="font-semibold text-lg">{assignment.subject.name}</h4>
+                                                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                                                                {assignment.subject.code} • {assignment.subject.units || 0} units
+                                                            </p>
+                                                            {assignment.subject.description && (
+                                                                <p className="text-sm text-gray-500 mt-1">{assignment.subject.description}</p>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex gap-2">
+                                                            {assignment.subject.is_core && (
+                                                                <Badge variant="secondary" className="text-xs">
+                                                                    Core Subject
+                                                                </Badge>
+                                                            )}
+                                                            {assignment.semester && (
+                                                                <Badge variant="outline" className="text-xs">
+                                                                    {assignment.semester}
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Teacher Information */}
+                                                    {teacher && (
+                                                        <div className="flex items-center gap-2 mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
+                                                            <Users className="h-4 w-4 text-blue-600" />
+                                                            <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                                                                Teacher: {teacher.name}
+                                                            </span>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Grades Section */}
+                                                    {grades.length > 0 ? (
+                                                        <div className="space-y-2">
+                                                            <h5 className="font-medium text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                                                                <Award className="h-4 w-4" />
+                                                                Grades
+                                                            </h5>
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                                                                {grades.map((grade) => (
+                                                                    <div key={grade.id} className="flex items-center justify-between p-2 bg-white dark:bg-gray-700 rounded border">
+                                                                        <div>
+                                                                            <span className="text-sm font-medium">{grade.gradingPeriod.name}</span>
+                                                                            <div className="flex items-center gap-2">
+                                                                                <span className={`text-lg font-bold ${
+                                                                                    grade.grade >= 90 ? 'text-green-600' :
+                                                                                    grade.grade >= 80 ? 'text-yellow-600' :
+                                                                                    grade.grade >= 70 ? 'text-orange-600' : 'text-red-600'
+                                                                                }`}>
+                                                                                    {grade.grade}
+                                                                                </span>
+                                                                                {grade.is_approved && (
+                                                                                    <Badge variant="default" className="text-xs">
+                                                                                        Approved
+                                                                                    </Badge>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                        {grade.validatedBy && (
+                                                                            <div className="text-xs text-gray-500">
+                                                                                Validated by {grade.validatedBy.name}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="text-center py-4 text-gray-500 dark:text-gray-400">
+                                                            <TrendingUp className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                                            <p className="text-sm">No grades recorded yet</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
 
                         {/* Linked Parents */}
                         <Card>

@@ -49,6 +49,21 @@ export default function CreateStudent({ user, errors, academicLevel, specificYea
         course_id: '',
         department_id: '',
         student_number: '',
+        // Personal Information
+        birth_date: '',
+        gender: '',
+        phone_number: '',
+        address: '',
+        city: '',
+        province: '',
+        postal_code: '',
+        nationality: 'Filipino',
+        religion: '',
+        emergency_contact_name: '',
+        emergency_contact_phone: '',
+        emergency_contact_relationship: '',
+        lrn: '',
+        previous_school: '',
     });
 
     // Auto-set academic level when component mounts or academicLevel changes
@@ -298,6 +313,262 @@ export default function CreateStudent({ user, errors, academicLevel, specificYea
                                                 placeholder="Confirm password"
                                                 required
                                             />
+                                        </div>
+                                    </div>
+
+                                    {/* Personal Information Section */}
+                                    <div className="space-y-6">
+                                        <div className="border-t pt-6">
+                                            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Personal Information</h3>
+                                            <div className="grid gap-6 md:grid-cols-2">
+                                                {/* Birth Date */}
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="birth_date">Birth Date</Label>
+                                                    <Input
+                                                        id="birth_date"
+                                                        type="date"
+                                                        value={data.birth_date}
+                                                        onChange={(e) => setData('birth_date', e.target.value)}
+                                                    />
+                                                    {errors?.birth_date && (
+                                                        <Alert variant="destructive">
+                                                            <AlertDescription>{errors.birth_date}</AlertDescription>
+                                                        </Alert>
+                                                    )}
+                                                </div>
+
+                                                {/* Gender */}
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="gender">Gender</Label>
+                                                    <Select value={data.gender} onValueChange={(value) => setData('gender', value)}>
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select gender" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="male">Male</SelectItem>
+                                                            <SelectItem value="female">Female</SelectItem>
+                                                            <SelectItem value="other">Other</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                    {errors?.gender && (
+                                                        <Alert variant="destructive">
+                                                            <AlertDescription>{errors.gender}</AlertDescription>
+                                                        </Alert>
+                                                    )}
+                                                </div>
+
+                                                {/* Phone Number */}
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="phone_number">Phone Number</Label>
+                                                    <Input
+                                                        id="phone_number"
+                                                        type="tel"
+                                                        value={data.phone_number}
+                                                        onChange={(e) => setData('phone_number', e.target.value)}
+                                                        placeholder="Enter phone number"
+                                                    />
+                                                    {errors?.phone_number && (
+                                                        <Alert variant="destructive">
+                                                            <AlertDescription>{errors.phone_number}</AlertDescription>
+                                                        </Alert>
+                                                    )}
+                                                </div>
+
+                                                {/* Nationality */}
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="nationality">Nationality</Label>
+                                                    <Input
+                                                        id="nationality"
+                                                        type="text"
+                                                        value={data.nationality}
+                                                        onChange={(e) => setData('nationality', e.target.value)}
+                                                        placeholder="Enter nationality"
+                                                    />
+                                                    {errors?.nationality && (
+                                                        <Alert variant="destructive">
+                                                            <AlertDescription>{errors.nationality}</AlertDescription>
+                                                        </Alert>
+                                                    )}
+                                                </div>
+
+                                                {/* Religion */}
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="religion">Religion</Label>
+                                                    <Input
+                                                        id="religion"
+                                                        type="text"
+                                                        value={data.religion}
+                                                        onChange={(e) => setData('religion', e.target.value)}
+                                                        placeholder="Enter religion"
+                                                    />
+                                                    {errors?.religion && (
+                                                        <Alert variant="destructive">
+                                                            <AlertDescription>{errors.religion}</AlertDescription>
+                                                        </Alert>
+                                                    )}
+                                                </div>
+
+                                                {/* LRN - Only for Elementary and Junior High School */}
+                                                {(data.academic_level === 'elementary' || data.academic_level === 'junior_highschool') && (
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="lrn">LRN (Learner Reference Number)</Label>
+                                                        <Input
+                                                            id="lrn"
+                                                            type="text"
+                                                            value={data.lrn}
+                                                            onChange={(e) => setData('lrn', e.target.value)}
+                                                            placeholder="Enter LRN"
+                                                        />
+                                                        {errors?.lrn && (
+                                                            <Alert variant="destructive">
+                                                                <AlertDescription>{errors.lrn}</AlertDescription>
+                                                            </Alert>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {/* Address */}
+                                                <div className="space-y-2 md:col-span-2">
+                                                    <Label htmlFor="address">Address</Label>
+                                                    <Input
+                                                        id="address"
+                                                        type="text"
+                                                        value={data.address}
+                                                        onChange={(e) => setData('address', e.target.value)}
+                                                        placeholder="Enter complete address"
+                                                    />
+                                                    {errors?.address && (
+                                                        <Alert variant="destructive">
+                                                            <AlertDescription>{errors.address}</AlertDescription>
+                                                        </Alert>
+                                                    )}
+                                                </div>
+
+                                                {/* City */}
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="city">City</Label>
+                                                    <Input
+                                                        id="city"
+                                                        type="text"
+                                                        value={data.city}
+                                                        onChange={(e) => setData('city', e.target.value)}
+                                                        placeholder="Enter city"
+                                                    />
+                                                    {errors?.city && (
+                                                        <Alert variant="destructive">
+                                                            <AlertDescription>{errors.city}</AlertDescription>
+                                                        </Alert>
+                                                    )}
+                                                </div>
+
+                                                {/* Province */}
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="province">Province</Label>
+                                                    <Input
+                                                        id="province"
+                                                        type="text"
+                                                        value={data.province}
+                                                        onChange={(e) => setData('province', e.target.value)}
+                                                        placeholder="Enter province"
+                                                    />
+                                                    {errors?.province && (
+                                                        <Alert variant="destructive">
+                                                            <AlertDescription>{errors.province}</AlertDescription>
+                                                        </Alert>
+                                                    )}
+                                                </div>
+
+                                                {/* Postal Code */}
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="postal_code">Postal Code</Label>
+                                                    <Input
+                                                        id="postal_code"
+                                                        type="text"
+                                                        value={data.postal_code}
+                                                        onChange={(e) => setData('postal_code', e.target.value)}
+                                                        placeholder="Enter postal code"
+                                                    />
+                                                    {errors?.postal_code && (
+                                                        <Alert variant="destructive">
+                                                            <AlertDescription>{errors.postal_code}</AlertDescription>
+                                                        </Alert>
+                                                    )}
+                                                </div>
+
+                                                {/* Previous School */}
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="previous_school">Previous School</Label>
+                                                    <Input
+                                                        id="previous_school"
+                                                        type="text"
+                                                        value={data.previous_school}
+                                                        onChange={(e) => setData('previous_school', e.target.value)}
+                                                        placeholder="Enter previous school"
+                                                    />
+                                                    {errors?.previous_school && (
+                                                        <Alert variant="destructive">
+                                                            <AlertDescription>{errors.previous_school}</AlertDescription>
+                                                        </Alert>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Emergency Contact Section */}
+                                        <div className="border-t pt-6">
+                                            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Emergency Contact</h3>
+                                            <div className="grid gap-6 md:grid-cols-2">
+                                                {/* Emergency Contact Name */}
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="emergency_contact_name">Emergency Contact Name</Label>
+                                                    <Input
+                                                        id="emergency_contact_name"
+                                                        type="text"
+                                                        value={data.emergency_contact_name}
+                                                        onChange={(e) => setData('emergency_contact_name', e.target.value)}
+                                                        placeholder="Enter emergency contact name"
+                                                    />
+                                                    {errors?.emergency_contact_name && (
+                                                        <Alert variant="destructive">
+                                                            <AlertDescription>{errors.emergency_contact_name}</AlertDescription>
+                                                        </Alert>
+                                                    )}
+                                                </div>
+
+                                                {/* Emergency Contact Phone */}
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="emergency_contact_phone">Emergency Contact Phone</Label>
+                                                    <Input
+                                                        id="emergency_contact_phone"
+                                                        type="tel"
+                                                        value={data.emergency_contact_phone}
+                                                        onChange={(e) => setData('emergency_contact_phone', e.target.value)}
+                                                        placeholder="Enter emergency contact phone"
+                                                    />
+                                                    {errors?.emergency_contact_phone && (
+                                                        <Alert variant="destructive">
+                                                            <AlertDescription>{errors.emergency_contact_phone}</AlertDescription>
+                                                        </Alert>
+                                                    )}
+                                                </div>
+
+                                                {/* Emergency Contact Relationship */}
+                                                <div className="space-y-2 md:col-span-2">
+                                                    <Label htmlFor="emergency_contact_relationship">Relationship</Label>
+                                                    <Input
+                                                        id="emergency_contact_relationship"
+                                                        type="text"
+                                                        value={data.emergency_contact_relationship}
+                                                        onChange={(e) => setData('emergency_contact_relationship', e.target.value)}
+                                                        placeholder="e.g., Father, Mother, Guardian, etc."
+                                                    />
+                                                    {errors?.emergency_contact_relationship && (
+                                                        <Alert variant="destructive">
+                                                            <AlertDescription>{errors.emergency_contact_relationship}</AlertDescription>
+                                                        </Alert>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
 

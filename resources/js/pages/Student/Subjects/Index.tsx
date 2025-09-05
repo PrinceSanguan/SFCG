@@ -42,7 +42,20 @@ interface SubjectAssignment {
 }
 
 interface Props {
-  user: { name: string };
+  user: { 
+    name: string;
+    year_level?: string;
+    specific_year_level?: string;
+    student_number?: string;
+    course?: {
+      id: number;
+      name: string;
+    };
+    strand?: {
+      id: number;
+      name: string;
+    };
+  };
   schoolYear: string;
   assignedSubjects: SubjectAssignment[];
   subjectsBySemester: Record<string, SubjectAssignment[]>;
@@ -62,6 +75,49 @@ export default function StudentSubjectsIndex({ user, schoolYear, assignedSubject
         <div className="flex flex-col gap-1">
           <h1 className="text-3xl font-semibold">My Subjects</h1>
           <p className="text-sm text-muted-foreground">School Year: {schoolYear}</p>
+          {/* Academic Information */}
+          <div className="flex flex-wrap gap-4 mt-2 text-sm">
+            {user?.year_level && (
+              <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 px-3 py-1 rounded-full">
+                <GraduationCap className="h-4 w-4 text-blue-600" />
+                <span className="text-blue-800 dark:text-blue-200 font-medium">
+                  {user.year_level.replace('_', ' ').toUpperCase()}
+                </span>
+              </div>
+            )}
+            {user?.specific_year_level && (
+              <div className="flex items-center gap-2 bg-green-50 dark:bg-green-900/20 px-3 py-1 rounded-full">
+                <School className="h-4 w-4 text-green-600" />
+                <span className="text-green-800 dark:text-green-200 font-medium">
+                  {user.specific_year_level.replace('_', ' ').toUpperCase()}
+                </span>
+              </div>
+            )}
+            {user?.student_number && (
+              <div className="flex items-center gap-2 bg-purple-50 dark:bg-purple-900/20 px-3 py-1 rounded-full">
+                <span className="text-xs">🎓</span>
+                <span className="text-purple-800 dark:text-purple-200 font-medium">
+                  {user.student_number}
+                </span>
+              </div>
+            )}
+            {user?.course && (
+              <div className="flex items-center gap-2 bg-orange-50 dark:bg-orange-900/20 px-3 py-1 rounded-full">
+                <BookOpen className="h-4 w-4 text-orange-600" />
+                <span className="text-orange-800 dark:text-orange-200 font-medium">
+                  {user.course.name}
+                </span>
+              </div>
+            )}
+            {user?.strand && (
+              <div className="flex items-center gap-2 bg-pink-50 dark:bg-pink-900/20 px-3 py-1 rounded-full">
+                <School className="h-4 w-4 text-pink-600" />
+                <span className="text-pink-800 dark:text-pink-200 font-medium">
+                  {user.strand.name}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Stats Cards */}

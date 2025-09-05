@@ -16,6 +16,9 @@ class DashboardController extends Controller
     {
         $user = Auth::user();
         $schoolYear = request('school_year', '2024-2025');
+        
+        // Load user relationships for course and strand
+        $user->load(['course', 'strand']);
 
         $gradesCount = StudentGrade::where('student_id', $user->id)
             ->where('school_year', $schoolYear)

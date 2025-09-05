@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\User;
 use App\Mail\UserAccountCreatedEmail;
+use App\Services\StudentSubjectAssignmentService;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -495,6 +496,21 @@ class UserManagementController extends Controller
             'course_id' => 'nullable|exists:courses,id',
             'department_id' => 'nullable|exists:departments,id',
             'student_number' => 'nullable|string|max:40|unique:users,student_number',
+            // Personal Information validation
+            'birth_date' => 'nullable|date|before:today',
+            'gender' => 'nullable|in:male,female,other',
+            'phone_number' => 'nullable|string|max:20',
+            'address' => 'nullable|string|max:500',
+            'city' => 'nullable|string|max:100',
+            'province' => 'nullable|string|max:100',
+            'postal_code' => 'nullable|string|max:10',
+            'nationality' => 'nullable|string|max:50',
+            'religion' => 'nullable|string|max:100',
+            'emergency_contact_name' => 'nullable|string|max:255',
+            'emergency_contact_phone' => 'nullable|string|max:20',
+            'emergency_contact_relationship' => 'nullable|string|max:50',
+            'lrn' => 'nullable|string|max:20|unique:users,lrn',
+            'previous_school' => 'nullable|string|max:255',
         ]);
 
         // Additional validation for strands, courses, and departments
@@ -525,7 +541,43 @@ class UserManagementController extends Controller
             'course_id' => $role === 'student' ? $request->course_id : null,
             'department_id' => $role === 'student' ? $request->department_id : null,
             'student_number' => $role === 'student' ? $request->student_number : null,
+            // Personal Information
+            'birth_date' => $request->birth_date,
+            'gender' => $request->gender,
+            'phone_number' => $request->phone_number,
+            'address' => $request->address,
+            'city' => $request->city,
+            'province' => $request->province,
+            'postal_code' => $request->postal_code,
+            'nationality' => $request->nationality ?? 'Filipino',
+            'religion' => $request->religion,
+            'emergency_contact_name' => $request->emergency_contact_name,
+            'emergency_contact_phone' => $request->emergency_contact_phone,
+            'emergency_contact_relationship' => $request->emergency_contact_relationship,
+            'lrn' => $request->lrn,
+            'previous_school' => $request->previous_school,
         ]);
+
+        // Automatically assign subjects for students
+        if ($role === 'student') {
+            try {
+                $subjectAssignmentService = new StudentSubjectAssignmentService();
+                $assignedSubjects = $subjectAssignmentService->assignSubjectsToStudent($user);
+                
+                Log::info('Subjects automatically assigned to student', [
+                    'student_id' => $user->id,
+                    'student_name' => $user->name,
+                    'academic_level' => $user->year_level,
+                    'assigned_subjects_count' => count($assignedSubjects),
+                ]);
+            } catch (\Exception $e) {
+                Log::error('Failed to automatically assign subjects to student', [
+                    'student_id' => $user->id,
+                    'student_name' => $user->name,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
 
         // Send email to user with their credentials
         try {
@@ -589,6 +641,41 @@ class UserManagementController extends Controller
         }
         $user->load($relations);
 
+        // Load additional data for students
+        $assignedSubjects = collect();
+        $subjectGrades = collect();
+        $currentSchoolYear = now()->format('Y') . '-' . (now()->addYear()->format('Y'));
+
+        if ($role === 'student') {
+            // Load assigned subjects with teacher information
+            $assignedSubjects = \App\Models\StudentSubjectAssignment::with([
+                'subject.course',
+                'subject.academicLevel',
+                'subject.teacherAssignments.teacher' => function ($query) use ($currentSchoolYear) {
+                    $query->where('school_year', $currentSchoolYear)
+                          ->where('is_active', true);
+                }
+            ])
+            ->where('student_id', $user->id)
+            ->where('school_year', $currentSchoolYear)
+            ->where('is_active', true)
+            ->orderBy('semester')
+            ->orderBy('created_at')
+            ->get();
+
+            // Load grades for each subject
+            $subjectGrades = \App\Models\StudentGrade::with([
+                'subject',
+                'gradingPeriod',
+                'validatedBy',
+                'approvedBy'
+            ])
+            ->where('student_id', $user->id)
+            ->where('school_year', $currentSchoolYear)
+            ->get()
+            ->groupBy('subject_id');
+        }
+
         $activityLogs = ActivityLog::where(function ($query) use ($user) {
             $query->where('user_id', $user->id)
                   ->orWhere('target_user_id', $user->id);
@@ -605,6 +692,9 @@ class UserManagementController extends Controller
             'activityLogs' => $activityLogs,
             'role' => $role,
             'roleDisplayName' => User::getAvailableRoles()[$role] ?? ucfirst($role),
+            'assignedSubjects' => $assignedSubjects,
+            'subjectGrades' => $subjectGrades,
+            'currentSchoolYear' => $currentSchoolYear,
         ]);
     }
 

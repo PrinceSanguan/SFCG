@@ -248,13 +248,7 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
     Route::get('/subjects', [RegistrarAcademicController::class, 'subjects'])->name('subjects');
     Route::get('/programs', [RegistrarAcademicController::class, 'programs'])->name('programs');
     
-    // Student Subject Management
-    Route::get('/student-subjects', [StudentSubjectController::class, 'index'])->name('student-subjects.index');
-    Route::post('/student-subjects', [StudentSubjectController::class, 'store'])->name('student-subjects.store');
-    Route::put('/student-subjects/{assignment}', [StudentSubjectController::class, 'update'])->name('student-subjects.update');
-    Route::delete('/student-subjects/{assignment}', [StudentSubjectController::class, 'destroy'])->name('student-subjects.destroy');
-    Route::get('/student-subjects/students/{levelId}', [StudentSubjectController::class, 'getStudentsByLevel'])->name('student-subjects.students-by-level');
-    Route::get('/student-subjects/subjects/{levelId}', [StudentSubjectController::class, 'getSubjectsByLevel'])->name('student-subjects.subjects-by-level');
+    // Student Subject Management - REMOVED (subjects are now auto-assigned)
     Route::get('/honors', [RegistrarAcademicController::class, 'honors'])->name('honors');
     Route::get('/assign-instructors', [RegistrarAcademicController::class, 'assignInstructors'])->name('assign-instructors');
     

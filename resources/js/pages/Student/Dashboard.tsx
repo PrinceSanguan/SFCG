@@ -4,7 +4,7 @@ import StudentLayout from '@/layouts/student/layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { BookOpen, Crown, FileText, User as UserIcon, ArrowRight, GraduationCap } from 'lucide-react';
+import { BookOpen, Crown, FileText, User as UserIcon, ArrowRight, GraduationCap, School, Clock } from 'lucide-react';
 
 interface SubjectAssignment {
   id: number;
@@ -32,7 +32,20 @@ interface SubjectAssignment {
 }
 
 interface Props {
-  user: { name: string };
+  user: { 
+    name: string;
+    year_level?: string;
+    specific_year_level?: string;
+    student_number?: string;
+    course?: {
+      id: number;
+      name: string;
+    };
+    strand?: {
+      id: number;
+      name: string;
+    };
+  };
   schoolYear: string;
   stats: { grades: number; honor_count: number; certificates: number; subjects: number };
   assignedSubjects: SubjectAssignment[];
@@ -46,6 +59,49 @@ export default function StudentDashboard({ user, schoolYear, stats, assignedSubj
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-semibold">Welcome, {user?.name ?? 'Student'} 👋</h1>
           <p className="text-sm text-muted-foreground">School Year: {schoolYear}</p>
+          {/* Academic Information */}
+          <div className="flex flex-wrap gap-4 mt-2 text-sm">
+            {user?.year_level && (
+              <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 px-3 py-1 rounded-full">
+                <GraduationCap className="h-4 w-4 text-blue-600" />
+                <span className="text-blue-800 dark:text-blue-200 font-medium">
+                  {user.year_level.replace('_', ' ').toUpperCase()}
+                </span>
+              </div>
+            )}
+            {user?.specific_year_level && (
+              <div className="flex items-center gap-2 bg-green-50 dark:bg-green-900/20 px-3 py-1 rounded-full">
+                <School className="h-4 w-4 text-green-600" />
+                <span className="text-green-800 dark:text-green-200 font-medium">
+                  {user.specific_year_level.replace('_', ' ').toUpperCase()}
+                </span>
+              </div>
+            )}
+            {user?.student_number && (
+              <div className="flex items-center gap-2 bg-purple-50 dark:bg-purple-900/20 px-3 py-1 rounded-full">
+                <span className="text-xs">🎓</span>
+                <span className="text-purple-800 dark:text-purple-200 font-medium">
+                  {user.student_number}
+                </span>
+              </div>
+            )}
+            {user?.course && (
+              <div className="flex items-center gap-2 bg-orange-50 dark:bg-orange-900/20 px-3 py-1 rounded-full">
+                <BookOpen className="h-4 w-4 text-orange-600" />
+                <span className="text-orange-800 dark:text-orange-200 font-medium">
+                  {user.course.name}
+                </span>
+              </div>
+            )}
+            {user?.strand && (
+              <div className="flex items-center gap-2 bg-pink-50 dark:bg-pink-900/20 px-3 py-1 rounded-full">
+                <School className="h-4 w-4 text-pink-600" />
+                <span className="text-pink-800 dark:text-pink-200 font-medium">
+                  {user.strand.name}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
@@ -167,16 +223,28 @@ export default function StudentDashboard({ user, schoolYear, stats, assignedSubj
                     <CardContent className="pt-0">
                       <div className="space-y-2 text-sm text-muted-foreground">
                         {assignment.subject.course && (
-                          <div>Course: {assignment.subject.course.name}</div>
+                          <div className="flex items-center gap-2">
+                            <BookOpen className="h-4 w-4" />
+                            <span>Course: {assignment.subject.course.name}</span>
+                          </div>
                         )}
                         {assignment.subject.academicLevel && (
-                          <div>Level: {assignment.subject.academicLevel.name}</div>
+                          <div className="flex items-center gap-2">
+                            <GraduationCap className="h-4 w-4" />
+                            <span>Level: {assignment.subject.academicLevel.name}</span>
+                          </div>
                         )}
                         {assignment.subject.units && (
-                          <div>Units: {assignment.subject.units}</div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs">📚</span>
+                            <span>Units: {assignment.subject.units}</span>
+                          </div>
                         )}
                         {assignment.subject.hours_per_week && (
-                          <div>Hours/Week: {assignment.subject.hours_per_week}</div>
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4" />
+                            <span>Hours/Week: {assignment.subject.hours_per_week}</span>
+                          </div>
                         )}
                       </div>
                       {assignment.subject.description && (

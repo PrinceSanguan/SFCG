@@ -277,13 +277,7 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/aca
     
     Route::get('/programs', [AcademicController::class, 'programs'])->name('programs'); // strands/courses/departments
     
-    // Student Subject Management
-    Route::get('/student-subjects', [StudentSubjectController::class, 'index'])->name('student-subjects.index');
-    Route::post('/student-subjects', [StudentSubjectController::class, 'store'])->name('student-subjects.store');
-    Route::put('/student-subjects/{assignment}', [StudentSubjectController::class, 'update'])->name('student-subjects.update');
-    Route::delete('/student-subjects/{assignment}', [StudentSubjectController::class, 'destroy'])->name('student-subjects.destroy');
-    Route::get('/student-subjects/students/{levelId}', [StudentSubjectController::class, 'getStudentsByLevel'])->name('student-subjects.students-by-level');
-    Route::get('/student-subjects/subjects/{levelId}', [StudentSubjectController::class, 'getSubjectsByLevel'])->name('student-subjects.subjects-by-level');
+    // Student Subject Management - REMOVED (subjects are now auto-assigned)
     
     // Tracks CRUD
     Route::post('/tracks', function(\Illuminate\Http\Request $request) {
