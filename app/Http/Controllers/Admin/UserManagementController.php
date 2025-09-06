@@ -641,9 +641,13 @@ class UserManagementController extends Controller
         }
         $user->load($relations);
 
-        // Load additional data for students
+        // Load additional data for students, teachers, instructors, and advisers
         $assignedSubjects = collect();
         $subjectGrades = collect();
+        $teacherSubjectAssignments = collect();
+        $instructorSubjectAssignments = collect();
+        $adviserClassAssignments = collect();
+        $assignedStudents = collect();
         $currentSchoolYear = '2024-2025'; // Use the current active school year
 
         if ($role === 'student') {
@@ -674,6 +678,94 @@ class UserManagementController extends Controller
             ->where('school_year', $currentSchoolYear)
             ->get()
             ->groupBy('subject_id');
+        } elseif ($role === 'teacher') {
+            // Load teacher subject assignments
+            $teacherSubjectAssignments = \App\Models\TeacherSubjectAssignment::with([
+                'subject.course',
+                'subject.academicLevel',
+                'academicLevel',
+                'gradingPeriod'
+            ])
+            ->where('teacher_id', $user->id)
+            ->where('school_year', $currentSchoolYear)
+            ->where('is_active', true)
+            ->orderBy('academic_level_id')
+            ->orderBy('subject_id')
+            ->get();
+
+            // Load students assigned to this teacher's subjects
+            $subjectIds = $teacherSubjectAssignments->pluck('subject_id')->toArray();
+            if (!empty($subjectIds)) {
+                $assignedStudents = \App\Models\StudentSubjectAssignment::with([
+                    'student',
+                    'subject.academicLevel'
+                ])
+                ->whereIn('subject_id', $subjectIds)
+                ->where('school_year', $currentSchoolYear)
+                ->where('is_active', true)
+                ->join('users', 'student_subject_assignments.student_id', '=', 'users.id')
+                ->orderBy('users.name')
+                ->select('student_subject_assignments.*')
+                ->get();
+            }
+        } elseif ($role === 'instructor') {
+            // Load instructor subject assignments
+            $instructorSubjectAssignments = \App\Models\InstructorSubjectAssignment::with([
+                'subject.course',
+                'subject.academicLevel',
+                'academicLevel',
+                'gradingPeriod'
+            ])
+            ->where('instructor_id', $user->id)
+            ->where('school_year', $currentSchoolYear)
+            ->where('is_active', true)
+            ->orderBy('academic_level_id')
+            ->orderBy('subject_id')
+            ->get();
+
+            // Load students assigned to this instructor's subjects
+            $subjectIds = $instructorSubjectAssignments->pluck('subject_id')->toArray();
+            if (!empty($subjectIds)) {
+                $assignedStudents = \App\Models\StudentSubjectAssignment::with([
+                    'student',
+                    'subject.academicLevel'
+                ])
+                ->whereIn('subject_id', $subjectIds)
+                ->where('school_year', $currentSchoolYear)
+                ->where('is_active', true)
+                ->join('users', 'student_subject_assignments.student_id', '=', 'users.id')
+                ->orderBy('users.name')
+                ->select('student_subject_assignments.*')
+                ->get();
+            }
+        } elseif ($role === 'adviser') {
+            // Load adviser class assignments
+            $adviserClassAssignments = \App\Models\ClassAdviserAssignment::with([
+                'academicLevel',
+                'subject'
+            ])
+            ->where('adviser_id', $user->id)
+            ->where('school_year', $currentSchoolYear)
+            ->where('is_active', true)
+            ->orderBy('academic_level_id')
+            ->orderBy('grade_level')
+            ->orderBy('section')
+            ->get();
+
+            // Load students in the adviser's classes
+            $gradeLevels = $adviserClassAssignments->pluck('grade_level')->unique()->toArray();
+            
+            if (!empty($gradeLevels)) {
+                $assignedStudents = \App\Models\User::with(['academicLevel'])
+                    ->where('user_role', 'student')
+                    ->where(function ($query) use ($gradeLevels) {
+                        foreach ($gradeLevels as $gradeLevel) {
+                            $query->orWhere('specific_year_level', $gradeLevel);
+                        }
+                    })
+                    ->orderBy('name')
+                    ->get();
+            }
         }
 
         $activityLogs = ActivityLog::where(function ($query) use ($user) {
@@ -694,6 +786,10 @@ class UserManagementController extends Controller
             'roleDisplayName' => User::getAvailableRoles()[$role] ?? ucfirst($role),
             'assignedSubjects' => $assignedSubjects,
             'subjectGrades' => $subjectGrades,
+            'teacherSubjectAssignments' => $teacherSubjectAssignments,
+            'instructorSubjectAssignments' => $instructorSubjectAssignments,
+            'adviserClassAssignments' => $adviserClassAssignments,
+            'assignedStudents' => $assignedStudents,
             'currentSchoolYear' => $currentSchoolYear,
         ]);
     }

@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Link, usePage } from '@inertiajs/react';
-import { ArrowLeft, Edit, RotateCcw, Activity, Calendar, Mail, UserCheck, Clock } from 'lucide-react';
+import { ArrowLeft, Edit, RotateCcw, Activity, Calendar, Mail, UserCheck, Clock, Users, Award, Building, School } from 'lucide-react';
 import { useState } from 'react';
 import PasswordResetModal from '@/components/admin/PasswordResetModal';
 
@@ -43,13 +43,46 @@ interface PaginatedActivityLogs {
     total: number;
 }
 
+interface AdviserClassAssignment {
+    id: number;
+    academicLevel: {
+        id: number;
+        name: string;
+    };
+    subject?: {
+        id: number;
+        name: string;
+        code: string;
+    };
+    grade_level: string;
+    section: string;
+    school_year: string;
+    is_active: boolean;
+}
+
+interface AssignedStudent {
+    id: number;
+    name: string;
+    email: string;
+    student_number?: string;
+    year_level?: string;
+    specific_year_level?: string;
+    academicLevel?: {
+        id: number;
+        name: string;
+    };
+}
+
 interface ViewProps {
     user: User; // Current admin user
     targetUser: ViewUser; // User being viewed
     activityLogs: PaginatedActivityLogs;
+    adviserClassAssignments: AdviserClassAssignment[];
+    assignedStudents: AssignedStudent[];
+    currentSchoolYear: string;
 }
 
-export default function ViewAdviser({ user, targetUser, activityLogs }: ViewProps) {
+export default function ViewAdviser({ user, targetUser, activityLogs, adviserClassAssignments, assignedStudents, currentSchoolYear }: ViewProps) {
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const { errors } = usePage().props;
 
@@ -314,6 +347,112 @@ export default function ViewAdviser({ user, targetUser, activityLogs }: ViewProp
                                 )}
                             </CardContent>
                         </Card>
+
+                        {/* Adviser Class Assignments */}
+                        {adviserClassAssignments && adviserClassAssignments.length > 0 && (
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <School className="h-5 w-5" />
+                                        Class Assignments - {currentSchoolYear}
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-4">
+                                        {adviserClassAssignments.map((assignment) => (
+                                            <div key={assignment.id} className="border rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
+                                                <div className="flex items-start justify-between mb-3">
+                                                    <div className="flex-1">
+                                                        <h4 className="font-semibold text-lg">
+                                                            Grade {assignment.grade_level} - Section {assignment.section}
+                                                        </h4>
+                                                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                                                            {assignment.academicLevel?.name || 'N/A'}
+                                                        </p>
+                                                        {assignment.subject && (
+                                                            <p className="text-sm text-gray-500 mt-1">
+                                                                Subject: {assignment.subject?.name || 'N/A'} ({assignment.subject?.code || 'N/A'})
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        <Badge variant="outline" className="text-xs">
+                                                            Grade {assignment.grade_level}
+                                                        </Badge>
+                                                        <Badge variant="outline" className="text-xs">
+                                                            Section {assignment.section}
+                                                        </Badge>
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                                    <div className="flex items-center gap-2">
+                                                        <Building className="h-4 w-4 text-gray-500" />
+                                                        <span className="text-gray-600 dark:text-gray-400">Level:</span>
+                                                        <span>{assignment.academicLevel?.name || 'N/A'}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <Award className="h-4 w-4 text-gray-500" />
+                                                        <span className="text-gray-600 dark:text-gray-400">School Year:</span>
+                                                        <span>{assignment.school_year || 'N/A'}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {/* Assigned Students */}
+                        {assignedStudents && assignedStudents.length > 0 && (
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <Users className="h-5 w-5" />
+                                        Assigned Students - {currentSchoolYear}
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-4">
+                                        {assignedStudents.map((student) => (
+                                            <div key={student.id} className="border rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <Avatar className="h-10 w-10">
+                                                            <AvatarFallback className="text-sm">
+                                                                {student.name.substring(0, 2).toUpperCase()}
+                                                            </AvatarFallback>
+                                                        </Avatar>
+                                                        <div>
+                                                            <h4 className="font-medium">{student.name}</h4>
+                                                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                                                                {student.email}
+                                                            </p>
+                                                            {student.student_number && (
+                                                                <p className="text-xs text-gray-500">
+                                                                    {student.student_number}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className="text-sm font-medium">
+                                                            {student.specific_year_level || student.year_level || 'N/A'}
+                                                        </div>
+                                                        {student.academicLevel && (
+                                                            <div className="text-xs text-gray-500">
+                                                                {student.academicLevel?.name || 'N/A'}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
                     </div>
                 </main>
             </div>
