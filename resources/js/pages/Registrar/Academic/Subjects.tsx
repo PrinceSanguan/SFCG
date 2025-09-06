@@ -1,16 +1,17 @@
 import { Header } from '@/components/registrar/header';
 import { Sidebar } from '@/components/registrar/sidebar';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Link, router } from '@inertiajs/react';
+import { router } from '@inertiajs/react';
 import { useState } from 'react';
-import { ArrowLeft, Plus, Edit, Trash2, BookOpen, Clock, Hash } from 'lucide-react';
+import { ArrowLeft, Plus, BookOpen } from 'lucide-react';
+import { useToast } from '@/components/ui/toast';
 
 interface User { name: string; email: string; user_role: string }
 interface AcademicLevel { id: number; name: string; key: string; sort_order: number }
@@ -22,6 +23,7 @@ interface Subject {
     code: string; 
     description?: string;
     academic_level_id: number; 
+    grade_levels?: string[];
     grading_period_id?: number;
     course_id?: number;
     units: number;
@@ -41,6 +43,8 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
     courses?: Course[] 
 }) {
     const [activeTab, setActiveTab] = useState('all');
+    const [selectedGradeFilter, setSelectedGradeFilter] = useState<string | null>(null);
+    const { addToast } = useToast();
     
     // Subject form state
     const [subjectForm, setSubjectForm] = useState({ 
@@ -48,6 +52,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
         code: '', 
         description: '', 
         academic_level_id: '', 
+        grade_levels: [] as string[],
         grading_period_id: '', 
         course_id: '', 
         units: 0, 
@@ -64,18 +69,90 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
         return subjects.filter(subject => subject.academic_level.key === levelKey);
     };
 
+    // Get elementary subjects filtered by grade level
+    const getElementarySubjectsByGrade = (gradeLevel?: string) => {
+        const elementarySubjects = getSubjectsByLevel('elementary');
+        if (!gradeLevel) return elementarySubjects;
+        
+        return elementarySubjects.filter(subject => 
+            !subject.grade_levels || subject.grade_levels.length === 0 || 
+            subject.grade_levels.includes(gradeLevel)
+        );
+    };
+
     // Get grading periods by academic level
     const getGradingPeriodsByLevel = (levelId: number) => {
         return gradingPeriods.filter(gp => gp.academic_level_id === levelId);
     };
 
+    // Grade level options for elementary
+    const elementaryGradeLevels = [
+        { value: 'grade_1', label: 'Grade 1' },
+        { value: 'grade_2', label: 'Grade 2' },
+        { value: 'grade_3', label: 'Grade 3' },
+        { value: 'grade_4', label: 'Grade 4' },
+        { value: 'grade_5', label: 'Grade 5' },
+        { value: 'grade_6', label: 'Grade 6' },
+    ];
+
+    // Check if selected academic level is elementary
+    const isElementaryLevel = () => {
+        if (!subjectForm.academic_level_id) return false;
+        const level = academicLevels.find(l => l.id.toString() === subjectForm.academic_level_id);
+        return level?.key === 'elementary';
+    };
+
     // Subject handlers
     const submitSubject = () => {
-        router.post(route('registrar.academic.subjects.store'), subjectForm, {
+        console.log('Registrar form submission started:', subjectForm);
+        
+        // Validation
+        if (!subjectForm.name || !subjectForm.code || !subjectForm.academic_level_id) {
+            console.log('Registrar validation failed: Missing required fields');
+            addToast("Please fill in all required fields (Name, Code, and Academic Level).", "error");
+            return;
+        }
+
+        // For elementary subjects, ensure at least one grade level is selected
+        if (isElementaryLevel() && subjectForm.grade_levels.length === 0) {
+            console.log('Registrar validation failed: No grade levels selected for elementary');
+            addToast("Please select at least one grade level for elementary subjects.", "error");
+            return;
+        }
+
+        console.log('Registrar form validation passed, submitting...');
+        
+        // Clean up empty strings for optional fields
+        const cleanedForm = {
+            ...subjectForm,
+            description: subjectForm.description || null,
+            grading_period_id: subjectForm.grading_period_id || null,
+            course_id: subjectForm.course_id || null,
+        };
+
+        router.post(route('registrar.academic.subjects.store'), cleanedForm, {
             preserveScroll: true,
-            onSuccess: () => { 
-                setSubjectForm({ name: '', code: '', description: '', academic_level_id: '', grading_period_id: '', course_id: '', units: 0, hours_per_week: 0, is_core: false, is_active: true }); 
+            onSuccess: (page) => { 
+                console.log('Registrar subject created successfully:', page);
+                addToast("Subject created successfully!", "success");
+                setSubjectForm({ name: '', code: '', description: '', academic_level_id: '', grade_levels: [], grading_period_id: '', course_id: '', units: 0, hours_per_week: 0, is_core: false, is_active: true }); 
                 setSubjectModal(false); 
+            },
+            onError: (errors) => {
+                console.log('Registrar subject creation failed:', errors);
+                console.log('Error details:', JSON.stringify(errors, null, 2));
+                
+                // Show specific error messages
+                if (errors.code) {
+                    const suggestedCode = `${subjectForm.code}_${Date.now().toString().slice(-4)}`;
+                    addToast(`Subject code "${subjectForm.code}" already exists. Try "${suggestedCode}" instead.`, "error");
+                    // Auto-suggest a new code
+                    setSubjectForm(prev => ({ ...prev, code: suggestedCode }));
+                } else if (errors.name) {
+                    addToast(`Subject name error: ${errors.name}`, "error");
+                } else {
+                    addToast("Failed to create subject. Please check the form and try again.", "error");
+                }
             },
         });
     };
@@ -86,6 +163,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
             code: subject.code, 
             description: subject.description || '',
             academic_level_id: subject.academic_level_id, 
+            grade_levels: subject.grade_levels || [],
             grading_period_id: subject.grading_period_id || '',
             units: subject.units,
             hours_per_week: subject.hours_per_week,
@@ -126,6 +204,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
             code: '', 
             description: '', 
             academic_level_id: '', 
+            grade_levels: [],
             grading_period_id: '', 
             course_id: '', 
             units: 0, 
@@ -190,6 +269,9 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                 <DialogContent className="max-w-md">
                                     <DialogHeader>
                                         <DialogTitle>Add new subject</DialogTitle>
+                                        <DialogDescription>
+                                            Create a new subject and assign it to specific grade levels for elementary students.
+                                        </DialogDescription>
                                     </DialogHeader>
                                     <div className="space-y-3">
                                         <div>
@@ -254,6 +336,41 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                 </SelectContent>
                                             </Select>
                                         </div>
+                                        
+                                        {/* Grade Levels field - only show for Elementary level */}
+                                        {isElementaryLevel() && (
+                                            <div>
+                                                <Label htmlFor="subject-grade-levels">Grade Levels</Label>
+                                                <div className="grid grid-cols-3 gap-2 mt-2">
+                                                    {elementaryGradeLevels.map((grade) => (
+                                                        <label key={grade.value} className="flex items-center space-x-2">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={subjectForm.grade_levels.includes(grade.value)}
+                                                                onChange={(e) => {
+                                                                    if (e.target.checked) {
+                                                                        setSubjectForm({
+                                                                            ...subjectForm,
+                                                                            grade_levels: [...subjectForm.grade_levels, grade.value]
+                                                                        });
+                                                                    } else {
+                                                                        setSubjectForm({
+                                                                            ...subjectForm,
+                                                                            grade_levels: subjectForm.grade_levels.filter(g => g !== grade.value)
+                                                                        });
+                                                                    }
+                                                                }}
+                                                                className="rounded border-gray-300"
+                                                            />
+                                                            <span className="text-sm">{grade.label}</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    Select which grade levels this subject applies to
+                                                </p>
+                                            </div>
+                                        )}
                                         
                                         {/* Course field - only show for College level */}
                                         {subjectForm.academic_level_id && academicLevels.find(level => level.id.toString() === subjectForm.academic_level_id)?.key === 'college' && (
@@ -345,6 +462,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                         <th className="text-left p-3">Code</th>
                                                         <th className="text-left p-3">Name</th>
                                                         <th className="text-left p-3">Level</th>
+                                                        <th className="text-left p-3">Grade Levels</th>
                                                         <th className="text-left p-3">Course</th>
                                                         <th className="text-left p-3">Units</th>
                                                         <th className="text-left p-3">Hours/Week</th>
@@ -359,6 +477,19 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                             <td className="p-3 font-mono">{subject.code}</td>
                                                             <td className="p-3">{subject.name}</td>
                                                             <td className="p-3">{subject.academic_level.name}</td>
+                                                            <td className="p-3">
+                                                                {subject.academic_level.key === 'elementary' && subject.grade_levels && subject.grade_levels.length > 0 ? (
+                                                                    <div className="flex flex-wrap gap-1">
+                                                                        {subject.grade_levels.map((grade) => (
+                                                                            <Badge key={grade} variant="secondary" className="text-xs">
+                                                                                {elementaryGradeLevels.find(g => g.value === grade)?.label || grade}
+                                                                            </Badge>
+                                                                        ))}
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="text-gray-400">-</span>
+                                                                )}
+                                                            </td>
                                                             <td className="p-3">
                                                                 {subject.course ? (
                                                                     <Badge variant="outline" className="bg-blue-100 text-blue-800">
@@ -386,12 +517,37 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                     </TabsContent>
                                     
                                     <TabsContent value="elementary" className="space-y-4">
+                                        {/* Grade Level Filter */}
+                                        <div className="flex items-center space-x-4 mb-4">
+                                            <Label className="text-sm font-medium">Filter by Grade Level:</Label>
+                                            <div className="flex flex-wrap gap-2">
+                                                <Button
+                                                    variant={selectedGradeFilter === null ? "default" : "outline"}
+                                                    size="sm"
+                                                    onClick={() => setSelectedGradeFilter(null)}
+                                                >
+                                                    All Grades
+                                                </Button>
+                                                {elementaryGradeLevels.map((grade) => (
+                                                    <Button
+                                                        key={grade.value}
+                                                        variant={selectedGradeFilter === grade.value ? "default" : "outline"}
+                                                        size="sm"
+                                                        onClick={() => setSelectedGradeFilter(grade.value)}
+                                                    >
+                                                        {grade.label}
+                                                    </Button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        
                                         <div className="overflow-x-auto rounded border">
                                             <table className="w-full text-sm">
                                                 <thead className="bg-gray-50 dark:bg-gray-800">
                                                     <tr>
                                                         <th className="text-left p-3">Code</th>
                                                         <th className="text-left p-3">Name</th>
+                                                        <th className="text-left p-3">Grade Levels</th>
                                                         <th className="text-left p-3">Units</th>
                                                         <th className="text-left p-3">Hours/Week</th>
                                                         <th className="text-left p-3">Type</th>
@@ -400,10 +556,25 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {getSubjectsByLevel('elementary').map((subject) => (
+                                                    {getElementarySubjectsByGrade(selectedGradeFilter || undefined).map((subject) => (
                                                         <tr key={subject.id} className="border-t">
                                                             <td className="p-3 font-mono">{subject.code}</td>
                                                             <td className="p-3">{subject.name}</td>
+                                                            <td className="p-3">
+                                                                {subject.grade_levels && subject.grade_levels.length > 0 ? (
+                                                                    <div className="flex flex-wrap gap-1">
+                                                                        {subject.grade_levels.map((grade) => (
+                                                                            <Badge key={grade} variant="secondary" className="text-xs">
+                                                                                {elementaryGradeLevels.find(g => g.value === grade)?.label || grade}
+                                                                            </Badge>
+                                                                        ))}
+                                                                    </div>
+                                                                ) : (
+                                                                    <Badge variant="outline" className="text-xs text-gray-500">
+                                                                        All Grades
+                                                                    </Badge>
+                                                                )}
+                                                            </td>
                                                             <td className="p-3">{subject.units}</td>
                                                             <td className="p-3">{subject.hours_per_week}</td>
                                                             <td className="p-3">{getCoreBadge(subject.is_core)}</td>
@@ -538,6 +709,9 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                 <DialogContent className="max-w-md">
                                     <DialogHeader>
                                         <DialogTitle>Edit subject</DialogTitle>
+                                        <DialogDescription>
+                                            Update subject details and grade level assignments.
+                                        </DialogDescription>
                                     </DialogHeader>
                                     <div className="space-y-3">
                                         <div>

@@ -20,7 +20,7 @@ class ProfileController extends Controller
             abort(401, 'User not authenticated');
         }
         
-        $currentSchoolYear = now()->format('Y') . '-' . (now()->addYear()->format('Y'));
+        $currentSchoolYear = '2024-2025'; // Use the current active school year
         
         // Load linked parents with relationship details
         $user->load(['parents' => function ($query) {

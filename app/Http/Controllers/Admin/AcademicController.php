@@ -500,11 +500,15 @@ class AcademicController extends Controller
     // Subject Management
     public function storeSubject(Request $request)
     {
+        \Log::info('Subject creation request received:', $request->all());
+        
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:100',
             'code' => 'required|string|max:20|unique:subjects,code',
             'description' => 'nullable|string',
             'academic_level_id' => 'required|exists:academic_levels,id',
+            'grade_levels' => 'nullable|array',
+            'grade_levels.*' => 'string|in:grade_1,grade_2,grade_3,grade_4,grade_5,grade_6',
             'grading_period_id' => 'nullable|exists:grading_periods,id',
             'course_id' => 'nullable|exists:courses,id',
             'units' => 'nullable|numeric|min:0',
@@ -514,21 +518,34 @@ class AcademicController extends Controller
         ]);
 
         if ($validator->fails()) {
+            \Log::error('Subject validation failed:', $validator->errors()->toArray());
             return back()->withErrors($validator)->withInput();
         }
 
-        $subject = Subject::create([
-            'name' => $request->name,
-            'code' => $request->code,
-            'description' => $request->description,
-            'academic_level_id' => $request->academic_level_id,
-            'grading_period_id' => $request->grading_period_id,
-            'course_id' => $request->course_id,
-            'units' => $request->units ?? 0,
-            'hours_per_week' => $request->hours_per_week ?? 0,
-            'is_core' => $request->is_core ?? false,
-            'is_active' => $request->is_active ?? true,
-        ]);
+        try {
+            $subject = Subject::create([
+                'name' => $request->name,
+                'code' => $request->code,
+                'description' => $request->description,
+                'academic_level_id' => $request->academic_level_id,
+                'grade_levels' => $request->grade_levels,
+                'grading_period_id' => $request->grading_period_id,
+                'course_id' => $request->course_id,
+                'units' => $request->units ?? 0,
+                'hours_per_week' => $request->hours_per_week ?? 0,
+                'is_core' => $request->is_core ?? false,
+                'is_active' => $request->is_active ?? true,
+            ]);
+            
+            \Log::info('Subject created successfully:', $subject->toArray());
+        } catch (\Exception $e) {
+            \Log::error('Subject creation failed:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
+            return back()->withErrors(['error' => 'Failed to create subject: ' . $e->getMessage()])->withInput();
+        }
 
         // Log activity
         ActivityLog::create([
@@ -553,6 +570,8 @@ class AcademicController extends Controller
             'code' => 'required|string|max:20|unique:subjects,code,' . $subject->id,
             'description' => 'nullable|string',
             'academic_level_id' => 'required|exists:academic_levels,id',
+            'grade_levels' => 'nullable|array',
+            'grade_levels.*' => 'string|in:grade_1,grade_2,grade_3,grade_4,grade_5,grade_6',
             'grading_period_id' => 'nullable|exists:grading_periods,id',
             'course_id' => 'nullable|exists:courses,id',
             'units' => 'nullable|numeric|min:0',
@@ -570,6 +589,7 @@ class AcademicController extends Controller
             'code' => $request->code,
             'description' => $request->description,
             'academic_level_id' => $request->academic_level_id,
+            'grade_levels' => $request->grade_levels,
             'grading_period_id' => $request->grading_period_id,
             'course_id' => $request->course_id,
             'units' => $request->units ?? 0,

@@ -67,6 +67,7 @@ export default function CreateTeacher({ user, currentRole, errors }: CreateProps
                             </CardHeader>
                             <CardContent>
                                 <form onSubmit={handleSubmit} className="space-y-6">
+                                    {/* Basic Information */}
                                     <div className="grid gap-6 md:grid-cols-2">
                                         {/* Name */}
                                         <div className="space-y-2">
@@ -103,13 +104,10 @@ export default function CreateTeacher({ user, currentRole, errors }: CreateProps
                                                 </Alert>
                                             )}
                                         </div>
+                                    </div>
 
-                                        {/* Role - Hidden since it's automatically set */}
-                                        <input type="hidden" name="user_role" value={data.user_role} />
-
-                                        {/* Empty space for grid alignment */}
-                                        <div></div>
-
+                                    {/* Password Information */}
+                                    <div className="grid gap-6 md:grid-cols-2">
                                         {/* Password */}
                                         <div className="space-y-2">
                                             <Label htmlFor="password">Password *</Label>
@@ -141,6 +139,9 @@ export default function CreateTeacher({ user, currentRole, errors }: CreateProps
                                             />
                                         </div>
                                     </div>
+
+                                    {/* Role - Hidden since it's automatically set */}
+                                    <input type="hidden" name="user_role" value={data.user_role} />
 
                                     {/* Role Information */}
                                     {data.user_role && (

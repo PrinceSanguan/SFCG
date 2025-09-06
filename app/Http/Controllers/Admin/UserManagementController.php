@@ -644,7 +644,7 @@ class UserManagementController extends Controller
         // Load additional data for students
         $assignedSubjects = collect();
         $subjectGrades = collect();
-        $currentSchoolYear = now()->format('Y') . '-' . (now()->addYear()->format('Y'));
+        $currentSchoolYear = '2024-2025'; // Use the current active school year
 
         if ($role === 'student') {
             // Load assigned subjects with teacher information

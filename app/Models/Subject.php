@@ -16,6 +16,7 @@ class Subject extends Model
         'code',
         'description',
         'academic_level_id',
+        'grade_levels',
         'grading_period_id',
         'course_id',
         'units',
@@ -29,6 +30,7 @@ class Subject extends Model
         'is_active' => 'boolean',
         'units' => 'decimal:1',
         'hours_per_week' => 'integer',
+        'grade_levels' => 'array',
     ];
 
     public function academicLevel(): BelongsTo
@@ -74,5 +76,65 @@ class Subject extends Model
     public function scopeCore($query)
     {
         return $query->where('is_core', true);
+    }
+
+    /**
+     * Scope to filter subjects by grade level for elementary subjects.
+     */
+    public function scopeForGradeLevel($query, $gradeLevel)
+    {
+        return $query->whereJsonContains('grade_levels', $gradeLevel);
+    }
+
+    /**
+     * Check if this subject applies to a specific grade level.
+     */
+    public function appliesToGradeLevel($gradeLevel): bool
+    {
+        if (!$this->grade_levels) {
+            return false;
+        }
+        
+        return in_array($gradeLevel, $this->grade_levels);
+    }
+
+    /**
+     * Get the display name for grade levels.
+     */
+    public function getGradeLevelsDisplayAttribute(): string
+    {
+        if (!$this->grade_levels || empty($this->grade_levels)) {
+            return 'All Grades';
+        }
+
+        $gradeNames = [
+            'grade_1' => 'Grade 1',
+            'grade_2' => 'Grade 2', 
+            'grade_3' => 'Grade 3',
+            'grade_4' => 'Grade 4',
+            'grade_5' => 'Grade 5',
+            'grade_6' => 'Grade 6',
+        ];
+
+        $displayNames = array_map(function($grade) use ($gradeNames) {
+            return $gradeNames[$grade] ?? $grade;
+        }, $this->grade_levels);
+
+        return implode(', ', $displayNames);
+    }
+
+    /**
+     * Get available grade levels for elementary.
+     */
+    public static function getElementaryGradeLevels(): array
+    {
+        return [
+            'grade_1' => 'Grade 1',
+            'grade_2' => 'Grade 2',
+            'grade_3' => 'Grade 3', 
+            'grade_4' => 'Grade 4',
+            'grade_5' => 'Grade 5',
+            'grade_6' => 'Grade 6',
+        ];
     }
 }

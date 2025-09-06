@@ -4,7 +4,7 @@ import StudentLayout from '@/layouts/student/layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { BookOpen, GraduationCap, Clock, Calendar, User } from 'lucide-react';
+import { BookOpen, GraduationCap, Clock, Calendar, User, School } from 'lucide-react';
 
 interface Subject {
   id: number;

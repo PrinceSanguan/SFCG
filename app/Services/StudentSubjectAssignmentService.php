@@ -103,7 +103,16 @@ class StudentSubjectAssignmentService
                   ->orWhere('strand_id', $student->strand_id);
             });
         }
-        // For Elementary and Junior High School, get core subjects for the specific grade
+        // For Elementary students, get subjects for their specific grade level
+        elseif ($student->year_level === 'elementary' && $student->specific_year_level) {
+            $query->where(function ($q) use ($student) {
+                // Include subjects that either have no grade levels specified (apply to all grades)
+                // or have the student's specific grade level in their grade_levels array
+                $q->whereNull('grade_levels')
+                  ->orWhereJsonContains('grade_levels', $student->specific_year_level);
+            });
+        }
+        // For Junior High School, get core subjects for the specific grade
         else {
             $query->where('is_core', true);
         }
