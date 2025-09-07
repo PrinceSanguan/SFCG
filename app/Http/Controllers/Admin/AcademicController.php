@@ -195,7 +195,9 @@ class AcademicController extends Controller
         
         $academicLevels = AcademicLevel::orderBy('sort_order')->get();
         $gradingPeriods = GradingPeriod::orderBy('academic_level_id')->orderBy('sort_order')->get();
-        $courses = Course::orderBy('name')->get();
+        $courses = Course::with('department')->orderBy('name')->get();
+        $departments = Department::orderBy('name')->get();
+        $yearLevels = \App\Models\User::getSpecificYearLevels()['college'] ?? [];
         
         return Inertia::render('Admin/Academic/Subjects', [
             'user' => $this->sharedUser(),
@@ -203,6 +205,8 @@ class AcademicController extends Controller
             'academicLevels' => $academicLevels,
             'gradingPeriods' => $gradingPeriods,
             'courses' => $courses,
+            'departments' => $departments,
+            'yearLevels' => $yearLevels,
         ]);
     }
 

@@ -216,7 +216,8 @@ class RegistrarAcademicController extends Controller
         
         $academicLevels = AcademicLevel::orderBy('sort_order')->get();
         $gradingPeriods = GradingPeriod::orderBy('academic_level_id')->orderBy('sort_order')->get();
-        $courses = Course::orderBy('name')->get();
+        $courses = Course::with('department')->orderBy('name')->get();
+        $departments = Department::orderBy('name')->get();
         
         return Inertia::render('Registrar/Academic/Subjects', [
             'user' => $this->sharedUser(),
@@ -224,6 +225,7 @@ class RegistrarAcademicController extends Controller
             'academicLevels' => $academicLevels,
             'gradingPeriods' => $gradingPeriods,
             'courses' => $courses,
+            'departments' => $departments,
         ]);
     }
 

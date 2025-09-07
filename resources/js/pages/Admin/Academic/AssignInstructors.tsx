@@ -134,7 +134,7 @@ export default function AssignInstructors({ user, assignments, instructors, depa
             setFilteredCourses(filtered);
         }
         if (assignmentForm.course_id) {
-            const filtered = subjects.filter(s => s.course_id === parseInt(assignmentForm.course_id));
+            const filtered = subjects.filter(s => s.course_id == null || s.course_id === parseInt(assignmentForm.course_id));
             setFilteredSubjects(filtered);
         }
     }, [assignmentForm.department_id, assignmentForm.course_id, courses, subjects, departments]);
@@ -452,7 +452,7 @@ export default function AssignInstructors({ user, assignments, instructors, depa
                                         value={assignmentForm.course_id}
                                         onValueChange={(value) => {
                                             setAssignmentForm({ ...assignmentForm, course_id: value, subject_id: '' });
-                                            const filtered = subjects.filter(s => s.course_id === parseInt(value));
+                                            const filtered = subjects.filter(s => s.course_id == null || s.course_id === parseInt(value));
                                             setFilteredSubjects(filtered);
                                         }}
                                         required
