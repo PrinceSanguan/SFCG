@@ -41,6 +41,8 @@ interface Subject {
     hours_per_week: number;
     is_core: boolean;
     is_active: boolean;
+    academic_level_id: number;
+    strand_id?: number;
     academicLevel: AcademicLevel;
 }
 
@@ -48,6 +50,7 @@ interface Strand {
     id: number;
     name: string;
     code: string;
+    track_id: number | null;
     academic_level_id: number;
 }
 
@@ -56,6 +59,7 @@ interface TeacherSubjectAssignment {
     teacher_id: number;
     subject_id: number;
     academic_level_id: number;
+    track_id: number | null;
     grade_level: string | null;
     grading_period_id: number | null;
     school_year: string;
@@ -65,7 +69,18 @@ interface TeacherSubjectAssignment {
     subject: Subject;
     academicLevel: AcademicLevel;
     gradingPeriod: GradingPeriod | null;
+    track?: Track | null;
     strand?: Strand | null;
+}
+
+interface Track {
+    id: number;
+    name: string;
+    code: string;
+    description?: string;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
 }
 
 interface Props {
@@ -76,15 +91,44 @@ interface Props {
     gradingPeriods: GradingPeriod[];
     academicLevels: AcademicLevel[];
     strands: Strand[];
+    tracks: Track[];
+    departments: Department[];
+    courses: Course[];
 }
 
-export default function AssignTeachers({ user, assignments = [], teachers = [], subjects = [], gradingPeriods = [], academicLevels = [], strands = [] }: Props) {
+interface Department {
+    id: number;
+    name: string;
+    code: string;
+    description?: string;
+    academic_level_id: number;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
+}
+
+interface Course {
+    id: number;
+    name: string;
+    code: string;
+    description?: string;
+    department_id: number;
+    units: number;
+    is_active: boolean;
+    department?: Department;
+    created_at: string;
+    updated_at: string;
+}
+
+export default function AssignTeachers({ user, assignments = [], teachers = [], subjects = [], gradingPeriods = [], academicLevels = [], strands = [], tracks = [], departments = [], courses = [] }: Props) {
     const { addToast } = useToast();
+    
     const [assignmentForm, setAssignmentForm] = useState({
         teacher_id: '',
         subject_id: '',
         academic_level_id: '',
         grade_level: '',
+        track_id: '',
         strand_id: '',
         grading_period_id: '',
         school_year: '',
@@ -95,6 +139,8 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
     const [assignmentModal, setAssignmentModal] = useState(false);
     const [editAssignment, setEditAssignment] = useState<TeacherSubjectAssignment | null>(null);
     const [editModal, setEditModal] = useState(false);
+    const [filteredStrands, setFilteredStrands] = useState<Strand[]>([]);
+    const [filteredSubjects, setFilteredSubjects] = useState<Subject[]>([]);
 
     // Filter for Senior High School level only
     const shsLevel = academicLevels.find(level => level.key === 'senior_highschool');
@@ -248,12 +294,15 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
             teacher_id: '',
             subject_id: '',
             academic_level_id: '',
+            track_id: '',
             strand_id: '',
             grading_period_id: '',
             school_year: '',
             notes: '',
             is_active: true,
         });
+        setFilteredStrands([]);
+        setFilteredSubjects([]);
     };
 
     return (
@@ -339,19 +388,24 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
                             </div>
 
                             <div>
-                                <Label htmlFor="subject_id">Subject</Label>
+                                <Label htmlFor="track_id">Track</Label>
                                 <Select
-                                    value={assignmentForm.subject_id}
-                                    onValueChange={(value) => setAssignmentForm({ ...assignmentForm, subject_id: value })}
-                                    required
+                                    value={assignmentForm.track_id}
+                                    onValueChange={(value) => {
+                                        setAssignmentForm({ ...assignmentForm, track_id: value, strand_id: '', subject_id: '' });
+                                        // Filter strands based on selected track
+                                        const filtered = strands.filter(s => s.track_id === parseInt(value));
+                                        setFilteredStrands(filtered);
+                                        setFilteredSubjects([]);
+                                    }}
                                 >
                                     <SelectTrigger>
-                                        <SelectValue placeholder="Select subject" />
+                                        <SelectValue placeholder="Select track" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {(shsSubjects || []).map((subject) => (
-                                            <SelectItem key={subject.id} value={subject.id.toString()}>
-                                                {subject.name} ({subject.code})
+                                        {(tracks || []).map((track) => (
+                                            <SelectItem key={track.id} value={track.id.toString()}>
+                                                {track.name} ({track.code})
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
@@ -362,15 +416,42 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
                                 <Label htmlFor="strand_id">Strand</Label>
                                 <Select
                                     value={assignmentForm.strand_id}
-                                    onValueChange={(value) => setAssignmentForm({ ...assignmentForm, strand_id: value })}
+                                    onValueChange={(value) => {
+                                        setAssignmentForm({ ...assignmentForm, strand_id: value, subject_id: '' });
+                                        // Filter subjects based on selected strand
+                                        const filtered = subjects.filter(s => s.strand_id === parseInt(value));
+                                        setFilteredSubjects(filtered);
+                                    }}
+                                    disabled={!assignmentForm.track_id}
                                 >
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select strand (optional)" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {(strands || []).filter(s => s.academic_level_id === (shsLevel?.id ?? 0)).map((strand) => (
+                                        {filteredStrands.map((strand) => (
                                             <SelectItem key={strand.id} value={strand.id.toString()}>
                                                 {strand.name} ({strand.code})
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div>
+                                <Label htmlFor="subject_id">Subject</Label>
+                                <Select
+                                    value={assignmentForm.subject_id}
+                                    onValueChange={(value) => setAssignmentForm({ ...assignmentForm, subject_id: value })}
+                                    required
+                                    disabled={!assignmentForm.strand_id}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select subject" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {filteredSubjects.map((subject) => (
+                                            <SelectItem key={subject.id} value={subject.id.toString()}>
+                                                {subject.name} ({subject.code})
                                             </SelectItem>
                                         ))}
                                     </SelectContent>

@@ -45,11 +45,22 @@ export interface GradingPeriod {
     id: number;
     name: string;
     code: string;
+    type: 'quarter' | 'semester';
     academic_level_id: number;
+    parent_id?: number | null;
+    period_type: 'quarter' | 'midterm' | 'prefinal' | 'final';
+    semester_number?: number | null;
+    weight: number;
+    is_calculated: boolean;
+    include_midterm?: boolean;
+    include_prefinal?: boolean;
     start_date: string;
     end_date: string;
     sort_order: number;
     is_active: boolean;
+    academic_level?: AcademicLevel;
+    parent?: GradingPeriod | null;
+    children?: GradingPeriod[];
 }
 
 export interface Grade {
@@ -68,4 +79,14 @@ export interface Grade {
     created_at: string;
     updated_at: string;
     gradingPeriod: GradingPeriod | null;
+}
+
+export interface Track {
+    id: number;
+    name: string;
+    code: string;
+    description?: string;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
 }

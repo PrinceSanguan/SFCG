@@ -31,7 +31,7 @@ class TeacherSubjectAssignmentController extends Controller
         $teachers = User::where('user_role', 'teacher')->get();
         $subjects = Subject::with(['academicLevel'])->get();
         $academicLevels = AcademicLevel::all();
-        $gradingPeriods = GradingPeriod::all();
+        $gradingPeriods = GradingPeriod::select('id', 'name', 'academic_level_id', 'parent_id')->get();
 
         return Inertia::render('Registrar/Academic/AssignTeachersSubjects', [
             'user' => Auth::user(),

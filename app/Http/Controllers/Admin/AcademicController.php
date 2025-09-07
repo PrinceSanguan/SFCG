@@ -8,8 +8,9 @@ use Inertia\Inertia;
 use Illuminate\Http\Request;
 use App\Models\AcademicLevel;
 use App\Models\Strand;
-use App\Models\Course;
+use App\Models\Track;
 use App\Models\Department;
+use App\Models\Course;
 use App\Models\GradingPeriod;
 use App\Models\Subject;
 use App\Models\TeacherSubjectAssignment;
@@ -56,7 +57,7 @@ class AcademicController extends Controller
 
     public function grading()
     {
-        $gradingPeriods = GradingPeriod::with('academicLevel')
+        $gradingPeriods = GradingPeriod::with(['academicLevel', 'parent', 'children'])
             ->orderBy('academic_level_id')
             ->orderBy('sort_order')
             ->get();
@@ -98,6 +99,7 @@ class AcademicController extends Controller
           ->orderBy('school_year', 'desc')->get();
         
         $instructors = User::where('user_role', 'instructor')->orderBy('name')->get();
+        $departments = Department::where('academic_level_id', $collegeLevel->id)->orderBy('name')->get();
         $courses = Course::whereHas('department', function($query) use ($collegeLevel) {
             $query->where('academic_level_id', $collegeLevel->id);
         })->orderBy('name')->get();
@@ -112,6 +114,7 @@ class AcademicController extends Controller
             'user' => $this->sharedUser(),
             'assignments' => $assignments,
             'instructors' => $instructors,
+            'departments' => $departments,
             'courses' => $courses,
             'subjects' => $subjects,
             'academicLevels' => $academicLevels,
@@ -130,6 +133,7 @@ class AcademicController extends Controller
             'subject', 
             'academicLevel', 
             'gradingPeriod',
+            'track',
             'strand'
         ])->where('academic_level_id', $shsLevel->id)
           ->orderBy('school_year', 'desc')->get();
@@ -139,6 +143,9 @@ class AcademicController extends Controller
         $academicLevels = AcademicLevel::orderBy('sort_order')->get();
         $gradingPeriods = GradingPeriod::where('academic_level_id', $shsLevel->id)->orderBy('sort_order')->get();
         $strands = Strand::where('academic_level_id', $shsLevel->id)->orderBy('name')->get();
+        $tracks = Track::where('is_active', true)->orderBy('name')->get();
+        $departments = Department::where('is_active', true)->orderBy('name')->get();
+        $courses = Course::where('is_active', true)->with('department')->orderBy('name')->get();
         
         return Inertia::render('Admin/Academic/AssignTeachers', [
             'user' => $this->sharedUser(),
@@ -148,6 +155,9 @@ class AcademicController extends Controller
             'academicLevels' => $academicLevels,
             'gradingPeriods' => $gradingPeriods,
             'strands' => $strands,
+            'tracks' => $tracks,
+            'departments' => $departments,
+            'courses' => $courses,
         ]);
     }
 
@@ -637,8 +647,14 @@ class AcademicController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:100',
-            'code' => 'required|string|max:20|unique:grading_periods,code',
+            'code' => 'required|string|max:20',
+            'type' => 'required|in:quarter,semester',
             'academic_level_id' => 'required|exists:academic_levels,id',
+            'parent_id' => 'nullable|exists:grading_periods,id',
+            'period_type' => 'required|in:quarter,midterm,prefinal,final',
+            'semester_number' => 'nullable|integer|min:1|max:2',
+            'weight' => 'nullable|numeric|min:0|max:1',
+            'is_calculated' => 'nullable|boolean',
             'start_date' => 'required|date',
             'end_date' => 'required|date|after:start_date',
             'sort_order' => 'nullable|integer|min:0',
@@ -652,7 +668,13 @@ class AcademicController extends Controller
         $gradingPeriod = GradingPeriod::create([
             'name' => $request->name,
             'code' => $request->code,
+            'type' => $request->type,
             'academic_level_id' => $request->academic_level_id,
+            'parent_id' => $request->parent_id,
+            'period_type' => $request->period_type,
+            'semester_number' => $request->semester_number,
+            'weight' => $request->weight ?? 1.00,
+            'is_calculated' => $request->is_calculated ?? false,
             'start_date' => $request->start_date,
             'end_date' => $request->end_date,
             'sort_order' => $request->sort_order ?? 0,
@@ -679,8 +701,14 @@ class AcademicController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:100',
-            'code' => 'required|string|max:20|unique:grading_periods,code,' . $gradingPeriod->id,
+            'code' => 'required|string|max:20',
+            'type' => 'required|in:quarter,semester',
             'academic_level_id' => 'required|exists:academic_levels,id',
+            'parent_id' => 'nullable|exists:grading_periods,id',
+            'period_type' => 'required|in:quarter,midterm,prefinal,final',
+            'semester_number' => 'nullable|integer|min:1|max:2',
+            'weight' => 'nullable|numeric|min:0|max:1',
+            'is_calculated' => 'nullable|boolean',
             'start_date' => 'required|date',
             'end_date' => 'required|date|after:start_date',
             'sort_order' => 'nullable|integer|min:0',
@@ -694,7 +722,13 @@ class AcademicController extends Controller
         $gradingPeriod->update([
             'name' => $request->name,
             'code' => $request->code,
+            'type' => $request->type,
             'academic_level_id' => $request->academic_level_id,
+            'parent_id' => $request->parent_id,
+            'period_type' => $request->period_type,
+            'semester_number' => $request->semester_number,
+            'weight' => $request->weight ?? 1.00,
+            'is_calculated' => $request->is_calculated ?? false,
             'start_date' => $request->start_date,
             'end_date' => $request->end_date,
             'sort_order' => $request->sort_order ?? 0,
@@ -742,8 +776,11 @@ class AcademicController extends Controller
             'teacher_id' => 'required|exists:users,id',
             'subject_id' => 'required|exists:subjects,id',
             'academic_level_id' => 'required|exists:academic_levels,id',
-            'grade_level' => 'required|in:grade_11,grade_12',
+            'grade_level' => 'nullable|in:grade_1,grade_2,grade_3,grade_4,grade_5,grade_6,grade_7,grade_8,grade_9,grade_10,grade_11,grade_12',
+            'track_id' => 'nullable|exists:tracks,id',
             'strand_id' => 'nullable|exists:strands,id',
+            'department_id' => 'nullable|exists:departments,id',
+            'course_id' => 'nullable|exists:courses,id',
             'grading_period_id' => 'nullable|exists:grading_periods,id',
             'school_year' => 'required|string',
             'notes' => 'nullable|string',
@@ -764,7 +801,10 @@ class AcademicController extends Controller
             'subject_id' => $request->subject_id,
             'academic_level_id' => $request->academic_level_id,
             'grade_level' => $request->grade_level,
+            'track_id' => $request->track_id,
             'strand_id' => $request->strand_id,
+            'department_id' => $request->department_id,
+            'course_id' => $request->course_id,
             'grading_period_id' => $request->grading_period_id,
             'school_year' => $request->school_year,
             'assigned_by' => Auth::id(),
@@ -843,9 +883,11 @@ class AcademicController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'instructor_id' => 'required|exists:users,id',
+            'year_level' => 'required|string|in:first_year,second_year,third_year,fourth_year',
+            'department_id' => 'required|exists:departments,id',
             'course_id' => 'required|exists:courses,id',
+            'subject_id' => 'required|exists:subjects,id',
             'academic_level_id' => 'required|exists:academic_levels,id',
-            'year_level' => 'nullable|string|in:first_year,second_year,third_year,fourth_year',
             'grading_period_id' => 'nullable|exists:grading_periods,id',
             'school_year' => 'required|string',
             'notes' => 'nullable|string',
@@ -876,9 +918,11 @@ class AcademicController extends Controller
 
         $assignment = InstructorCourseAssignment::create([
             'instructor_id' => $request->instructor_id,
-            'course_id' => $request->course_id,
-            'academic_level_id' => $request->academic_level_id,
             'year_level' => $request->year_level,
+            'department_id' => $request->department_id,
+            'course_id' => $request->course_id,
+            'subject_id' => $request->subject_id,
+            'academic_level_id' => $request->academic_level_id,
             'grading_period_id' => $request->grading_period_id,
             'school_year' => $request->school_year,
             'assigned_by' => Auth::id(),

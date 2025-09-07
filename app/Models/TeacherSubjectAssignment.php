@@ -15,8 +15,11 @@ class TeacherSubjectAssignment extends Model
         'teacher_id',
         'subject_id',
         'academic_level_id',
+        'track_id',
         'grade_level',
         'strand_id',
+        'department_id',
+        'course_id',
         'grading_period_id',
         'school_year',
         'is_active',
@@ -45,9 +48,24 @@ class TeacherSubjectAssignment extends Model
         return $this->belongsTo(AcademicLevel::class);
     }
 
+    public function track(): BelongsTo
+    {
+        return $this->belongsTo(Track::class);
+    }
+
     public function strand(): BelongsTo
     {
         return $this->belongsTo(Strand::class);
+    }
+
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class);
+    }
+
+    public function course(): BelongsTo
+    {
+        return $this->belongsTo(Course::class);
     }
 
     public function gradingPeriod(): BelongsTo

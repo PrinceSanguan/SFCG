@@ -16,6 +16,7 @@ class Subject extends Model
         'code',
         'description',
         'academic_level_id',
+        'strand_id',
         'grade_levels',
         'grading_period_id',
         'course_id',
@@ -36,6 +37,11 @@ class Subject extends Model
     public function academicLevel(): BelongsTo
     {
         return $this->belongsTo(AcademicLevel::class);
+    }
+
+    public function strand(): BelongsTo
+    {
+        return $this->belongsTo(Strand::class);
     }
 
     public function gradingPeriod(): BelongsTo

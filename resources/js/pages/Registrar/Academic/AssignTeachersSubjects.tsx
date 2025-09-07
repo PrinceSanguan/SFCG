@@ -15,7 +15,7 @@ import { Link, router } from '@inertiajs/react';
 interface User { id: number; name: string; email: string; user_role: string; }
 interface Subject { id: number; name: string; code: string; academic_level_id: number; }
 interface AcademicLevel { id: number; name: string; key: string; }
-interface GradingPeriod { id: number; name: string; }
+interface GradingPeriod { id: number; name: string; academic_level_id?: number; parent_id?: number; }
 interface Strand { id: number; name: string; code: string; academic_level_id: number; }
 
 interface TeacherSubjectAssignment {
@@ -234,7 +234,7 @@ export default function AssignTeachersSubjects({ user, assignments, teachers, su
                             </div>
                             <div>
                                 <Label htmlFor="academic_level_id">Academic Level</Label>
-                                <Select value={formData.academic_level_id} onValueChange={(v) => { setFormData(p => ({ ...p, academic_level_id: v, subject_id: '' })); setSelectedAcademicLevel(v); }} required>
+                                <Select value={formData.academic_level_id} onValueChange={(v) => { setFormData(p => ({ ...p, academic_level_id: v, subject_id: '', grading_period_id: '' })); setSelectedAcademicLevel(v); }} required>
                                     <SelectTrigger><SelectValue placeholder="Select academic level" /></SelectTrigger>
                                     <SelectContent>
                                         {academicLevels.map(level => (<SelectItem key={level.id} value={level.id.toString()}>{level.name}</SelectItem>))}
@@ -277,11 +277,29 @@ export default function AssignTeachersSubjects({ user, assignments, teachers, su
                             </div>
                             <div>
                                 <Label htmlFor="grading_period_id">Grading Period</Label>
-                                <Select value={formData.grading_period_id} onValueChange={(v) => setFormData(p => ({ ...p, grading_period_id: v }))}>
+                                <Select value={formData.grading_period_id} onValueChange={(v) => setFormData(p => ({ ...p, grading_period_id: v }))} disabled={!selectedAcademicLevel}>
                                     <SelectTrigger><SelectValue placeholder="Select grading period (optional)" /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="">No grading period</SelectItem>
-                                        {gradingPeriods.map(p => (<SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>))}
+                                        {selectedAcademicLevel && gradingPeriods
+                                            .filter(p => {
+                                                // Filter by academic level
+                                                if (p.academic_level_id?.toString() !== selectedAcademicLevel) {
+                                                    return false;
+                                                }
+                                                
+                                                // For semester-based levels (Senior High, College), only show root semesters
+                                                // For quarter-based levels (Elementary, Junior High), only show quarters
+                                                const academicLevel = academicLevels.find(l => l.id.toString() === selectedAcademicLevel);
+                                                if (academicLevel?.key === 'senior_highschool' || academicLevel?.key === 'college') {
+                                                    // Only show root semesters (no parent_id)
+                                                    return !p.parent_id;
+                                                } else {
+                                                    // For elementary and junior high, show all periods (quarters)
+                                                    return true;
+                                                }
+                                            })
+                                            .map(p => (<SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>))}
                                     </SelectContent>
                                 </Select>
                             </div>

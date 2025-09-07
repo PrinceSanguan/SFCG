@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { router } from '@inertiajs/react';
 import { Header } from '@/components/admin/header';
 import { Sidebar } from '@/components/admin/sidebar';
@@ -30,6 +30,16 @@ interface GradingPeriod {
     name: string;
     code: string;
     academic_level_id: number;
+    type?: string;
+    parent_id?: number | null;
+    semester_number?: number | null;
+}
+
+interface Department {
+    id: number;
+    name: string;
+    code: string;
+    academic_level_id: number;
 }
 
 interface Course {
@@ -38,6 +48,7 @@ interface Course {
     code: string;
     description: string;
     units: number;
+    department_id: number;
     department?: {
         id: number;
         name: string;
@@ -79,6 +90,7 @@ interface Props {
     user: User;
     assignments: InstructorCourseAssignment[];
     instructors: User[];
+    departments: Department[];
     courses: Course[];
     subjects: Subject[];
     gradingPeriods: GradingPeriod[];
@@ -86,14 +98,15 @@ interface Props {
     yearLevels: Record<string, string>;
 }
 
-export default function AssignInstructors({ user, assignments, instructors, courses, subjects, gradingPeriods, academicLevels, yearLevels }: Props) {
+export default function AssignInstructors({ user, assignments, instructors, departments, courses, subjects, gradingPeriods, academicLevels, yearLevels }: Props) {
     const { addToast } = useToast();
     const [assignmentForm, setAssignmentForm] = useState({
         instructor_id: '',
+        year_level: '',
+        department_id: '',
         course_id: '',
         subject_id: '',
         academic_level_id: '',
-        year_level: '',
         grading_period_id: '',
         school_year: '',
         notes: '',
@@ -103,9 +116,28 @@ export default function AssignInstructors({ user, assignments, instructors, cour
     const [assignmentModal, setAssignmentModal] = useState(false);
     const [editAssignment, setEditAssignment] = useState<InstructorCourseAssignment | null>(null);
     const [editModal, setEditModal] = useState(false);
+    const [filteredCourses, setFilteredCourses] = useState<Course[]>([]);
+    const [filteredSubjects, setFilteredSubjects] = useState<Subject[]>([]);
+    const [selectedSemesterId, setSelectedSemesterId] = useState<string>('');
 
     // Filter for College level only
     const collegeLevel = academicLevels.find(level => level.key === 'college');
+    
+    // Initialize filtered data when component loads
+    useEffect(() => {
+        console.log('Subjects data:', subjects);
+        console.log('Courses data:', courses);
+        console.log('Departments data:', departments);
+        
+        if (assignmentForm.department_id) {
+            const filtered = courses.filter(c => c.department_id === parseInt(assignmentForm.department_id));
+            setFilteredCourses(filtered);
+        }
+        if (assignmentForm.course_id) {
+            const filtered = subjects.filter(s => s.course_id === parseInt(assignmentForm.course_id));
+            setFilteredSubjects(filtered);
+        }
+    }, [assignmentForm.department_id, assignmentForm.course_id, courses, subjects, departments]);
     
     // Safety check: only proceed if we have valid level
     if (!collegeLevel) {
@@ -147,8 +179,14 @@ export default function AssignInstructors({ user, assignments, instructors, cour
     );
     // Courses are already filtered by college level in the backend
     const collegeCourses = courses;
-    const collegeGradingPeriods = gradingPeriods.filter(period => 
-        period.academic_level_id === collegeLevel.id
+    const collegeSemesters = gradingPeriods.filter(period => 
+        period.academic_level_id === collegeLevel.id &&
+        (period.parent_id == null) &&
+        ((period.type === 'semester') || /semester/i.test(period.name))
+    );
+
+    const semesterChildPeriods = gradingPeriods.filter(p =>
+        selectedSemesterId && p.parent_id?.toString() === selectedSemesterId
     );
 
     const schoolYearOptions = [
@@ -213,10 +251,11 @@ export default function AssignInstructors({ user, assignments, instructors, cour
         setEditAssignment(assignment);
         setAssignmentForm({
             instructor_id: assignment.instructor_id.toString(),
-            course_id: assignment.course_id.toString(),
-            subject_id: '', // Will be filled from assignment data when we update the backend
-            academic_level_id: assignment.academic_level_id.toString(),
             year_level: assignment.year_level || '',
+            department_id: '',
+            course_id: assignment.course_id.toString(),
+            subject_id: '',
+            academic_level_id: assignment.academic_level_id.toString(),
             grading_period_id: assignment.grading_period_id?.toString() || '',
             school_year: assignment.school_year,
             notes: assignment.notes || '',
@@ -236,15 +275,18 @@ export default function AssignInstructors({ user, assignments, instructors, cour
     const resetForm = () => {
         setAssignmentForm({
             instructor_id: '',
+            year_level: '',
+            department_id: '',
             course_id: '',
             subject_id: '',
             academic_level_id: '',
-            year_level: '',
             grading_period_id: '',
             school_year: '',
             notes: '',
             is_active: true,
         });
+        setFilteredCourses([]);
+        setFilteredSubjects([]);
     };
 
     return (
@@ -299,156 +341,242 @@ export default function AssignInstructors({ user, assignments, instructors, cour
                     <DialogTrigger asChild>
                         <Button onClick={() => { setAssignmentModal(true); resetForm(); }}>
                             <Plus className="h-4 w-4 mr-2" />
-                            Assign Instructor
+                            Assign Instructor to Subject
                         </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-md">
+                    <DialogContent className="w-[95vw] max-w-[800px] max-h-[90vh] overflow-y-auto">
                         <DialogHeader>
-                            <DialogTitle>Assign Instructor to Course</DialogTitle>
+                            <DialogTitle>Assign Instructor to Subject</DialogTitle>
                         </DialogHeader>
                         <form onSubmit={submitAssignment} className="space-y-4">
-                            <div>
-                                <Label htmlFor="instructor_id">Instructor</Label>
-                                <Select
-                                    value={assignmentForm.instructor_id}
-                                    onValueChange={(value) => setAssignmentForm({ ...assignmentForm, instructor_id: value })}
-                                    required
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select instructor" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {instructors
-                                            .filter(instructor => instructor.user_role === 'instructor')
-                                            .map((instructor) => (
-                                                <SelectItem key={instructor.id} value={instructor.id.toString()}>
-                                                    {instructor.name}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <Label htmlFor="instructor_id">Instructor</Label>
+                                    <Select
+                                        value={assignmentForm.instructor_id}
+                                        onValueChange={(value) => setAssignmentForm({ ...assignmentForm, instructor_id: value })}
+                                        required
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select instructor" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {instructors
+                                                .filter(instructor => instructor.user_role === 'instructor')
+                                                .map((instructor) => (
+                                                    <SelectItem key={instructor.id} value={instructor.id.toString()}>
+                                                        {instructor.name}
+                                                    </SelectItem>
+                                                ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div>
+                                    <Label htmlFor="academic_level_id">Academic Level *</Label>
+                                    <div className="bg-blue-50 p-3 rounded-md border border-blue-200">
+                                        <div className="text-sm font-medium text-blue-800">
+                                            College
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <Label htmlFor="year_level">Year Level *</Label>
+                                    <Select
+                                        value={assignmentForm.year_level}
+                                        onValueChange={(value) => {
+                                            setAssignmentForm({ 
+                                                ...assignmentForm, 
+                                                year_level: value, 
+                                                department_id: '', 
+                                                course_id: '', 
+                                                subject_id: '' 
+                                            });
+                                            setFilteredCourses([]);
+                                            setFilteredSubjects([]);
+                                        }}
+                                        required
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select year level" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {Object.entries(yearLevels).map(([key, value]) => (
+                                                <SelectItem key={key} value={key}>
+                                                    {value}
                                                 </SelectItem>
                                             ))}
-                                    </SelectContent>
-                                </Select>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div>
+                                    <Label htmlFor="department_id">Department *</Label>
+                                    <Select
+                                        value={assignmentForm.department_id}
+                                        onValueChange={(value) => {
+                                            setAssignmentForm({ 
+                                                ...assignmentForm, 
+                                                department_id: value, 
+                                                course_id: '', 
+                                                subject_id: '' 
+                                            });
+                                            const filtered = courses.filter(c => c.department_id === parseInt(value));
+                                            setFilteredCourses(filtered);
+                                            setFilteredSubjects([]);
+                                        }}
+                                        required
+                                        disabled={!assignmentForm.year_level}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select department" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {departments.map((department) => (
+                                                <SelectItem key={department.id} value={department.id.toString()}>
+                                                    {department.name} ({department.code})
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
 
-                            <div>
-                                <Label htmlFor="course_id">Course</Label>
-                                <Select
-                                    value={assignmentForm.course_id}
-                                    onValueChange={(value) => setAssignmentForm({ ...assignmentForm, course_id: value, subject_id: '' })}
-                                    required
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select course" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {collegeCourses.map((course) => (
-                                            <SelectItem key={course.id} value={course.id.toString()}>
-                                                {course.name} ({course.department?.name || 'No Department'})
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <Label htmlFor="course_id">Course *</Label>
+                                    <Select
+                                        value={assignmentForm.course_id}
+                                        onValueChange={(value) => {
+                                            setAssignmentForm({ ...assignmentForm, course_id: value, subject_id: '' });
+                                            const filtered = subjects.filter(s => s.course_id === parseInt(value));
+                                            setFilteredSubjects(filtered);
+                                        }}
+                                        required
+                                        disabled={!assignmentForm.department_id}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select course" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {filteredCourses.map((course) => (
+                                                <SelectItem key={course.id} value={course.id.toString()}>
+                                                    {course.name} ({course.code})
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
 
-                            <div>
-                                <Label htmlFor="subject_id">Subject</Label>
-                                <Select
-                                    value={assignmentForm.subject_id}
-                                    onValueChange={(value) => setAssignmentForm({ ...assignmentForm, subject_id: value })}
-                                    required
-                                    disabled={!assignmentForm.course_id}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder={assignmentForm.course_id ? "Select subject" : "Select course first"} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {subjects
-                                            .filter(subject => !assignmentForm.course_id || subject.course_id?.toString() === assignmentForm.course_id)
-                                            .map((subject) => (
+                                <div>
+                                    <Label htmlFor="subject_id">Subject *</Label>
+                                    <Select
+                                        value={assignmentForm.subject_id}
+                                        onValueChange={(value) => setAssignmentForm({ ...assignmentForm, subject_id: value })}
+                                        required
+                                        disabled={!assignmentForm.course_id}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder={assignmentForm.course_id ? "Select subject" : "Select course first"} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {filteredSubjects.map((subject) => (
                                                 <SelectItem key={subject.id} value={subject.id.toString()}>
                                                     {subject.name} ({subject.code})
                                                 </SelectItem>
                                             ))}
-                                    </SelectContent>
-                                </Select>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
 
-                            <div>
-                                <Label htmlFor="year_level">Year Level</Label>
-                                <Select
-                                    value={assignmentForm.year_level}
-                                    onValueChange={(value) => setAssignmentForm({ ...assignmentForm, year_level: value })}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select year level (optional)" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {Object.entries(yearLevels).map(([key, value]) => (
-                                            <SelectItem key={key} value={key}>
-                                                {value}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <Label htmlFor="semester_id">Semester</Label>
+                                    <Select
+                                        value={selectedSemesterId}
+                                        onValueChange={(value) => { setSelectedSemesterId(value); setAssignmentForm({ ...assignmentForm, grading_period_id: '' }); }}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select semester first" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {collegeSemesters.map((sem) => (
+                                                <SelectItem key={sem.id} value={sem.id.toString()}>
+                                                    {sem.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div>
+                                    <Label htmlFor="grading_period_id">Grading Period</Label>
+                                    <Select
+                                        value={assignmentForm.grading_period_id}
+                                        onValueChange={(value) => setAssignmentForm({ ...assignmentForm, grading_period_id: value })}
+                                        disabled={!selectedSemesterId}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select grading period (optional)" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {semesterChildPeriods
+                                                .filter((p, i, arr) => arr.findIndex(x => x.name.toLowerCase() === p.name.toLowerCase()) === i)
+                                                .map((period) => (
+                                                    <SelectItem key={period.id} value={period.id.toString()}>
+                                                        {period.name}
+                                                    </SelectItem>
+                                                ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div>
+                                    <Label htmlFor="school_year">School Year</Label>
+                                    <Select
+                                        value={assignmentForm.school_year}
+                                        onValueChange={(value) => setAssignmentForm({ ...assignmentForm, school_year: value })}
+                                        required
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select school year" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {schoolYearOptions.map((year) => (
+                                                <SelectItem key={year} value={year}>
+                                                    {year}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
 
-                            <div>
-                                <Label htmlFor="grading_period_id">Grading Period</Label>
-                                <Select
-                                    value={assignmentForm.grading_period_id}
-                                    onValueChange={(value) => setAssignmentForm({ ...assignmentForm, grading_period_id: value })}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select grading period (optional)" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {collegeGradingPeriods.map((period) => (
-                                            <SelectItem key={period.id} value={period.id.toString()}>
-                                                {period.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="md:col-span-2">
+                                    <Label htmlFor="notes">Notes</Label>
+                                    <Textarea
+                                        id="notes"
+                                        value={assignmentForm.notes}
+                                        onChange={(e) => setAssignmentForm({ ...assignmentForm, notes: e.target.value })}
+                                        placeholder="Additional notes..."
+                                    />
+                                </div>
 
-                            <div>
-                                <Label htmlFor="school_year">School Year</Label>
-                                <Select
-                                    value={assignmentForm.school_year}
-                                    onValueChange={(value) => setAssignmentForm({ ...assignmentForm, school_year: value })}
-                                    required
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select school year" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {schoolYearOptions.map((year) => (
-                                            <SelectItem key={year} value={year}>
-                                                {year}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div>
-                                <Label htmlFor="notes">Notes</Label>
-                                <Textarea
-                                    id="notes"
-                                    value={assignmentForm.notes}
-                                    onChange={(e) => setAssignmentForm({ ...assignmentForm, notes: e.target.value })}
-                                    placeholder="Additional notes..."
-                                />
-                            </div>
-
-                            <div className="flex items-center space-x-2">
-                                <input
-                                    type="checkbox"
-                                    id="is_active"
-                                    checked={assignmentForm.is_active}
-                                    onChange={(e) => setAssignmentForm({ ...assignmentForm, is_active: e.target.checked })}
-                                    className="rounded border-gray-300"
-                                />
-                                <Label htmlFor="is_active">Active</Label>
+                                <div className="flex items-center space-x-2">
+                                    <input
+                                        type="checkbox"
+                                        id="is_active"
+                                        checked={assignmentForm.is_active}
+                                        onChange={(e) => setAssignmentForm({ ...assignmentForm, is_active: e.target.checked })}
+                                        className="rounded border-gray-300"
+                                    />
+                                    <Label htmlFor="is_active">Active</Label>
+                                </div>
                             </div>
 
                             <div className="flex justify-end space-x-2">
@@ -459,7 +587,7 @@ export default function AssignInstructors({ user, assignments, instructors, cour
                                 >
                                     Cancel
                                 </Button>
-                                <Button type="submit">Assign Instructor</Button>
+                                <Button type="submit">Assign Instructor to Subject</Button>
                             </div>
                         </form>
                     </DialogContent>
@@ -655,11 +783,13 @@ export default function AssignInstructors({ user, assignments, instructors, cour
                                     <SelectValue placeholder="Select grading period (optional)" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {collegeGradingPeriods.map((period) => (
-                                        <SelectItem key={period.id} value={period.id.toString()}>
-                                            {period.name}
-                                        </SelectItem>
-                                    ))}
+                                    {semesterChildPeriods
+                                        .filter((p, i, arr) => arr.findIndex(x => x.name.toLowerCase() === p.name.toLowerCase()) === i)
+                                        .map((period) => (
+                                            <SelectItem key={period.id} value={period.id.toString()}>
+                                                {period.name}
+                                            </SelectItem>
+                                        ))}
                                 </SelectContent>
                             </Select>
                         </div>

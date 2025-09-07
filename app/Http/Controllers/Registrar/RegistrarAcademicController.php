@@ -8,8 +8,9 @@ use Inertia\Inertia;
 use Illuminate\Http\Request;
 use App\Models\AcademicLevel;
 use App\Models\Strand;
-use App\Models\Course;
+use App\Models\Track;
 use App\Models\Department;
+use App\Models\Course;
 use App\Models\GradingPeriod;
 use App\Models\Subject;
 use App\Models\TeacherSubjectAssignment;
@@ -57,7 +58,7 @@ class RegistrarAcademicController extends Controller
 
     public function grading()
     {
-        $gradingPeriods = GradingPeriod::with('academicLevel')
+        $gradingPeriods = GradingPeriod::with(['academicLevel', 'parent', 'children'])
             ->orderBy('academic_level_id')
             ->orderBy('sort_order')
             ->get();
@@ -135,6 +136,7 @@ class RegistrarAcademicController extends Controller
             'subject', 
             'academicLevel', 
             'gradingPeriod',
+            'track',
             'strand'
         ])->where('academic_level_id', $shsLevel->id)
           ->orderBy('school_year', 'desc')->get();
@@ -145,6 +147,9 @@ class RegistrarAcademicController extends Controller
         $academicLevels = AcademicLevel::orderBy('sort_order')->get();
         $gradingPeriods = GradingPeriod::orderBy('academic_level_id')->orderBy('sort_order')->get();
         $strands = Strand::where('academic_level_id', $shsLevel->id)->orderBy('name')->get();
+        $tracks = Track::where('is_active', true)->orderBy('name')->get();
+        $departments = Department::where('is_active', true)->orderBy('name')->get();
+        $courses = Course::where('is_active', true)->with('department')->orderBy('name')->get();
         
         return Inertia::render('Registrar/Academic/AssignTeachers', [
             'user' => $this->sharedUser(),
@@ -154,6 +159,9 @@ class RegistrarAcademicController extends Controller
             'academicLevels' => $academicLevels,
             'gradingPeriods' => $gradingPeriods,
             'strands' => $strands,
+            'tracks' => $tracks,
+            'departments' => $departments,
+            'courses' => $courses,
         ]);
     }
 

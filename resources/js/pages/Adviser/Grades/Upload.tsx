@@ -8,11 +8,41 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useForm, Link } from '@inertiajs/react';
 import { Upload as UploadIcon, Download } from 'lucide-react';
 
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  user_role: string;
+}
+
+interface AcademicLevel {
+  id: number;
+  name: string;
+  key: string;
+}
+
+interface GradingPeriod {
+  id: number;
+  name: string;
+  academic_level_id?: number;
+  parent_id?: number;
+}
+
+interface AssignedSubject {
+  id: number;
+  subject: {
+    id: number;
+    name: string;
+    code: string;
+  };
+  academicLevel: AcademicLevel;
+}
+
 interface UploadProps {
-  user: any;
-  assignedSubjects: any[];
-  academicLevels: any[];
-  gradingPeriods: any[];
+  user: User;
+  assignedSubjects: AssignedSubject[];
+  academicLevels: AcademicLevel[];
+  gradingPeriods: GradingPeriod[];
   schoolYear: string;
 }
 
@@ -61,7 +91,7 @@ export default function AdviserGradesUpload({ user, assignedSubjects, academicLe
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
                     <Label>Academic Level</Label>
-                    <Select value={data.academic_level_id} onValueChange={(v) => setData('academic_level_id', v)}>
+                    <Select value={data.academic_level_id} onValueChange={(v) => setData({ ...data, academic_level_id: v, grading_period_id: '0' })}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select academic level" />
                       </SelectTrigger>
@@ -76,15 +106,33 @@ export default function AdviserGradesUpload({ user, assignedSubjects, academicLe
 
                   <div>
                     <Label>Grading Period</Label>
-                    <Select value={data.grading_period_id} onValueChange={(v) => setData('grading_period_id', v)}>
+                    <Select value={data.grading_period_id} onValueChange={(v) => setData('grading_period_id', v)} disabled={!data.academic_level_id}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select grading period (optional)" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="0">No Period</SelectItem>
-                        {gradingPeriods.map(p => (
-                          <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
-                        ))}
+                        {data.academic_level_id && gradingPeriods
+                          .filter(p => {
+                            // Filter by academic level
+                            if (p.academic_level_id?.toString() !== data.academic_level_id) {
+                              return false;
+                            }
+                            
+                            // For semester-based levels (Senior High, College), only show root semesters
+                            // For quarter-based levels (Elementary, Junior High), only show quarters
+                            const academicLevel = academicLevels.find(l => l.id.toString() === data.academic_level_id);
+                            if (academicLevel?.key === 'senior_highschool' || academicLevel?.key === 'college') {
+                              // Only show root semesters (no parent_id)
+                              return !p.parent_id;
+                            } else {
+                              // For elementary and junior high, show all periods (quarters)
+                              return true;
+                            }
+                          })
+                          .map(p => (
+                            <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
+                          ))}
                       </SelectContent>
                     </Select>
                   </div>

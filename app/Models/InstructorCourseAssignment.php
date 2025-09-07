@@ -12,9 +12,11 @@ class InstructorCourseAssignment extends Model
 
     protected $fillable = [
         'instructor_id',
-        'course_id',
-        'academic_level_id',
         'year_level',
+        'department_id',
+        'course_id',
+        'subject_id',
+        'academic_level_id',
         'grading_period_id',
         'school_year',
         'is_active',
@@ -33,9 +35,19 @@ class InstructorCourseAssignment extends Model
         return $this->belongsTo(User::class, 'instructor_id');
     }
 
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class);
+    }
+
     public function course(): BelongsTo
     {
         return $this->belongsTo(Course::class);
+    }
+
+    public function subject(): BelongsTo
+    {
+        return $this->belongsTo(Subject::class);
     }
 
     public function academicLevel(): BelongsTo

@@ -30,6 +30,9 @@ interface GradingPeriod {
     name: string;
     code: string;
     academic_level_id: number;
+    type?: string;
+    parent_id?: number | null;
+    semester_number?: number | null;
 }
 
 interface Course {
@@ -143,7 +146,9 @@ export default function AssignInstructors({ user, assignments = [], instructors 
     // Courses are already filtered by college level in the backend
     const collegeCourses = courses || [];
     const collegeGradingPeriods = (gradingPeriods || []).filter(period => 
-        period.academic_level_id === collegeLevel.id
+        period.academic_level_id === collegeLevel.id &&
+        (period.type === 'semester' || period.type === undefined) &&
+        (period.parent_id === null || period.parent_id === undefined)
     );
 
     const schoolYearOptions = [
