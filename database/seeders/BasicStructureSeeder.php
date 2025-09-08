@@ -7,7 +7,7 @@ use App\Models\AcademicLevel;
 use App\Models\Department;
 use App\Models\Course;
 use App\Models\Subject;
-use App\Models\GradingPeriod;
+// Removed GradingPeriod seeding; management is handled via UI
 
 class BasicStructureSeeder extends Seeder
 {
@@ -79,42 +79,6 @@ class BasicStructureSeeder extends Seeder
             );
         }
 
-        // Create Grading Periods for College
-        $collegeLevel = AcademicLevel::where('key', 'college')->first();
-        if ($collegeLevel) {
-            $gradingPeriods = [
-                ['name' => 'Prelim', 'code' => 'COL_PRELIM', 'sort_order' => 1, 'academic_level_id' => $collegeLevel->id, 'start_date' => '2024-08-01', 'end_date' => '2024-10-31'],
-                ['name' => 'Midterm', 'code' => 'COL_MIDTERM', 'sort_order' => 2, 'academic_level_id' => $collegeLevel->id, 'start_date' => '2024-11-01', 'end_date' => '2025-01-31'],
-                ['name' => 'Final', 'code' => 'COL_FINAL', 'sort_order' => 3, 'academic_level_id' => $collegeLevel->id, 'start_date' => '2025-02-01', 'end_date' => '2025-05-31'],
-            ];
-
-            foreach ($gradingPeriods as $period) {
-                GradingPeriod::updateOrCreate(
-                    ['name' => $period['name'], 'academic_level_id' => $period['academic_level_id']], // Search by name and level
-                    $period
-                );
-            }
-        }
-
-        // Create Grading Periods for Basic Education
-        $basicLevels = AcademicLevel::whereIn('key', ['elementary', 'junior_highschool', 'senior_highschool'])->get();
-        foreach ($basicLevels as $level) {
-            $levelCode = strtoupper(substr($level->key, 0, 3)); // ELE, JUN, SEN
-            $gradingPeriods = [
-                ['name' => 'First Quarter', 'code' => $levelCode . '_Q1', 'sort_order' => 1, 'academic_level_id' => $level->id, 'start_date' => '2024-08-01', 'end_date' => '2024-10-31'],
-                ['name' => 'Second Quarter', 'code' => $levelCode . '_Q2', 'sort_order' => 2, 'academic_level_id' => $level->id, 'start_date' => '2024-11-01', 'end_date' => '2025-01-31'],
-                ['name' => 'Third Quarter', 'code' => $levelCode . '_Q3', 'sort_order' => 3, 'academic_level_id' => $level->id, 'start_date' => '2025-02-01', 'end_date' => '2025-04-30'],
-                ['name' => 'Fourth Quarter', 'code' => $levelCode . '_Q4', 'sort_order' => 4, 'academic_level_id' => $level->id, 'start_date' => '2025-05-01', 'end_date' => '2025-07-31'],
-            ];
-
-            foreach ($gradingPeriods as $period) {
-                GradingPeriod::updateOrCreate(
-                    ['name' => $period['name'], 'academic_level_id' => $period['academic_level_id']], // Search by name and level
-                    $period
-                );
-            }
-        }
-
-        $this->command->info('Basic academic structure created/updated successfully!');
+        $this->command->info('Basic academic structure created/updated successfully (grading periods excluded).');
     }
 }
