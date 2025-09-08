@@ -84,6 +84,7 @@ interface InstructorCourseAssignment {
     course: Course;
     academicLevel: AcademicLevel;
     gradingPeriod: GradingPeriod | null;
+    subject?: Subject | null;
 }
 
 interface Props {
@@ -612,20 +613,28 @@ export default function AssignInstructors({ user, assignments, instructors, depa
                                             <span className="font-medium">{assignment.course.name}</span>
                                             <Badge variant="outline">{assignment.course.department?.name || 'No Department'}</Badge>
                                         </div>
-                                        {/* Show subjects for this course */}
+                                        {/* Show the specifically assigned subject if present; otherwise show course subjects */}
                                         <div className="ml-8 mt-2">
                                             <div className="text-sm text-gray-600 mb-1">Subjects:</div>
-                                            <div className="flex flex-wrap gap-2">
-                                                {subjects
-                                                    .filter(subject => subject.course_id?.toString() === assignment.course_id.toString())
-                                                    .map(subject => (
-                                                        <Badge key={subject.id} variant="secondary" className="text-xs">
-                                                            {subject.name} ({subject.code})
-                                                        </Badge>
-                                                    ))}
-                                            </div>
-                                            {subjects.filter(subject => subject.course_id?.toString() === assignment.course_id.toString()).length === 0 && (
-                                                <span className="text-xs text-gray-400 italic">No subjects assigned to this course</span>
+                                            {assignment.subject ? (
+                                                <div className="flex flex-wrap gap-2">
+                                                    <Badge variant="secondary" className="text-xs">
+                                                        {assignment.subject.name} ({assignment.subject.code})
+                                                    </Badge>
+                                                </div>
+                                            ) : (
+                                                <div className="flex flex-wrap gap-2">
+                                                    {subjects
+                                                        .filter(subject => subject.course_id?.toString() === assignment.course_id.toString())
+                                                        .map(subject => (
+                                                            <Badge key={subject.id} variant="secondary" className="text-xs">
+                                                                {subject.name} ({subject.code})
+                                                            </Badge>
+                                                        ))}
+                                                    {subjects.filter(subject => subject.course_id?.toString() === assignment.course_id.toString()).length === 0 && (
+                                                        <span className="text-xs text-gray-400 italic">No subjects for this course</span>
+                                                    )}
+                                                </div>
                                             )}
                                         </div>
                                     </div>

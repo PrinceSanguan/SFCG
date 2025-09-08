@@ -94,7 +94,8 @@ class AcademicController extends Controller
             'instructor', 
             'course.department', 
             'academicLevel', 
-            'gradingPeriod'
+            'gradingPeriod',
+            'subject'
         ])->where('academic_level_id', $collegeLevel->id)
           ->orderBy('school_year', 'desc')->get();
         
