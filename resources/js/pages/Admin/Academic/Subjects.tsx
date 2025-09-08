@@ -68,13 +68,14 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
         is_active: true,
         track_id: '',
         strand_id: '',
-        shs_year_level: '' 
+        shs_year_level: '',
+        jhs_year_level: '' 
     });
     const [subjectModal, setSubjectModal] = useState(false);
     const [editSubject, setEditSubject] = useState<Subject | null>(null);
     const [editModal, setEditModal] = useState(false);
 
-    const isSimplePeriodLevel = (levelKey?: string) => levelKey === 'elementary' || levelKey === 'junior_highschool';
+    // removed unused helper to satisfy linter
 
     // Get subjects by academic level
     const getSubjectsByLevel = (levelKey: string) => {
@@ -148,7 +149,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
             onSuccess: (page) => { 
                 console.log('Subject created successfully:', page);
                 addToast("Subject created successfully!", "success");
-                setSubjectForm({ name: '', code: '', description: '', academic_level_id: '', grade_levels: [], grading_period_id: '', department_id: '', course_id: '', semester_id: '', units: 0, hours_per_week: 0, is_core: false, is_active: true, track_id: '', strand_id: '', shs_year_level: '' }); 
+                setSubjectForm({ name: '', code: '', description: '', academic_level_id: '', grade_levels: [], grading_period_id: '', department_id: '', course_id: '', semester_id: '', units: 0, hours_per_week: 0, is_core: false, is_active: true, track_id: '', strand_id: '', shs_year_level: '', jhs_year_level: '' }); 
                 setSubjectModal(false); 
             },
             onError: (errors) => {
@@ -282,7 +283,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                     <div className="font-semibold">Subjects</div>
                                     <Dialog open={subjectModal} onOpenChange={setSubjectModal}>
                                         <DialogTrigger asChild>
-                                            <Button onClick={() => setSubjectForm({ name: '', code: '', description: '', academic_level_id: '', grade_levels: [], grading_period_id: '', department_id: '', course_id: '', semester_id: '', units: 0, hours_per_week: 0, is_core: false, is_active: true, track_id: '', strand_id: '', shs_year_level: '' })} className="flex items-center gap-2">
+                                            <Button onClick={() => setSubjectForm({ name: '', code: '', description: '', academic_level_id: '', grade_levels: [], grading_period_id: '', department_id: '', course_id: '', semester_id: '', units: 0, hours_per_week: 0, is_core: false, is_active: true, track_id: '', strand_id: '', shs_year_level: '', jhs_year_level: '' })} className="flex items-center gap-2">
                                                 <Plus className="h-4 w-4" />
                                                 Add Subject
                                             </Button>
@@ -346,7 +347,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                     {/* Generic grading period for simple-period levels only (Elementary/JHS) */}
                                                     {(() => {
                                                         const sel = academicLevels.find(level => level.id.toString() === subjectForm.academic_level_id);
-                                                        const shouldShow = isSimplePeriodLevel(sel?.key);
+                                                        const shouldShow = sel?.key === 'elementary' || sel?.key === 'junior_highschool';
                                                         console.log('Debug - Generic Period - Selected Level:', sel);
                                                         console.log('Debug - Generic Period - Should Show:', shouldShow);
                                                         if (!shouldShow) return null;
@@ -358,7 +359,9 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                                         <SelectValue placeholder="Select grading period" />
                                                                     </SelectTrigger>
                                                                     <SelectContent>
-                                                                        {subjectForm.academic_level_id && getGradingPeriodsByLevel(parseInt(subjectForm.academic_level_id)).map((gp) => (
+                                                                        {subjectForm.academic_level_id && getGradingPeriodsByLevel(parseInt(subjectForm.academic_level_id))
+                                                                            .filter(gp => gp.parent_id == null) // quarters have no parent
+                                                                            .map((gp) => (
                                                                             <SelectItem key={gp.id} value={gp.id.toString()}>
                                                                                 {gp.name} ({gp.code})
                                                                             </SelectItem>
@@ -405,6 +408,33 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                     </div>
                                                 )}
                                                 
+                                                {/* Junior High: Year Level (1st to 4th year) */}
+                                                {(() => {
+                                                    const selectedLevel = academicLevels.find(level => level.id.toString() === subjectForm.academic_level_id);
+                                                    if (selectedLevel?.key !== 'junior_highschool') return null;
+                                                    const jhsYearOptions = [
+                                                        { value: 'first_year', label: '1st Year' },
+                                                        { value: 'second_year', label: '2nd Year' },
+                                                        { value: 'third_year', label: '3rd Year' },
+                                                        { value: 'fourth_year', label: '4th Year' },
+                                                    ];
+                                                    return (
+                                                        <div>
+                                                            <Label htmlFor="jhs-year">Year Level</Label>
+                                                            <Select value={subjectForm.jhs_year_level as unknown as string} onValueChange={(v) => setSubjectForm(prev => ({ ...prev, jhs_year_level: v }))}>
+                                                                <SelectTrigger>
+                                                                    <SelectValue placeholder="Select year level" />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    {jhsYearOptions.map(opt => (
+                                                                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
+                                                    );
+                                                })()}
+
                                                 {/* Department -> Course -> Year Level -> Semester -> Period (College) */}
                                                 {(() => {
                                                     const selectedLevel = academicLevels.find(level => level.id.toString() === subjectForm.academic_level_id);
@@ -491,9 +521,38 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                     </>
                                                 )}
 
-                                                {/* Senior High: Track -> Strand -> Year Level */}
+                                                {/* Senior High: Year Level -> Periods (no semesters) + optional Track/Strand */}
                                                 {subjectForm.academic_level_id && academicLevels.find(level => level.id.toString() === subjectForm.academic_level_id)?.key === 'senior_highschool' && (
                                                     <>
+                                                    <div>
+                                                        <Label htmlFor="subject-shs-year">Year Level</Label>
+                                                        <Select value={subjectForm.shs_year_level as unknown as string} onValueChange={(v) => setSubjectForm(prev => ({ ...prev, shs_year_level: v }))}>
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder="Select year level" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {Object.entries(shsYearLevels).map(([key, label]) => (
+                                                                    <SelectItem key={key} value={key}>{label}</SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                    <div>
+                                                        <Label htmlFor="subject-period">Grading Period</Label>
+                                                        <Select value={subjectForm.grading_period_id} onValueChange={(value) => setSubjectForm({ ...subjectForm, grading_period_id: value })}>
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder="Select period (optional)" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {subjectForm.academic_level_id && gradingPeriods
+                                                                    .filter(p => p.academic_level_id === parseInt(subjectForm.academic_level_id))
+                                                                    .filter(p => p.parent_id != null) // only child periods under semesters
+                                                                    .map((gp) => (
+                                                                        <SelectItem key={gp.id} value={gp.id.toString()}>{gp.name}</SelectItem>
+                                                                    ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
                                                     <div>
                                                         <Label htmlFor="subject-track">Track</Label>
                                                         <Select value={subjectForm.track_id as unknown as string} onValueChange={(v) => setSubjectForm(prev => ({ ...prev, track_id: v, strand_id: '' }))}>
@@ -520,19 +579,6 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                                     <SelectItem key={s.id} value={s.id.toString()}>
                                                                         {s.name} ({s.code})
                                                                     </SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
-                                                    <div>
-                                                        <Label htmlFor="subject-shs-year">Year Level</Label>
-                                                        <Select value={subjectForm.shs_year_level as unknown as string} onValueChange={(v) => setSubjectForm(prev => ({ ...prev, shs_year_level: v }))}>
-                                                            <SelectTrigger>
-                                                                <SelectValue placeholder="Select year level" />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                {Object.entries(shsYearLevels).map(([key, label]) => (
-                                                                    <SelectItem key={key} value={key}>{label}</SelectItem>
                                                                 ))}
                                                             </SelectContent>
                                                         </Select>
