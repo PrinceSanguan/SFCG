@@ -35,14 +35,17 @@ interface Subject {
     course?: { id: number; name: string; code: string };
 }
 
-export default function Subjects({ user, subjects = [], academicLevels = [], gradingPeriods = [], courses = [], departments = [], yearLevels = {} as Record<string,string> }: { 
+export default function Subjects({ user, subjects = [], academicLevels = [], gradingPeriods = [], courses = [], departments = [], yearLevels = {} as Record<string,string>, shsYearLevels = {} as Record<string,string>, tracks = [], strands = [] }: { 
     user: User; 
     subjects?: Subject[]; 
     academicLevels?: AcademicLevel[]; 
     gradingPeriods?: GradingPeriod[]; 
     courses?: Course[] 
     departments?: { id: number; name: string }[] 
-    yearLevels?: Record<string,string>
+    yearLevels?: Record<string,string>,
+    shsYearLevels?: Record<string,string>,
+    tracks?: { id: number; name: string; code: string }[],
+    strands?: { id: number; name: string; code: string; track_id: number }[]
 }) {
     const [activeTab, setActiveTab] = useState('all');
     const [selectedGradeFilter, setSelectedGradeFilter] = useState<string | null>(null);
@@ -62,7 +65,10 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
         units: 0, 
         hours_per_week: 0, 
         is_core: false, 
-        is_active: true 
+        is_active: true,
+        track_id: '',
+        strand_id: '',
+        shs_year_level: '' 
     });
     const [subjectModal, setSubjectModal] = useState(false);
     const [editSubject, setEditSubject] = useState<Subject | null>(null);
@@ -142,7 +148,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
             onSuccess: (page) => { 
                 console.log('Subject created successfully:', page);
                 addToast("Subject created successfully!", "success");
-                setSubjectForm({ name: '', code: '', description: '', academic_level_id: '', grade_levels: [], grading_period_id: '', department_id: '', course_id: '', semester_id: '', units: 0, hours_per_week: 0, is_core: false, is_active: true }); 
+                setSubjectForm({ name: '', code: '', description: '', academic_level_id: '', grade_levels: [], grading_period_id: '', department_id: '', course_id: '', semester_id: '', units: 0, hours_per_week: 0, is_core: false, is_active: true, track_id: '', strand_id: '', shs_year_level: '' }); 
                 setSubjectModal(false); 
             },
             onError: (errors) => {
@@ -276,12 +282,12 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                     <div className="font-semibold">Subjects</div>
                                     <Dialog open={subjectModal} onOpenChange={setSubjectModal}>
                                         <DialogTrigger asChild>
-                                            <Button onClick={() => setSubjectForm({ name: '', code: '', description: '', academic_level_id: '', grade_levels: [], grading_period_id: '', department_id: '', course_id: '', semester_id: '', units: 0, hours_per_week: 0, is_core: false, is_active: true })} className="flex items-center gap-2">
+                                            <Button onClick={() => setSubjectForm({ name: '', code: '', description: '', academic_level_id: '', grade_levels: [], grading_period_id: '', department_id: '', course_id: '', semester_id: '', units: 0, hours_per_week: 0, is_core: false, is_active: true, track_id: '', strand_id: '', shs_year_level: '' })} className="flex items-center gap-2">
                                                 <Plus className="h-4 w-4" />
                                                 Add Subject
                                             </Button>
                                         </DialogTrigger>
-                                        <DialogContent className="max-w-2xl">
+                                        <DialogContent className="w-[95vw] max-w-[900px] max-h-[85vh] overflow-y-auto">
                                             <DialogHeader>
                                                 <DialogTitle>Add New Subject</DialogTitle>
                                                 <DialogDescription>
@@ -289,7 +295,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                 </DialogDescription>
                                             </DialogHeader>
                                             <div className="space-y-4">
-                                                <div className="grid grid-cols-2 gap-4">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                     <div>
                                                         <Label htmlFor="subject-name">Name</Label>
                                                         <Input 
@@ -318,7 +324,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                         onChange={(e) => setSubjectForm({ ...subjectForm, description: e.target.value })} 
                                                     />
                                                 </div>
-                                                <div className="grid grid-cols-2 gap-4">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                     <div>
                                                         <Label htmlFor="subject-level">Academic Level</Label>
                                                         <Select value={subjectForm.academic_level_id} onValueChange={(value) => setSubjectForm({ ...subjectForm, academic_level_id: value, grading_period_id: '', course_id: '' })}>
@@ -368,7 +374,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                 {isElementaryLevel() && (
                                                     <div>
                                                         <Label htmlFor="subject-grade-levels">Grade Levels</Label>
-                                                        <div className="grid grid-cols-3 gap-2 mt-2">
+                                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
                                                             {elementaryGradeLevels.map((grade) => (
                                                                 <label key={grade.value} className="flex items-center space-x-2">
                                                                     <input
@@ -485,42 +491,55 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                     </>
                                                 )}
 
-                                                {/* Semester -> Period (Senior High) */}
+                                                {/* Senior High: Track -> Strand -> Year Level */}
                                                 {subjectForm.academic_level_id && academicLevels.find(level => level.id.toString() === subjectForm.academic_level_id)?.key === 'senior_highschool' && (
                                                     <>
                                                     <div>
-                                                        <Label htmlFor="subject-semester">Semester</Label>
-                                                        <Select value={subjectForm.semester_id} onValueChange={(v) => setSubjectForm({ ...subjectForm, semester_id: v, grading_period_id: '' })}>
+                                                        <Label htmlFor="subject-track">Track</Label>
+                                                        <Select value={subjectForm.track_id as unknown as string} onValueChange={(v) => setSubjectForm(prev => ({ ...prev, track_id: v, strand_id: '' }))}>
                                                             <SelectTrigger>
-                                                                <SelectValue placeholder="Select semester (optional)" />
+                                                                <SelectValue placeholder="Select track" />
                                                             </SelectTrigger>
                                                             <SelectContent>
-                                                                {subjectForm.academic_level_id && getSemestersByLevel(parseInt(subjectForm.academic_level_id)).map((sem) => (
-                                                                    <SelectItem key={sem.id} value={sem.id.toString()}>
-                                                                        {sem.name}
+                                                                {(tracks || []).map((t) => (
+                                                                    <SelectItem key={t.id} value={t.id.toString()}>
+                                                                        {t.name} ({t.code})
                                                                     </SelectItem>
                                                                 ))}
                                                             </SelectContent>
                                                         </Select>
                                                     </div>
                                                     <div>
-                                                        <Label htmlFor="subject-period">Period</Label>
-                                                        <Select value={subjectForm.grading_period_id} onValueChange={(value) => setSubjectForm({ ...subjectForm, grading_period_id: value })} disabled={!subjectForm.semester_id}>
+                                                        <Label htmlFor="subject-strand">Strand</Label>
+                                                        <Select value={subjectForm.strand_id as unknown as string} onValueChange={(v) => setSubjectForm(prev => ({ ...prev, strand_id: v }))} disabled={!subjectForm.track_id}>
                                                             <SelectTrigger>
-                                                                <SelectValue placeholder="Select period (optional)" />
+                                                                <SelectValue placeholder="Select strand" />
                                                             </SelectTrigger>
                                                             <SelectContent>
-                                                                {getPeriodsBySemester(subjectForm.semester_id).map((gp) => (
-                                                                    <SelectItem key={gp.id} value={gp.id.toString()}>
-                                                                        {gp.name}
+                                                                {strands.filter(s => subjectForm.track_id && s.track_id.toString() === String(subjectForm.track_id)).map((s) => (
+                                                                    <SelectItem key={s.id} value={s.id.toString()}>
+                                                                        {s.name} ({s.code})
                                                                     </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                    <div>
+                                                        <Label htmlFor="subject-shs-year">Year Level</Label>
+                                                        <Select value={subjectForm.shs_year_level as unknown as string} onValueChange={(v) => setSubjectForm(prev => ({ ...prev, shs_year_level: v }))}>
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder="Select year level" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {Object.entries(shsYearLevels).map(([key, label]) => (
+                                                                    <SelectItem key={key} value={key}>{label}</SelectItem>
                                                                 ))}
                                                             </SelectContent>
                                                         </Select>
                                                     </div>
                                                     </>
                                                 )}
-                                                <div className="grid grid-cols-3 gap-4">
+                                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                                     <div>
                                                         <Label htmlFor="subject-units">Units</Label>
                                                         <Input 

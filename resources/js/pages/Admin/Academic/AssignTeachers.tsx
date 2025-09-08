@@ -143,10 +143,10 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
     const [filteredStrands, setFilteredStrands] = useState<Strand[]>([]);
     const [filteredSubjects, setFilteredSubjects] = useState<Subject[]>([]);
     const [filteredCourses, setFilteredCourses] = useState<Course[]>([]);
-    const [filteredDepartments, setFilteredDepartments] = useState<Department[]>([]);
+    // const [filteredDepartments, setFilteredDepartments] = useState<Department[]>([]);
 
     // Get academic levels
-    const collegeLevel = academicLevels.find(level => level.key === 'college');
+    // const collegeLevel = academicLevels.find(level => level.key === 'college');
     const jhsLevel = academicLevels.find(level => level.key === 'junior_highschool');
     const elemLevel = academicLevels.find(level => level.key === 'elementary');
     
@@ -262,6 +262,9 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
             academic_level_id: assignment.academic_level_id.toString(),
             grade_level: assignment.grade_level || '',
             strand_id: assignment.strand ? assignment.strand.id.toString() : '',
+            track_id: assignment.strand && assignment.strand.track_id ? assignment.strand.track_id.toString() : '',
+            department_id: '',
+            course_id: '',
             grading_period_id: assignment.grading_period_id?.toString() || '',
             school_year: assignment.school_year,
             notes: assignment.notes || '',
@@ -304,7 +307,7 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
         setFilteredStrands([]);
         setFilteredSubjects([]);
         setFilteredCourses([]);
-        setFilteredDepartments([]);
+        // setFilteredDepartments([]);
     };
 
     return (
@@ -456,7 +459,11 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                                             value={assignmentForm.strand_id}
                                             onValueChange={(value) => {
                                                 setAssignmentForm({ ...assignmentForm, strand_id: value, subject_id: '' });
-                                                const filtered = subjects.filter(s => s.strand_id === parseInt(value));
+                                                const filtered = subjects.filter(s => {
+                                                    const matchesStrand = s.strand_id === parseInt(value);
+                                                    const isGeneral = s.strand_id == null;
+                                                    return matchesStrand || isGeneral;
+                                                });
                                                 setFilteredSubjects(filtered);
                                             }}
                                             disabled={!assignmentForm.track_id}
@@ -530,7 +537,7 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                                             value={assignmentForm.course_id}
                                             onValueChange={(value) => {
                                                 setAssignmentForm({ ...assignmentForm, course_id: value, subject_id: '' });
-                                                const filtered = subjects.filter(s => s.course_id === parseInt(value));
+                                                const filtered = subjects.filter(s => (s as unknown as { course_id?: number }).course_id === parseInt(value));
                                                 setFilteredSubjects(filtered);
                                             }}
                                             disabled={!assignmentForm.department_id}
@@ -579,7 +586,6 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                                             value={assignmentForm.grade_level}
                                             onValueChange={(value) => {
                                                 setAssignmentForm({ ...assignmentForm, grade_level: value, subject_id: '' });
-                                                const level = academicLevels.find(l => l.id.toString() === assignmentForm.academic_level_id);
                                                 const filtered = subjects.filter(s => s.academic_level_id === parseInt(assignmentForm.academic_level_id));
                                                 setFilteredSubjects(filtered);
                                             }}

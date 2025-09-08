@@ -683,6 +683,7 @@ class UserManagementController extends Controller
             $teacherSubjectAssignments = \App\Models\TeacherSubjectAssignment::with([
                 'subject.course',
                 'subject.academicLevel',
+                'subject.gradingPeriod',
                 'academicLevel',
                 'gradingPeriod'
             ])
@@ -691,7 +692,12 @@ class UserManagementController extends Controller
             ->where('is_active', true)
             ->orderBy('academic_level_id')
             ->orderBy('subject_id')
-            ->get();
+            ->get()
+            ->map(function ($a) {
+                $a->level_name = optional($a->academicLevel)->name ?? optional($a->subject?->academicLevel)->name;
+                $a->period_name = optional($a->gradingPeriod)->name ?? optional($a->subject?->gradingPeriod)->name;
+                return $a;
+            });
 
             // Load students assigned to this teacher's subjects
             $subjectIds = $teacherSubjectAssignments->pluck('subject_id')->toArray();
@@ -713,6 +719,7 @@ class UserManagementController extends Controller
             $instructorSubjectAssignments = \App\Models\InstructorSubjectAssignment::with([
                 'subject.course',
                 'subject.academicLevel',
+                'subject.gradingPeriod',
                 'academicLevel',
                 'gradingPeriod'
             ])
@@ -721,7 +728,12 @@ class UserManagementController extends Controller
             ->where('is_active', true)
             ->orderBy('academic_level_id')
             ->orderBy('subject_id')
-            ->get();
+            ->get()
+            ->map(function ($a) {
+                $a->level_name = optional($a->academicLevel)->name ?? optional($a->subject?->academicLevel)->name;
+                $a->period_name = optional($a->gradingPeriod)->name ?? optional($a->subject?->gradingPeriod)->name;
+                return $a;
+            });
 
             // Load students assigned to this instructor's subjects
             $subjectIds = $instructorSubjectAssignments->pluck('subject_id')->toArray();

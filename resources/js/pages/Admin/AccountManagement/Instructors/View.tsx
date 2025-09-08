@@ -409,12 +409,12 @@ export default function ViewInstructor({ user, targetUser, activityLogs, instruc
                                                     <div className="flex items-center gap-2">
                                                         <Building className="h-4 w-4 text-gray-500" />
                                                         <span className="text-gray-600 dark:text-gray-400">Level:</span>
-                                                        <span>{assignment.academicLevel?.name || 'N/A'}</span>
+                                                        <span>{(assignment as any).level_name || assignment.academicLevel?.name || assignment.subject?.academicLevel?.name || 'N/A'}</span>
                                                     </div>
                                                     <div className="flex items-center gap-2">
                                                         <Award className="h-4 w-4 text-gray-500" />
                                                         <span className="text-gray-600 dark:text-gray-400">Period:</span>
-                                                        <span>{assignment.gradingPeriod?.name || 'N/A'}</span>
+                                                        <span>{(assignment as any).period_name || assignment.gradingPeriod?.name || assignment.subject?.gradingPeriod?.name || 'N/A'}</span>
                                                     </div>
                                                     {assignment.subject?.course && (
                                                         <div className="flex items-center gap-2">

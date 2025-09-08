@@ -23,8 +23,8 @@ use App\Models\StudentGrade;
 use App\Models\User;
 use App\Models\ActivityLog;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use App\Models\InstructorSubjectAssignment;
 
 class AcademicController extends Controller
@@ -199,6 +199,9 @@ class AcademicController extends Controller
         $courses = Course::with('department')->orderBy('name')->get();
         $departments = Department::orderBy('name')->get();
         $yearLevels = \App\Models\User::getSpecificYearLevels()['college'] ?? [];
+        $shsYearLevels = \App\Models\User::getSpecificYearLevels()['senior_highschool'] ?? [];
+        $tracks = Track::orderBy('name')->get();
+        $strands = Strand::orderBy('name')->get();
         
         return Inertia::render('Admin/Academic/Subjects', [
             'user' => $this->sharedUser(),
@@ -208,6 +211,9 @@ class AcademicController extends Controller
             'courses' => $courses,
             'departments' => $departments,
             'yearLevels' => $yearLevels,
+            'shsYearLevels' => $shsYearLevels,
+            'tracks' => $tracks,
+            'strands' => $strands,
         ]);
     }
 
@@ -515,13 +521,14 @@ class AcademicController extends Controller
     // Subject Management
     public function storeSubject(Request $request)
     {
-        \Log::info('Subject creation request received:', $request->all());
+        Log::info('Subject creation request received:', $request->all());
         
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:100',
             'code' => 'required|string|max:20|unique:subjects,code',
             'description' => 'nullable|string',
             'academic_level_id' => 'required|exists:academic_levels,id',
+            'strand_id' => 'nullable|exists:strands,id',
             'grade_levels' => 'nullable|array',
             'grade_levels.*' => 'string|in:grade_1,grade_2,grade_3,grade_4,grade_5,grade_6',
             'grading_period_id' => 'nullable|exists:grading_periods,id',
@@ -533,16 +540,22 @@ class AcademicController extends Controller
         ]);
 
         if ($validator->fails()) {
-            \Log::error('Subject validation failed:', $validator->errors()->toArray());
+            Log::error('Subject validation failed:', $validator->errors()->toArray());
             return back()->withErrors($validator)->withInput();
         }
 
         try {
+            // If SHS, ensure strand is present
+            $level = AcademicLevel::find($request->academic_level_id);
+            if ($level && $level->key === 'senior_highschool' && !$request->filled('strand_id')) {
+                return back()->withErrors(['strand_id' => 'Strand is required for Senior High School subjects.'])->withInput();
+            }
             $subject = Subject::create([
                 'name' => $request->name,
                 'code' => $request->code,
                 'description' => $request->description,
                 'academic_level_id' => $request->academic_level_id,
+                'strand_id' => $request->strand_id,
                 'grade_levels' => $request->grade_levels,
                 'grading_period_id' => $request->grading_period_id,
                 'course_id' => $request->course_id,
@@ -552,9 +565,9 @@ class AcademicController extends Controller
                 'is_active' => $request->is_active ?? true,
             ]);
             
-            \Log::info('Subject created successfully:', $subject->toArray());
+            Log::info('Subject created successfully:', $subject->toArray());
         } catch (\Exception $e) {
-            \Log::error('Subject creation failed:', [
+            Log::error('Subject creation failed:', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
                 'request_data' => $request->all()
@@ -585,6 +598,7 @@ class AcademicController extends Controller
             'code' => 'required|string|max:20|unique:subjects,code,' . $subject->id,
             'description' => 'nullable|string',
             'academic_level_id' => 'required|exists:academic_levels,id',
+            'strand_id' => 'nullable|exists:strands,id',
             'grade_levels' => 'nullable|array',
             'grade_levels.*' => 'string|in:grade_1,grade_2,grade_3,grade_4,grade_5,grade_6',
             'grading_period_id' => 'nullable|exists:grading_periods,id',
@@ -599,11 +613,18 @@ class AcademicController extends Controller
             return back()->withErrors($validator)->withInput();
         }
 
+        // If SHS, ensure strand is present
+        $level = AcademicLevel::find($request->academic_level_id);
+        if ($level && $level->key === 'senior_highschool' && !$request->filled('strand_id')) {
+            return back()->withErrors(['strand_id' => 'Strand is required for Senior High School subjects.'])->withInput();
+        }
+
         $subject->update([
             'name' => $request->name,
             'code' => $request->code,
             'description' => $request->description,
             'academic_level_id' => $request->academic_level_id,
+            'strand_id' => $request->strand_id,
             'grade_levels' => $request->grade_levels,
             'grading_period_id' => $request->grading_period_id,
             'course_id' => $request->course_id,

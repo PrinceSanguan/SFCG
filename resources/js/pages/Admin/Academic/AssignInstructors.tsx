@@ -459,13 +459,15 @@ export default function AssignInstructors({ user, assignments, instructors, depa
                                         required
                                         disabled={!assignmentForm.department_id}
                                     >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select course" />
+                                        <SelectTrigger className="min-h-[48px] h-auto py-2 whitespace-normal text-left items-start">
+                                            <SelectValue placeholder="Select course" className="whitespace-normal text-left" />
                                         </SelectTrigger>
                                         <SelectContent>
                                             {filteredCourses.map((course) => (
                                                 <SelectItem key={course.id} value={course.id.toString()}>
-                                                    {course.name} ({course.code})
+                                                    <span className="whitespace-normal break-words text-left inline-block">
+                                                        {course.name} ({course.code})
+                                                    </span>
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
@@ -730,13 +732,15 @@ export default function AssignInstructors({ user, assignments, instructors, depa
                                 onValueChange={(value) => setAssignmentForm({ ...assignmentForm, course_id: value })}
                                 required
                             >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select course" />
+                                <SelectTrigger className="min-h-[48px] h-auto py-2 whitespace-normal text-left items-start">
+                                    <SelectValue placeholder="Select course" className="whitespace-normal text-left" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {collegeCourses.map((course) => (
                                         <SelectItem key={course.id} value={course.id.toString()}>
-                                            {course.name} ({course.department?.name || 'No Department'})
+                                            <span className="whitespace-normal break-words text-left inline-block">
+                                                {course.name} ({course.department?.name || 'No Department'})
+                                            </span>
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
