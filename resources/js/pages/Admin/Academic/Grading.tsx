@@ -163,6 +163,11 @@ export default function Grading({ user, gradingPeriods, academicLevels }: Gradin
             .map(p => ({ value: p.id.toString(), label: p.name }));
     };
 
+    const shouldShowSemesterSelection = (academicLevelId: number) => {
+        const level = academicLevels.find(l => l.id === academicLevelId);
+        return level && (level.key === 'senior_highschool' || level.key === 'college');
+    };
+
     return (
         <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
             <Sidebar user={user} />
@@ -282,8 +287,8 @@ export default function Grading({ user, gradingPeriods, academicLevels }: Gradin
                                     </div>
 
 
-                                    {/* Show parent semester selection for quarters */}
-                                    {data.type === 'quarter' && (
+                                    {/* Show parent semester selection for quarters - only for Senior High and College */}
+                                    {data.type === 'quarter' && shouldShowSemesterSelection(parseInt(data.academic_level_id)) && (
                                         <div>
                                             <Label htmlFor="parent_id">Which Semester?</Label>
                                             <Select value={data.parent_id?.toString() || ''} onValueChange={(value) => setData('parent_id', value ? parseInt(value) : null)}>
@@ -306,8 +311,8 @@ export default function Grading({ user, gradingPeriods, academicLevels }: Gradin
                                         </div>
                                     )}
 
-                                    {/* Show period type selection for quarters */}
-                                    {data.type === 'quarter' && (
+                                    {/* Show period type selection for quarters - Final Average only for Senior High and College */}
+                                    {data.type === 'quarter' && shouldShowSemesterSelection(parseInt(data.academic_level_id)) && (
                                         <div>
                                             <Label>Period Type</Label>
                                             <div className="space-y-2 mt-2">
