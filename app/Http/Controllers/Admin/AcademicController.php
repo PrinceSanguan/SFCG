@@ -529,6 +529,8 @@ class AcademicController extends Controller
             'description' => 'nullable|string',
             'academic_level_id' => 'required|exists:academic_levels,id',
             'strand_id' => 'nullable|exists:strands,id',
+            'shs_year_level' => 'nullable|string|in:grade_11,grade_12',
+            'jhs_year_level' => 'nullable|string|in:first_year,second_year,third_year,fourth_year',
             'grade_levels' => 'nullable|array',
             'grade_levels.*' => 'string|in:grade_1,grade_2,grade_3,grade_4,grade_5,grade_6',
             'grading_period_id' => 'nullable|exists:grading_periods,id',
@@ -550,12 +552,14 @@ class AcademicController extends Controller
             if ($level && $level->key === 'senior_highschool' && !$request->filled('strand_id')) {
                 return back()->withErrors(['strand_id' => 'Strand is required for Senior High School subjects.'])->withInput();
             }
-            $subject = Subject::create([
+            $data = [
                 'name' => $request->name,
                 'code' => $request->code,
                 'description' => $request->description,
                 'academic_level_id' => $request->academic_level_id,
                 'strand_id' => $request->strand_id,
+                'shs_year_level' => $request->shs_year_level,
+                'jhs_year_level' => $request->jhs_year_level,
                 'grade_levels' => $request->grade_levels,
                 'grading_period_id' => $request->grading_period_id,
                 'course_id' => $request->course_id,
@@ -563,7 +567,8 @@ class AcademicController extends Controller
                 'hours_per_week' => $request->hours_per_week ?? 0,
                 'is_core' => $request->is_core ?? false,
                 'is_active' => $request->is_active ?? true,
-            ]);
+            ];
+            $subject = Subject::create($data);
             
             Log::info('Subject created successfully:', $subject->toArray());
         } catch (\Exception $e) {
@@ -599,6 +604,8 @@ class AcademicController extends Controller
             'description' => 'nullable|string',
             'academic_level_id' => 'required|exists:academic_levels,id',
             'strand_id' => 'nullable|exists:strands,id',
+            'shs_year_level' => 'nullable|string|in:grade_11,grade_12',
+            'jhs_year_level' => 'nullable|string|in:first_year,second_year,third_year,fourth_year',
             'grade_levels' => 'nullable|array',
             'grade_levels.*' => 'string|in:grade_1,grade_2,grade_3,grade_4,grade_5,grade_6',
             'grading_period_id' => 'nullable|exists:grading_periods,id',
@@ -625,6 +632,8 @@ class AcademicController extends Controller
             'description' => $request->description,
             'academic_level_id' => $request->academic_level_id,
             'strand_id' => $request->strand_id,
+            'shs_year_level' => $request->shs_year_level,
+            'jhs_year_level' => $request->jhs_year_level,
             'grade_levels' => $request->grade_levels,
             'grading_period_id' => $request->grading_period_id,
             'course_id' => $request->course_id,

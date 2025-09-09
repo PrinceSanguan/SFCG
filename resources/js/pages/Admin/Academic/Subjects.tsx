@@ -1218,6 +1218,33 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                         </div>
                                     );
                                 })()}
+                                
+                                {/* Junior High: Year Level (1st to 4th year) - Edit */}
+                                {(() => {
+                                    const selectedLevel = academicLevels.find(level => level.id === editSubject.academic_level_id);
+                                    if (selectedLevel?.key !== 'junior_highschool') return null;
+                                    const jhsYearOptions = [
+                                        { value: 'first_year', label: '1st Year' },
+                                        { value: 'second_year', label: '2nd Year' },
+                                        { value: 'third_year', label: '3rd Year' },
+                                        { value: 'fourth_year', label: '4th Year' },
+                                    ];
+                                    return (
+                                        <div>
+                                            <Label htmlFor="edit-jhs-year">Year Level</Label>
+                                            <Select value={editSubject.jhs_year_level || ''} onValueChange={(v) => setEditSubject({ ...editSubject, jhs_year_level: v })}>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select year level" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {jhsYearOptions.map(opt => (
+                                                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    );
+                                })()}
                             </div>
 
                                 {/* Year Level for Senior High School and College */}

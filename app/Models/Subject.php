@@ -20,6 +20,8 @@ class Subject extends Model
         'grade_levels',
         'grading_period_id',
         'course_id',
+        'shs_year_level',
+        'jhs_year_level',
         'units',
         'hours_per_week',
         'is_core',
@@ -32,6 +34,8 @@ class Subject extends Model
         'units' => 'decimal:1',
         'hours_per_week' => 'integer',
         'grade_levels' => 'array',
+        'shs_year_level' => 'string',
+        'jhs_year_level' => 'string',
     ];
 
     public function academicLevel(): BelongsTo
