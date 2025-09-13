@@ -322,27 +322,6 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
                             </div>
 
                             <div>
-                                <Label htmlFor="subject_id">Subject</Label>
-                                <Select
-                                    value={assignmentForm.subject_id}
-                                    onValueChange={(value) => setAssignmentForm({ ...assignmentForm, subject_id: value })}
-                                    required
-                                    disabled={!assignmentForm.academic_level_id || !assignmentForm.grade_level}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select subject" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {getFilteredSubjects().map((subject) => (
-                                            <SelectItem key={subject.id} value={subject.id.toString()}>
-                                                {subject.name} ({subject.code})
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div>
                                 <Label htmlFor="academic_level_id">Academic Level</Label>
                                 <Select
                                     value={assignmentForm.academic_level_id}
@@ -393,6 +372,27 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
                                                 </SelectItem>
                                             ))
                                         }
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div>
+                                <Label htmlFor="subject_id">Subject</Label>
+                                <Select
+                                    value={assignmentForm.subject_id}
+                                    onValueChange={(value) => setAssignmentForm({ ...assignmentForm, subject_id: value })}
+                                    required
+                                    disabled={!assignmentForm.academic_level_id || !assignmentForm.grade_level}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select subject" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {getFilteredSubjects().map((subject) => (
+                                            <SelectItem key={subject.id} value={subject.id.toString()}>
+                                                {subject.name} ({subject.code})
+                                            </SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>
