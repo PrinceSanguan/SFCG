@@ -40,16 +40,9 @@ class User extends Authenticatable
         'gender',
         'phone_number',
         'address',
-        'city',
-        'province',
-        'postal_code',
-        'nationality',
-        'religion',
         'emergency_contact_name',
         'emergency_contact_phone',
         'emergency_contact_relationship',
-        'lrn',
-        'previous_school',
     ];
 
     /**

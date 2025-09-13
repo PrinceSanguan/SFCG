@@ -55,16 +55,9 @@ export default function CreateStudent({ user, errors, academicLevel, specificYea
         gender: '',
         phone_number: '',
         address: '',
-        city: '',
-        province: '',
-        postal_code: '',
-        nationality: 'Filipino',
-        religion: '',
         emergency_contact_name: '',
         emergency_contact_phone: '',
         emergency_contact_relationship: '',
-        lrn: '',
-        previous_school: '',
     });
 
     // Sections state
@@ -439,58 +432,7 @@ export default function CreateStudent({ user, errors, academicLevel, specificYea
                                                     )}
                                                 </div>
 
-                                                {/* Nationality */}
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="nationality">Nationality</Label>
-                                                    <Input
-                                                        id="nationality"
-                                                        type="text"
-                                                        value={data.nationality}
-                                                        onChange={(e) => setData('nationality', e.target.value)}
-                                                        placeholder="Enter nationality"
-                                                    />
-                                                    {errors?.nationality && (
-                                                        <Alert variant="destructive">
-                                                            <AlertDescription>{errors.nationality}</AlertDescription>
-                                                        </Alert>
-                                                    )}
-                                                </div>
 
-                                                {/* Religion */}
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="religion">Religion</Label>
-                                                    <Input
-                                                        id="religion"
-                                                        type="text"
-                                                        value={data.religion}
-                                                        onChange={(e) => setData('religion', e.target.value)}
-                                                        placeholder="Enter religion"
-                                                    />
-                                                    {errors?.religion && (
-                                                        <Alert variant="destructive">
-                                                            <AlertDescription>{errors.religion}</AlertDescription>
-                                                        </Alert>
-                                                    )}
-                                                </div>
-
-                                                {/* LRN - Only for Elementary and Junior High School */}
-                                                {(data.academic_level === 'elementary' || data.academic_level === 'junior_highschool') && (
-                                                    <div className="space-y-2">
-                                                        <Label htmlFor="lrn">LRN (Learner Reference Number)</Label>
-                                                        <Input
-                                                            id="lrn"
-                                                            type="text"
-                                                            value={data.lrn}
-                                                            onChange={(e) => setData('lrn', e.target.value)}
-                                                            placeholder="Enter LRN"
-                                                        />
-                                                        {errors?.lrn && (
-                                                            <Alert variant="destructive">
-                                                                <AlertDescription>{errors.lrn}</AlertDescription>
-                                                            </Alert>
-                                                        )}
-                                                    </div>
-                                                )}
 
                                                 {/* Address */}
                                                 <div className="space-y-2 md:col-span-2">
@@ -509,73 +451,6 @@ export default function CreateStudent({ user, errors, academicLevel, specificYea
                                                     )}
                                                 </div>
 
-                                                {/* City */}
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="city">City</Label>
-                                                    <Input
-                                                        id="city"
-                                                        type="text"
-                                                        value={data.city}
-                                                        onChange={(e) => setData('city', e.target.value)}
-                                                        placeholder="Enter city"
-                                                    />
-                                                    {errors?.city && (
-                                                        <Alert variant="destructive">
-                                                            <AlertDescription>{errors.city}</AlertDescription>
-                                                        </Alert>
-                                                    )}
-                                                </div>
-
-                                                {/* Province */}
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="province">Province</Label>
-                                                    <Input
-                                                        id="province"
-                                                        type="text"
-                                                        value={data.province}
-                                                        onChange={(e) => setData('province', e.target.value)}
-                                                        placeholder="Enter province"
-                                                    />
-                                                    {errors?.province && (
-                                                        <Alert variant="destructive">
-                                                            <AlertDescription>{errors.province}</AlertDescription>
-                                                        </Alert>
-                                                    )}
-                                                </div>
-
-                                                {/* Postal Code */}
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="postal_code">Postal Code</Label>
-                                                    <Input
-                                                        id="postal_code"
-                                                        type="text"
-                                                        value={data.postal_code}
-                                                        onChange={(e) => setData('postal_code', e.target.value)}
-                                                        placeholder="Enter postal code"
-                                                    />
-                                                    {errors?.postal_code && (
-                                                        <Alert variant="destructive">
-                                                            <AlertDescription>{errors.postal_code}</AlertDescription>
-                                                        </Alert>
-                                                    )}
-                                                </div>
-
-                                                {/* Previous School */}
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="previous_school">Previous School</Label>
-                                                    <Input
-                                                        id="previous_school"
-                                                        type="text"
-                                                        value={data.previous_school}
-                                                        onChange={(e) => setData('previous_school', e.target.value)}
-                                                        placeholder="Enter previous school"
-                                                    />
-                                                    {errors?.previous_school && (
-                                                        <Alert variant="destructive">
-                                                            <AlertDescription>{errors.previous_school}</AlertDescription>
-                                                        </Alert>
-                                                    )}
-                                                </div>
                                             </div>
                                         </div>
 

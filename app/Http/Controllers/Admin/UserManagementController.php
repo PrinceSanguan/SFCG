@@ -128,7 +128,7 @@ class UserManagementController extends Controller
         }
 
         // Enforce section capacity if provided
-        if ($role === 'student' && $request->section_id) {
+        if ($request->user_role === 'student' && $request->section_id) {
             $section = \App\Models\Section::find($request->section_id);
             if ($section && $section->max_students) {
                 $currentCount = \App\Models\User::where('user_role', 'student')->where('section_id', $section->id)->count();
@@ -514,16 +514,9 @@ class UserManagementController extends Controller
             'gender' => 'nullable|in:male,female,other',
             'phone_number' => 'nullable|string|max:20',
             'address' => 'nullable|string|max:500',
-            'city' => 'nullable|string|max:100',
-            'province' => 'nullable|string|max:100',
-            'postal_code' => 'nullable|string|max:10',
-            'nationality' => 'nullable|string|max:50',
-            'religion' => 'nullable|string|max:100',
             'emergency_contact_name' => 'nullable|string|max:255',
             'emergency_contact_phone' => 'nullable|string|max:20',
             'emergency_contact_relationship' => 'nullable|string|max:50',
-            'lrn' => 'nullable|string|max:20|unique:users,lrn',
-            'previous_school' => 'nullable|string|max:255',
         ]);
 
         // Additional validation for strands, courses, and departments
@@ -834,10 +827,109 @@ class UserManagementController extends Controller
             'Content-Disposition' => 'attachment; filename="students_template.csv"',
         ];
 
-        $columns = ['name', 'email', 'password', 'year_level', 'student_number'];
+        $columns = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'strand_id', 'department_id', 'course_id', 'section_id', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
+        
+        // Get sample data for different academic levels
+        $elementarySection = \App\Models\Section::whereHas('academicLevel', function($q) {
+            $q->where('key', 'elementary');
+        })->first();
+        
+        $jhsSection = \App\Models\Section::whereHas('academicLevel', function($q) {
+            $q->where('key', 'junior_highschool');
+        })->first();
+        
+        $strand = \App\Models\Strand::first();
+        $shsSection = \App\Models\Section::whereHas('academicLevel', function($q) {
+            $q->where('key', 'senior_highschool');
+        })->first();
+        
+        $department = \App\Models\Department::first();
+        $course = \App\Models\Course::first();
+        $collegeSection = \App\Models\Section::whereHas('academicLevel', function($q) {
+            $q->where('key', 'college');
+        })->first();
+        
         $sampleRows = [
-            ['Juan Dela Cruz', 'juan@example.com', 'password123', 'senior_highschool', 'SH-2025-000001'],
-            ['Maria Santos', 'maria@example.com', 'password123', 'college', 'CO-2025-000002'],
+            // Elementary example
+            [
+                'Juan Dela Cruz',
+                'juan.delacruz@example.com',
+                'password123',
+                'elementary',
+                'grade_1',
+                '',
+                '',
+                '',
+                $elementarySection ? $elementarySection->id : '',
+                'EL-2025-000001',
+                '2018-01-15',
+                'male',
+                '09123456789',
+                '123 Main Street, Barangay 1',
+                'Pedro Dela Cruz',
+                '09123456788',
+                'father'
+            ],
+            // Junior High School example
+            [
+                'Maria Santos',
+                'maria.santos@example.com',
+                'password123',
+                'junior_highschool',
+                'first_year',
+                '',
+                '',
+                '',
+                $jhsSection ? $jhsSection->id : '',
+                'JHS-2025-000002',
+                '2010-05-20',
+                'female',
+                '09123456790',
+                '456 Oak Avenue, Barangay 2',
+                'Juan Santos',
+                '09123456791',
+                'father'
+            ],
+            // Senior High School example
+            [
+                'Pedro Garcia',
+                'pedro.garcia@example.com',
+                'password123',
+                'senior_highschool',
+                'grade_11',
+                $strand ? $strand->id : '',
+                '',
+                '',
+                $shsSection ? $shsSection->id : '',
+                'SHS-2025-000003',
+                '2008-03-10',
+                'male',
+                '09123456792',
+                '789 Pine Road, Barangay 3',
+                'Ana Garcia',
+                '09123456793',
+                'mother'
+            ],
+            // College example
+            [
+                'Ana Rodriguez',
+                'ana.rodriguez@example.com',
+                'password123',
+                'college',
+                '',
+                '',
+                $department ? $department->id : '',
+                $course ? $course->id : '',
+                $collegeSection ? $collegeSection->id : '',
+                'CO-2025-000004',
+                '2005-12-25',
+                'female',
+                '09123456794',
+                '321 Elm Street, Barangay 4',
+                'Carlos Rodriguez',
+                '09123456795',
+                'father'
+            ]
         ];
 
         $callback = function () use ($columns, $sampleRows) {
@@ -862,60 +954,161 @@ class UserManagementController extends Controller
         ]);
 
         $file = $request->file('file');
+        
+        // Check if file can be opened
+        if (!$file->isValid()) {
+            return back()->with('error', 'Invalid file. Please ensure the file is a valid CSV file.');
+        }
+
         $handle = fopen($file->getPathname(), 'r');
+        if (!$handle) {
+            return back()->with('error', 'Unable to read the CSV file. Please check the file format.');
+        }
+
         $header = fgetcsv($handle);
         $created = 0;
         $errors = [];
+        $lineNumber = 1; // Start at 1 since header is line 0
 
-        $expected = ['name', 'email', 'password', 'year_level', 'student_number'];
+        $expected = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'strand_id', 'department_id', 'course_id', 'section_id', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
+        
+        // Validate header format
         if (!$header || array_map('strtolower', $header) !== $expected) {
-            return back()->with('error', 'Invalid CSV format. Expected columns: name,email,password,year_level,student_number');
+            fclose($handle);
+            return back()->with('error', 'Invalid CSV format. Expected columns: name,email,password,academic_level,specific_year_level,strand_id,department_id,course_id,section_id,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship');
         }
 
         while (($row = fgetcsv($handle)) !== false) {
-            [$name, $email, $password, $yearLevel, $studentNumber] = $row;
+            $lineNumber++;
+            
+            // Check if row has correct number of columns
+            if (count($row) !== count($expected)) {
+                $errors[] = [
+                    'line' => $lineNumber,
+                    'email' => isset($row[1]) ? $row[1] : 'N/A',
+                    'errors' => ['Row has incorrect number of columns. Expected ' . count($expected) . ' columns, got ' . count($row)],
+                ];
+                continue;
+            }
+            
+            [$name, $email, $password, $academicLevel, $specificYearLevel, $strandId, $departmentId, $courseId, $sectionId, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship] = $row;
+            
             $validator = Validator::make([
                 'name' => $name,
                 'email' => $email,
                 'password' => $password,
-                'year_level' => $yearLevel,
+                'academic_level' => $academicLevel,
+                'specific_year_level' => $specificYearLevel,
+                'strand_id' => $strandId,
+                'department_id' => $departmentId,
+                'course_id' => $courseId,
+                'section_id' => $sectionId,
                 'student_number' => $studentNumber,
+                'birth_date' => $birthDate,
+                'gender' => $gender,
+                'phone_number' => $phoneNumber,
+                'address' => $address,
+                'emergency_contact_name' => $emergencyContactName,
+                'emergency_contact_phone' => $emergencyContactPhone,
+                'emergency_contact_relationship' => $emergencyContactRelationship,
             ], [
                 'name' => 'required|string|max:255',
                 'email' => 'required|string|email|max:255|unique:users,email',
                 'password' => 'required|string|min:8',
-                'year_level' => 'required|string|in:elementary,junior_highschool,senior_highschool,college',
+                'academic_level' => 'required|string|in:elementary,junior_highschool,senior_highschool,college',
+                'specific_year_level' => 'nullable|string|max:50',
+                'strand_id' => 'nullable|exists:strands,id',
+                'department_id' => 'nullable|exists:departments,id',
+                'course_id' => 'nullable|exists:courses,id',
+                'section_id' => 'nullable|exists:sections,id',
                 'student_number' => 'nullable|string|max:40|unique:users,student_number',
+                'birth_date' => 'nullable|date|before:today',
+                'gender' => 'nullable|in:male,female,other',
+                'phone_number' => 'nullable|string|max:20',
+                'address' => 'nullable|string|max:500',
+                'emergency_contact_name' => 'nullable|string|max:255',
+                'emergency_contact_phone' => 'nullable|string|max:20',
+                'emergency_contact_relationship' => 'nullable|string|max:50',
             ]);
 
             if ($validator->fails()) {
                 $errors[] = [
+                    'line' => $lineNumber,
                     'email' => $email,
                     'errors' => $validator->errors()->all(),
                 ];
                 continue;
             }
 
-            User::create([
-                'name' => $name,
-                'email' => $email,
-                'user_role' => 'student',
-                'password' => Hash::make($password),
-                'year_level' => $yearLevel,
-                'student_number' => $studentNumber ?: null,
-            ]);
-            $created++;
+            try {
+                User::create([
+                    'name' => $name,
+                    'email' => $email,
+                    'user_role' => 'student',
+                    'password' => Hash::make($password),
+                    'year_level' => $academicLevel,
+                    'specific_year_level' => $specificYearLevel ?: null,
+                    'strand_id' => $strandId ?: null,
+                    'department_id' => $departmentId ?: null,
+                    'course_id' => $courseId ?: null,
+                    'section_id' => $sectionId ?: null,
+                    'student_number' => $studentNumber ?: null,
+                    'birth_date' => $birthDate ?: null,
+                    'gender' => $gender ?: null,
+                    'phone_number' => $phoneNumber ?: null,
+                    'address' => $address ?: null,
+                    'emergency_contact_name' => $emergencyContactName ?: null,
+                    'emergency_contact_phone' => $emergencyContactPhone ?: null,
+                    'emergency_contact_relationship' => $emergencyContactRelationship ?: null,
+                ]);
+                $created++;
+            } catch (\Exception $e) {
+                $errors[] = [
+                    'line' => $lineNumber,
+                    'email' => $email,
+                    'errors' => ['Database error: ' . $e->getMessage()],
+                ];
+            }
         }
 
         fclose($handle);
 
-        $message = "$created students uploaded successfully.";
-        if (!empty($errors)) {
-            $message .= ' Some rows were skipped due to validation errors.';
-            Log::warning('Student CSV upload errors', ['errors' => $errors]);
+        if ($created > 0 && empty($errors)) {
+            $message = "Successfully uploaded {$created} students.";
+            return redirect()->route('admin.students.index')->with('success', $message);
+        } elseif ($created > 0 && !empty($errors)) {
+            $errorCount = count($errors);
+            $errorDetails = '';
+            if ($errorCount <= 5) {
+                // Show detailed errors for small number of errors
+                $errorDetails = ' Errors: ';
+                foreach ($errors as $error) {
+                    $errorDetails .= "Line {$error['line']} ({$error['email']}): " . implode(', ', $error['errors']) . '; ';
+                }
+            } else {
+                // Show summary for many errors
+                $errorDetails = " {$errorCount} rows had errors. Please check the data format.";
+            }
+            $message = "Successfully uploaded {$created} students, but{$errorDetails}";
+            Log::warning('Student CSV upload partial success', ['created' => $created, 'errors' => $errors]);
+            return redirect()->route('admin.students.index')->with('warning', $message);
+        } else {
+            $errorCount = count($errors);
+            $errorDetails = '';
+            if ($errorCount <= 5) {
+                // Show detailed errors for small number of errors
+                $errorDetails = ' Errors: ';
+                foreach ($errors as $error) {
+                    $errorDetails .= "Line {$error['line']} ({$error['email']}): " . implode(', ', $error['errors']) . '; ';
+                }
+            } else {
+                // Show summary for many errors
+                $errorDetails = " {$errorCount} rows had errors. Please check the data format.";
+            }
+            $message = "No students were uploaded.{$errorDetails}";
+            Log::error('Student CSV upload failed', ['errors' => $errors]);
+            return redirect()->route('admin.students.index')->with('error', $message);
         }
-
-        return redirect()->route('admin.students.index')->with('success', $message);
     }
 
     /**
