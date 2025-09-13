@@ -32,6 +32,7 @@ class User extends Authenticatable
         'strand_id',
         'course_id',
         'department_id',
+        'section_id',
         'student_number',
         'last_login_at',
         // Personal Information
@@ -355,6 +356,14 @@ class User extends Authenticatable
     public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
+    }
+
+    /**
+     * Section for this user (students only).
+     */
+    public function section(): BelongsTo
+    {
+        return $this->belongsTo(Section::class);
     }
 
     /**

@@ -48,6 +48,7 @@ export default function CreateStudent({ user, errors, academicLevel, specificYea
         strand_id: '',
         course_id: '',
         department_id: '',
+        section_id: '',
         student_number: '',
         // Personal Information
         birth_date: '',
@@ -66,12 +67,44 @@ export default function CreateStudent({ user, errors, academicLevel, specificYea
         previous_school: '',
     });
 
+    // Sections state
+    const [sections, setSections] = React.useState<Array<{ id: number; name: string; code?: string; current_students?: number; max_students?: number; has_capacity?: boolean }>>([]);
+    const [loadingSections, setLoadingSections] = React.useState<boolean>(false);
+
     // Auto-set academic level when component mounts or academicLevel changes
     React.useEffect(() => {
         if (academicLevel && !data.academic_level) {
             setData('academic_level', academicLevel);
         }
     }, [academicLevel]);
+
+    // Fetch sections whenever the academic context changes
+    React.useEffect(() => {
+        const params: Record<string, string> = {};
+        if (!data.academic_level) {
+            setSections([]);
+            return;
+        }
+        // Reset section on context change
+        setData('section_id', '');
+
+        if (data.academic_level) params.academic_level_key = data.academic_level;
+        if (data.specific_year_level) params.specific_year_level = data.specific_year_level;
+        if (data.strand_id) params.strand_id = data.strand_id.toString();
+        if (data.department_id) params.department_id = data.department_id.toString();
+        if (data.course_id) params.course_id = data.course_id.toString();
+
+        const query = new URLSearchParams(params).toString();
+        setLoadingSections(true);
+        fetch(route('admin.academic.api.sections') + (query ? `?${query}` : ''))
+            .then(async (res) => {
+                if (!res.ok) throw new Error('Failed to load sections');
+                const json = await res.json();
+                setSections(json || []);
+            })
+            .catch(() => setSections([]))
+            .finally(() => setLoadingSections(false));
+    }, [data.academic_level, data.specific_year_level, data.strand_id, data.department_id, data.course_id]);
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
@@ -263,6 +296,38 @@ export default function CreateStudent({ user, errors, academicLevel, specificYea
                                                 )}
                                                 <p className="text-sm text-gray-500">
                                                     Courses are required for College students to define their academic program
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        {/* Section Selection (All levels) */}
+                                        {data.academic_level && (
+                                            <div className="space-y-2 md:col-span-2">
+                                                <Label htmlFor="section_id">Section *</Label>
+                                                <Select
+                                                    value={data.section_id}
+                                                    onValueChange={(value) => setData('section_id', value)}
+                                                    disabled={loadingSections || (!data.specific_year_level && data.academic_level !== 'college')}
+                                                >
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder={loadingSections ? 'Loading sections...' : (sections.length ? 'Select a section' : 'No sections available')}/>
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {sections.map((sec) => (
+                                                            <SelectItem key={sec.id} value={sec.id.toString()} disabled={sec.has_capacity === false}>
+                                                                {sec.name}{sec.code ? ` (${sec.code})` : ''}
+                                                                {typeof sec.max_students === 'number' && typeof sec.current_students === 'number' ? ` • ${sec.current_students}/${sec.max_students}` : ''}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                {errors?.section_id && (
+                                                    <Alert variant="destructive">
+                                                        <AlertDescription>{errors.section_id}</AlertDescription>
+                                                    </Alert>
+                                                )}
+                                                <p className="text-sm text-gray-500">
+                                                    Selecting a section is required. Full sections are disabled.
                                                 </p>
                                             </div>
                                         )}

@@ -1218,9 +1218,9 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                         </div>
                                     );
                                 })()}
-                                
+
                                 {/* Junior High: Year Level (1st to 4th year) - Edit */}
-                                {(() => {
+                            {(() => {
                                     const selectedLevel = academicLevels.find(level => level.id === editSubject.academic_level_id);
                                     if (selectedLevel?.key !== 'junior_highschool') return null;
                                     const jhsYearOptions = [
@@ -1229,7 +1229,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                         { value: 'third_year', label: '3rd Year' },
                                         { value: 'fourth_year', label: '4th Year' },
                                     ];
-                                    return (
+                                return (
                                         <div>
                                             <Label htmlFor="edit-jhs-year">Year Level</Label>
                                             <Select value={editSubject.jhs_year_level || ''} onValueChange={(v) => setEditSubject({ ...editSubject, jhs_year_level: v })}>

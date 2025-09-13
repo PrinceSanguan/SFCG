@@ -68,6 +68,12 @@ export default function AcademicIndex({ user }: { user: User }) {
                                 </CardContent>
                             </Card>
                             <Card>
+                                <CardHeader><CardTitle>Manage sections</CardTitle></CardHeader>
+                                <CardContent>
+                                    <Link href={route('admin.academic.sections')}><Button variant="outline">Manage Sections</Button></Link>
+                                </CardContent>
+                            </Card>
+                            <Card>
                                 <CardHeader><CardTitle>Student Subject Management</CardTitle></CardHeader>
                                 <CardContent>
                                     <p className="text-sm text-gray-500">Subjects are now automatically assigned to students based on their academic level and program.</p>

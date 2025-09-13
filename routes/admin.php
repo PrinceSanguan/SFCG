@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\Admin\ParentManagementController;
 use App\Http\Controllers\Admin\ActivityLogController;
 use App\Http\Controllers\Admin\AcademicController;
+use App\Http\Controllers\Admin\SectionController;
 use App\Http\Controllers\Admin\CertificateController;
 use App\Http\Controllers\Admin\ReportsController;
 use App\Http\Controllers\Admin\NotificationController;
@@ -265,6 +266,17 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/aca
     Route::post('/subjects', [AcademicController::class, 'storeSubject'])->name('subjects.store');
     Route::put('/subjects/{subject}', [AcademicController::class, 'updateSubject'])->name('subjects.update');
     Route::delete('/subjects/{subject}', [AcademicController::class, 'destroySubject'])->name('subjects.destroy');
+
+    // Sections Management
+    Route::get('/sections', [SectionController::class, 'index'])->name('sections');
+    Route::get('/sections/elementary', [SectionController::class, 'manage'])->defaults('levelKey','elementary')->name('sections.elementary');
+    Route::get('/sections/junior-highschool', [SectionController::class, 'manage'])->defaults('levelKey','junior_highschool')->name('sections.junior');
+    Route::get('/sections/senior-highschool', [SectionController::class, 'manage'])->defaults('levelKey','senior_highschool')->name('sections.senior');
+    Route::get('/sections/college', [SectionController::class, 'manage'])->defaults('levelKey','college')->name('sections.college');
+    Route::post('/sections', [SectionController::class, 'store'])->name('sections.store');
+    Route::put('/sections/{section}', [SectionController::class, 'update'])->name('sections.update');
+    Route::delete('/sections/{section}', [SectionController::class, 'destroy'])->name('sections.destroy');
+    Route::get('/api/sections', [SectionController::class, 'list'])->name('api.sections');
 
     // Honors
     Route::get('/honors', [AcademicController::class, 'honors'])->name('honors');

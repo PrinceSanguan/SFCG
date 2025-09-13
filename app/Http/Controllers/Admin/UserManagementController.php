@@ -119,11 +119,23 @@ class UserManagementController extends Controller
             'strand_id' => 'nullable|exists:strands,id',
             'course_id' => 'nullable|exists:courses,id',
             'department_id' => 'nullable|exists:departments,id',
+            'section_id' => 'nullable|exists:sections,id',
             'student_number' => 'nullable|string|max:40|unique:users,student_number',
         ]);
 
         if ($validator->fails()) {
             return back()->withErrors($validator)->withInput();
+        }
+
+        // Enforce section capacity if provided
+        if ($role === 'student' && $request->section_id) {
+            $section = \App\Models\Section::find($request->section_id);
+            if ($section && $section->max_students) {
+                $currentCount = \App\Models\User::where('user_role', 'student')->where('section_id', $section->id)->count();
+                if ($currentCount >= $section->max_students) {
+                    return back()->withErrors(['section_id' => 'Selected section is at full capacity.'])->withInput();
+                }
+            }
         }
 
         $user = User::create([
@@ -135,6 +147,7 @@ class UserManagementController extends Controller
             'strand_id' => $request->user_role === 'student' ? $request->strand_id : null,
             'course_id' => $request->user_role === 'student' ? $request->course_id : null,
             'department_id' => $request->user_role === 'student' ? $request->department_id : null,
+            'section_id' => $request->user_role === 'student' ? $request->section_id : null,
             'student_number' => $request->user_role === 'student' ? $request->student_number : null,
         ]);
 
@@ -524,6 +537,10 @@ class UserManagementController extends Controller
             if ($request->academic_level === 'college' && !$request->course_id) {
                 $validator->errors()->add('course_id', 'Course is required for College students.');
             }
+            // Section is required for all academic levels
+            if (!$request->section_id) {
+                $validator->errors()->add('section_id', 'Section is required for all students.');
+            }
         }
 
         if ($validator->fails()) {
@@ -540,6 +557,7 @@ class UserManagementController extends Controller
             'strand_id' => $role === 'student' ? $request->strand_id : null,
             'course_id' => $role === 'student' ? $request->course_id : null,
             'department_id' => $role === 'student' ? $request->department_id : null,
+            'section_id' => $role === 'student' ? $request->section_id : null,
             'student_number' => $role === 'student' ? $request->student_number : null,
             // Personal Information
             'birth_date' => $request->birth_date,
