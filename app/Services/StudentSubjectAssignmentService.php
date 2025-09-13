@@ -83,10 +83,20 @@ class StudentSubjectAssignmentService
     }
 
     /**
-     * Get subjects for a student based on their academic level and program.
+     * Get subjects for a student based on their section assignment.
      */
     private function getSubjectsForStudent(User $student, int $academicLevelId): \Illuminate\Database\Eloquent\Collection
     {
+        // If student has a section assigned, get subjects for that specific section
+        if ($student->section_id) {
+            $query = Subject::where('academic_level_id', $academicLevelId)
+                ->where('is_active', true)
+                ->where('section_id', $student->section_id);
+            
+            return $query->get();
+        }
+
+        // Fallback to the old logic if no section is assigned
         $query = Subject::where('academic_level_id', $academicLevelId)
             ->where('is_active', true);
 
@@ -188,5 +198,94 @@ class StudentSubjectAssignmentService
         
         // Assign new subjects
         return $this->assignSubjectsToStudent($student);
+    }
+
+    /**
+     * Automatically enroll student in subjects based on their section assignment.
+     */
+    public function enrollStudentInSectionSubjects(User $student): array
+    {
+        $enrolledSubjects = [];
+        $currentSchoolYear = $this->getCurrentSchoolYear();
+        
+        // Check if student has a section assigned
+        if (!$student->section_id) {
+            Log::warning('Student has no section assigned for automatic enrollment', [
+                'student_id' => $student->id,
+                'student_name' => $student->name,
+            ]);
+            return $enrolledSubjects;
+        }
+
+        // Get all subjects assigned to this section
+        $subjects = Subject::where('section_id', $student->section_id)
+            ->where('is_active', true)
+            ->get();
+
+        if ($subjects->isEmpty()) {
+            Log::info('No subjects found for section', [
+                'student_id' => $student->id,
+                'section_id' => $student->section_id,
+            ]);
+            return $enrolledSubjects;
+        }
+
+        foreach ($subjects as $subject) {
+            try {
+                // Check if student is already enrolled in this subject
+                $existingAssignment = StudentSubjectAssignment::where([
+                    'student_id' => $student->id,
+                    'subject_id' => $subject->id,
+                    'school_year' => $currentSchoolYear,
+                ])->first();
+
+                if (!$existingAssignment) {
+                    $assignment = StudentSubjectAssignment::create([
+                        'student_id' => $student->id,
+                        'subject_id' => $subject->id,
+                        'school_year' => $currentSchoolYear,
+                        'semester' => $this->getSemesterForLevel($student->year_level),
+                        'is_active' => true,
+                        'enrolled_by' => Auth::id() ?? 1, // Fallback to admin user
+                        'notes' => 'Automatically enrolled based on section assignment',
+                    ]);
+
+                    $enrolledSubjects[] = $assignment;
+
+                    // Log activity
+                    ActivityLog::create([
+                        'user_id' => Auth::id() ?? 1,
+                        'target_user_id' => $student->id,
+                        'action' => 'auto_enrolled_section_subject',
+                        'entity_type' => 'student_subject_assignment',
+                        'entity_id' => $assignment->id,
+                        'details' => [
+                            'student' => $student->name,
+                            'subject' => $subject->name,
+                            'section_id' => $student->section_id,
+                            'academic_level' => $student->year_level,
+                            'school_year' => $currentSchoolYear,
+                        ],
+                    ]);
+
+                    Log::info('Student automatically enrolled in section subject', [
+                        'student_id' => $student->id,
+                        'student_name' => $student->name,
+                        'subject_id' => $subject->id,
+                        'subject_name' => $subject->name,
+                        'section_id' => $student->section_id,
+                    ]);
+                }
+            } catch (\Exception $e) {
+                Log::error('Failed to enroll student in section subject', [
+                    'student_id' => $student->id,
+                    'subject_id' => $subject->id,
+                    'section_id' => $student->section_id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return $enrolledSubjects;
     }
 }

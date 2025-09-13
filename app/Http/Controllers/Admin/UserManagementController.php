@@ -557,34 +557,43 @@ class UserManagementController extends Controller
             'gender' => $request->gender,
             'phone_number' => $request->phone_number,
             'address' => $request->address,
-            'city' => $request->city,
-            'province' => $request->province,
-            'postal_code' => $request->postal_code,
-            'nationality' => $request->nationality ?? 'Filipino',
-            'religion' => $request->religion,
             'emergency_contact_name' => $request->emergency_contact_name,
             'emergency_contact_phone' => $request->emergency_contact_phone,
             'emergency_contact_relationship' => $request->emergency_contact_relationship,
-            'lrn' => $request->lrn,
-            'previous_school' => $request->previous_school,
         ]);
 
-        // Automatically assign subjects for students
+        // Automatically enroll students in section subjects
         if ($role === 'student') {
             try {
                 $subjectAssignmentService = new StudentSubjectAssignmentService();
-                $assignedSubjects = $subjectAssignmentService->assignSubjectsToStudent($user);
                 
-                Log::info('Subjects automatically assigned to student', [
-                    'student_id' => $user->id,
-                    'student_name' => $user->name,
-                    'academic_level' => $user->year_level,
-                    'assigned_subjects_count' => count($assignedSubjects),
-                ]);
+                // If student has a section assigned, enroll in section subjects
+                if ($user->section_id) {
+                    $enrolledSubjects = $subjectAssignmentService->enrollStudentInSectionSubjects($user);
+                    
+                    Log::info('Student automatically enrolled in section subjects', [
+                        'student_id' => $user->id,
+                        'student_name' => $user->name,
+                        'section_id' => $user->section_id,
+                        'academic_level' => $user->year_level,
+                        'enrolled_subjects_count' => count($enrolledSubjects),
+                    ]);
+                } else {
+                    // Fallback to general subject assignment if no section
+                    $assignedSubjects = $subjectAssignmentService->assignSubjectsToStudent($user);
+                    
+                    Log::info('Subjects automatically assigned to student (no section)', [
+                        'student_id' => $user->id,
+                        'student_name' => $user->name,
+                        'academic_level' => $user->year_level,
+                        'assigned_subjects_count' => count($assignedSubjects),
+                    ]);
+                }
             } catch (\Exception $e) {
-                Log::error('Failed to automatically assign subjects to student', [
+                Log::error('Failed to automatically assign/enroll subjects to student', [
                     'student_id' => $user->id,
                     'student_name' => $user->name,
+                    'section_id' => $user->section_id,
                     'error' => $e->getMessage(),
                 ]);
             }
@@ -1041,7 +1050,7 @@ class UserManagementController extends Controller
             }
 
             try {
-                User::create([
+                $student = User::create([
                     'name' => $name,
                     'email' => $email,
                     'user_role' => 'student',
@@ -1061,6 +1070,13 @@ class UserManagementController extends Controller
                     'emergency_contact_phone' => $emergencyContactPhone ?: null,
                     'emergency_contact_relationship' => $emergencyContactRelationship ?: null,
                 ]);
+                
+                // Automatically enroll student in section subjects
+                if ($sectionId && $student) {
+                    $assignmentService = new \App\Services\StudentSubjectAssignmentService();
+                    $assignmentService->enrollStudentInSectionSubjects($student);
+                }
+                
                 $created++;
             } catch (\Exception $e) {
                 $errors[] = [
