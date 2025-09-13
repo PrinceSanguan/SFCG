@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Link, router } from '@inertiajs/react';
 import { useState } from 'react';
 import { ArrowLeft, Plus, Edit, Trash2, BookOpen, Clock, Hash } from 'lucide-react';
@@ -17,6 +18,18 @@ interface User { name: string; email: string; user_role: string }
 interface AcademicLevel { id: number; name: string; key: string; sort_order: number }
 interface GradingPeriod { id: number; name: string; code: string; academic_level_id: number; type?: string; parent_id?: number | null }
 interface Course { id: number; name: string; code: string; department_id: number }
+interface Section { 
+    id: number; 
+    name: string; 
+    academic_level_id: number; 
+    specific_year_level?: string; 
+    track_id?: number; 
+    strand_id?: number; 
+    department_id?: number; 
+    course_id?: number; 
+    max_students?: number;
+    academic_level: AcademicLevel;
+}
 interface Subject { 
     id: number; 
     name: string; 
@@ -41,9 +54,10 @@ interface Subject {
     strand_id?: string;
     department_id?: number;
     semester_id?: number;
+    section_id?: number;
 }
 
-export default function Subjects({ user, subjects = [], academicLevels = [], gradingPeriods = [], courses = [], departments = [], yearLevels = {} as Record<string,string>, shsYearLevels = {} as Record<string,string>, tracks = [], strands = [] }: { 
+export default function Subjects({ user, subjects = [], academicLevels = [], gradingPeriods = [], courses = [], departments = [], yearLevels = {} as Record<string,string>, shsYearLevels = {} as Record<string,string>, tracks = [], strands = [], sections = [] }: { 
     user: User; 
     subjects?: Subject[]; 
     academicLevels?: AcademicLevel[]; 
@@ -53,7 +67,8 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
     yearLevels?: Record<string,string>,
     shsYearLevels?: Record<string,string>,
     tracks?: { id: number; name: string; code: string }[],
-    strands?: { id: number; name: string; code: string; track_id: number }[]
+    strands?: { id: number; name: string; code: string; track_id: number }[],
+    sections?: Section[]
 }) {
     const [activeTab, setActiveTab] = useState('all');
     const [selectedGradeFilter, setSelectedGradeFilter] = useState<string | null>(null);
@@ -66,6 +81,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
         description: '', 
         academic_level_id: '', 
         grade_levels: [] as string[],
+        selected_grade_level: '',
         grading_period_id: '', 
         department_id: '',
         course_id: '', 
@@ -77,24 +93,28 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
         track_id: '',
         strand_id: '',
         shs_year_level: '',
-        jhs_year_level: '' 
+        jhs_year_level: '',
+        section_id: '' 
     });
     const [subjectModal, setSubjectModal] = useState(false);
     const [editSubject, setEditSubject] = useState<Subject | null>(null);
     const [editModal, setEditModal] = useState(false);
     const [currentStep, setCurrentStep] = useState(1); // 1: Select Level, 2: Fill Form
+    const [errors, setErrors] = useState<Record<string, string>>({});
     const [selectedAcademicLevel, setSelectedAcademicLevel] = useState<AcademicLevel | null>(null);
 
     // Step navigation functions
     const openSubjectModal = () => {
         setCurrentStep(1);
         setSelectedAcademicLevel(null);
+        setErrors({});
         setSubjectForm({ 
             name: '', 
             code: '', 
             description: '', 
             academic_level_id: '', 
             grade_levels: [],
+            selected_grade_level: '',
             grading_period_id: '', 
             department_id: '',
             course_id: '', 
@@ -106,7 +126,8 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
             track_id: '',
             strand_id: '',
             shs_year_level: '',
-            jhs_year_level: '' 
+            jhs_year_level: '',
+            section_id: ''
         });
         setSubjectModal(true);
     };
@@ -133,6 +154,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
             description: '', 
             academic_level_id: '', 
             grade_levels: [],
+            selected_grade_level: '',
             grading_period_id: '', 
             department_id: '',
             course_id: '', 
@@ -144,7 +166,8 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
             track_id: '',
             strand_id: '',
             shs_year_level: '',
-            jhs_year_level: '' 
+            jhs_year_level: '',
+            section_id: ''
         });
     };
 
@@ -220,12 +243,14 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
             onSuccess: (page) => { 
                 console.log('Subject created successfully:', page);
                 addToast("Subject created successfully!", "success");
-                setSubjectForm({ name: '', code: '', description: '', academic_level_id: '', grade_levels: [], grading_period_id: '', department_id: '', course_id: '', semester_id: '', units: 0, hours_per_week: 0, is_core: false, is_active: true, track_id: '', strand_id: '', shs_year_level: '', jhs_year_level: '' }); 
+                setSubjectForm({ name: '', code: '', description: '', academic_level_id: '', grade_levels: [], selected_grade_level: '', grading_period_id: '', department_id: '', course_id: '', semester_id: '', units: 0, hours_per_week: 0, is_core: false, is_active: true, track_id: '', strand_id: '', shs_year_level: '', jhs_year_level: '', section_id: '' }); 
+                setErrors({});
                 setSubjectModal(false); 
             },
             onError: (errors) => {
                 console.log('Subject creation failed:', errors);
                 console.log('Error details:', JSON.stringify(errors, null, 2));
+                setErrors(errors);
                 
                 // Show specific error messages
                 if (errors.code) {
@@ -612,37 +637,73 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                     )}
                                                 </div>
                                                 
-                                                {/* Grade Levels field - only show for Elementary level */}
+                                                {/* Grade Level field - only show for Elementary level */}
                                                 {isElementaryLevel() && (
                                                     <div>
-                                                        <Label htmlFor="subject-grade-levels">Grade Levels</Label>
-                                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
-                                                            {elementaryGradeLevels.map((grade) => (
-                                                                <label key={grade.value} className="flex items-center space-x-2">
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={subjectForm.grade_levels.includes(grade.value)}
-                                                                        onChange={(e) => {
-                                                                            if (e.target.checked) {
-                                                                                setSubjectForm({
-                                                                                    ...subjectForm,
-                                                                                    grade_levels: [...subjectForm.grade_levels, grade.value]
-                                                                                });
-                                                                            } else {
-                                                                                setSubjectForm({
-                                                                                    ...subjectForm,
-                                                                                    grade_levels: subjectForm.grade_levels.filter(g => g !== grade.value)
-                                                                                });
-                                                                            }
-                                                                        }}
-                                                                        className="rounded border-gray-300"
-                                                                    />
-                                                                    <span className="text-sm">{grade.label}</span>
-                                                                </label>
-                                                            ))}
-                                                    </div>
+                                                        <Label htmlFor="subject-grade-level">Grade Level</Label>
+                                                        <Select 
+                                                            value={subjectForm.selected_grade_level} 
+                                                            onValueChange={(value) => {
+                                                                setSubjectForm({
+                                                                    ...subjectForm,
+                                                                    selected_grade_level: value,
+                                                                    grade_levels: [value] // Convert single selection to array for backend compatibility
+                                                                });
+                                                            }}
+                                                        >
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder="Select Grade Level" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {elementaryGradeLevels.map((grade) => (
+                                                                    <SelectItem key={grade.value} value={grade.value}>
+                                                                        {grade.label}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
                                                         <p className="text-xs text-gray-500 mt-1">
-                                                            Select which grade levels this subject applies to
+                                                            Select the grade level this subject applies to
+                                                        </p>
+                                                    </div>
+                                                )}
+                                                
+                                                {/* Section field - only show for Elementary level when grade level is selected */}
+                                                {isElementaryLevel() && subjectForm.selected_grade_level && (
+                                                    <div>
+                                                        <Label htmlFor="section_id">Section *</Label>
+                                                        <Select 
+                                                            value={subjectForm.section_id} 
+                                                            onValueChange={(value) => setSubjectForm({...subjectForm, section_id: value})}
+                                                            required
+                                                        >
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder="Select section (required)" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {(() => {
+                                                                    // Filter sections by elementary level and selected grade level
+                                                                    const elementarySections = sections.filter(section => {
+                                                                        const level = academicLevels.find(l => l.id === section.academic_level_id);
+                                                                        return level?.key === 'elementary' && 
+                                                                               section.specific_year_level === subjectForm.selected_grade_level;
+                                                                    });
+                                                                    
+                                                                    return elementarySections.map((section) => (
+                                                                        <SelectItem key={section.id} value={section.id.toString()}>
+                                                                            {section.name}
+                                                                    </SelectItem>
+                                                                    ));
+                                                                })()}
+                                                            </SelectContent>
+                                                        </Select>
+                                                        {errors?.section_id && (
+                                                            <Alert variant="destructive">
+                                                                <AlertDescription>{errors.section_id}</AlertDescription>
+                                                            </Alert>
+                                                        )}
+                                                        <p className="text-xs text-gray-500 mt-1">
+                                                            Select a specific section for this subject (required)
                                                         </p>
                                                     </div>
                                                 )}
@@ -671,6 +732,51 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                             </SelectContent>
                                                         </Select>
                                                     </div>
+                                                    );
+                                                })()}
+
+                                                {/* Section field - only show for Junior High School level when year level is selected */}
+                                                {(() => {
+                                                    const selectedLevel = academicLevels.find(level => level.id.toString() === subjectForm.academic_level_id);
+                                                    if (selectedLevel?.key !== 'junior_highschool' || !subjectForm.jhs_year_level) return null;
+                                                    
+                                                    return (
+                                                        <div>
+                                                            <Label htmlFor="section_id">Section *</Label>
+                                                            <Select 
+                                                                value={subjectForm.section_id} 
+                                                                onValueChange={(value) => setSubjectForm({...subjectForm, section_id: value})}
+                                                                required
+                                                            >
+                                                                <SelectTrigger>
+                                                                    <SelectValue placeholder="Select section (required)" />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    {(() => {
+                                                                        // Filter sections by junior high school level and selected year level
+                                                                        const jhsSections = sections.filter(section => {
+                                                                            const level = academicLevels.find(l => l.id === section.academic_level_id);
+                                                                            return level?.key === 'junior_highschool' && 
+                                                                                   section.specific_year_level === subjectForm.jhs_year_level;
+                                                                        });
+                                                                        
+                                                                        return jhsSections.map((section) => (
+                                                                            <SelectItem key={section.id} value={section.id.toString()}>
+                                                                                {section.name}
+                                                                            </SelectItem>
+                                                                        ));
+                                                                    })()}
+                                                                </SelectContent>
+                                                            </Select>
+                                                            {errors?.section_id && (
+                                                                <Alert variant="destructive">
+                                                                    <AlertDescription>{errors.section_id}</AlertDescription>
+                                                                </Alert>
+                                                            )}
+                                                            <p className="text-xs text-gray-500 mt-1">
+                                                                Select a specific section for this subject (required)
+                                                            </p>
+                                                        </div>
                                                     );
                                                 })()}
 
@@ -740,6 +846,99 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                     
                                                     return null;
                                                 })()}
+
+                                                {/* Section field for Senior High School - show after Track and Strand are selected */}
+                                                {(() => {
+                                                    const selectedLevel = academicLevels.find(level => level.id.toString() === subjectForm.academic_level_id);
+                                                    if (selectedLevel?.key !== 'senior_highschool' || !subjectForm.track_id || !subjectForm.strand_id) return null;
+                                                    
+                                                    return (
+                                                        <div>
+                                                            <Label htmlFor="section_id">Section *</Label>
+                                                            <Select 
+                                                                value={subjectForm.section_id} 
+                                                                onValueChange={(value) => setSubjectForm({...subjectForm, section_id: value})}
+                                                                required
+                                                            >
+                                                                <SelectTrigger>
+                                                                    <SelectValue placeholder="Select section (required)" />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    {(() => {
+                                                                        // Filter sections by senior high school level, track, and strand
+                                                                        const shsSections = sections.filter(section => {
+                                                                            const level = academicLevels.find(l => l.id === section.academic_level_id);
+                                                                            return level?.key === 'senior_highschool' && 
+                                                                                   section.track_id?.toString() === subjectForm.track_id &&
+                                                                                   section.strand_id?.toString() === subjectForm.strand_id;
+                                                                        });
+                                                                        
+                                                                        return shsSections.map((section) => (
+                                                                            <SelectItem key={section.id} value={section.id.toString()}>
+                                                                                {section.name}
+                                                                            </SelectItem>
+                                                                        ));
+                                                                    })()}
+                                                                </SelectContent>
+                                                            </Select>
+                                                            {errors?.section_id && (
+                                                                <Alert variant="destructive">
+                                                                    <AlertDescription>{errors.section_id}</AlertDescription>
+                                                                </Alert>
+                                                            )}
+                                                            <p className="text-xs text-gray-500 mt-1">
+                                                                Select a specific section for this subject (required)
+                                                            </p>
+                                                        </div>
+                                                    );
+                                                })()}
+
+                                                {/* Section field for College - show after Department and Course are selected */}
+                                                {(() => {
+                                                    const selectedLevel = academicLevels.find(level => level.id.toString() === subjectForm.academic_level_id);
+                                                    if (selectedLevel?.key !== 'college' || !subjectForm.department_id || !subjectForm.course_id) return null;
+                                                    
+                                                    return (
+                                                        <div>
+                                                            <Label htmlFor="section_id">Section *</Label>
+                                                            <Select 
+                                                                value={subjectForm.section_id} 
+                                                                onValueChange={(value) => setSubjectForm({...subjectForm, section_id: value})}
+                                                                required
+                                                            >
+                                                                <SelectTrigger>
+                                                                    <SelectValue placeholder="Select section (required)" />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    {(() => {
+                                                                        // Filter sections by college level, department, and course
+                                                                        const collegeSections = sections.filter(section => {
+                                                                            const level = academicLevels.find(l => l.id === section.academic_level_id);
+                                                                            return level?.key === 'college' && 
+                                                                                   section.department_id?.toString() === subjectForm.department_id &&
+                                                                                   section.course_id?.toString() === subjectForm.course_id;
+                                                                        });
+                                                                        
+                                                                        return collegeSections.map((section) => (
+                                                                            <SelectItem key={section.id} value={section.id.toString()}>
+                                                                                {section.name}
+                                                                            </SelectItem>
+                                                                        ));
+                                                                    })()}
+                                                                </SelectContent>
+                                                            </Select>
+                                                            {errors?.section_id && (
+                                                                <Alert variant="destructive">
+                                                                    <AlertDescription>{errors.section_id}</AlertDescription>
+                                                                </Alert>
+                                                            )}
+                                                            <p className="text-xs text-gray-500 mt-1">
+                                                                Select a specific section for this subject (required)
+                                                            </p>
+                                                        </div>
+                                                    );
+                                                })()}
+
                                                 {/* Subject Details */}
                                                 <div className="space-y-4">
                                                     <h4 className="text-sm font-medium text-gray-700 border-b pb-2">Subject Details</h4>

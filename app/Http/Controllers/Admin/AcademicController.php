@@ -26,6 +26,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use App\Models\InstructorSubjectAssignment;
+use App\Models\Section;
 
 class AcademicController extends Controller
 {
@@ -189,7 +190,7 @@ class AcademicController extends Controller
 
     public function subjects()
     {
-        $subjects = Subject::with(['academicLevel', 'gradingPeriod', 'course'])
+        $subjects = Subject::with(['academicLevel', 'gradingPeriod', 'course', 'section'])
             ->orderBy('academic_level_id')
             ->orderBy('name')
             ->get();
@@ -202,6 +203,7 @@ class AcademicController extends Controller
         $shsYearLevels = \App\Models\User::getSpecificYearLevels()['senior_highschool'] ?? [];
         $tracks = Track::orderBy('name')->get();
         $strands = Strand::orderBy('name')->get();
+        $sections = Section::with(['academicLevel'])->orderBy('academic_level_id')->orderBy('specific_year_level')->orderBy('name')->get();
         
         return Inertia::render('Admin/Academic/Subjects', [
             'user' => $this->sharedUser(),
@@ -214,6 +216,7 @@ class AcademicController extends Controller
             'shsYearLevels' => $shsYearLevels,
             'tracks' => $tracks,
             'strands' => $strands,
+            'sections' => $sections,
         ]);
     }
 
@@ -533,12 +536,14 @@ class AcademicController extends Controller
             'jhs_year_level' => 'nullable|string|in:first_year,second_year,third_year,fourth_year',
             'grade_levels' => 'nullable|array',
             'grade_levels.*' => 'string|in:grade_1,grade_2,grade_3,grade_4,grade_5,grade_6',
+            'selected_grade_level' => 'nullable|string|in:grade_1,grade_2,grade_3,grade_4,grade_5,grade_6',
             'grading_period_id' => 'nullable|exists:grading_periods,id',
             'course_id' => 'nullable|exists:courses,id',
             'units' => 'nullable|numeric|min:0',
             'hours_per_week' => 'nullable|integer|min:0',
             'is_core' => 'nullable|boolean',
             'is_active' => 'nullable|boolean',
+            'section_id' => 'nullable|exists:sections,id',
         ]);
 
         if ($validator->fails()) {
@@ -547,10 +552,24 @@ class AcademicController extends Controller
         }
 
         try {
-            // If SHS, ensure strand is present
+            // Get the academic level
             $level = AcademicLevel::find($request->academic_level_id);
+            
+            // If SHS, ensure strand is present
             if ($level && $level->key === 'senior_highschool' && !$request->filled('strand_id')) {
                 return back()->withErrors(['strand_id' => 'Strand is required for Senior High School subjects.'])->withInput();
+            }
+            
+            // If Elementary, Junior High School, Senior High School, or College, ensure section is present
+            if ($level && in_array($level->key, ['elementary', 'junior_highschool', 'senior_highschool', 'college']) && !$request->filled('section_id')) {
+                $levelNames = [
+                    'elementary' => 'Elementary',
+                    'junior_highschool' => 'Junior High School',
+                    'senior_highschool' => 'Senior High School',
+                    'college' => 'College'
+                ];
+                $levelName = $levelNames[$level->key];
+                return back()->withErrors(['section_id' => "Section is required for {$levelName} subjects."])->withInput();
             }
             $data = [
                 'name' => $request->name,

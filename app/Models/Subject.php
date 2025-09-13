@@ -26,6 +26,8 @@ class Subject extends Model
         'hours_per_week',
         'is_core',
         'is_active',
+        'section_id',
+        'selected_grade_level',
     ];
 
     protected $casts = [
@@ -56,6 +58,11 @@ class Subject extends Model
     public function course(): BelongsTo
     {
         return $this->belongsTo(Course::class);
+    }
+
+    public function section(): BelongsTo
+    {
+        return $this->belongsTo(Section::class);
     }
 
     public function teacherAssignments(): HasMany
