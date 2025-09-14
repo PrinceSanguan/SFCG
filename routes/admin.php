@@ -548,4 +548,8 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin/security')->name('admin
     Route::post('/backups', [SecurityController::class, 'createBackup'])->name('create-backup');
     Route::get('/backups/{filename}/download', [SecurityController::class, 'downloadBackup'])->name('download-backup');
     Route::delete('/backups/{filename}', [SecurityController::class, 'deleteBackup'])->name('delete-backup');
+    
+    // Maintenance mode routes
+    Route::post('/toggle-maintenance-mode', [SecurityController::class, 'toggleMaintenanceMode'])->name('toggle-maintenance-mode');
+    Route::post('/force-logout-all-users', [SecurityController::class, 'forceLogoutAllUsers'])->name('force-logout-all-users');
 });

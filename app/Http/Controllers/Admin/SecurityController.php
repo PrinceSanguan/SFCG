@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\User;
+use App\Models\SystemSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -24,6 +25,7 @@ class SecurityController extends Controller
         $sessionStats = $this->getSessionStatistics();
         $securityStats = $this->getSecurityStatistics();
         $backupInfo = $this->getBackupInformation();
+        $maintenanceMode = SystemSetting::isMaintenanceMode();
 
         return Inertia::render('Admin/Security/Index', [
             'user' => Auth::user(),
@@ -31,6 +33,7 @@ class SecurityController extends Controller
             'sessionStats' => $sessionStats,
             'securityStats' => $securityStats,
             'backupInfo' => $backupInfo,
+            'maintenanceMode' => $maintenanceMode,
         ]);
     }
 
@@ -363,6 +366,70 @@ class SecurityController extends Controller
         }
         
         return round($bytes, $precision) . ' ' . $units[$i];
+    }
+
+    /**
+     * Toggle maintenance mode - shut down all accounts or enable them
+     */
+    public function toggleMaintenanceMode(Request $request)
+    {
+        try {
+            $isEnabled = SystemSetting::toggleMaintenanceMode();
+            
+            $action = $isEnabled ? 'enabled' : 'disabled';
+            $message = $isEnabled 
+                ? 'Maintenance mode enabled. All user accounts are now shut down except admin accounts.' 
+                : 'Maintenance mode disabled. All user accounts are now active.';
+
+            ActivityLog::create([
+                'user_id' => Auth::id(),
+                'action' => 'toggle_maintenance_mode',
+                'entity_type' => 'system',
+                'details' => [
+                    'maintenance_mode' => $isEnabled ? 'enabled' : 'disabled',
+                    'action_by' => Auth::user()->name,
+                    'admin_id' => Auth::id(),
+                ],
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
+
+            return back()->with('success', $message);
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to toggle maintenance mode: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Force logout all users except admins
+     */
+    public function forceLogoutAllUsers(Request $request)
+    {
+        try {
+            // Delete all sessions except for admin users
+            $adminUserIds = User::where('user_role', 'admin')->pluck('id');
+            
+            $deletedSessions = DB::table('sessions')
+                ->whereNotIn('user_id', $adminUserIds)
+                ->delete();
+
+            ActivityLog::create([
+                'user_id' => Auth::id(),
+                'action' => 'force_logout_all_users',
+                'entity_type' => 'system',
+                'details' => [
+                    'sessions_terminated' => $deletedSessions,
+                    'action_by' => Auth::user()->name,
+                    'admin_id' => Auth::id(),
+                ],
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
+
+            return back()->with('success', "Force logged out {$deletedSessions} user sessions. Admin sessions preserved.");
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to force logout users: ' . $e->getMessage());
+        }
     }
 
     /**

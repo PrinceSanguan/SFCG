@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import { Header } from '@/components/admin/header';
 import { Sidebar } from '@/components/admin/sidebar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,12 +17,15 @@ import {
     Clock,
     AlertTriangle,
     CheckCircle,
-    XCircle
+    XCircle,
+    Power,
+    PowerOff,
+    LogOut
 } from 'lucide-react';
 
 interface User {
-    name?: string;
-    email?: string;
+    name: string;
+    email: string;
 }
 
 interface ActivityLog {
@@ -33,7 +36,7 @@ interface ActivityLog {
     created_at: string;
     user: User;
     target_user?: User;
-    details: any;
+    details: Record<string, unknown>;
 }
 
 interface SessionStats {
@@ -54,8 +57,8 @@ interface SecurityStats {
 interface BackupInfo {
     total_backups: number;
     total_size_formatted: string;
-    latest_backup: any;
-    backups: any[];
+    latest_backup: Record<string, unknown> | null;
+    backups: Record<string, unknown>[];
 }
 
 interface PageProps {
@@ -64,6 +67,7 @@ interface PageProps {
     sessionStats: SessionStats;
     securityStats: SecurityStats;
     backupInfo: BackupInfo;
+    maintenanceMode: boolean;
 }
 
 export default function SecurityIndex({ 
@@ -71,9 +75,12 @@ export default function SecurityIndex({
     recentActivities, 
     sessionStats, 
     securityStats, 
-    backupInfo 
+    backupInfo,
+    maintenanceMode
 }: PageProps) {
     const [isCreatingBackup, setIsCreatingBackup] = useState(false);
+    const [isTogglingMaintenance, setIsTogglingMaintenance] = useState(false);
+    const [isForceLogout, setIsForceLogout] = useState(false);
 
     const handleCreateBackup = async () => {
         setIsCreatingBackup(true);
@@ -89,6 +96,44 @@ export default function SecurityIndex({
             console.error('Failed to create backup:', error);
         } finally {
             setIsCreatingBackup(false);
+        }
+    };
+
+    const handleToggleMaintenanceMode = async () => {
+        setIsTogglingMaintenance(true);
+        try {
+            await fetch(route('admin.security.toggle-maintenance-mode'), {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+            });
+            window.location.reload();
+        } catch (error) {
+            console.error('Failed to toggle maintenance mode:', error);
+        } finally {
+            setIsTogglingMaintenance(false);
+        }
+    };
+
+    const handleForceLogoutAllUsers = async () => {
+        if (!confirm('Are you sure you want to force logout all users? This will terminate all active sessions except admin sessions.')) {
+            return;
+        }
+        
+        setIsForceLogout(true);
+        try {
+            await fetch(route('admin.security.force-logout-all-users'), {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+            });
+            window.location.reload();
+        } catch (error) {
+            console.error('Failed to force logout users:', error);
+        } finally {
+            setIsForceLogout(false);
         }
     };
 
@@ -230,9 +275,10 @@ export default function SecurityIndex({
 
                 {/* Main Content Tabs */}
                 <Tabs defaultValue="overview" className="space-y-6">
-                    <TabsList className="grid w-full grid-cols-4">
+                    <TabsList className="grid w-full grid-cols-5">
                         <TabsTrigger value="overview">Overview</TabsTrigger>
                         <TabsTrigger value="recent-activity">Recent Activity</TabsTrigger>
+                        <TabsTrigger value="system-control">System Control</TabsTrigger>
                         <TabsTrigger value="backups">Backup Management</TabsTrigger>
                         <TabsTrigger value="security">Security Status</TabsTrigger>
                     </TabsList>
@@ -346,6 +392,87 @@ export default function SecurityIndex({
                                             No recent activity found
                                         </div>
                                     )}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    {/* System Control Tab */}
+                    <TabsContent value="system-control" className="space-y-6">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Power className="w-5 h-5" />
+                                    System Control & Maintenance
+                                </CardTitle>
+                                <CardDescription>
+                                    Control system access and perform emergency actions
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-6">
+                                {/* Maintenance Mode Control */}
+                                <div className="flex items-center justify-between p-4 border rounded-lg">
+                                    <div>
+                                        <h3 className="font-semibold flex items-center gap-2">
+                                            {maintenanceMode ? (
+                                                <Badge variant="destructive" className="flex items-center gap-1">
+                                                    <PowerOff className="w-3 h-3" />
+                                                    MAINTENANCE MODE ACTIVE
+                                                </Badge>
+                                            ) : (
+                                                <Badge variant="secondary" className="flex items-center gap-1">
+                                                    <CheckCircle className="w-3 h-3" />
+                                                    System Normal
+                                                </Badge>
+                                            )}
+                                        </h3>
+                                        <p className="text-sm text-muted-foreground mt-1">
+                                            {maintenanceMode 
+                                                ? "All user accounts are shut down. Only admin accounts can access the system."
+                                                : "System is running normally. All users can access their accounts."
+                                            }
+                                        </p>
+                                    </div>
+                                    <Button
+                                        variant={maintenanceMode ? "default" : "destructive"}
+                                        onClick={handleToggleMaintenanceMode}
+                                        disabled={isTogglingMaintenance}
+                                        className="min-w-[140px]"
+                                    >
+                                        {maintenanceMode ? (
+                                            <>
+                                                <Power className="w-4 h-4 mr-2" />
+                                                {isTogglingMaintenance ? 'Disabling...' : 'Enable System'}
+                                            </>
+                                        ) : (
+                                            <>
+                                                <PowerOff className="w-4 h-4 mr-2" />
+                                                {isTogglingMaintenance ? 'Enabling...' : 'Shut Down All Accounts'}
+                                            </>
+                                        )}
+                                    </Button>
+                                </div>
+
+                                {/* Force Logout All Users */}
+                                <div className="flex items-center justify-between p-4 border rounded-lg">
+                                    <div>
+                                        <h3 className="font-semibold flex items-center gap-2">
+                                            <LogOut className="w-4 h-4" />
+                                            Force Logout All Users
+                                        </h3>
+                                        <p className="text-sm text-muted-foreground mt-1">
+                                            Immediately terminate all active user sessions except admin sessions.
+                                        </p>
+                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        onClick={handleForceLogoutAllUsers}
+                                        disabled={isForceLogout}
+                                        className="min-w-[140px]"
+                                    >
+                                        <LogOut className="w-4 h-4 mr-2" />
+                                        {isForceLogout ? 'Logging Out...' : 'Force Logout All'}
+                                    </Button>
                                 </div>
                             </CardContent>
                         </Card>

@@ -11,10 +11,12 @@ interface LoginProps {
     flash?: {
         success?: string;
         error?: string;
+        maintenance?: string;
     };
+    maintenanceMode?: boolean;
 }
 
-export default function Login({ flash }: LoginProps) {
+export default function Login({ flash, maintenanceMode }: LoginProps) {
     const { data, setData, post, processing, errors } = useForm({
         email: '',
         password: '',
@@ -28,7 +30,12 @@ export default function Login({ flash }: LoginProps) {
 
     // Check for flash messages
     useEffect(() => {
-        if (flash?.success) {
+        if (flash?.maintenance) {
+            setFlashMessage({
+                type: 'error',
+                message: flash.maintenance,
+            });
+        } else if (flash?.success) {
             setFlashMessage({
                 type: 'success',
                 message: flash.success,
@@ -80,6 +87,21 @@ export default function Login({ flash }: LoginProps) {
                             />
                             <h1 className="text-3xl font-bold text-gray-800">Welcome Back!</h1>
                         </div>
+
+                        {/* Maintenance Mode Banner */}
+                        {maintenanceMode && (
+                            <div className="mb-6 p-4 border-2 border-red-500 bg-red-100 rounded-lg shadow-lg">
+                                <div className="text-center">
+                                    <div className="text-xl font-bold text-red-800 mb-2">
+                                        ⚠️ SYSTEM UNDER MAINTENANCE ⚠️
+                                    </div>
+                                    <div className="text-sm text-red-700">
+                                        The system is currently under maintenance.<br />
+                                        Only admin accounts can access the system.
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Show flash messages */}
                         {flashMessage.message && (

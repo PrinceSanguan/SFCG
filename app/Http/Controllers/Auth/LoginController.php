@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
+use App\Models\SystemSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
@@ -18,7 +19,11 @@ class LoginController extends Controller
      */
     public function index()
     {
-        return Inertia::render('Auth/Login');
+        $maintenanceMode = SystemSetting::isMaintenanceMode();
+        
+        return Inertia::render('Auth/Login', [
+            'maintenanceMode' => $maintenanceMode,
+        ]);
     }
 
     /**
@@ -35,10 +40,20 @@ class LoginController extends Controller
         ]);
 
         if (Auth::attempt($credentials)) {
+            $user = Auth::user();
+            
+            // Check if maintenance mode is enabled and user is not admin
+            if (SystemSetting::isMaintenanceMode() && $user->user_role !== 'admin') {
+                Auth::logout();
+                throw ValidationException::withMessages([
+                    'email' => 'The system is currently under maintenance. Only admin accounts can access the system.',
+                ]);
+            }
+
             $request->session()->regenerate();
 
             // Update last login timestamp
-            Auth::user()->update(['last_login_at' => now()]);
+            $user->update(['last_login_at' => now()]);
 
             // Log login activity
             ActivityLog::create([
@@ -66,7 +81,7 @@ class LoginController extends Controller
                 'parent' => route('parent.dashboard'),
             ];
 
-            $redirectUrl = $roleRedirects[Auth::user()->user_role] ?? route('user.dashboard');
+            $redirectUrl = $roleRedirects[$user->user_role] ?? route('user.dashboard');
             return redirect($redirectUrl);
         }
 
