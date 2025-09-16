@@ -19,8 +19,7 @@ import {
     CheckCircle,
     XCircle,
     Power,
-    PowerOff,
-    LogOut
+    PowerOff
 } from 'lucide-react';
 
 interface User {
@@ -80,7 +79,6 @@ export default function SecurityIndex({
 }: PageProps) {
     const [isCreatingBackup, setIsCreatingBackup] = useState(false);
     const [isTogglingMaintenance, setIsTogglingMaintenance] = useState(false);
-    const [isForceLogout, setIsForceLogout] = useState(false);
 
     const handleCreateBackup = async () => {
         setIsCreatingBackup(true);
@@ -116,26 +114,6 @@ export default function SecurityIndex({
         }
     };
 
-    const handleForceLogoutAllUsers = async () => {
-        if (!confirm('Are you sure you want to force logout all users? This will terminate all active sessions except admin sessions.')) {
-            return;
-        }
-        
-        setIsForceLogout(true);
-        try {
-            await fetch(route('admin.security.force-logout-all-users'), {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-            });
-            window.location.reload();
-        } catch (error) {
-            console.error('Failed to force logout users:', error);
-        } finally {
-            setIsForceLogout(false);
-        }
-    };
 
     const handleDownloadBackup = (filename: string) => {
         window.open(route('admin.security.download-backup', { filename }), '_blank');
@@ -410,10 +388,10 @@ export default function SecurityIndex({
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-6">
-                                {/* Maintenance Mode Control */}
-                                <div className="flex items-center justify-between p-4 border rounded-lg">
-                                    <div>
-                                        <h3 className="font-semibold flex items-center gap-2">
+                                {/* System Control */}
+                                <div className="p-4 border rounded-lg">
+                                    <div className="mb-4">
+                                        <h3 className="font-semibold flex items-center gap-2 mb-2">
                                             {maintenanceMode ? (
                                                 <Badge variant="destructive" className="flex items-center gap-1">
                                                     <PowerOff className="w-3 h-3" />
@@ -426,54 +404,39 @@ export default function SecurityIndex({
                                                 </Badge>
                                             )}
                                         </h3>
-                                        <p className="text-sm text-muted-foreground mt-1">
+                                        <p className="text-sm text-muted-foreground">
                                             {maintenanceMode 
                                                 ? "All user accounts are shut down. Only admin accounts can access the system."
                                                 : "System is running normally. All users can access their accounts."
                                             }
                                         </p>
                                     </div>
-                                    <Button
-                                        variant={maintenanceMode ? "default" : "destructive"}
-                                        onClick={handleToggleMaintenanceMode}
-                                        disabled={isTogglingMaintenance}
-                                        className="min-w-[140px]"
-                                    >
+                                    
+                                    <div className="flex gap-3">
                                         {maintenanceMode ? (
-                                            <>
+                                            <Button
+                                                variant="default"
+                                                onClick={handleToggleMaintenanceMode}
+                                                disabled={isTogglingMaintenance}
+                                                className="flex-1"
+                                            >
                                                 <Power className="w-4 h-4 mr-2" />
-                                                {isTogglingMaintenance ? 'Disabling...' : 'Enable System'}
-                                            </>
+                                                {isTogglingMaintenance ? 'Enabling...' : 'Enable System'}
+                                            </Button>
                                         ) : (
-                                            <>
+                                            <Button
+                                                variant="destructive"
+                                                onClick={handleToggleMaintenanceMode}
+                                                disabled={isTogglingMaintenance}
+                                                className="flex-1"
+                                            >
                                                 <PowerOff className="w-4 h-4 mr-2" />
-                                                {isTogglingMaintenance ? 'Enabling...' : 'Shut Down All Accounts'}
-                                            </>
+                                                {isTogglingMaintenance ? 'Disabling...' : 'Disable System'}
+                                            </Button>
                                         )}
-                                    </Button>
+                                    </div>
                                 </div>
 
-                                {/* Force Logout All Users */}
-                                <div className="flex items-center justify-between p-4 border rounded-lg">
-                                    <div>
-                                        <h3 className="font-semibold flex items-center gap-2">
-                                            <LogOut className="w-4 h-4" />
-                                            Force Logout All Users
-                                        </h3>
-                                        <p className="text-sm text-muted-foreground mt-1">
-                                            Immediately terminate all active user sessions except admin sessions.
-                                        </p>
-                                    </div>
-                                    <Button
-                                        variant="outline"
-                                        onClick={handleForceLogoutAllUsers}
-                                        disabled={isForceLogout}
-                                        className="min-w-[140px]"
-                                    >
-                                        <LogOut className="w-4 h-4 mr-2" />
-                                        {isForceLogout ? 'Logging Out...' : 'Force Logout All'}
-                                    </Button>
-                                </div>
                             </CardContent>
                         </Card>
                     </TabsContent>

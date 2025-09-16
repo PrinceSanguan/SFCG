@@ -413,6 +413,11 @@ class SecurityController extends Controller
                 ->whereNotIn('user_id', $adminUserIds)
                 ->delete();
 
+            // Also clear any cached sessions
+            DB::table('sessions')
+                ->whereNull('user_id')
+                ->delete();
+
             ActivityLog::create([
                 'user_id' => Auth::id(),
                 'action' => 'force_logout_all_users',
@@ -421,12 +426,20 @@ class SecurityController extends Controller
                     'sessions_terminated' => $deletedSessions,
                     'action_by' => Auth::user()->name,
                     'admin_id' => Auth::id(),
+                    'maintenance_mode' => SystemSetting::isMaintenanceMode(),
                 ],
                 'ip_address' => $request->ip(),
                 'user_agent' => $request->userAgent(),
             ]);
 
-            return back()->with('success', "Force logged out {$deletedSessions} user sessions. Admin sessions preserved.");
+            $message = "Force logged out {$deletedSessions} user sessions. Admin sessions preserved.";
+            
+            // If maintenance mode is active, add additional context
+            if (SystemSetting::isMaintenanceMode()) {
+                $message .= " All users will see the maintenance page until system is re-enabled.";
+            }
+
+            return back()->with('success', $message);
         } catch (\Exception $e) {
             return back()->with('error', 'Failed to force logout users: ' . $e->getMessage());
         }

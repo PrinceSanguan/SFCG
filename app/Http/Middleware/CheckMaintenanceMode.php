@@ -6,6 +6,7 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 use App\Models\SystemSetting;
+use Illuminate\Support\Facades\Auth;
 
 class CheckMaintenanceMode
 {
@@ -23,16 +24,15 @@ class CheckMaintenanceMode
 
         // Check if maintenance mode is enabled
         if (SystemSetting::isMaintenanceMode()) {
-            // If user is not authenticated, allow them to reach login page
-            // The login page will show maintenance message but allow admin login
-            if (!auth()->check()) {
-                return $next($request);
+            // If user is not authenticated, redirect to maintenance page
+            if (!Auth::check()) {
+                return response()->view('maintenance');
             }
             
-            // If user is authenticated but not admin, log them out and redirect
-            if (auth()->user()->user_role !== 'admin') {
-                auth()->logout();
-                return redirect()->route('auth.login')->with('maintenance', 'The system is currently under maintenance. Please try again later.');
+            // If user is authenticated but not admin, log them out and redirect to maintenance page
+            if (Auth::user()->user_role !== 'admin') {
+                Auth::logout();
+                return response()->view('maintenance');
             }
         }
 
