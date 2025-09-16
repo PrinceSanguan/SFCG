@@ -708,15 +708,15 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                     </div>
                                                 )}
                                                 
-                                                {/* Junior High: Year Level (1st to 4th year) */}
+                                                {/* Junior High: Year Level (Grade 7 to Grade 10) */}
                                                 {(() => {
                                                     const selectedLevel = academicLevels.find(level => level.id.toString() === subjectForm.academic_level_id);
                                                     if (selectedLevel?.key !== 'junior_highschool') return null;
                                                     const jhsYearOptions = [
-                                                        { value: 'first_year', label: '1st Year' },
-                                                        { value: 'second_year', label: '2nd Year' },
-                                                        { value: 'third_year', label: '3rd Year' },
-                                                        { value: 'fourth_year', label: '4th Year' },
+                                                        { value: 'grade_7', label: 'Grade 7' },
+                                                        { value: 'grade_8', label: 'Grade 8' },
+                                                        { value: 'grade_9', label: 'Grade 9' },
+                                                        { value: 'grade_10', label: 'Grade 10' },
                                                     ];
                                                     return (
                                                     <div>
