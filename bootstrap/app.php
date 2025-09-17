@@ -74,6 +74,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'chairperson' => ChairpersonMiddleware::class,
             'principal' => PrincipalMiddleware::class,
         ]);
+
+        // Configure authentication middleware to use the correct login route
+        $middleware->redirectGuestsTo(fn () => route('auth.login'));
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

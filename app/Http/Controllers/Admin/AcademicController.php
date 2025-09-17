@@ -34,6 +34,13 @@ class AcademicController extends Controller
     private function sharedUser()
     {
         $user = Auth::user();
+        if (!$user) {
+            return [
+                'name' => 'Guest',
+                'email' => 'guest@example.com',
+                'user_role' => 'guest',
+            ];
+        }
         return [
             'name' => $user->name,
             'email' => $user->email,
@@ -287,6 +294,111 @@ class AcademicController extends Controller
             'schoolYears' => $schoolYears,
             'honorResults' => $honorResults,
             'groupedHonorResults' => $groupedHonorResults,
+        ]);
+    }
+
+    public function elementaryHonors()
+    {
+        $honorTypes = HonorType::orderBy('scope')->orderBy('name')->get();
+        $criteria = HonorCriterion::with(['honorType', 'academicLevel'])
+            ->where('academic_level_id', 1) // Elementary level ID
+            ->get();
+        
+        $currentYear = date('Y');
+        $schoolYears = [
+            ($currentYear - 1) . '-' . $currentYear,
+            $currentYear . '-' . ($currentYear + 1),
+            ($currentYear + 1) . '-' . ($currentYear + 2),
+        ];
+
+        return Inertia::render('Admin/Academic/Honors/Elementary', [
+            'user' => $this->sharedUser(),
+            'honorTypes' => $honorTypes,
+            'criteria' => $criteria,
+            'schoolYears' => $schoolYears,
+        ]);
+    }
+
+    public function juniorHighSchoolHonors()
+    {
+        $honorTypes = HonorType::orderBy('scope')->orderBy('name')->get();
+        $criteria = HonorCriterion::with(['honorType', 'academicLevel'])
+            ->where('academic_level_id', 2) // Junior High School level ID
+            ->get();
+        
+        $currentYear = date('Y');
+        $schoolYears = [
+            ($currentYear - 1) . '-' . $currentYear,
+            $currentYear . '-' . ($currentYear + 1),
+            ($currentYear + 1) . '-' . ($currentYear + 2),
+        ];
+
+        return Inertia::render('Admin/Academic/Honors/JuniorHighSchool', [
+            'user' => $this->sharedUser(),
+            'honorTypes' => $honorTypes,
+            'criteria' => $criteria,
+            'schoolYears' => $schoolYears,
+        ]);
+    }
+
+    public function seniorHighSchoolHonors()
+    {
+        $honorTypes = HonorType::orderBy('scope')->orderBy('name')->get();
+        $criteria = HonorCriterion::with(['honorType', 'academicLevel'])
+            ->where('academic_level_id', 3) // Senior High School level ID
+            ->get();
+        
+        $currentYear = date('Y');
+        $schoolYears = [
+            ($currentYear - 1) . '-' . $currentYear,
+            $currentYear . '-' . ($currentYear + 1),
+            ($currentYear + 1) . '-' . ($currentYear + 2),
+        ];
+
+        return Inertia::render('Admin/Academic/Honors/SeniorHighSchool', [
+            'user' => $this->sharedUser(),
+            'honorTypes' => $honorTypes,
+            'criteria' => $criteria,
+            'schoolYears' => $schoolYears,
+        ]);
+    }
+
+    public function collegeHonors()
+    {
+        $honorTypes = HonorType::orderBy('scope')->orderBy('name')->get();
+        $criteria = HonorCriterion::with(['honorType', 'academicLevel'])
+            ->where('academic_level_id', 4) // College level ID
+            ->get();
+        
+        $currentYear = date('Y');
+        $schoolYears = [
+            ($currentYear - 1) . '-' . $currentYear,
+            $currentYear . '-' . ($currentYear + 1),
+            ($currentYear + 1) . '-' . ($currentYear + 2),
+        ];
+
+        return Inertia::render('Admin/Academic/Honors/College', [
+            'user' => $this->sharedUser(),
+            'honorTypes' => $honorTypes,
+            'criteria' => $criteria,
+            'schoolYears' => $schoolYears,
+        ]);
+    }
+
+    public function saveHonorType(Request $request)
+    {
+        $data = $request->validate([
+            'name' => 'required|string|max:100',
+            'key' => 'required|string|alpha_dash|max:50|unique:honor_types,key',
+            'scope' => 'required|string|in:basic,advanced,college',
+        ]);
+
+        $honorType = HonorType::create($data);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Honor type created successfully!',
+            'honorType' => $honorType
         ]);
     }
 

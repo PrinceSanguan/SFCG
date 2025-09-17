@@ -280,9 +280,14 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/aca
 
     // Honors
     Route::get('/honors', [AcademicController::class, 'honors'])->name('honors');
+    Route::get('/honors/elementary', [AcademicController::class, 'elementaryHonors'])->name('honors.elementary');
+    Route::get('/honors/junior-high-school', [AcademicController::class, 'juniorHighSchoolHonors'])->name('honors.junior-high-school');
+    Route::get('/honors/senior-high-school', [AcademicController::class, 'seniorHighSchoolHonors'])->name('honors.senior-high-school');
+    Route::get('/honors/college', [AcademicController::class, 'collegeHonors'])->name('honors.college');
     Route::post('/honors/criteria', [AcademicController::class, 'saveHonorCriteria'])->name('honors.criteria.save');
     Route::put('/honors/criteria/{criterion}', [AcademicController::class, 'updateHonorCriterion'])->name('honors.criteria.update');
     Route::delete('/honors/criteria/{criterion}', [AcademicController::class, 'destroyHonorCriterion'])->name('honors.criteria.destroy');
+    Route::post('/honors/types', [AcademicController::class, 'saveHonorType'])->name('honors.types.save');
     Route::post('/honors/generate', [AcademicController::class, 'generateHonorRoll'])->name('honors.generate');
     Route::post('/honors/{result}/override', [AcademicController::class, 'overrideHonorResult'])->name('honors.override');
     Route::get('/honors/export', [AcademicController::class, 'exportHonorRoll'])->name('honors.export');

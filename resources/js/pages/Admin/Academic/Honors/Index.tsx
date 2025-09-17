@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useForm } from '@inertiajs/react';
+import { useForm, router } from '@inertiajs/react';
 import { Header } from '@/components/admin/header';
 import { Sidebar } from '@/components/admin/sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -91,6 +91,20 @@ export default function HonorsIndex({ user, academicLevels, honorTypes, criteria
         max_year: '',
         require_consistent_honor: false,
     });
+    const [showAddForm, setShowAddForm] = useState(false);
+    
+    const navigateToLevel = (levelKey: string) => {
+        const routes = {
+            'elementary': '/admin/academic/honors/elementary',
+            'junior_highschool': '/admin/academic/honors/junior-high-school',
+            'senior_highschool': '/admin/academic/honors/senior-high-school',
+            'college': '/admin/academic/honors/college'
+        };
+        
+        if (routes[levelKey as keyof typeof routes]) {
+            router.visit(routes[levelKey as keyof typeof routes]);
+        }
+    };
 
     // Set default selected level when component mounts
     React.useEffect(() => {
@@ -119,6 +133,7 @@ export default function HonorsIndex({ user, academicLevels, honorTypes, criteria
             onSuccess: () => {
                 setMessage({ type: 'success', text: 'Criteria saved successfully!' });
                 reset();
+                setShowAddForm(false);
                 window.location.reload();
             },
             onError: () => setMessage({ type: 'error', text: 'Failed to save criteria.' }),
@@ -303,136 +318,53 @@ export default function HonorsIndex({ user, academicLevels, honorTypes, criteria
                             </Alert>
                         )}
 
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <Card>
-                                <CardHeader><CardTitle className="flex items-center gap-2"><Trophy className="h-5 w-5" />Set Honor Criteria</CardTitle></CardHeader>
-                                <CardContent>
-                                    <form onSubmit={handleSubmit} className="space-y-4">
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <Label htmlFor="academic_level_id">Academic Level</Label>
-                                                {academicLevels && academicLevels.length > 0 ? (
-                                                    <Select value={data.academic_level_id || ""} onValueChange={(value) => setData('academic_level_id', value)}>
-                                                        <SelectTrigger><SelectValue placeholder="Select level" /></SelectTrigger>
-                                                        <SelectContent>{academicLevels.filter(level => level.id && level.name).map((level) => (<SelectItem key={level.id} value={level.id.toString()}>{level.name}</SelectItem>))}</SelectContent>
-                                                    </Select>
-                                                ) : (<div className="p-2 text-sm text-gray-500 bg-gray-100 rounded border">Loading academic levels...</div>)}
-                                                {errors.academic_level_id && (<p className="text-sm text-red-500">{errors.academic_level_id}</p>)}
-                                            </div>
-                                            <div>
-                                                <Label htmlFor="honor_type_id">Honor Type</Label>
-                                                {honorTypes && honorTypes.length > 0 ? (
-                                                    <Select value={data.honor_type_id || ""} onValueChange={(value) => setData('honor_type_id', value)}>
-                                                        <SelectTrigger><SelectValue placeholder="Select honor" /></SelectTrigger>
-                                                        <SelectContent>{honorTypes.filter(type => type.id && type.name).map((type) => (<SelectItem key={type.id} value={type.id.toString()}>{type.name}</SelectItem>))}</SelectContent>
-                                                    </Select>
-                                                ) : (<div className="p-2 text-sm text-gray-500 bg-gray-100 rounded border">Loading honor types...</div>)}
-                                                {errors.honor_type_id && (<p className="text-sm text-red-500">{errors.honor_type_id}</p>)}
-                                            </div>
+                        {/* Academic Level Cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            {academicLevels
+                                .filter(level => ['elementary', 'junior_highschool', 'senior_highschool', 'college'].includes(level.key))
+                                .map((level) => {
+                                    const levelCriteria = getCriteriaForLevel(level.id);
+                                    
+                                    return (
+                                        <Card key={level.id} className="transition-all duration-200 hover:shadow-lg cursor-pointer" onClick={() => navigateToLevel(level.key)}>
+                                            <CardHeader className="pb-3">
+                                                <CardTitle className="text-lg font-semibold text-center">
+                                                    {level.name}
+                                                </CardTitle>
+                                            </CardHeader>
+                                            <CardContent className="pt-0">
+                                                <div className="text-center">
+                                                    <div className="text-sm text-gray-500 mb-4">
+                                                        {levelCriteria.length} criteria set
                                         </div>
-
-                                        <div>
-                                            <Label htmlFor="school_year">School Year</Label>
-                                            <Select value={data.school_year || ""} onValueChange={(value) => setData('school_year', value)}>
-                                                <SelectTrigger><SelectValue placeholder="Select school year" /></SelectTrigger>
-                                                <SelectContent>{(schoolYears?.length ? schoolYears : ['2024-2025']).filter(year => year && year.trim() !== '').map((year) => (<SelectItem key={year} value={year}>{year}</SelectItem>))}</SelectContent>
-                                            </Select>
+                                                    <Button 
+                                                        variant="outline" 
+                                                        className="w-full"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            navigateToLevel(level.key);
+                                                        }}
+                                                    >
+                                                        Open
+                                                    </Button>
                                         </div>
-
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <Label htmlFor="min_gpa">
-                                                    {data.academic_level_id && academicLevels.find(l => l.id === Number(data.academic_level_id))?.key === 'college' ? 'Min GPA (5-1 scale)' : 'Min GPA'}
-                                                </Label>
-                                                <Input 
-                                                    id="min_gpa" 
-                                                    type="number" 
-                                                    step={data.academic_level_id && academicLevels.find(l => l.id === Number(data.academic_level_id))?.key === 'college' ? '0.1' : '0.01'} 
-                                                    value={data.min_gpa} 
-                                                    onChange={(e) => setData('min_gpa', e.target.value)} 
-                                                    placeholder={
-                                                        data.academic_level_id && academicLevels.find(l => l.id === Number(data.academic_level_id))?.key === 'college' 
-                                                            ? 'e.g., 3.5 (5=lowest, 1=highest)' 
-                                                            : 'e.g., 90.0'
-                                                    } 
-                                                />
-                                            </div>
-                                            <div>
-                                                <Label htmlFor="max_gpa">
-                                                    {data.academic_level_id && academicLevels.find(l => l.id === Number(data.academic_level_id))?.key === 'college' ? 'Max GPA (5-1 scale)' : 'Max GPA'}
-                                                </Label>
-                                                <Input 
-                                                    id="max_gpa" 
-                                                    type="number" 
-                                                    step={data.academic_level_id && academicLevels.find(l => l.id === Number(data.academic_level_id))?.key === 'college' ? '0.1' : '0.01'} 
-                                                    value={data.max_gpa} 
-                                                    onChange={(e) => setData('max_gpa', e.target.value)} 
-                                                    placeholder={
-                                                        data.academic_level_id && academicLevels.find(l => l.id === Number(data.academic_level_id))?.key === 'college' 
-                                                            ? 'e.g., 1.5 (5=lowest, 1=highest)' 
-                                                            : 'e.g., 97.0'
-                                                    } 
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <Label htmlFor="min_grade">
-                                                    {data.academic_level_id && academicLevels.find(l => l.id === Number(data.academic_level_id))?.key === 'college' ? 'Min Grade (any) (5-1 scale)' : 'Min Grade (any)'}
-                                                </Label>
-                                                <Input 
-                                                    id="min_grade" 
-                                                    type="number" 
-                                                    value={data.min_grade} 
-                                                    onChange={(e) => setData('min_grade', e.target.value)} 
-                                                    placeholder={
-                                                        data.academic_level_id && academicLevels.find(l => l.id === Number(data.academic_level_id))?.key === 'college' 
-                                                            ? 'e.g., 3 (5=lowest, 1=highest)' 
-                                                            : 'e.g., 90'
-                                                    } 
-                                                />
-                                            </div>
-                                            <div>
-                                                <Label htmlFor="min_grade_all">
-                                                    {data.academic_level_id && academicLevels.find(l => l.id === Number(data.academic_level_id))?.key === 'college' ? 'Min Grade (all) (5-1 scale)' : 'Min Grade (all)'}
-                                                </Label>
-                                                <Input 
-                                                    id="min_grade_all" 
-                                                    type="number" 
-                                                    value={data.min_grade_all} 
-                                                    onChange={(e) => setData('min_grade_all', e.target.value)} 
-                                                    placeholder={
-                                                        data.academic_level_id && academicLevels.find(l => l.id === Number(data.academic_level_id))?.key === 'college' 
-                                                            ? 'e.g., 2 (5=lowest, 1=highest)' 
-                                                            : 'e.g., 93'
-                                                    } 
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div><Label htmlFor="min_year">Min Year</Label><Input id="min_year" type="number" value={data.min_year} onChange={(e) => setData('min_year', e.target.value)} placeholder="e.g., 2" /></div>
-                                            <div><Label htmlFor="max_year">Max Year</Label><Input id="max_year" type="number" value={data.max_year} onChange={(e) => setData('max_year', e.target.value)} placeholder="e.g., 3" /></div>
-                                        </div>
-
-                                        <div className="flex items-center space-x-2">
-                                            <Checkbox id="require_consistent_honor" checked={!!data.require_consistent_honor} onCheckedChange={(checked) => setData('require_consistent_honor', checked as boolean)} />
-                                            <Label htmlFor="require_consistent_honor">Require consistent honor standing</Label>
-                                        </div>
-
-                                        <div className="flex gap-2">
-                                            <Button type="submit" disabled={processing}>Save Criteria</Button>
-                                            <Button type="button" variant="outline" onClick={generateHonorRoll} disabled={isGenerating}>{isGenerating ? 'Generating...' : 'Generate Honor Roll'}</Button>
-                                            <Button type="button" variant="outline" onClick={exportHonorList}>Export Honor List</Button>
-                                        </div>
-                                    </form>
                                 </CardContent>
                             </Card>
+                                    );
+                                })}
+                        </div>
 
-                            <Card>
-                                <CardHeader><CardTitle className="flex items-center gap-2"><GraduationCap className="h-5 w-5" />Generate Honor Roll</CardTitle></CardHeader>
+
+                        {/* Honor Roll Generation & Export */}
+                        <Card className="mt-6">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <GraduationCap className="h-5 w-5" />
+                                    Honor Roll Generation & Export
+                                </CardTitle>
+                            </CardHeader>
                                 <CardContent className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <Label>Academic Level</Label>
                                         {academicLevels && academicLevels.length > 0 ? (
@@ -451,254 +383,15 @@ export default function HonorsIndex({ user, academicLevels, honorTypes, criteria
                                             </Select>
                                         ) : (<div className="p-2 text-sm text-gray-500 bg-gray-100 rounded border">Loading school years...</div>)}
                                     </div>
-                                    <Button onClick={generateHonorRoll} disabled={!selectedLevel || isGenerating} className="w-full">{isGenerating ? 'Generating...' : 'Generate Honor Roll'}</Button>
-                                </CardContent>
-                            </Card>
                         </div>
-
-                        {/* Existing Criteria */}
-                        <Card>
-                            <CardHeader><CardTitle className="flex items-center gap-2"><Trophy className="h-5 w-5" />Existing Criteria</CardTitle></CardHeader>
-                            <CardContent>
-
-                                <Tabs defaultValue="elementary" className="w-full">
-                                    <TabsList className="grid w-full grid-cols-4">
-                                        {academicLevels
-                                            .filter(level => ['elementary', 'junior_highschool', 'senior_highschool', 'college'].includes(level.key))
-                                            .map((level) => (
-                                            <TabsTrigger key={level.key} value={level.key}>
-                                                {level.name}
-                                            </TabsTrigger>
-                                        ))}
-                                    </TabsList>
-                                    {academicLevels && academicLevels.length > 0 ? (
-                                        academicLevels.map((level) => {
-                                            const levelCriteria = getCriteriaForLevel(level.id);
-                                            return (
-                                                <TabsContent key={level.key} value={level.key}>
-                                                    <div className="space-y-4">
-                                                        <div className="flex items-center justify-between">
-                                                            <h3 className="text-lg font-semibold">{level.name} Honor Criteria</h3>
-                                                            <div className="text-sm text-gray-500">
-                                                                {levelCriteria.length} criteria found
-                                                            </div>
-                                                        </div>
-                                                        
-                                                        {levelCriteria.length === 0 ? (
-                                                            <div className="text-center py-8 text-gray-500">
-                                                                <Trophy className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-                                                                <p>No honor criteria set for {level.name}</p>
-                                                                <p className="text-sm">Use the form above to create criteria for this level.</p>
-                                                            </div>
-                                                        ) : (
-                                                            <div className="grid gap-4">
-                                                                {levelCriteria.map((criterion) => {
-                                                                    const honorTypeInfo = getHonorTypeInfo(criterion);
-                                                                    return (
-                                                                        <div key={criterion.id} className="border rounded-lg p-4 bg-white shadow-sm">
-                                                                            {editingCriterion?.id === criterion.id ? (
-                                                                                // Edit Form
-                                                                                <div className="space-y-4">
-                                                                                    <div className="flex items-center justify-between mb-3">
-                                                                                        <h4 className="font-medium text-lg">{honorTypeInfo.name}</h4>
-                                                                                        <Badge variant="secondary">{honorTypeInfo.scope}</Badge>
-                                                                                    </div>
-                                                                                    
-                                                                                    <div className="grid grid-cols-2 gap-4">
-                                                                                        <div>
-                                                                                            <Label htmlFor={`edit_min_gpa_${criterion.id}`}>Min GPA</Label>
-                                                                                            <Input 
-                                                                                                id={`edit_min_gpa_${criterion.id}`}
-                                                                                                type="number" 
-                                                                                                step="0.01" 
-                                                                                                value={editForm.min_gpa} 
-                                                                                                onChange={(e) => setEditForm({...editForm, min_gpa: e.target.value})} 
-                                                                                                placeholder="e.g., 90.0" 
-                                                                                            />
-                                                                                        </div>
-                                                                                        <div>
-                                                                                            <Label htmlFor={`edit_max_gpa_${criterion.id}`}>Max GPA</Label>
-                                                                                            <Input 
-                                                                                                id={`edit_max_gpa_${criterion.id}`}
-                                                                                                type="number" 
-                                                                                                step="0.01" 
-                                                                                                value={editForm.max_gpa} 
-                                                                                                onChange={(e) => setEditForm({...editForm, max_gpa: e.target.value})} 
-                                                                                                placeholder="e.g., 97.0" 
-                                                                                            />
-                                                                                        </div>
-                                                                                    </div>
-                                                                                    
-                                                                                    <div className="grid grid-cols-2 gap-4">
-                                                                                        <div>
-                                                                                            <Label htmlFor={`edit_min_grade_${criterion.id}`}>Min Grade (any)</Label>
-                                                                                            <Input 
-                                                                                                id={`edit_min_grade_${criterion.id}`}
-                                                                                                type="number" 
-                                                                                                value={editForm.min_grade} 
-                                                                                                onChange={(e) => setEditForm({...editForm, min_grade: e.target.value})} 
-                                                                                                placeholder="e.g., 90" 
-                                                                                            />
-                                                                                        </div>
-                                                                                        <div>
-                                                                                            <Label htmlFor={`edit_min_grade_all_${criterion.id}`}>Min Grade (all)</Label>
-                                                                                            <Input 
-                                                                                                id={`edit_min_grade_all_${criterion.id}`}
-                                                                                                type="number" 
-                                                                                                value={editForm.min_grade_all} 
-                                                                                                onChange={(e) => setEditForm({...editForm, min_grade_all: e.target.value})} 
-                                                                                                placeholder="e.g., 93" 
-                                                                                            />
-                                                                                        </div>
-                                                                                    </div>
-                                                                                    
-                                                                                    <div className="grid grid-cols-2 gap-4">
-                                                                                        <div>
-                                                                                            <Label htmlFor={`edit_min_year_${criterion.id}`}>Min Year</Label>
-                                                                                            <Input 
-                                                                                                id={`edit_min_year_${criterion.id}`}
-                                                                                                type="number" 
-                                                                                                value={editForm.min_year} 
-                                                                                                onChange={(e) => setEditForm({...editForm, min_year: e.target.value})} 
-                                                                                                placeholder="e.g., 2" 
-                                                                                            />
-                                                                                        </div>
-                                                                                        <div>
-                                                                                            <Label htmlFor={`edit_max_year_${criterion.id}`}>Max Year</Label>
-                                                                                            <Input 
-                                                                                                id={`edit_max_year_${criterion.id}`}
-                                                                                                type="number" 
-                                                                                                value={editForm.max_year} 
-                                                                                                onChange={(e) => setEditForm({...editForm, max_year: e.target.value})} 
-                                                                                                placeholder="e.g., 3" 
-                                                                                            />
-                                                                                        </div>
-                                                                                    </div>
-                                                                                    
-                                                                                    <div className="flex items-center space-x-2">
-                                                                                        <Checkbox 
-                                                                                            id={`edit_require_consistent_${criterion.id}`}
-                                                                                            checked={editForm.require_consistent_honor} 
-                                                                                            onCheckedChange={(checked) => setEditForm({...editForm, require_consistent_honor: checked as boolean})} 
-                                                                                        />
-                                                                                        <Label htmlFor={`edit_require_consistent_${criterion.id}`}>Require consistent honor standing</Label>
-                                                                                    </div>
-                                                                                    
-                                                                                    <div className="flex gap-2 justify-end">
-                                                                                        <Button variant="outline" size="sm" onClick={cancelEditing}>Cancel</Button>
-                                                                                        <Button size="sm" onClick={() => updateCriterion(criterion.id)}>Update Criteria</Button>
-                                                                                    </div>
-                                                                                </div>
-                                                                            ) : (
-                                                                                // Display Mode
-                                                                                <>
-                                                                                    <div className="flex items-center justify-between mb-3">
-                                                                                        <h4 className="font-medium text-lg">{honorTypeInfo.name}</h4>
-                                                                                        <Badge variant="secondary">{honorTypeInfo.scope}</Badge>
-                                                                                    </div>
-                                                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                                                                                        {criterion.min_gpa && (
-                                                                                            <div className="bg-blue-50 p-2 rounded">
-                                                                                                <span className="font-medium text-blue-700">Min GPA:</span> {criterion.min_gpa}
-                                                                                            </div>
-                                                                                        )}
-                                                                                        {criterion.max_gpa && (
-                                                                                            <div className="bg-green-50 p-2 rounded">
-                                                                                                <span className="font-medium text-green-700">Max GPA:</span> {criterion.max_gpa}
-                                                                                            </div>
-                                                                                        )}
-                                                                                        {criterion.min_grade && (
-                                                                                            <div className="bg-yellow-50 p-2 rounded">
-                                                                                                <span className="font-medium text-yellow-700">Min Grade:</span> {criterion.min_grade}
-                                                                                            </div>
-                                                                                        )}
-                                                                                        {criterion.min_grade_all && (
-                                                                                            <div className="bg-purple-50 p-2 rounded">
-                                                                                                <span className="font-medium text-purple-700">Min Grade (All):</span> {criterion.min_grade_all}
-                                                                                            </div>
-                                                                                        )}
-                                                                                        {criterion.min_year && criterion.max_year && (
-                                                                                            <div className="bg-indigo-50 p-2 rounded">
-                                                                                                <span className="font-medium text-indigo-700">Years:</span> {criterion.min_year}-{criterion.max_year}
-                                                                                            </div>
-                                                                                        )}
-                                                                                        {criterion.require_consistent_honor && (
-                                                                                            <div className="col-span-2">
-                                                                                                <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
-                                                                                                    Requires Consistent Honor Standing
-                                                                                                </Badge>
-                                                                                            </div>
-                                                                                        )}
-                                                                                    </div>
-                                                                                    <div className="flex justify-end mt-4 gap-2">
-                                                                                        <Button variant="outline" size="sm" onClick={() => startEditing(criterion)}>Edit</Button>
-                                                                                        <Button variant="destructive" size="sm" onClick={() => deleteCriterion(criterion.id)}>Delete</Button>
-                                                                                    </div>
-                                                                                </>
-                                                                            )}
-                                                                        </div>
-                                                                    );
-                                                                })}
-                                                            </div>
-                                                        )}
-
-                                                        {/* Honor Results for this level */}
-                                                        <div className="mt-6">
-                                                            <h4 className="text-lg font-semibold mb-4">Honor Roll Results - {schoolYear}</h4>
-                                                            <div className="space-y-4">
-                                                                {(() => {
-                                                                    const grouped = getGroupedResultsForLevel(level.id);
-                                                                    const typeIds = Object.keys(grouped);
-                                                                    if (typeIds.length === 0) {
-                                                                        return <div className="text-sm text-gray-500">No honor results found for this level and school year.</div>;
-                                                                    }
-                                                                    return typeIds.map((typeId) => {
-                                                                        const students = grouped[typeId];
-                                                                        const type = honorTypes.find(t => t.id === Number(typeId));
-                                                                        if (!students || students.length === 0 || !type) return null;
-                                                                        return (
-                                                                            <div key={`${level.id}-${typeId}`} className="border rounded-lg p-4">
-                                                                                <div className="flex items-center gap-2 mb-3">
-                                                                                    <Trophy className="h-4 w-4 text-yellow-600" />
-                                                                                    <h5 className="font-medium">{type.name}</h5>
-                                                                                    <Badge variant="secondary">{students.length} student{students.length !== 1 ? 's' : ''}</Badge>
-                                                                                </div>
-                                                                                <Table>
-                                                                                    <TableHeader>
-                                                                                        <TableRow>
-                                                                                            <TableHead>Student</TableHead>
-                                                                                            <TableHead>Student ID</TableHead>
-                                                                                            <TableHead>GPA</TableHead>
-                                                                                            <TableHead>Status</TableHead>
-                                                                                        </TableRow>
-                                                                                    </TableHeader>
-                                                                                    <TableBody>
-                                                                                        {students.map((result) => (
-                                                                                            <TableRow key={result.id}>
-                                                                                                <TableCell>{result.student.name}</TableCell>
-                                                                                                <TableCell>{result.student.student_number}</TableCell>
-                                                                                                <TableCell>{result.gpa}</TableCell>
-                                                                                                <TableCell>
-                                                                                                    <Badge variant={result.is_overridden ? 'destructive' : 'default'}>
-                                                                                                        {result.is_overridden ? 'Overridden' : 'Qualified'}
-                                                                                                    </Badge>
-                                                                                                </TableCell>
-                                                                                            </TableRow>
-                                                                                        ))}
-                                                                                    </TableBody>
-                                                                                </Table>
-                                                                            </div>
-                                                                        );
-                                                                    });
-                                                                })()}
-                                                            </div>
-                                                        </div>
+                                <div className="flex gap-2">
+                                    <Button onClick={generateHonorRoll} disabled={!selectedLevel || isGenerating}>
+                                        {isGenerating ? 'Generating...' : 'Generate Honor Roll'}
+                                    </Button>
+                                    <Button variant="outline" onClick={exportHonorList} disabled={!selectedLevel}>
+                                        Export Honor List
+                                    </Button>
                                                     </div>
-                                                </TabsContent>
-                                            );
-                                        })
-                                    ) : (<div className="p-4 text-center text-gray-500">No academic levels found. Please check your database configuration.</div>)}
-                                </Tabs>
                             </CardContent>
                         </Card>
                     </div>
