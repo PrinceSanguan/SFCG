@@ -17,13 +17,21 @@ class CheckMaintenanceMode
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // Skip maintenance check for login page and ALL admin routes
-        if ($request->routeIs('auth.login') || $request->routeIs('admin.*')) {
+        // Skip maintenance check for auth routes, home route, and ALL admin routes
+        $path = $request->path();
+        if (str_starts_with($path, 'login') || 
+            str_starts_with($path, 'logout') || 
+            str_starts_with($path, 'register') ||
+            str_starts_with($path, 'auth/') ||
+            str_starts_with($path, 'admin/') ||
+            $path === '' || $path === '/') {
             return $next($request);
         }
 
         // Check if maintenance mode is enabled
-        if (SystemSetting::isMaintenanceMode()) {
+        $isMaintenanceMode = SystemSetting::isMaintenanceMode();
+        
+        if ($isMaintenanceMode) {
             // If user is not authenticated, redirect to maintenance page
             if (!Auth::check()) {
                 return response()->view('maintenance');

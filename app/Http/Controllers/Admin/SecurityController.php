@@ -374,7 +374,19 @@ class SecurityController extends Controller
     public function toggleMaintenanceMode(Request $request)
     {
         try {
+            // Get current state before toggle
+            $currentState = SystemSetting::isMaintenanceMode();
+            
+            // Toggle the maintenance mode
             $isEnabled = SystemSetting::toggleMaintenanceMode();
+            
+            // Verify the toggle worked
+            $newState = SystemSetting::isMaintenanceMode();
+            
+            // If the state didn't change, there might be an issue
+            if ($currentState === $newState) {
+                throw new \Exception('Maintenance mode state did not change. Current state: ' . ($currentState ? 'enabled' : 'disabled'));
+            }
             
             $action = $isEnabled ? 'enabled' : 'disabled';
             $message = $isEnabled 
@@ -387,6 +399,7 @@ class SecurityController extends Controller
                 'entity_type' => 'system',
                 'details' => [
                     'maintenance_mode' => $isEnabled ? 'enabled' : 'disabled',
+                    'previous_state' => $currentState ? 'enabled' : 'disabled',
                     'action_by' => Auth::user()->name,
                     'admin_id' => Auth::id(),
                 ],
@@ -394,8 +407,27 @@ class SecurityController extends Controller
                 'user_agent' => $request->userAgent(),
             ]);
 
+            // If it's an AJAX request, return JSON response
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => $message,
+                    'maintenance_mode' => $isEnabled,
+                    'previous_state' => $currentState
+                ]);
+            }
+
+            // For Inertia requests, redirect back with success message
             return back()->with('success', $message);
         } catch (\Exception $e) {
+            // If it's an AJAX request, return JSON error response
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to toggle maintenance mode: ' . $e->getMessage()
+                ], 500);
+            }
+            
             return back()->with('error', 'Failed to toggle maintenance mode: ' . $e->getMessage());
         }
     }

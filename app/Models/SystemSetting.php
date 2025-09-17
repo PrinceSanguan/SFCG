@@ -67,12 +67,14 @@ class SystemSetting extends Model
      */
     public static function toggleMaintenanceMode(): bool
     {
-        if (static::isMaintenanceMode()) {
+        $currentState = static::isMaintenanceMode();
+        
+        if ($currentState) {
             static::disableMaintenanceMode();
-            return false;
+            return false; // Now disabled
         } else {
             static::enableMaintenanceMode();
-            return true;
+            return true; // Now enabled
         }
     }
 }

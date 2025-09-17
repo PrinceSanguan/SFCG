@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { Header } from '@/components/admin/header';
 import { Sidebar } from '@/components/admin/sidebar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -53,11 +53,19 @@ interface SecurityStats {
     today_logins: number;
 }
 
+interface Backup {
+    filename: string;
+    size: number;
+    size_formatted: string;
+    created_at: string;
+    created_timestamp: number;
+}
+
 interface BackupInfo {
     total_backups: number;
     total_size_formatted: string;
-    latest_backup: Record<string, unknown> | null;
-    backups: Record<string, unknown>[];
+    latest_backup: Backup | null;
+    backups: Backup[];
 }
 
 interface PageProps {
@@ -67,6 +75,10 @@ interface PageProps {
     securityStats: SecurityStats;
     backupInfo: BackupInfo;
     maintenanceMode: boolean;
+    flash?: {
+        success?: string;
+        error?: string;
+    };
 }
 
 export default function SecurityIndex({ 
@@ -75,7 +87,8 @@ export default function SecurityIndex({
     sessionStats, 
     securityStats, 
     backupInfo,
-    maintenanceMode
+    maintenanceMode,
+    flash
 }: PageProps) {
     const [isCreatingBackup, setIsCreatingBackup] = useState(false);
     const [isTogglingMaintenance, setIsTogglingMaintenance] = useState(false);
@@ -97,21 +110,24 @@ export default function SecurityIndex({
         }
     };
 
-    const handleToggleMaintenanceMode = async () => {
+    const handleToggleMaintenanceMode = () => {
         setIsTogglingMaintenance(true);
-        try {
-            await fetch(route('admin.security.toggle-maintenance-mode'), {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-            });
-            window.location.reload();
-        } catch (error) {
-            console.error('Failed to toggle maintenance mode:', error);
-        } finally {
-            setIsTogglingMaintenance(false);
-        }
+        
+        // Use Inertia's router to make the request (handles CSRF automatically)
+        router.post(route('admin.security.toggle-maintenance-mode'), {}, {
+            onSuccess: () => {
+                setIsTogglingMaintenance(false);
+                // The page will reload automatically with the new state
+            },
+            onError: (errors) => {
+                console.error('Failed to toggle maintenance mode:', errors);
+                alert('Failed to toggle maintenance mode. Please try again.');
+                setIsTogglingMaintenance(false);
+            },
+            onFinish: () => {
+                setIsTogglingMaintenance(false);
+            }
+        });
     };
 
 
@@ -164,6 +180,18 @@ export default function SecurityIndex({
                 
                 <main className="flex-1 overflow-y-auto bg-gray-100 p-4 md:p-6 dark:bg-gray-900">
                     <Head title="System Audit & Security" />
+                    
+                    {/* Flash Messages */}
+                    {flash?.success && (
+                        <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
+                            {flash.success}
+                        </div>
+                    )}
+                    {flash?.error && (
+                        <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+                            {flash.error}
+                        </div>
+                    )}
                     
                     <div className="space-y-6">
                 {/* Header */}
