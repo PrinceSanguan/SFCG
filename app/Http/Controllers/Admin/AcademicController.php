@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use App\Models\AcademicLevel;
 use App\Models\Strand;
 use App\Models\Track;
@@ -701,7 +702,14 @@ class AcademicController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:100',
-            'code' => 'required|string|max:20',
+            'code' => [
+                'required',
+                'string',
+                'max:20',
+                Rule::unique('grading_periods')->where(function ($query) use ($request) {
+                    return $query->where('academic_level_id', $request->academic_level_id);
+                })
+            ],
             'type' => 'required|in:quarter,semester',
             'academic_level_id' => 'required|exists:academic_levels,id',
             'parent_id' => 'nullable|exists:grading_periods,id',
@@ -755,7 +763,14 @@ class AcademicController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:100',
-            'code' => 'required|string|max:20',
+            'code' => [
+                'required',
+                'string',
+                'max:20',
+                Rule::unique('grading_periods')->where(function ($query) use ($request) {
+                    return $query->where('academic_level_id', $request->academic_level_id);
+                })->ignore($gradingPeriod->id)
+            ],
             'type' => 'required|in:quarter,semester',
             'academic_level_id' => 'required|exists:academic_levels,id',
             'parent_id' => 'nullable|exists:grading_periods,id',

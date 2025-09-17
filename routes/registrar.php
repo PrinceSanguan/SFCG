@@ -216,7 +216,14 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
     Route::post('/grading-periods', function(\Illuminate\Http\Request $request) {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
-            'code' => ['required', 'string', 'max:20', 'unique:grading_periods,code'],
+            'code' => [
+                'required', 
+                'string', 
+                'max:20', 
+                \Illuminate\Validation\Rule::unique('grading_periods')->where(function ($query) use ($request) {
+                    return $query->where('academic_level_id', $request->academic_level_id);
+                })
+            ],
             'academic_level_id' => ['required', 'exists:academic_levels,id'],
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after:start_date'],
@@ -231,7 +238,14 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
     Route::put('/grading-periods/{gradingPeriod}', function(\Illuminate\Http\Request $request, \App\Models\GradingPeriod $gradingPeriod) {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
-            'code' => ['required', 'string', 'max:20', 'unique:grading_periods,code,' . $gradingPeriod->id],
+            'code' => [
+                'required', 
+                'string', 
+                'max:20', 
+                \Illuminate\Validation\Rule::unique('grading_periods')->where(function ($query) use ($request) {
+                    return $query->where('academic_level_id', $request->academic_level_id);
+                })->ignore($gradingPeriod->id)
+            ],
             'academic_level_id' => ['required', 'exists:academic_levels,id'],
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after:start_date'],
