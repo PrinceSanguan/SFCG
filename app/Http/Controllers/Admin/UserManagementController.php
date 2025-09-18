@@ -675,10 +675,11 @@ class UserManagementController extends Controller
             $assignedSubjects = \App\Models\StudentSubjectAssignment::with([
                 'subject.course',
                 'subject.academicLevel',
-                'subject.teacherAssignments.teacher' => function ($query) use ($currentSchoolYear) {
+                'subject.teacherAssignments' => function ($query) use ($currentSchoolYear) {
                     $query->where('school_year', $currentSchoolYear)
                           ->where('is_active', true);
-                }
+                },
+                'subject.teacherAssignments.teacher'
             ])
             ->where('student_id', $user->id)
             ->where('school_year', $currentSchoolYear)
@@ -774,7 +775,8 @@ class UserManagementController extends Controller
             // Load adviser class assignments
             $adviserClassAssignments = \App\Models\ClassAdviserAssignment::with([
                 'academicLevel',
-                'subject'
+                'subject',
+                'adviser'
             ])
             ->where('adviser_id', $user->id)
             ->where('school_year', $currentSchoolYear)
@@ -810,6 +812,26 @@ class UserManagementController extends Controller
 
         $folderName = $this->getRoleFolderName($role);
 
+        // Transform adviserClassAssignments to ensure all relationships are properly included
+        $transformedAdviserClassAssignments = $adviserClassAssignments ? $adviserClassAssignments->map(function ($assignment) {
+            return [
+                'id' => $assignment->id,
+                'academic_level_id' => $assignment->academic_level_id,
+                'grade_level' => $assignment->grade_level,
+                'section' => $assignment->section,
+                'school_year' => $assignment->school_year,
+                'is_active' => $assignment->is_active,
+                'assigned_at' => $assignment->assigned_at,
+                'assigned_by' => $assignment->assigned_by,
+                'created_at' => $assignment->created_at,
+                'updated_at' => $assignment->updated_at,
+                'subject_id' => $assignment->subject_id,
+                'academicLevel' => $assignment->academicLevel,
+                'subject' => $assignment->subject,
+                'adviser' => $assignment->adviser,
+            ];
+        }) : collect();
+
         return Inertia::render('Admin/AccountManagement/' . $folderName . '/View', [
             'user' => Auth::user(),
             'targetUser' => $user,
@@ -820,7 +842,7 @@ class UserManagementController extends Controller
             'subjectGrades' => $subjectGrades,
             'teacherSubjectAssignments' => $teacherSubjectAssignments,
             'instructorSubjectAssignments' => $instructorSubjectAssignments,
-            'adviserClassAssignments' => $adviserClassAssignments,
+            'adviserClassAssignments' => $transformedAdviserClassAssignments,
             'assignedStudents' => $assignedStudents,
             'currentSchoolYear' => $currentSchoolYear,
         ]);

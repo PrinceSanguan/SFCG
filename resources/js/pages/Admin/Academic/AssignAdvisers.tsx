@@ -57,6 +57,7 @@ interface Props {
 
 export default function AssignAdvisers({ user, assignments, advisers, subjects, academicLevels }: Props) {
     const { addToast } = useToast();
+    
     const [assignmentForm, setAssignmentForm] = useState({
         adviser_id: '',
         subject_id: '',
@@ -114,6 +115,7 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
     const relevantAssignments = assignments.filter(assignment => 
         relevantLevels.some(level => level.id === assignment.academic_level_id)
     );
+    
 
     const schoolYearOptions = [
         '2024-2025',

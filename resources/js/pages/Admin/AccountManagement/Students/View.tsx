@@ -498,11 +498,11 @@ export default function ViewStudent({ user, targetUser, activityLogs, assignedSu
                                                 <div key={assignment.id} className="border rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
                                                     <div className="flex items-start justify-between mb-3">
                                                         <div className="flex-1">
-                                                            <h4 className="font-semibold text-lg">{assignment.subject.name}</h4>
+                                                            <h4 className="font-semibold text-lg">{assignment.subject?.name || 'N/A'}</h4>
                                                             <p className="text-sm text-gray-600 dark:text-gray-400">
-                                                                {assignment.subject.code} • {assignment.subject.units || 0} units
+                                                                {assignment.subject?.code || 'N/A'} • {assignment.subject?.units || 0} units
                                                             </p>
-                                                            {assignment.subject.description && (
+                                                            {assignment.subject?.description && (
                                                                 <p className="text-sm text-gray-500 mt-1">{assignment.subject.description}</p>
                                                             )}
                                                         </div>
@@ -525,7 +525,7 @@ export default function ViewStudent({ user, targetUser, activityLogs, assignedSu
                                                         <div className="flex items-center gap-2 mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
                                                             <Users className="h-4 w-4 text-blue-600" />
                                                             <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                                                                Teacher: {teacher.name}
+                                                                Teacher: {teacher?.name || 'N/A'}
                                                             </span>
                                                         </div>
                                                     )}
@@ -541,7 +541,7 @@ export default function ViewStudent({ user, targetUser, activityLogs, assignedSu
                                                                 {grades.map((grade) => (
                                                                     <div key={grade.id} className="flex items-center justify-between p-2 bg-white dark:bg-gray-700 rounded border">
                                                                         <div>
-                                                                            <span className="text-sm font-medium">{grade.gradingPeriod.name}</span>
+                                                                            <span className="text-sm font-medium">{grade.gradingPeriod?.name || 'N/A'}</span>
                                                                             <div className="flex items-center gap-2">
                                                                                 <span className={`text-lg font-bold ${
                                                                                     grade.grade >= 90 ? 'text-green-600' :
@@ -559,7 +559,7 @@ export default function ViewStudent({ user, targetUser, activityLogs, assignedSu
                                                                         </div>
                                                                         {grade.validatedBy && (
                                                                             <div className="text-xs text-gray-500">
-                                                                                Validated by {grade.validatedBy.name}
+                                                                                Validated by {grade.validatedBy?.name || 'N/A'}
                                                                             </div>
                                                                         )}
                                                                     </div>
@@ -591,8 +591,8 @@ export default function ViewStudent({ user, targetUser, activityLogs, assignedSu
                                         {targetUser.parents.map((p) => (
                                             <div key={p.id} className="flex items-center justify-between border rounded p-2">
                                                 <div className="flex flex-col">
-                                                    <span className="font-medium">{p.name}</span>
-                                                    <span className="text-xs text-gray-500">{p.email}</span>
+                                                    <span className="font-medium">{p?.name || 'N/A'}</span>
+                                                    <span className="text-xs text-gray-500">{p?.email || 'N/A'}</span>
                                                 </div>
                                                 <Link href={route('admin.parents.show', p.id)}>
                                                     <Button variant="outline" size="sm">View Parent</Button>
@@ -654,9 +654,9 @@ export default function ViewStudent({ user, targetUser, activityLogs, assignedSu
                                                                 {formatActionText(log.action)}
                                                             </p>
                                                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                                                Performed by: <span className="font-medium">{log.user.name}</span>
+                                                                Performed by: <span className="font-medium">{log.user?.name || 'N/A'}</span>
                                                                 {log.target_user && log.target_user.id !== log.user.id && (
-                                                                    <span> • Target: <span className="font-medium">{log.target_user.name}</span></span>
+                                                                    <span> • Target: <span className="font-medium">{log.target_user?.name || 'N/A'}</span></span>
                                                                 )}
                                                             </p>
                                                             {log.ip_address && (

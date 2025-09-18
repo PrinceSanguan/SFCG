@@ -179,17 +179,40 @@ class AcademicController extends Controller
         
         $assignments = ClassAdviserAssignment::with([
             'adviser', 
-            'academicLevel'
+            'academicLevel',
+            'subject'
         ])->whereIn('academic_level_id', [$elementaryLevel->id, $jhsLevel->id])
           ->orderBy('school_year', 'desc')->get();
         
-        $advisers = User::where('user_role', 'adviser')->orderBy('name')->get();
+        $advisers = User::whereIn('user_role', ['adviser', 'teacher'])->orderBy('name')->get();
         $subjects = Subject::whereIn('academic_level_id', [$elementaryLevel->id, $jhsLevel->id])->orderBy('name')->get();
         $academicLevels = AcademicLevel::orderBy('sort_order')->get();
         
+        // Transform assignments to ensure academic level data is included
+        $transformedAssignments = $assignments->map(function ($assignment) {
+            return [
+                'id' => $assignment->id,
+                'adviser_id' => $assignment->adviser_id,
+                'academic_level_id' => $assignment->academic_level_id,
+                'grade_level' => $assignment->grade_level,
+                'section' => $assignment->section,
+                'school_year' => $assignment->school_year,
+                'notes' => $assignment->notes,
+                'is_active' => $assignment->is_active,
+                'assigned_at' => $assignment->assigned_at,
+                'assigned_by' => $assignment->assigned_by,
+                'created_at' => $assignment->created_at,
+                'updated_at' => $assignment->updated_at,
+                'subject_id' => $assignment->subject_id,
+                'adviser' => $assignment->adviser,
+                'academicLevel' => $assignment->academicLevel,
+                'subject' => $assignment->subject,
+            ];
+        });
+
         return Inertia::render('Admin/Academic/AssignAdvisers', [
             'user' => $this->sharedUser(),
-            'assignments' => $assignments,
+            'assignments' => $transformedAssignments,
             'advisers' => $advisers,
             'subjects' => $subjects,
             'academicLevels' => $academicLevels,
@@ -1320,8 +1343,8 @@ class AcademicController extends Controller
 
         // Check if adviser has the correct role
         $adviser = User::find($request->adviser_id);
-        if (!$adviser || $adviser->user_role !== 'adviser') {
-            return back()->with('error', 'Selected user is not an adviser.');
+        if (!$adviser || !in_array($adviser->user_role, ['adviser', 'teacher'])) {
+            return back()->with('error', 'Selected user is not an adviser or teacher.');
         }
 
         $assignment = ClassAdviserAssignment::create([
@@ -1371,8 +1394,8 @@ class AcademicController extends Controller
 
         // Check if adviser has the correct role
         $adviser = User::find($request->adviser_id);
-        if (!$adviser || $adviser->user_role !== 'adviser') {
-            return back()->with('error', 'Selected user is not an adviser.');
+        if (!$adviser || !in_array($adviser->user_role, ['adviser', 'teacher'])) {
+            return back()->with('error', 'Selected user is not an adviser or teacher.');
         }
 
         $assignment->update([

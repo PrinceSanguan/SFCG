@@ -54,6 +54,10 @@ interface AdviserClassAssignment {
         name: string;
         code: string;
     };
+    adviser?: {
+        id: number;
+        name: string;
+    };
     grade_level: string;
     section: string;
     school_year: string;
@@ -367,7 +371,10 @@ export default function ViewAdviser({ user, targetUser, activityLogs, adviserCla
                                                             Grade {assignment.grade_level} - Section {assignment.section}
                                                         </h4>
                                                         <p className="text-sm text-gray-600 dark:text-gray-400">
-                                                            {assignment.academicLevel?.name || 'N/A'}
+                                                            Adviser: {assignment.adviser?.name || 'N/A'}
+                                                        </p>
+                                                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                                                            Level: {assignment.academicLevel?.name || 'N/A'}
                                                         </p>
                                                         {assignment.subject && (
                                                             <p className="text-sm text-gray-500 mt-1">
