@@ -281,6 +281,7 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/aca
     // Honors
     Route::get('/honors', [AcademicController::class, 'honors'])->name('honors');
     Route::get('/honors/elementary', [AcademicController::class, 'elementaryHonors'])->name('honors.elementary');
+    Route::post('/honors/elementary/calculate', [AcademicController::class, 'calculateElementaryStudentHonor'])->name('honors.elementary.calculate');
     Route::get('/honors/junior-high-school', [AcademicController::class, 'juniorHighSchoolHonors'])->name('honors.junior-high-school');
     Route::get('/honors/senior-high-school', [AcademicController::class, 'seniorHighSchoolHonors'])->name('honors.senior-high-school');
     Route::get('/honors/college', [AcademicController::class, 'collegeHonors'])->name('honors.college');

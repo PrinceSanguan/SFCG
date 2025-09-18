@@ -319,6 +319,44 @@ class AcademicController extends Controller
         ]);
     }
 
+    public function calculateElementaryStudentHonor(Request $request)
+    {
+        $validated = $request->validate([
+            'student_id' => 'required|string',
+            'academic_level_id' => 'required|exists:academic_levels,id',
+            'school_year' => 'required|string',
+        ]);
+
+        // Find student by ID or student number
+        $student = null;
+        if (is_numeric($validated['student_id'])) {
+            $student = User::find($validated['student_id']);
+        } else {
+            $student = User::where('student_number', $validated['student_id'])
+                ->orWhere('email', $validated['student_id'])
+                ->first();
+        }
+
+        if (!$student || $student->user_role !== 'student') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Student not found. Please check the Student ID.'
+            ]);
+        }
+
+        $elementaryService = new \App\Services\ElementaryHonorCalculationService();
+        $result = $elementaryService->getStudentHonorCalculation(
+            $student->id,
+            $validated['academic_level_id'],
+            $validated['school_year']
+        );
+
+        return response()->json([
+            'success' => true,
+            'data' => $result
+        ]);
+    }
+
     public function juniorHighSchoolHonors()
     {
         $honorTypes = HonorType::orderBy('scope')->orderBy('name')->get();
@@ -466,6 +504,26 @@ class AcademicController extends Controller
         ]);
 
         $level = AcademicLevel::findOrFail($validated['academic_level_id']);
+        
+        // Use specialized calculation for elementary students
+        if ($level->key === 'elementary') {
+            $elementaryService = new \App\Services\ElementaryHonorCalculationService();
+            $result = $elementaryService->generateElementaryHonorResults($level->id, $validated['school_year']);
+            
+            return response()->json([
+                'success' => $result['success'],
+                'message' => $result['message'],
+                'data' => [
+                    'academic_level' => $level->name,
+                    'school_year' => $validated['school_year'],
+                    'total_processed' => $result['total_processed'],
+                    'total_qualified' => $result['total_qualified'],
+                    'results' => $result['results'],
+                ]
+            ]);
+        }
+        
+        // Use standard calculation for other academic levels
         $criteria = HonorCriterion::where('academic_level_id', $level->id)->get();
         
         $honorResults = [];
