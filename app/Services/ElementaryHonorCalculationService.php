@@ -116,6 +116,17 @@ class ElementaryHonorCalculationService
             }
         }
 
+        // For elementary, return only the highest honor achieved
+        if (!empty($qualifications)) {
+            // Sort by min_grade in descending order to get the highest honor first
+            usort($qualifications, function($a, $b) {
+                return $b['criterion']->min_grade <=> $a['criterion']->min_grade;
+            });
+            
+            // Return only the highest honor
+            $qualifications = [array_shift($qualifications)];
+        }
+
         $qualified = !empty($qualifications);
         
         return [
