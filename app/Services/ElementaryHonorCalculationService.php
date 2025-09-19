@@ -107,6 +107,7 @@ class ElementaryHonorCalculationService
                 $qualifications[] = [
                     'criterion' => $criterion,
                     'honor_type' => $criterion->honorType,
+                    'status' => 'qualified',
                     'average_grade' => $averageGrade,
                     'min_grade' => $minGrade,
                     'total_quarters' => count($quarterAverages),
