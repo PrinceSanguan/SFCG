@@ -190,7 +190,19 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
     // Get grading periods by academic level
     const getGradingPeriodsByLevel = (levelId: number) => gradingPeriods.filter(gp => gp.academic_level_id === levelId);
     const getSemestersByLevel = (levelId: number) => gradingPeriods.filter(gp => gp.academic_level_id === levelId && (gp.parent_id == null) && ((gp.type === 'semester') || /semester/i.test(gp.name)));
-    const getPeriodsBySemester = (semesterId?: string) => gradingPeriods.filter(gp => semesterId && gp.parent_id?.toString() === semesterId);
+    const getPeriodsBySemester = (semesterId?: string) => {
+        if (!semesterId) return [];
+        
+        // Get the semester to find its academic level
+        const semester = gradingPeriods.find(gp => gp.id.toString() === semesterId);
+        if (!semester) return [];
+        
+        // Filter periods by parent_id and same academic level as the semester
+        return gradingPeriods.filter(gp => 
+            gp.parent_id?.toString() === semesterId && 
+            gp.academic_level_id === semester.academic_level_id
+        );
+    };
 
     // Grade level options for elementary
     const elementaryGradeLevels = [
@@ -832,11 +844,29 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                                 <SelectValue placeholder="Select period (optional)" />
                                                             </SelectTrigger>
                                                             <SelectContent>
-                                                                {getPeriodsBySemester(subjectForm.semester_id).map((gp) => (
-                                                                    <SelectItem key={gp.id} value={gp.id.toString()}>
-                                                                        {gp.name}
-                                                                    </SelectItem>
-                                                                ))}
+                                                                {(() => {
+                                                                    const periods = getPeriodsBySemester(subjectForm.semester_id);
+                                                                    if (periods.length === 0) return null;
+                                                                    
+                                                                    // Get the semester info
+                                                                    const semester = gradingPeriods.find(gp => gp.id.toString() === subjectForm.semester_id);
+                                                                    if (!semester) return null;
+                                                                    
+                                                                    return (
+                                                                        <>
+                                                                            {/* Semester Header */}
+                                                                            <div className="px-2 py-1.5 text-sm font-semibold text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-800 border-b">
+                                                                                📅 {semester.name}
+                                                                            </div>
+                                                                            {/* Periods under this semester */}
+                                                                            {periods.map((gp) => (
+                                                                                <SelectItem key={gp.id} value={gp.id.toString()} className="pl-6">
+                                                                                    {gp.name}
+                                                                                </SelectItem>
+                                                                            ))}
+                                                                        </>
+                                                                    );
+                                                                })()}
                                                             </SelectContent>
                                                         </Select>
                                                     </div>
@@ -865,12 +895,13 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                                 </SelectTrigger>
                                                                 <SelectContent>
                                                                     {(() => {
-                                                                        // Filter sections by senior high school level, track, and strand
+                                                                        // Filter sections by senior high school level, track, strand, and grade level
                                                                         const shsSections = sections.filter(section => {
                                                                             const level = academicLevels.find(l => l.id === section.academic_level_id);
                                                                             return level?.key === 'senior_highschool' && 
                                                                                    section.track_id?.toString() === subjectForm.track_id &&
-                                                                                   section.strand_id?.toString() === subjectForm.strand_id;
+                                                                                   section.strand_id?.toString() === subjectForm.strand_id &&
+                                                                                   section.specific_year_level === subjectForm.shs_year_level;
                                                                         });
                                                                         
                                                                         return shsSections.map((section) => (
@@ -1570,12 +1601,47 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                     <SelectValue placeholder="Select period (optional)" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    {editSubject.academic_level_id && gradingPeriods
-                                                        .filter(p => p.academic_level_id === editSubject.academic_level_id)
-                                                        .filter(p => p.parent_id != null) // only child periods under semesters
-                                                        .map((gp) => (
-                                                            <SelectItem key={gp.id} value={gp.id.toString()}>{gp.name}</SelectItem>
-                                                        ))}
+                                                    {(() => {
+                                                        if (!editSubject.academic_level_id) return null;
+                                                        
+                                                        const shsPeriods = gradingPeriods
+                                                            .filter(p => p.academic_level_id === editSubject.academic_level_id)
+                                                            .filter(p => p.parent_id != null); // only child periods under semesters
+                                                        
+                                                        if (shsPeriods.length === 0) return null;
+                                                        
+                                                        // Group periods by their parent semester
+                                                        const periodsBySemester: Record<string, typeof shsPeriods> = {};
+                                                        shsPeriods.forEach(period => {
+                                                            const parentId = period.parent_id?.toString();
+                                                            if (parentId) {
+                                                                if (!periodsBySemester[parentId]) {
+                                                                    periodsBySemester[parentId] = [];
+                                                                }
+                                                                periodsBySemester[parentId].push(period);
+                                                            }
+                                                        });
+                                                        
+                                                        return Object.entries(periodsBySemester).map(([parentId, periods]) => {
+                                                            const semester = gradingPeriods.find(gp => gp.id.toString() === parentId);
+                                                            if (!semester) return null;
+                                                            
+                                                            return (
+                                                                <div key={parentId}>
+                                                                    {/* Semester Header */}
+                                                                    <div className="px-2 py-1.5 text-sm font-semibold text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-800 border-b">
+                                                                        📅 {semester.name}
+                                                                    </div>
+                                                                    {/* Periods under this semester */}
+                                                                    {periods.map((gp) => (
+                                                                        <SelectItem key={gp.id} value={gp.id.toString()} className="pl-6">
+                                                                            {gp.name}
+                                                                        </SelectItem>
+                                                                    ))}
+                                                                </div>
+                                                            );
+                                                        });
+                                                    })()}
                                                 </SelectContent>
                                             </Select>
                                         </div>
