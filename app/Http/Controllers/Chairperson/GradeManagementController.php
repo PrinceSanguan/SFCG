@@ -35,28 +35,56 @@ class GradeManagementController extends Controller
             ]);
         }
         
+        // Get latest grade for each student-subject combination (excluding pending grades)
+        // Only show grades that are either approved or returned, not pending
         $grades = StudentGrade::whereHas('subject.course', function ($query) use ($departmentId) {
                 $query->where('department_id', $departmentId);
             })
-            ->with(['student', 'subject.course.department', 'academicLevel', 'gradingPeriod'])
-            ->latest('submitted_at')
+            ->where(function ($query) {
+                $query->where('is_approved', true)
+                      ->orWhere('is_returned', true);
+            })
+            ->with(['student', 'subject.course.department', 'academicLevel'])
+            ->select('student_id', 'subject_id', 'academic_level_id', 'school_year')
+            ->selectRaw('MAX(id) as id') // Get the latest grade ID
+            ->selectRaw('MAX(grade) as grade')
+            ->selectRaw('MAX(CASE WHEN is_approved = true THEN 1 ELSE 0 END) as is_approved')
+            ->selectRaw('MAX(CASE WHEN is_submitted_for_validation = true THEN 1 ELSE 0 END) as is_submitted_for_validation')
+            ->selectRaw('MAX(CASE WHEN is_returned = true THEN 1 ELSE 0 END) as is_returned')
+            ->selectRaw('MAX(submitted_at) as submitted_at')
+            ->selectRaw('MAX(approved_at) as approved_at')
+            ->selectRaw('MAX(returned_at) as returned_at')
+            ->groupBy('student_id', 'subject_id', 'academic_level_id', 'school_year')
+            ->orderByRaw('MAX(created_at) DESC')
             ->paginate(20);
         
+        // Calculate stats for grouped data (unique student-subject combinations)
         $stats = [
-            'pending' => StudentGrade::where('is_submitted_for_validation', true)
-                ->whereHas('subject.course', function ($query) use ($departmentId) {
+            'pending' => StudentGrade::whereHas('subject.course', function ($query) use ($departmentId) {
                     $query->where('department_id', $departmentId);
                 })
+                ->where('is_submitted_for_validation', true)
+                ->where('is_approved', false)
+                ->where('is_returned', false)
+                ->select('student_id', 'subject_id', 'academic_level_id', 'school_year')
+                ->groupBy('student_id', 'subject_id', 'academic_level_id', 'school_year')
+                ->get()
                 ->count(),
-            'approved' => StudentGrade::where('is_approved', true)
-                ->whereHas('subject.course', function ($query) use ($departmentId) {
+            'approved' => StudentGrade::whereHas('subject.course', function ($query) use ($departmentId) {
                     $query->where('department_id', $departmentId);
                 })
+                ->where('is_approved', true)
+                ->select('student_id', 'subject_id', 'academic_level_id', 'school_year')
+                ->groupBy('student_id', 'subject_id', 'academic_level_id', 'school_year')
+                ->get()
                 ->count(),
-            'returned' => StudentGrade::where('is_returned', true)
-                ->whereHas('subject.course', function ($query) use ($departmentId) {
+            'returned' => StudentGrade::whereHas('subject.course', function ($query) use ($departmentId) {
                     $query->where('department_id', $departmentId);
                 })
+                ->where('is_returned', true)
+                ->select('student_id', 'subject_id', 'academic_level_id', 'school_year')
+                ->groupBy('student_id', 'subject_id', 'academic_level_id', 'school_year')
+                ->get()
                 ->count(),
         ];
         
@@ -91,8 +119,16 @@ class GradeManagementController extends Controller
             ->whereHas('subject.course', function ($query) use ($departmentId) {
                 $query->where('department_id', $departmentId);
             })
-            ->with(['student', 'subject.course.department', 'academicLevel', 'gradingPeriod'])
-            ->latest('submitted_at')
+            ->with(['student', 'subject.course.department', 'academicLevel'])
+            ->select('student_id', 'subject_id', 'academic_level_id', 'school_year')
+            ->selectRaw('MAX(id) as id')
+            ->selectRaw('MAX(grade) as grade')
+            ->selectRaw('MAX(CASE WHEN is_approved = true THEN 1 ELSE 0 END) as is_approved')
+            ->selectRaw('MAX(CASE WHEN is_submitted_for_validation = true THEN 1 ELSE 0 END) as is_submitted_for_validation')
+            ->selectRaw('MAX(CASE WHEN is_returned = true THEN 1 ELSE 0 END) as is_returned')
+            ->selectRaw('MAX(submitted_at) as submitted_at')
+            ->groupBy('student_id', 'subject_id', 'academic_level_id', 'school_year')
+            ->orderByRaw('MAX(submitted_at) DESC')
             ->paginate(20);
         
         return Inertia::render('Chairperson/Grades/Pending', [

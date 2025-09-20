@@ -28,9 +28,19 @@ interface Grade {
         };
     };
     academicLevel: {
+        id: number;
+        name: string;
+    };
+    academic_level?: {
+        id: number;
         name: string;
     };
     gradingPeriod?: {
+        id: number;
+        name: string;
+    };
+    grading_period?: {
+        id: number;
         name: string;
     };
     grade: number;
@@ -41,6 +51,10 @@ interface Grade {
     submitted_at?: string;
     approved_at?: string;
     returned_at?: string;
+    // New fields for grouped data
+    student_id?: number;
+    subject_id?: number;
+    academic_level_id?: number;
 }
 
 interface Stats {
@@ -79,10 +93,8 @@ export default function GradesIndex({ user, grades, stats }: GradesIndexProps) {
         if (grade.is_approved) {
             return <Badge variant="default">Approved</Badge>;
         }
-        if (grade.is_submitted_for_validation) {
-            return <Badge variant="secondary">Pending</Badge>;
-        }
-        return <Badge variant="outline">Draft</Badge>;
+        // All non-approved grades should show as Pending
+        return <Badge variant="secondary">Pending</Badge>;
     };
 
     const getStatusIcon = (grade: Grade) => {
@@ -92,10 +104,8 @@ export default function GradesIndex({ user, grades, stats }: GradesIndexProps) {
         if (grade.is_approved) {
             return <CheckCircle className="h-4 w-4 text-green-500" />;
         }
-        if (grade.is_submitted_for_validation) {
-            return <Clock className="h-4 w-4 text-yellow-500" />;
-        }
-        return <GraduationCap className="h-4 w-4 text-gray-500" />;
+        // All non-approved grades should show pending icon
+        return <Clock className="h-4 w-4 text-yellow-500" />;
     };
 
     return (
@@ -190,9 +200,8 @@ export default function GradesIndex({ user, grades, stats }: GradesIndexProps) {
                                                 <tr className="border-b">
                                                     <th className="text-left p-2">Student</th>
                                                     <th className="text-left p-2">Subject</th>
-                                                    <th className="text-left p-2">Grade</th>
+                                                    <th className="text-left p-2">Latest Grade</th>
                                                     <th className="text-left p-2">Academic Level</th>
-                                                    <th className="text-left p-2">Grading Period</th>
                                                     <th className="text-left p-2">School Year</th>
                                                     <th className="text-left p-2">Status</th>
                                                     <th className="text-left p-2">Actions</th>
@@ -214,8 +223,7 @@ export default function GradesIndex({ user, grades, stats }: GradesIndexProps) {
                                                             </div>
                                                         </td>
                                                         <td className="p-2 font-medium">{grade.grade}</td>
-                                                        <td className="p-2">{grade.academicLevel?.name || 'N/A'}</td>
-                                                        <td className="p-2">{grade.gradingPeriod?.name || 'N/A'}</td>
+                                                        <td className="p-2">{grade.academic_level?.name || grade.academicLevel?.name || 'N/A'}</td>
                                                         <td className="p-2">{grade.school_year}</td>
                                                         <td className="p-2">
                                                             <div className="flex items-center gap-2">

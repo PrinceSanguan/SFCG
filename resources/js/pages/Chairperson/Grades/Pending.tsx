@@ -31,9 +31,19 @@ interface Grade {
         };
     };
     academicLevel: {
+        id: number;
+        name: string;
+    };
+    academic_level?: {
+        id: number;
         name: string;
     };
     gradingPeriod?: {
+        id: number;
+        name: string;
+    };
+    grading_period?: {
+        id: number;
         name: string;
     };
     grade: number;
@@ -162,9 +172,8 @@ export default function PendingGrades({ user, grades }: PendingGradesProps) {
                                                 <tr className="border-b">
                                                     <th className="text-left p-2">Student</th>
                                                     <th className="text-left p-2">Subject</th>
-                                                    <th className="text-left p-2">Grade</th>
+                                                    <th className="text-left p-2">Latest Grade</th>
                                                     <th className="text-left p-2">Academic Level</th>
-                                                    <th className="text-left p-2">Grading Period</th>
                                                     <th className="text-left p-2">School Year</th>
                                                     <th className="text-left p-2">Submitted</th>
                                                     <th className="text-left p-2">Actions</th>
@@ -186,8 +195,7 @@ export default function PendingGrades({ user, grades }: PendingGradesProps) {
                                                             </div>
                                                         </td>
                                                         <td className="p-2 font-medium">{grade.grade}</td>
-                                                        <td className="p-2">{grade.academicLevel?.name || 'N/A'}</td>
-                                                        <td className="p-2">{grade.gradingPeriod?.name || 'N/A'}</td>
+                                                        <td className="p-2">{grade.academic_level?.name || grade.academicLevel?.name || 'N/A'}</td>
                                                         <td className="p-2">{grade.school_year}</td>
                                                         <td className="p-2">
                                                             {grade.submitted_at ? (
