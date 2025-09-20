@@ -532,39 +532,75 @@ export default function ViewStudent({ user, targetUser, activityLogs, assignedSu
 
                                                     {/* Grades Section */}
                                                     {grades.length > 0 ? (
-                                                        <div className="space-y-2">
+                                                        <div className="space-y-3">
                                                             <h5 className="font-medium text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2">
                                                                 <Award className="h-4 w-4" />
-                                                                Grades
+                                                                Grades by Quarter
                                                             </h5>
-                                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                                                                {grades.map((grade) => (
-                                                                    <div key={grade.id} className="flex items-center justify-between p-2 bg-white dark:bg-gray-700 rounded border">
-                                                                        <div>
-                                                                            <span className="text-sm font-medium">{grade.gradingPeriod?.name || 'N/A'}</span>
-                                                                            <div className="flex items-center gap-2">
-                                                                                <span className={`text-lg font-bold ${
-                                                                                    grade.grade >= 90 ? 'text-green-600' :
-                                                                                    grade.grade >= 80 ? 'text-yellow-600' :
-                                                                                    grade.grade >= 70 ? 'text-orange-600' : 'text-red-600'
-                                                                                }`}>
-                                                                                    {grade.grade}
-                                                                                </span>
-                                                                                {grade.is_approved && (
-                                                                                    <Badge variant="default" className="text-xs">
-                                                                                        Approved
-                                                                                    </Badge>
-                                                                                )}
-                                                                            </div>
-                                                                        </div>
-                                                                        {grade.validatedBy && (
-                                                                            <div className="text-xs text-gray-500">
-                                                                                Validated by {grade.validatedBy?.name || 'N/A'}
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-                                                                ))}
+                                                            
+                                                            {/* Table format for better organization */}
+                                                            <div className="overflow-x-auto">
+                                                                <table className="w-full text-sm border-collapse border border-gray-300">
+                                                                    <thead>
+                                                                        <tr className="bg-gray-100 dark:bg-gray-700">
+                                                                            <th className="border border-gray-300 p-2 text-left">Quarter</th>
+                                                                            <th className="border border-gray-300 p-2 text-center">Grade</th>
+                                                                            <th className="border border-gray-300 p-2 text-center">Status</th>
+                                                                            <th className="border border-gray-300 p-2 text-center">Validated By</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        {grades
+                                                                            .sort((a, b) => {
+                                                                                // Sort by quarter order (Q1, Q2, Q3, Q4)
+                                                                                const quarterOrder = ['Q1', 'Q2', 'Q3', 'Q4'];
+                                                                                const aQuarter = a.grading_period?.code || a.gradingPeriod?.code || '';
+                                                                                const bQuarter = b.grading_period?.code || b.gradingPeriod?.code || '';
+                                                                                return quarterOrder.indexOf(aQuarter) - quarterOrder.indexOf(bQuarter);
+                                                                            })
+                                                                            .map((grade) => (
+                                                                            <tr key={grade.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                                                                <td className="border border-gray-300 p-2 font-medium">
+                                                                                    {grade.grading_period?.name || grade.gradingPeriod?.name || 'N/A'}
+                                                                                </td>
+                                                                                <td className="border border-gray-300 p-2 text-center">
+                                                                                    <span className={`text-lg font-bold ${
+                                                                                        grade.grade >= 90 ? 'text-green-600' :
+                                                                                        grade.grade >= 80 ? 'text-yellow-600' :
+                                                                                        grade.grade >= 70 ? 'text-orange-600' : 'text-red-600'
+                                                                                    }`}>
+                                                                                        {grade.grade}
+                                                                                    </span>
+                                                                                </td>
+                                                                                <td className="border border-gray-300 p-2 text-center">
+                                                                                    {grade.is_approved ? (
+                                                                                        <Badge variant="default" className="text-xs">
+                                                                                            Approved
+                                                                                        </Badge>
+                                                                                    ) : (
+                                                                                        <Badge variant="outline" className="text-xs">
+                                                                                            Pending
+                                                                                        </Badge>
+                                                                                    )}
+                                                                                </td>
+                                                                                <td className="border border-gray-300 p-2 text-center text-xs text-gray-500">
+                                                                                    {grade.validated_by?.name || grade.validatedBy?.name || 'Not Validated'}
+                                                                                </td>
+                                                                            </tr>
+                                                                        ))}
+                                                                    </tbody>
+                                                                </table>
                                                             </div>
+                                                            
+                                                            {/* Summary row */}
+                                                            {grades.length > 0 && (
+                                                                <div className="flex justify-between items-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded border">
+                                                                    <span className="font-medium text-sm">Subject Average:</span>
+                                                                    <span className="text-lg font-bold text-blue-600">
+                                                                        {(grades.reduce((sum, grade) => sum + grade.grade, 0) / grades.length).toFixed(2)}
+                                                                    </span>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     ) : (
                                                         <div className="text-center py-4 text-gray-500 dark:text-gray-400">

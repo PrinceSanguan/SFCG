@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from '@inertiajs/react';
 import { Header } from '@/components/admin/header';
 import { Sidebar } from '@/components/admin/sidebar';
@@ -39,14 +39,47 @@ interface HonorCriterion {
     honorType: HonorType;
 }
 
+interface QualifiedStudent {
+    student: {
+        id: number;
+        name: string;
+        student_number: string;
+        email: string;
+    };
+    average_grade: number;
+    min_grade: number;
+    total_quarters: number;
+    honor_type: {
+        id: number;
+        name: string;
+        scope: string;
+    };
+    grades_breakdown: any;
+}
+
 interface Props {
     user: User;
     honorTypes: HonorType[];
     criteria: HonorCriterion[];
     schoolYears: string[];
+    qualifiedStudents?: QualifiedStudent[];
+    currentSchoolYear?: string;
+    cacheBuster?: number;
 }
 
-export default function ElementaryHonors({ user, honorTypes, criteria, schoolYears }: Props) {
+export default function ElementaryHonors({ user, honorTypes, criteria, schoolYears, qualifiedStudents, currentSchoolYear, cacheBuster }: Props) {
+    // Fallback for undefined props
+    const safeQualifiedStudents = qualifiedStudents || [];
+    const safeCurrentSchoolYear = currentSchoolYear || '2024-2025';
+    
+    // Force unique rendering by using cacheBuster
+    const renderKey = cacheBuster || Date.now();
+    
+    // Force refresh when cacheBuster changes
+    useEffect(() => {
+        // Component will re-render when cacheBuster changes
+    }, [cacheBuster]);
+    
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const [editingCriterion, setEditingCriterion] = useState<HonorCriterion | null>(null);
     const [editForm, setEditForm] = useState({
@@ -65,11 +98,8 @@ export default function ElementaryHonors({ user, honorTypes, criteria, schoolYea
         key: '',
         scope: 'basic'
     });
-    const [showTestCalculation, setShowTestCalculation] = useState(false);
-    const [testStudentId, setTestStudentId] = useState('');
-    const [testSchoolYear, setTestSchoolYear] = useState('2024-2025');
-    const [testResult, setTestResult] = useState<any>(null);
-    const [isCalculating, setIsCalculating] = useState(false);
+    const [selectedStudent, setSelectedStudent] = useState<QualifiedStudent | null>(null);
+    const [showStudentDetails, setShowStudentDetails] = useState(false);
 
     const { data, setData, post, processing, errors, reset } = useForm({
         academic_level_id: '1', // Elementary level ID
@@ -148,42 +178,9 @@ export default function ElementaryHonors({ user, honorTypes, criteria, schoolYea
         });
     };
 
-    const handleTestCalculation = async () => {
-        if (!testStudentId || testStudentId.trim() === '') {
-            setMessage({ type: 'error', text: 'Please enter a student ID.' });
-            return;
-        }
-
-        setIsCalculating(true);
-        setTestResult(null);
-
-        try {
-            const response = await fetch('/admin/academic/honors/elementary/calculate', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({
-                    student_id: testStudentId.trim(),
-                    academic_level_id: 1, // Elementary level ID
-                    school_year: testSchoolYear,
-                }),
-            });
-
-            const data = await response.json();
-            
-            if (data.success) {
-                setTestResult(data.data);
-                setMessage({ type: 'success', text: 'Calculation completed successfully!' });
-            } else {
-                setMessage({ type: 'error', text: data.message || 'Failed to calculate honor qualification.' });
-            }
-        } catch (error) {
-            setMessage({ type: 'error', text: 'Failed to calculate honor qualification.' });
-        } finally {
-            setIsCalculating(false);
-        }
+    const handleStudentClick = (student: QualifiedStudent) => {
+        setSelectedStudent(student);
+        setShowStudentDetails(true);
     };
 
     const updateCriterion = (criterionId: number) => {
@@ -233,7 +230,7 @@ export default function ElementaryHonors({ user, honorTypes, criteria, schoolYea
     };
 
     return (
-        <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
+        <div key={renderKey} className="flex h-screen bg-gray-100 dark:bg-gray-900">
             <Sidebar user={user} />
             <div className="flex flex-1 flex-col overflow-hidden">
                 <Header user={user} />
@@ -621,146 +618,253 @@ export default function ElementaryHonors({ user, honorTypes, criteria, schoolYea
                             </CardContent>
                         </Card>
 
-                        {/* Test Calculation Section */}
+                        {/* Qualified Students List */}
                         <Card>
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
                                     <Trophy className="h-5 w-5" />
-                                    Test Elementary Honor Calculation
+                                    Qualified Elementary Students ({safeQualifiedStudents.length})
                                 </CardTitle>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                    School Year: {safeCurrentSchoolYear} • Click on a student to view detailed grades and honor calculation
+                                </p>
                             </CardHeader>
                             <CardContent>
-                                <div className="space-y-4">
-                                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                                        Test the elementary honor calculation formula: (Sum of all quarter grades) ÷ (Number of quarters) = Average
-                                    </p>
-                                    
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div>
-                                            <Label htmlFor="test_student_id">Student ID</Label>
-                                            <Input 
-                                                id="test_student_id"
-                                                type="text"
-                                                value={testStudentId}
-                                                onChange={(e) => setTestStudentId(e.target.value)}
-                                                placeholder="Enter student ID (e.g., 11, EL-TEST-001, or E-003)"
-                                            />
-                                        </div>
-                                        <div>
-                                            <Label htmlFor="test_school_year">School Year</Label>
-                                            <Select value={testSchoolYear} onValueChange={setTestSchoolYear}>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select school year" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {schoolYears.map((year) => (
-                                                        <SelectItem key={year} value={year}>{year}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <div className="flex items-end">
-                                            <Button 
-                                                onClick={handleTestCalculation}
-                                                disabled={isCalculating || !testStudentId}
-                                                className="w-full"
-                                            >
-                                                {isCalculating ? 'Calculating...' : 'Test Calculation'}
-                                            </Button>
+                                {safeQualifiedStudents.length === 0 ? (
+                                    <div className="text-center py-8 text-gray-500">
+                                        <Trophy className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                                        <p>No qualified students found</p>
+                                        <p className="text-sm">Students need to meet honor criteria to appear here.</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        <div key={`students-${renderKey}`} className="grid gap-4">
+                                            {safeQualifiedStudents.map((qualifiedStudent, index) => (
+                                                <div 
+                                                    key={qualifiedStudent.student.id}
+                                                    onClick={() => handleStudentClick(qualifiedStudent)}
+                                                    className="border rounded-lg p-4 bg-white shadow-sm hover:shadow-md cursor-pointer transition-shadow"
+                                                >
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center gap-3 mb-2">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-sm font-medium text-gray-500">#{index + 1}</span>
+                                                                    <h4 className="font-semibold text-lg">{qualifiedStudent.student.name}</h4>
+                                                                </div>
+                                                                <Badge variant="outline" className="text-xs">
+                                                                    {qualifiedStudent.student.student_number}
+                                                                </Badge>
+                                                            </div>
+                                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                                                                <div className="bg-blue-50 p-2 rounded">
+                                                                    <span className="font-medium text-blue-700">Average Grade:</span>
+                                                                    <div className="text-lg font-bold">{qualifiedStudent.average_grade}</div>
+                                                                </div>
+                                                                <div className="bg-yellow-50 p-2 rounded">
+                                                                    <span className="font-medium text-yellow-700">Min Grade:</span>
+                                                                    <div className="text-lg font-bold">{qualifiedStudent.min_grade}</div>
+                                                                </div>
+                                                                <div className="bg-green-50 p-2 rounded">
+                                                                    <span className="font-medium text-green-700">Total Quarters:</span>
+                                                                    <div className="text-lg font-bold">{qualifiedStudent.total_quarters}</div>
+                                                                </div>
+                                                                <div className="bg-purple-50 p-2 rounded">
+                                                                    <span className="font-medium text-purple-700">Honor:</span>
+                                                                    <div className="font-bold">
+                                                                        {qualifiedStudent.honor_type ? (
+                                                                            <Badge className="bg-purple-100 text-purple-800 border-purple-200">
+                                                                                {qualifiedStudent.honor_type.name}
+                                                                            </Badge>
+                                                                        ) : (
+                                                                            <span className="text-gray-500">N/A</span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="ml-4">
+                                                            <Button variant="outline" size="sm">
+                                                                View Details
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
-
-                                    {testResult && (
-                                        <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                            <h4 className="font-semibold mb-3 text-lg">Calculation Results</h4>
-                                            
-                                            {testResult.qualified ? (
-                                                <div className="space-y-4">
-                                                    <div className="flex items-center gap-2 text-green-600">
-                                                        <CheckCircle className="h-5 w-5" />
-                                                        <span className="font-medium">Student Qualifies for Honors!</span>
-                                                    </div>
-                                                    
-                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                                                        <div className="bg-blue-50 p-3 rounded">
-                                                            <span className="font-medium text-blue-700">Average Grade:</span>
-                                                            <div className="text-lg font-bold">{testResult.average_grade}</div>
-                                                        </div>
-                                                        <div className="bg-yellow-50 p-3 rounded">
-                                                            <span className="font-medium text-yellow-700">Min Grade:</span>
-                                                            <div className="text-lg font-bold">{testResult.min_grade}</div>
-                                                        </div>
-                                                        <div className="bg-green-50 p-3 rounded">
-                                                            <span className="font-medium text-green-700">Total Quarters:</span>
-                                                            <div className="text-lg font-bold">{testResult.total_quarters}</div>
-                                                        </div>
-                                                        <div className="bg-purple-50 p-3 rounded">
-                                                            <span className="font-medium text-purple-700">Qualified Honors:</span>
-                                                            <div className="text-lg font-bold">{testResult.qualifications.length}</div>
-                                                        </div>
-                                                    </div>
-
-                                                    <div>
-                                                        <h5 className="font-medium mb-2">Qualified Honor Types:</h5>
-                                                        <div className="space-y-2">
-                                                            {testResult.qualifications.map((qual: any, index: number) => (
-                                                                <div key={index} className="flex items-center gap-2 p-2 bg-green-100 rounded">
-                                                                    <Trophy className="h-4 w-4 text-green-600" />
-                                                                    <span className="font-medium">{qual.honor_type.name}</span>
-                                                                    <Badge variant="secondary">{qual.honor_type.scope}</Badge>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-
-                                                    <div>
-                                                        <h5 className="font-medium mb-2">Quarter Grades Breakdown:</h5>
-                                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                                                            {testResult.grades_breakdown.map((grade: any, index: number) => (
-                                                                <div key={index} className="bg-white p-2 rounded border text-center">
-                                                                    <div className="font-medium text-sm">{grade.quarter}</div>
-                                                                    <div className="text-lg font-bold">{grade.grade || 'N/A'}</div>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <div className="space-y-4">
-                                                    <div className="flex items-center gap-2 text-red-600">
-                                                        <span className="font-medium">Student does not qualify for honors</span>
-                                                    </div>
-                                                    
-                                                    <div className="text-sm text-gray-600">
-                                                        <strong>Reason:</strong> {testResult.reason}
-                                                    </div>
-
-                                                    {testResult.average_grade && (
-                                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                                                            <div className="bg-blue-50 p-3 rounded">
-                                                                <span className="font-medium text-blue-700">Average Grade:</span>
-                                                                <div className="text-lg font-bold">{testResult.average_grade}</div>
-                                                            </div>
-                                                            <div className="bg-yellow-50 p-3 rounded">
-                                                                <span className="font-medium text-yellow-700">Min Grade:</span>
-                                                                <div className="text-lg font-bold">{testResult.min_grade}</div>
-                                                            </div>
-                                                            <div className="bg-green-50 p-3 rounded">
-                                                                <span className="font-medium text-green-700">Total Quarters:</span>
-                                                                <div className="text-lg font-bold">{testResult.total_quarters}</div>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
+                                )}
                             </CardContent>
                         </Card>
                     </div>
                 </main>
             </div>
+
+            {/* Student Details Modal */}
+            {selectedStudent && showStudentDetails && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+                        <div className="sticky top-0 bg-white border-b p-6 flex justify-between items-center">
+                            <div>
+                                <h2 className="text-2xl font-bold text-gray-900">
+                                    {selectedStudent.student.name} - Honor Details
+                                </h2>
+                                <p className="text-sm text-gray-600 mt-1">
+                                    Student Number: {selectedStudent.student.student_number} | 
+                                    School Year: {safeCurrentSchoolYear}
+                                </p>
+                            </div>
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    setShowStudentDetails(false);
+                                    setSelectedStudent(null);
+                                }}
+                            >
+                                Close
+                            </Button>
+                        </div>
+                        
+                        <div className="p-6 space-y-6">
+                            {/* Honor Summary */}
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <Trophy className="h-5 w-5" />
+                                        Honor Qualification Summary
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="bg-blue-50 p-4 rounded-lg">
+                                            <div className="text-sm font-medium text-blue-700">Average Grade</div>
+                                            <div className="text-2xl font-bold text-blue-900">{selectedStudent.average_grade}</div>
+                                        </div>
+                                        <div className="bg-green-50 p-4 rounded-lg">
+                                            <div className="text-sm font-medium text-green-700">Min Grade Required</div>
+                                            <div className="text-2xl font-bold text-green-900">{selectedStudent.min_grade}</div>
+                                        </div>
+                                        <div className="bg-purple-50 p-4 rounded-lg">
+                                            <div className="text-sm font-medium text-purple-700">Honor Achieved</div>
+                                            <div className="text-lg font-bold">
+                                                {selectedStudent.honor_type ? (
+                                                    <Badge className="bg-purple-100 text-purple-800 border-purple-200">
+                                                        {selectedStudent.honor_type.name}
+                                                    </Badge>
+                                                ) : (
+                                                    <span className="text-gray-500">N/A</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* Honor Criteria */}
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Honor Criteria Requirements</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-3">
+                                        {criteria.filter(c => c.honorType?.name === selectedStudent.honor_type?.name).map((criterion) => (
+                                            <div key={criterion.id} className="border rounded-lg p-4 bg-gray-50">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <h4 className="font-semibold">{criterion.honorType?.name || 'Unknown Honor Type'}</h4>
+                                                    <Badge variant={criterion.min_grade <= selectedStudent.average_grade ? "default" : "destructive"}>
+                                                        {criterion.min_grade <= selectedStudent.average_grade ? "Qualified" : "Not Qualified"}
+                                                    </Badge>
+                                                </div>
+                                                <div className="text-sm text-gray-600">
+                                                    <p><strong>Minimum Grade Required:</strong> {criterion.min_grade}</p>
+                                                    <p><strong>Student's Average:</strong> {selectedStudent.average_grade}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* Grades Breakdown */}
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Subject Grades Breakdown</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    {selectedStudent.grades_breakdown?.subjects && Object.keys(selectedStudent.grades_breakdown.subjects).length > 0 ? (
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full border-collapse border border-gray-300">
+                                                <thead>
+                                                    <tr className="bg-gray-100">
+                                                        <th className="border border-gray-300 p-3 text-left">Subject</th>
+                                                        <th className="border border-gray-300 p-3 text-center">Q1</th>
+                                                        <th className="border border-gray-300 p-3 text-center">Q2</th>
+                                                        <th className="border border-gray-300 p-3 text-center">Q3</th>
+                                                        <th className="border border-gray-300 p-3 text-center">Q4</th>
+                                                        <th className="border border-gray-300 p-3 text-center">Average</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {Object.entries(selectedStudent.grades_breakdown.subjects).map(([subjectName, subjectData]: [string, any]) => (
+                                                        <tr key={subjectName}>
+                                                            <td className="border border-gray-300 p-3 font-medium">{subjectName}</td>
+                                                            <td className="border border-gray-300 p-3 text-center">
+                                                                {subjectData.Q1 ? subjectData.Q1 : '—'}
+                                                            </td>
+                                                            <td className="border border-gray-300 p-3 text-center">
+                                                                {subjectData.Q2 ? subjectData.Q2 : '—'}
+                                                            </td>
+                                                            <td className="border border-gray-300 p-3 text-center">
+                                                                {subjectData.Q3 ? subjectData.Q3 : '—'}
+                                                            </td>
+                                                            <td className="border border-gray-300 p-3 text-center">
+                                                                {subjectData.Q4 ? subjectData.Q4 : '—'}
+                                                            </td>
+                                                            <td className="border border-gray-300 p-3 text-center font-bold text-blue-600">
+                                                                {subjectData.average ? subjectData.average.toFixed(2) : '—'}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-4 text-gray-500">
+                                            <p>No detailed grades breakdown available</p>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+
+                            {/* Quarter Averages */}
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Quarter Averages</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    {selectedStudent.grades_breakdown?.quarters && selectedStudent.grades_breakdown.quarters.length > 0 ? (
+                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                            {selectedStudent.grades_breakdown.quarters.map((quarter: any) => (
+                                                <div key={quarter.quarter_code} className="text-center p-4 bg-blue-50 rounded-lg">
+                                                    <div className="text-2xl font-bold text-blue-600">
+                                                        {quarter.grade ? quarter.grade.toFixed(2) : '—'}
+                                                    </div>
+                                                    <div className="text-sm text-blue-600">{quarter.quarter}</div>
+                                                    <div className="text-xs text-gray-500">{quarter.count} subjects</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-4 text-gray-500">
+                                            <p>No quarter averages available</p>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

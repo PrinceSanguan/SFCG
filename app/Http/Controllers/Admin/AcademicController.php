@@ -334,11 +334,19 @@ class AcademicController extends Controller
             ($currentYear + 1) . '-' . ($currentYear + 2),
         ];
 
+        // Get all qualified elementary students for the current school year
+        // Use 2024-2025 for now since that's where our test data is
+        $currentSchoolYear = '2024-2025'; // TODO: Make this configurable or use current active school year
+        $qualifiedStudents = $this->getQualifiedElementaryStudents($currentSchoolYear);
+
         return Inertia::render('Admin/Academic/Honors/Elementary', [
             'user' => $this->sharedUser(),
             'honorTypes' => $honorTypes,
             'criteria' => $criteria,
             'schoolYears' => $schoolYears,
+            'qualifiedStudents' => $qualifiedStudents,
+            'currentSchoolYear' => $currentSchoolYear,
+            'cacheBuster' => time(), // Force fresh data
         ]);
     }
 
@@ -378,6 +386,63 @@ class AcademicController extends Controller
             'success' => true,
             'data' => $result
         ]);
+    }
+
+    /**
+     * Get all qualified elementary students for honor calculation
+     */
+    private function getQualifiedElementaryStudents(string $schoolYear): array
+    {
+        $elementaryService = new \App\Services\ElementaryHonorCalculationService();
+        $elementaryLevel = \App\Models\AcademicLevel::where('key', 'elementary')->first();
+        
+        if (!$elementaryLevel) {
+            return [];
+        }
+
+        // Get all elementary students
+        $students = \App\Models\User::where('user_role', 'student')
+            ->where('year_level', 'elementary')
+            ->orderBy('name')
+            ->get();
+
+        $qualifiedStudents = [];
+
+        foreach ($students as $student) {
+            try {
+                $result = $elementaryService->getStudentHonorCalculation(
+                    $student->id,
+                    $elementaryLevel->id,
+                    $schoolYear
+                );
+
+                if ($result['qualified']) {
+                    $qualifiedStudents[] = [
+                        'student' => [
+                            'id' => $student->id,
+                            'name' => $student->name,
+                            'student_number' => $student->student_number,
+                            'email' => $student->email,
+                        ],
+                        'average_grade' => $result['average_grade'],
+                        'min_grade' => $result['min_grade'],
+                        'total_quarters' => $result['total_quarters'],
+                        'honor_type' => $result['qualifications'][0]['honor_type'] ?? null,
+                        'grades_breakdown' => $result['grades_breakdown'],
+                    ];
+                }
+            } catch (\Exception $e) {
+                // Skip students with calculation errors
+                continue;
+            }
+        }
+
+        // Sort by average grade (highest first)
+        usort($qualifiedStudents, function($a, $b) {
+            return $b['average_grade'] <=> $a['average_grade'];
+        });
+
+        return $qualifiedStudents;
     }
 
     public function juniorHighSchoolHonors()

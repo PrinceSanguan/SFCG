@@ -26,21 +26,31 @@ export default function StudentSubjectGradesShow({ user, subject, grades }: Prop
   const validGrades = grades.filter(g => g.grade !== null);
   const latestGrade = validGrades.length > 0 ? validGrades[validGrades.length - 1] : null;
 
-  // Find First Quarter grade
+  // Find all quarter grades for elementary students
+  const quarterGrades = {
+    Q1: grades.find(g => g.gradingPeriod?.code === 'Q1' && g.grade !== null),
+    Q2: grades.find(g => g.gradingPeriod?.code === 'Q2' && g.grade !== null),
+    Q3: grades.find(g => g.gradingPeriod?.code === 'Q3' && g.grade !== null),
+    Q4: grades.find(g => g.gradingPeriod?.code === 'Q4' && g.grade !== null),
+  };
+
+  // For backward compatibility, also find First Quarter grade
   const firstQuarterGrade = grades.find(g =>
     g.gradingPeriod?.name === 'First Quarter' && g.grade !== null
   );
 
-  // Determine grade status
-  const getGradeStatus = (grade: number) => {
-    if (grade >= 1.0 && grade <= 1.5) return { text: 'With Highest Honors', color: 'bg-green-100 text-green-800 border-green-200' };
-    if (grade >= 1.51 && grade <= 1.75) return { text: 'With High Honors', color: 'bg-blue-100 text-blue-800 border-blue-200' };
-    if (grade >= 1.76 && grade <= 2.0) return { text: 'With Honors', color: 'bg-purple-100 text-purple-800 border-purple-200' };
-    if (grade >= 2.01 && grade <= 3.0) return { text: 'Passed', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
+  // Determine grade status based on average grade (0-100 scale for elementary/junior high)
+  const getGradeStatus = (averageGrade: number) => {
+    if (averageGrade >= 95) return { text: 'With Highest Honors', color: 'bg-green-100 text-green-800 border-green-200' };
+    if (averageGrade >= 90) return { text: 'With High Honors', color: 'bg-blue-100 text-blue-800 border-blue-200' };
+    if (averageGrade >= 85) return { text: 'With Honors', color: 'bg-purple-100 text-purple-800 border-purple-200' };
+    if (averageGrade >= 75) return { text: 'Passed', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
     return { text: 'Failed', color: 'bg-red-100 text-red-800 border-red-200' };
   };
 
-  const status = latestGrade ? getGradeStatus(latestGrade.grade) : { text: 'No Grade', color: 'bg-gray-100 text-gray-800 border-gray-200' };
+  // Calculate overall average from all valid grades
+  const overallAverage = validGrades.length > 0 ? validGrades.reduce((sum, g) => sum + g.grade, 0) / validGrades.length : 0;
+  const status = validGrades.length > 0 ? getGradeStatus(overallAverage) : { text: 'No Grade', color: 'bg-gray-100 text-gray-800 border-gray-200' };
 
   return (
     <StudentLayout>
@@ -72,20 +82,41 @@ export default function StudentSubjectGradesShow({ user, subject, grades }: Prop
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
               <div className="text-center p-4 bg-blue-50 rounded-lg">
                 <div className="text-2xl font-bold text-blue-600">
-                  {firstQuarterGrade ? firstQuarterGrade.grade : '—'}
+                  {quarterGrades.Q1 ? quarterGrades.Q1.grade : '—'}
                 </div>
                 <div className="text-sm text-blue-600">First Quarter</div>
               </div>
               <div className="text-center p-4 bg-green-50 rounded-lg">
                 <div className="text-2xl font-bold text-green-600">
-                  {validGrades.length > 0 ? (validGrades.reduce((sum, g) => sum + g.grade, 0) / validGrades.length).toFixed(2) : '—'}
+                  {quarterGrades.Q2 ? quarterGrades.Q2.grade : '—'}
                 </div>
-                <div className="text-sm text-green-600">Average</div>
+                <div className="text-sm text-green-600">Second Quarter</div>
+              </div>
+              <div className="text-center p-4 bg-yellow-50 rounded-lg">
+                <div className="text-2xl font-bold text-yellow-600">
+                  {quarterGrades.Q3 ? quarterGrades.Q3.grade : '—'}
+                </div>
+                <div className="text-sm text-yellow-600">Third Quarter</div>
               </div>
               <div className="text-center p-4 bg-purple-50 rounded-lg">
+                <div className="text-2xl font-bold text-purple-600">
+                  {quarterGrades.Q4 ? quarterGrades.Q4.grade : '—'}
+                </div>
+                <div className="text-sm text-purple-600">Fourth Quarter</div>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="text-center p-4 bg-gray-50 rounded-lg">
+                <div className="text-2xl font-bold text-gray-600">
+                  {validGrades.length > 0 ? (validGrades.reduce((sum, g) => sum + g.grade, 0) / validGrades.length).toFixed(2) : '—'}
+                </div>
+                <div className="text-sm text-gray-600">Overall Average</div>
+              </div>
+              <div className="text-center p-4 bg-red-50 rounded-lg">
                 <Badge className={status.color}>
                   {status.text}
                 </Badge>
@@ -109,7 +140,10 @@ export default function StudentSubjectGradesShow({ user, subject, grades }: Prop
                   <TableHead className="bg-gray-900 text-white">Student ID</TableHead>
                   <TableHead className="bg-gray-900 text-white">Subject</TableHead>
                   <TableHead className="bg-gray-900 text-white">Faculty</TableHead>
-                  <TableHead className="bg-gray-900 text-white">First Quarter</TableHead>
+                  <TableHead className="bg-gray-900 text-white">Q1</TableHead>
+                  <TableHead className="bg-gray-900 text-white">Q2</TableHead>
+                  <TableHead className="bg-gray-900 text-white">Q3</TableHead>
+                  <TableHead className="bg-gray-900 text-white">Q4</TableHead>
                   <TableHead className="bg-gray-900 text-white">AVERAGE</TableHead>
                   <TableHead className="bg-gray-900 text-white">Grade Status</TableHead>
                 </TableRow>
@@ -135,9 +169,36 @@ export default function StudentSubjectGradesShow({ user, subject, grades }: Prop
                     </div>
                   </TableCell>
                   <TableCell className="px-4 py-3">
-                    {firstQuarterGrade ? (
+                    {quarterGrades.Q1 ? (
                       <Badge className="bg-blue-100 text-blue-800 border-blue-200">
-                        {firstQuarterGrade.grade}
+                        {quarterGrades.Q1.grade}
+                      </Badge>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
+                    {quarterGrades.Q2 ? (
+                      <Badge className="bg-green-100 text-green-800 border-green-200">
+                        {quarterGrades.Q2.grade}
+                      </Badge>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
+                    {quarterGrades.Q3 ? (
+                      <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">
+                        {quarterGrades.Q3.grade}
+                      </Badge>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
+                    {quarterGrades.Q4 ? (
+                      <Badge className="bg-purple-100 text-purple-800 border-purple-200">
+                        {quarterGrades.Q4.grade}
                       </Badge>
                     ) : (
                       <span className="text-gray-400">—</span>
@@ -145,7 +206,7 @@ export default function StudentSubjectGradesShow({ user, subject, grades }: Prop
                   </TableCell>
                   <TableCell className="px-4 py-3">
                     {validGrades.length > 0 ? (
-                      <Badge className="bg-green-100 text-green-800 border-green-200">
+                      <Badge className="bg-gray-100 text-gray-800 border-gray-200">
                         {(validGrades.reduce((sum, g) => sum + g.grade, 0) / validGrades.length).toFixed(2)}
                       </Badge>
                     ) : (

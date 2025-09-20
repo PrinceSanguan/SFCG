@@ -190,23 +190,55 @@ class ElementaryHonorCalculationService
     }
 
     /**
-     * Get detailed breakdown of grades by quarter
+     * Get detailed breakdown of grades by quarter and by subject
      */
     private function getGradesBreakdown($grades, $quarterPeriods): array
     {
-        $breakdown = [];
-        
+        // Simple quarter breakdown (for backward compatibility)
+        $quarterBreakdown = [];
         foreach ($quarterPeriods as $quarter) {
-            $quarterGrade = $grades->where('grading_period_id', $quarter->id)->first();
-            $breakdown[] = [
+            $quarterGrades = $grades->where('grading_period_id', $quarter->id);
+            $averageGrade = $quarterGrades->avg('grade');
+            $quarterBreakdown[] = [
                 'quarter' => $quarter->name,
                 'quarter_code' => $quarter->code,
-                'grade' => $quarterGrade ? $quarterGrade->grade : null,
-                'subject' => $quarterGrade ? $quarterGrade->subject->name ?? 'Unknown' : null
+                'grade' => $averageGrade ? round($averageGrade, 2) : null,
+                'count' => $quarterGrades->count()
             ];
         }
 
-        return $breakdown;
+        // Detailed subject breakdown
+        $subjectBreakdown = [];
+        $subjects = $grades->groupBy('subject_id');
+        
+        foreach ($subjects as $subjectId => $subjectGrades) {
+            $subject = $subjectGrades->first()->subject ?? null;
+            if (!$subject) continue;
+            
+            $subjectData = [
+                'subject_name' => $subject->name,
+                'subject_code' => $subject->code ?? '',
+                'quarters' => []
+            ];
+            
+            // Get grades for each quarter for this subject
+            foreach ($quarterPeriods as $quarter) {
+                $quarterGrade = $subjectGrades->where('grading_period_id', $quarter->id)->first();
+                $subjectData['quarters'][$quarter->code] = $quarterGrade ? $quarterGrade->grade : null;
+            }
+            
+            // Calculate subject average
+            $quarterGrades = collect($subjectData['quarters'])->filter()->values();
+            $subjectData['average'] = $quarterGrades->isNotEmpty() ? round($quarterGrades->avg(), 2) : null;
+            
+            $subjectBreakdown[$subject->name] = $subjectData['quarters'];
+            $subjectBreakdown[$subject->name]['average'] = $subjectData['average'];
+        }
+
+        return [
+            'quarters' => $quarterBreakdown,
+            'subjects' => $subjectBreakdown
+        ];
     }
 
     /**
