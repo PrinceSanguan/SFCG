@@ -36,7 +36,6 @@ class GradeManagementController extends Controller
                 ],
                 'stats' => [
                     'pending' => 0,
-                    'approved' => 0,
                     'returned' => 0,
                 ],
                 'academicLevels' => $academicLevels,
@@ -103,7 +102,6 @@ class GradeManagementController extends Controller
                 ['is_approved', '=', false],
                 ['is_returned', '=', false]
             ]),
-            'approved' => $statsQuery(['is_approved']),
             'returned' => $statsQuery(['is_returned']),
         ];
         
@@ -174,14 +172,159 @@ class GradeManagementController extends Controller
         ]);
     }
     
-    public function approveGrade(Request $request, $gradeId)
+    // Final Average Management Methods
+    public function finalAverages(Request $request)
+    {
+        $user = Auth::user();
+        $departmentId = $user->department_id;
+        $academicLevelId = $request->get('academic_level_id');
+        
+        if (!$departmentId) {
+            return Inertia::render('Chairperson/FinalAverages/Index', [
+                'user' => $user,
+                'finalAverages' => [
+                    'data' => [],
+                    'current_page' => 1,
+                    'last_page' => 1,
+                    'per_page' => 20,
+                    'total' => 0,
+                ],
+                'stats' => [
+                    'pending' => 0,
+                    'approved' => 0,
+                    'returned' => 0,
+                ],
+                'academicLevels' => AcademicLevel::where('is_active', true)->orderBy('sort_order')->get(),
+                'selectedAcademicLevel' => $academicLevelId,
+            ]);
+        }
+        
+        // Get final average grades (period_type = 'final')
+        $finalAveragesQuery = StudentGrade::whereHas('gradingPeriod', function ($query) {
+                $query->where('period_type', 'final');
+            })
+            ->whereHas('subject.course', function ($query) use ($departmentId) {
+                $query->where('department_id', $departmentId);
+            })
+            ->when($academicLevelId, function($q) use ($academicLevelId) {
+                return $q->whereHas('subject', function ($query) use ($academicLevelId) {
+                    $query->where('academic_level_id', $academicLevelId);
+                });
+            })
+            ->with(['student', 'subject', 'academicLevel', 'gradingPeriod'])
+            ->latest('created_at');
+        
+        $finalAverages = $finalAveragesQuery->paginate(20);
+        
+        // Get academic levels for filter
+        $academicLevels = AcademicLevel::where('is_active', true)->orderBy('sort_order')->get();
+        
+        // Calculate stats
+        $statsQuery = function($conditions = []) use ($departmentId, $academicLevelId) {
+            return StudentGrade::whereHas('gradingPeriod', function ($query) {
+                    $query->where('period_type', 'final');
+                })
+                ->whereHas('subject.course', function ($query) use ($departmentId) {
+                    $query->where('department_id', $departmentId);
+                })
+                ->when($academicLevelId, function($q) use ($academicLevelId) {
+                    return $q->whereHas('subject', function ($query) use ($academicLevelId) {
+                        $query->where('academic_level_id', $academicLevelId);
+                    });
+                })
+                ->when(!empty($conditions), function($q) use ($conditions) {
+                    foreach ($conditions as $condition) {
+                        if (is_array($condition) && count($condition) === 3) {
+                            $q->where($condition[0], $condition[1], $condition[2]);
+                        } else {
+                            $q->where($condition, true);
+                        }
+                    }
+                })
+                ->count();
+        };
+        
+        $stats = [
+            'pending' => $statsQuery([
+                ['is_submitted_for_validation', '=', true],
+                ['is_approved', '=', false],
+                ['is_returned', '=', false]
+            ]),
+            'approved' => $statsQuery(['is_approved']),
+            'returned' => $statsQuery(['is_returned']),
+        ];
+        
+        return Inertia::render('Chairperson/FinalAverages/Index', [
+            'user' => $user,
+            'finalAverages' => $finalAverages,
+            'stats' => $stats,
+            'academicLevels' => $academicLevels,
+            'selectedAcademicLevel' => $academicLevelId,
+        ]);
+    }
+    
+    public function pendingFinalAverages(Request $request)
+    {
+        $user = Auth::user();
+        $departmentId = $user->department_id;
+        $academicLevelId = $request->get('academic_level_id');
+        
+        if (!$departmentId) {
+            return Inertia::render('Chairperson/FinalAverages/Pending', [
+                'user' => $user,
+                'finalAverages' => [
+                    'data' => [],
+                    'current_page' => 1,
+                    'last_page' => 1,
+                    'per_page' => 20,
+                    'total' => 0,
+                ],
+                'academicLevels' => AcademicLevel::where('is_active', true)->orderBy('sort_order')->get(),
+                'selectedAcademicLevel' => $academicLevelId,
+            ]);
+        }
+        
+        $finalAverages = StudentGrade::whereHas('gradingPeriod', function ($query) {
+                $query->where('period_type', 'final');
+            })
+            ->where('is_submitted_for_validation', true)
+            ->where('is_approved', false)
+            ->where('is_returned', false)
+            ->whereHas('subject.course', function ($query) use ($departmentId) {
+                $query->where('department_id', $departmentId);
+            })
+            ->when($academicLevelId, function($q) use ($academicLevelId) {
+                return $q->whereHas('subject', function ($query) use ($academicLevelId) {
+                    $query->where('academic_level_id', $academicLevelId);
+                });
+            })
+            ->with(['student', 'subject', 'academicLevel', 'gradingPeriod'])
+            ->latest('submitted_at')
+            ->paginate(20);
+        
+        $academicLevels = AcademicLevel::where('is_active', true)->orderBy('sort_order')->get();
+        
+        return Inertia::render('Chairperson/FinalAverages/Pending', [
+            'user' => $user,
+            'finalAverages' => $finalAverages,
+            'academicLevels' => $academicLevels,
+            'selectedAcademicLevel' => $academicLevelId,
+        ]);
+    }
+    
+    public function approveFinalAverage(Request $request, $gradeId)
     {
         $user = Auth::user();
         $grade = StudentGrade::findOrFail($gradeId);
         
+        // Verify it's a final average grade
+        if ($grade->gradingPeriod->period_type !== 'final') {
+            abort(400, 'This is not a final average grade.');
+        }
+        
         // Verify the grade belongs to the chairperson's department
         if ($user->department_id !== $grade->subject->course->department_id) {
-            abort(403, 'You can only approve grades from your department.');
+            abort(403, 'You can only approve final averages from your department.');
         }
         
         $grade->update([
@@ -191,17 +334,17 @@ class GradeManagementController extends Controller
             'approved_by' => $user->id,
         ]);
         
-        Log::info('Grade approved by chairperson', [
+        Log::info('Final average approved by chairperson', [
             'chairperson_id' => $user->id,
             'grade_id' => $gradeId,
             'student_id' => $grade->student_id,
             'subject_id' => $grade->subject_id,
         ]);
         
-        return back()->with('success', 'Grade approved successfully.');
+        return back()->with('success', 'Final average approved successfully.');
     }
     
-    public function returnGrade(Request $request, $gradeId)
+    public function returnFinalAverage(Request $request, $gradeId)
     {
         $user = Auth::user();
         $grade = StudentGrade::findOrFail($gradeId);
@@ -210,9 +353,14 @@ class GradeManagementController extends Controller
             'return_reason' => ['required', 'string', 'max:1000'],
         ]);
         
+        // Verify it's a final average grade
+        if ($grade->gradingPeriod->period_type !== 'final') {
+            abort(400, 'This is not a final average grade.');
+        }
+        
         // Verify the grade belongs to the chairperson's department
         if ($user->department_id !== $grade->subject->course->department_id) {
-            abort(403, 'You can only return grades from your department.');
+            abort(403, 'You can only return final averages from your department.');
         }
         
         $grade->update([
@@ -223,15 +371,37 @@ class GradeManagementController extends Controller
             'return_reason' => $validated['return_reason'],
         ]);
         
-        Log::info('Grade returned by chairperson', [
+        Log::info('Final average returned by chairperson', [
             'chairperson_id' => $user->id,
             'grade_id' => $gradeId,
             'student_id' => $grade->student_id,
             'subject_id' => $grade->subject_id,
-            'reason' => $validated['return_reason'],
+            'return_reason' => $validated['return_reason'],
         ]);
         
-        return back()->with('success', 'Grade returned for correction.');
+        return back()->with('success', 'Final average returned for revision.');
+    }
+    
+    public function reviewFinalAverage($gradeId)
+    {
+        $user = Auth::user();
+        $grade = StudentGrade::with(['student', 'subject', 'academicLevel', 'gradingPeriod'])
+            ->findOrFail($gradeId);
+        
+        // Verify it's a final average grade
+        if ($grade->gradingPeriod->period_type !== 'final') {
+            abort(400, 'This is not a final average grade.');
+        }
+        
+        // Verify the grade belongs to the chairperson's department
+        if ($user->department_id !== $grade->subject->course->department_id) {
+            abort(403, 'You can only review final averages from your department.');
+        }
+        
+        return Inertia::render('Chairperson/FinalAverages/Review', [
+            'user' => $user,
+            'grade' => $grade,
+        ]);
     }
     
     public function reviewGrade($gradeId)
@@ -272,7 +442,7 @@ class GradeManagementController extends Controller
         return response()->json($grades);
     }
     
-    public function getApprovedGrades()
+    public function getPendingFinalAverages()
     {
         $user = Auth::user();
         $departmentId = $user->department_id;
@@ -281,32 +451,17 @@ class GradeManagementController extends Controller
             return response()->json([]);
         }
         
-        $grades = StudentGrade::where('is_approved', true)
+        $grades = StudentGrade::whereHas('gradingPeriod', function ($query) {
+                $query->where('period_type', 'final');
+            })
+            ->where('is_submitted_for_validation', true)
+            ->where('is_approved', false)
+            ->where('is_returned', false)
             ->whereHas('subject.course', function ($query) use ($departmentId) {
                 $query->where('department_id', $departmentId);
             })
             ->with(['student', 'subject', 'academicLevel', 'gradingPeriod'])
-            ->latest('approved_at')
-            ->get();
-        
-        return response()->json($grades);
-    }
-    
-    public function getReturnedGrades()
-    {
-        $user = Auth::user();
-        $departmentId = $user->department_id;
-        
-        if (!$departmentId) {
-            return response()->json([]);
-        }
-        
-        $grades = StudentGrade::where('is_returned', true)
-            ->whereHas('subject.course', function ($query) use ($departmentId) {
-                $query->where('department_id', $departmentId);
-            })
-            ->with(['student', 'subject', 'academicLevel', 'gradingPeriod'])
-            ->latest('returned_at')
+            ->latest('submitted_at')
             ->get();
         
         return response()->json($grades);

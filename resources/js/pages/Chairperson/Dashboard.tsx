@@ -3,8 +3,9 @@ import { Sidebar } from '@/components/chairperson/sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Link } from '@inertiajs/react';
-import { Users, BookOpen, Award, TrendingUp, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Link, router } from '@inertiajs/react';
+import { Users, BookOpen, Award, TrendingUp, Clock, Filter } from 'lucide-react';
 
 interface User {
     id: number;
@@ -19,6 +20,7 @@ interface Department {
     name: string;
     code: string;
     description?: string;
+    filtered_by?: string;
 }
 
 interface Activity {
@@ -26,7 +28,7 @@ interface Activity {
     title: string;
     description: string;
     timestamp: string;
-    data: any;
+    data: unknown;
 }
 
 interface Stats {
@@ -38,13 +40,23 @@ interface Stats {
     average_gpa: number;
 }
 
+interface AcademicLevel {
+    id: number;
+    key: string;
+    name: string;
+    sort_order: number;
+    is_active: boolean;
+}
+
 interface DashboardProps {
     user: User;
     department: Department | null;
     stats: Stats;
     recentActivities: Activity[];
-    pendingGrades: any[];
-    pendingHonors: any[];
+    pendingGrades: unknown[];
+    pendingHonors: unknown[];
+    academicLevels: AcademicLevel[];
+    selectedAcademicLevel: string | null;
 }
 
 export default function ChairpersonDashboard({ 
@@ -52,12 +64,27 @@ export default function ChairpersonDashboard({
     department, 
     stats, 
     recentActivities, 
-    pendingGrades, 
-    pendingHonors 
+    academicLevels,
+    selectedAcademicLevel
 }: DashboardProps) {
     if (!user) {
         return <div>Loading...</div>;
     }
+
+    const safeAcademicLevels = academicLevels || [];
+
+    const handleAcademicLevelChange = (value: string) => {
+        const params = new URLSearchParams(window.location.search);
+        if (value === 'all') {
+            params.delete('academic_level_id');
+        } else {
+            params.set('academic_level_id', value);
+        }
+        router.get(window.location.pathname, Object.fromEntries(params), {
+            preserveState: true,
+            preserveScroll: true,
+        });
+    };
 
     return (
         <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
@@ -73,9 +100,37 @@ export default function ChairpersonDashboard({
                                 Chairperson Dashboard
                             </h1>
                             <p className="text-gray-500 dark:text-gray-400">
-                                Welcome back, {user.name}! {department ? `Managing ${department.name} department.` : 'No department assigned.'}
+                                Welcome back, {user.name}! {department ? `Managing ${department.filtered_by ? department.name.replace(` - ${department.filtered_by}`, '') : department.name} department${department.filtered_by ? ` (${department.filtered_by} level only)` : ''}.` : 'No department assigned.'}
                             </p>
                         </div>
+
+                        {/* Academic Level Filter */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Filter className="h-5 w-5" />
+                                    Filter by Academic Level
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <Select 
+                                    value={selectedAcademicLevel || 'all'} 
+                                    onValueChange={handleAcademicLevelChange}
+                                >
+                                    <SelectTrigger className="w-full md:w-64">
+                                        <SelectValue placeholder="Select academic level" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Levels</SelectItem>
+                                        {safeAcademicLevels.map((level) => (
+                                            <SelectItem key={level.id} value={level.id.toString()}>
+                                                {level.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </CardContent>
+                        </Card>
 
                         {/* Department Info */}
                         {department && (
@@ -84,6 +139,11 @@ export default function ChairpersonDashboard({
                                     <CardTitle className="flex items-center gap-2">
                                         <BookOpen className="h-5 w-5" />
                                         Department Information
+                                        {department.filtered_by && (
+                                            <Badge variant="secondary" className="ml-2">
+                                                Filtered by {department.filtered_by}
+                                            </Badge>
+                                        )}
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent>
@@ -101,6 +161,13 @@ export default function ChairpersonDashboard({
                                             <p className="text-lg font-semibold">{department.description || 'No description'}</p>
                                         </div>
                                     </div>
+                                    {department.filtered_by && (
+                                        <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                                            <p className="text-sm text-blue-700 dark:text-blue-300">
+                                                <strong>Note:</strong> All statistics and data shown below are filtered for the <strong>{department.filtered_by}</strong> academic level only.
+                                            </p>
+                                        </div>
+                                    )}
                                 </CardContent>
                             </Card>
                         )}

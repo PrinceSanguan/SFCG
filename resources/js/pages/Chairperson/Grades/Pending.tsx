@@ -3,11 +3,9 @@ import { Sidebar } from '@/components/chairperson/sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Link, useForm, router } from '@inertiajs/react';
-import { GraduationCap, Clock, CheckCircle, XCircle, Eye, ArrowLeft, Filter } from 'lucide-react';
+import { Link, router } from '@inertiajs/react';
+import { GraduationCap, Clock, Eye, ArrowLeft, Filter } from 'lucide-react';
 import { useState } from 'react';
 
 interface User {
@@ -96,36 +94,7 @@ export default function PendingGrades({ user, grades, academicLevels, selectedAc
         });
     };
 
-    const [selectedGrade, setSelectedGrade] = useState<Grade | null>(null);
-    const [showReturnForm, setShowReturnForm] = useState(false);
-
-    const { data, setData, post, processing, errors } = useForm({
-        return_reason: '',
-    });
-
-    const handleApprove = (gradeId: number) => {
-        post(route('chairperson.grades.approve', gradeId));
-    };
-
-    const handleReturn = (gradeId: number) => {
-        if (data.return_reason.trim()) {
-            post(route('chairperson.grades.return', gradeId));
-            setShowReturnForm(false);
-            setSelectedGrade(null);
-            setData('return_reason', '');
-        }
-    };
-
-    const openReturnForm = (grade: Grade) => {
-        setSelectedGrade(grade);
-        setShowReturnForm(true);
-    };
-
-    const closeReturnForm = () => {
-        setShowReturnForm(false);
-        setSelectedGrade(null);
-        setData('return_reason', '');
-    };
+    // Removed approval functionality - chairperson can only view pending grades
 
     return (
         <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
@@ -149,7 +118,7 @@ export default function PendingGrades({ user, grades, academicLevels, selectedAc
                                     Pending Grades
                                 </h1>
                                 <p className="text-gray-500 dark:text-gray-400">
-                                    Review and approve grades submitted for validation
+                                    View grades submitted for validation (view only)
                                 </p>
                             </div>
                         </div>
@@ -266,22 +235,6 @@ export default function PendingGrades({ user, grades, academicLevels, selectedAc
                                                                         <Eye className="h-4 w-4" />
                                                                     </Link>
                                                                 </Button>
-                                                                <Button
-                                                                    size="sm"
-                                                                    onClick={() => handleApprove(grade.id)}
-                                                                    disabled={processing}
-                                                                    className="bg-green-600 hover:bg-green-700"
-                                                                >
-                                                                    <CheckCircle className="h-4 w-4" />
-                                                                </Button>
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="destructive"
-                                                                    onClick={() => openReturnForm(grade)}
-                                                                    disabled={processing}
-                                                                >
-                                                                    <XCircle className="h-4 w-4" />
-                                                                </Button>
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -296,43 +249,6 @@ export default function PendingGrades({ user, grades, academicLevels, selectedAc
                 </main>
             </div>
 
-            {/* Return Grade Modal */}
-            {showReturnForm && selectedGrade && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
-                        <h3 className="text-lg font-semibold mb-4">Return Grade for Correction</h3>
-                        <div className="mb-4">
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                                Returning grade for <strong>{selectedGrade.student?.name}</strong> in <strong>{selectedGrade.subject?.name}</strong>
-                            </p>
-                            <Label htmlFor="return_reason">Reason for Return</Label>
-                            <Textarea
-                                id="return_reason"
-                                value={data.return_reason}
-                                onChange={(e) => setData('return_reason', e.target.value)}
-                                placeholder="Please provide a reason for returning this grade..."
-                                className="mt-2"
-                                rows={4}
-                            />
-                            {errors.return_reason && (
-                                <p className="text-sm text-red-500 mt-1">{errors.return_reason}</p>
-                            )}
-                        </div>
-                        <div className="flex gap-2 justify-end">
-                            <Button variant="outline" onClick={closeReturnForm}>
-                                Cancel
-                            </Button>
-                            <Button
-                                variant="destructive"
-                                onClick={() => handleReturn(selectedGrade.id)}
-                                disabled={processing || !data.return_reason.trim()}
-                            >
-                                {processing ? 'Returning...' : 'Return Grade'}
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
