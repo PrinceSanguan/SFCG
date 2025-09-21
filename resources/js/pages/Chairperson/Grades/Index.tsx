@@ -3,8 +3,9 @@ import { Sidebar } from '@/components/chairperson/sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Link } from '@inertiajs/react';
-import { GraduationCap, Clock, CheckCircle, XCircle, Eye } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Link, router } from '@inertiajs/react';
+import { GraduationCap, Clock, CheckCircle, XCircle, Eye, Filter } from 'lucide-react';
 
 interface User {
     id: number;
@@ -63,6 +64,14 @@ interface Stats {
     returned: number;
 }
 
+interface AcademicLevel {
+    id: number;
+    key: string;
+    name: string;
+    sort_order: number;
+    is_active: boolean;
+}
+
 interface GradesIndexProps {
     user: User;
     grades: {
@@ -73,18 +82,32 @@ interface GradesIndexProps {
         total: number;
     };
     stats: Stats;
+    academicLevels: AcademicLevel[];
+    selectedAcademicLevel: string | null;
 }
 
-export default function GradesIndex({ user, grades, stats }: GradesIndexProps) {
+export default function GradesIndex({ user, grades, stats, academicLevels, selectedAcademicLevel }: GradesIndexProps) {
     if (!user) {
         return <div>Loading...</div>;
     }
 
-
-
     // Add safety checks for undefined props
     const safeGrades = grades || { data: [], current_page: 1, last_page: 1, per_page: 20, total: 0 };
     const safeStats = stats || { pending: 0, approved: 0, returned: 0 };
+    const safeAcademicLevels = academicLevels || [];
+
+    const handleAcademicLevelChange = (value: string) => {
+        const params = new URLSearchParams(window.location.search);
+        if (value === 'all') {
+            params.delete('academic_level_id');
+        } else {
+            params.set('academic_level_id', value);
+        }
+        router.get(window.location.pathname, Object.fromEntries(params), {
+            preserveState: true,
+            preserveScroll: true,
+        });
+    };
 
     const getStatusBadge = (grade: Grade) => {
         if (grade.is_returned) {
@@ -123,6 +146,34 @@ export default function GradesIndex({ user, grades, stats }: GradesIndexProps) {
                                 Review and manage grades in your department
                             </p>
                         </div>
+
+                        {/* Academic Level Filter */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Filter className="h-5 w-5" />
+                                    Filter by Academic Level
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <Select 
+                                    value={selectedAcademicLevel || 'all'} 
+                                    onValueChange={handleAcademicLevelChange}
+                                >
+                                    <SelectTrigger className="w-full md:w-64">
+                                        <SelectValue placeholder="Select academic level" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Levels</SelectItem>
+                                        {safeAcademicLevels.map((level) => (
+                                            <SelectItem key={level.id} value={level.id.toString()}>
+                                                {level.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </CardContent>
+                        </Card>
 
                         {/* Stats Cards */}
                         <div className="grid gap-4 md:grid-cols-3">

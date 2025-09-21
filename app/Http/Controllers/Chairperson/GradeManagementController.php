@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Chairperson;
 use App\Http\Controllers\Controller;
 use App\Models\StudentGrade;
 use App\Models\Department;
+use App\Models\AcademicLevel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -12,10 +13,16 @@ use Inertia\Inertia;
 
 class GradeManagementController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $user = Auth::user();
         $departmentId = $user->department_id;
+        $academicLevelId = $request->get('academic_level_id');
+        
+        // Get all academic levels for the filter dropdown
+        $academicLevels = AcademicLevel::where('is_active', true)
+            ->orderBy('sort_order')
+            ->get();
         
         if (!$departmentId) {
             return Inertia::render('Chairperson/Grades/Index', [
@@ -32,19 +39,27 @@ class GradeManagementController extends Controller
                     'approved' => 0,
                     'returned' => 0,
                 ],
+                'academicLevels' => $academicLevels,
+                'selectedAcademicLevel' => $academicLevelId,
             ]);
         }
         
         // Get latest grade for each student-subject combination (excluding pending grades)
         // Only show grades that are either approved or returned, not pending
-        $grades = StudentGrade::whereHas('subject.course', function ($query) use ($departmentId) {
+        $gradesQuery = StudentGrade::whereHas('subject.course', function ($query) use ($departmentId) {
                 $query->where('department_id', $departmentId);
             })
             ->where(function ($query) {
                 $query->where('is_approved', true)
                       ->orWhere('is_returned', true);
-            })
-            ->with(['student', 'subject.course.department', 'academicLevel'])
+            });
+        
+        // Add academic level filter if provided
+        if ($academicLevelId) {
+            $gradesQuery->where('academic_level_id', $academicLevelId);
+        }
+        
+        $grades = $gradesQuery->with(['student', 'subject.course.department', 'academicLevel'])
             ->select('student_id', 'subject_id', 'academic_level_id', 'school_year')
             ->selectRaw('MAX(id) as id') // Get the latest grade ID
             ->selectRaw('MAX(grade) as grade')
@@ -59,33 +74,37 @@ class GradeManagementController extends Controller
             ->paginate(20);
         
         // Calculate stats for grouped data (unique student-subject combinations)
+        $statsQuery = function($additionalConditions = []) use ($departmentId, $academicLevelId) {
+            $query = StudentGrade::whereHas('subject.course', function ($q) use ($departmentId) {
+                    $q->where('department_id', $departmentId);
+                });
+            
+            if ($academicLevelId) {
+                $query->where('academic_level_id', $academicLevelId);
+            }
+            
+            foreach ($additionalConditions as $condition) {
+                if (is_array($condition)) {
+                    $query->where($condition[0], $condition[1], $condition[2]);
+                } else {
+                    $query->where($condition, true);
+                }
+            }
+            
+            return $query->select('student_id', 'subject_id', 'academic_level_id', 'school_year')
+                ->groupBy('student_id', 'subject_id', 'academic_level_id', 'school_year')
+                ->get()
+                ->count();
+        };
+        
         $stats = [
-            'pending' => StudentGrade::whereHas('subject.course', function ($query) use ($departmentId) {
-                    $query->where('department_id', $departmentId);
-                })
-                ->where('is_submitted_for_validation', true)
-                ->where('is_approved', false)
-                ->where('is_returned', false)
-                ->select('student_id', 'subject_id', 'academic_level_id', 'school_year')
-                ->groupBy('student_id', 'subject_id', 'academic_level_id', 'school_year')
-                ->get()
-                ->count(),
-            'approved' => StudentGrade::whereHas('subject.course', function ($query) use ($departmentId) {
-                    $query->where('department_id', $departmentId);
-                })
-                ->where('is_approved', true)
-                ->select('student_id', 'subject_id', 'academic_level_id', 'school_year')
-                ->groupBy('student_id', 'subject_id', 'academic_level_id', 'school_year')
-                ->get()
-                ->count(),
-            'returned' => StudentGrade::whereHas('subject.course', function ($query) use ($departmentId) {
-                    $query->where('department_id', $departmentId);
-                })
-                ->where('is_returned', true)
-                ->select('student_id', 'subject_id', 'academic_level_id', 'school_year')
-                ->groupBy('student_id', 'subject_id', 'academic_level_id', 'school_year')
-                ->get()
-                ->count(),
+            'pending' => $statsQuery([
+                ['is_submitted_for_validation', '=', true],
+                ['is_approved', '=', false],
+                ['is_returned', '=', false]
+            ]),
+            'approved' => $statsQuery(['is_approved']),
+            'returned' => $statsQuery(['is_returned']),
         ];
         
 
@@ -94,13 +113,21 @@ class GradeManagementController extends Controller
             'user' => $user,
             'grades' => $grades,
             'stats' => $stats,
+            'academicLevels' => $academicLevels,
+            'selectedAcademicLevel' => $academicLevelId,
         ]);
     }
     
-    public function pendingGrades()
+    public function pendingGrades(Request $request)
     {
         $user = Auth::user();
         $departmentId = $user->department_id;
+        $academicLevelId = $request->get('academic_level_id');
+        
+        // Get all academic levels for the filter dropdown
+        $academicLevels = AcademicLevel::where('is_active', true)
+            ->orderBy('sort_order')
+            ->get();
         
         if (!$departmentId) {
             return Inertia::render('Chairperson/Grades/Pending', [
@@ -112,14 +139,22 @@ class GradeManagementController extends Controller
                     'per_page' => 20,
                     'total' => 0,
                 ],
+                'academicLevels' => $academicLevels,
+                'selectedAcademicLevel' => $academicLevelId,
             ]);
         }
         
-        $grades = StudentGrade::where('is_submitted_for_validation', true)
+        $gradesQuery = StudentGrade::where('is_submitted_for_validation', true)
             ->whereHas('subject.course', function ($query) use ($departmentId) {
                 $query->where('department_id', $departmentId);
-            })
-            ->with(['student', 'subject.course.department', 'academicLevel'])
+            });
+        
+        // Add academic level filter if provided
+        if ($academicLevelId) {
+            $gradesQuery->where('academic_level_id', $academicLevelId);
+        }
+        
+        $grades = $gradesQuery->with(['student', 'subject.course.department', 'academicLevel'])
             ->select('student_id', 'subject_id', 'academic_level_id', 'school_year')
             ->selectRaw('MAX(id) as id')
             ->selectRaw('MAX(grade) as grade')
@@ -134,6 +169,8 @@ class GradeManagementController extends Controller
         return Inertia::render('Chairperson/Grades/Pending', [
             'user' => $user,
             'grades' => $grades,
+            'academicLevels' => $academicLevels,
+            'selectedAcademicLevel' => $academicLevelId,
         ]);
     }
     

@@ -5,8 +5,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Link, useForm } from '@inertiajs/react';
-import { GraduationCap, Clock, CheckCircle, XCircle, Eye, ArrowLeft } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Link, useForm, router } from '@inertiajs/react';
+import { GraduationCap, Clock, CheckCircle, XCircle, Eye, ArrowLeft, Filter } from 'lucide-react';
 import { useState } from 'react';
 
 interface User {
@@ -52,6 +53,14 @@ interface Grade {
     submitted_at?: string;
 }
 
+interface AcademicLevel {
+    id: number;
+    key: string;
+    name: string;
+    sort_order: number;
+    is_active: boolean;
+}
+
 interface PendingGradesProps {
     user: User;
     grades: {
@@ -61,15 +70,31 @@ interface PendingGradesProps {
         per_page: number;
         total: number;
     };
+    academicLevels: AcademicLevel[];
+    selectedAcademicLevel: string | null;
 }
 
-export default function PendingGrades({ user, grades }: PendingGradesProps) {
+export default function PendingGrades({ user, grades, academicLevels, selectedAcademicLevel }: PendingGradesProps) {
     if (!user) {
         return <div>Loading...</div>;
     }
 
     // Add safety checks for undefined props
     const safeGrades = grades || { data: [], current_page: 1, last_page: 1, per_page: 20, total: 0 };
+    const safeAcademicLevels = academicLevels || [];
+
+    const handleAcademicLevelChange = (value: string) => {
+        const params = new URLSearchParams(window.location.search);
+        if (value === 'all') {
+            params.delete('academic_level_id');
+        } else {
+            params.set('academic_level_id', value);
+        }
+        router.get(window.location.pathname, Object.fromEntries(params), {
+            preserveState: true,
+            preserveScroll: true,
+        });
+    };
 
     const [selectedGrade, setSelectedGrade] = useState<Grade | null>(null);
     const [showReturnForm, setShowReturnForm] = useState(false);
@@ -128,6 +153,34 @@ export default function PendingGrades({ user, grades }: PendingGradesProps) {
                                 </p>
                             </div>
                         </div>
+
+                        {/* Academic Level Filter */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Filter className="h-5 w-5" />
+                                    Filter by Academic Level
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <Select 
+                                    value={selectedAcademicLevel || 'all'} 
+                                    onValueChange={handleAcademicLevelChange}
+                                >
+                                    <SelectTrigger className="w-full md:w-64">
+                                        <SelectValue placeholder="Select academic level" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Levels</SelectItem>
+                                        {safeAcademicLevels.map((level) => (
+                                            <SelectItem key={level.id} value={level.id.toString()}>
+                                                {level.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </CardContent>
+                        </Card>
 
                         {/* Summary Card */}
                         <Card>
