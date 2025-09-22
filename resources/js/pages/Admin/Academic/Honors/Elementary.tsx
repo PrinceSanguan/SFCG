@@ -45,6 +45,12 @@ interface QualifiedStudent {
         name: string;
         student_number: string;
         email: string;
+        specific_year_level?: string;
+        section?: {
+            id: number;
+            name: string;
+            code: string;
+        };
     };
     average_grade: number;
     min_grade: number;
@@ -57,6 +63,22 @@ interface QualifiedStudent {
     grades_breakdown: any;
 }
 
+interface GradeLevel {
+    [key: string]: string;
+}
+
+interface Section {
+    id: number;
+    name: string;
+    code: string;
+    specific_year_level?: string;
+}
+
+interface Filters {
+    grade_level?: string;
+    section_id?: string;
+}
+
 interface Props {
     user: User;
     honorTypes: HonorType[];
@@ -64,10 +86,13 @@ interface Props {
     schoolYears: string[];
     qualifiedStudents?: QualifiedStudent[];
     currentSchoolYear?: string;
+    gradeLevels?: GradeLevel;
+    sections?: Section[];
+    filters?: Filters;
     cacheBuster?: number;
 }
 
-export default function ElementaryHonors({ user, honorTypes, criteria, schoolYears, qualifiedStudents, currentSchoolYear, cacheBuster }: Props) {
+export default function ElementaryHonors({ user, honorTypes, criteria, schoolYears, qualifiedStudents, currentSchoolYear, gradeLevels, sections, filters, cacheBuster }: Props) {
     // Fallback for undefined props
     const safeQualifiedStudents = qualifiedStudents || [];
     const safeCurrentSchoolYear = currentSchoolYear || '2024-2025';
@@ -260,6 +285,7 @@ export default function ElementaryHonors({ user, honorTypes, criteria, schoolYea
                                 <AlertDescription>{message.text}</AlertDescription>
                             </Alert>
                         )}
+
 
                         {/* Add New Criteria Button */}
                         <div className="flex justify-end gap-2">
@@ -628,6 +654,100 @@ export default function ElementaryHonors({ user, honorTypes, criteria, schoolYea
                                 <p className="text-sm text-gray-600 dark:text-gray-400">
                                     School Year: {safeCurrentSchoolYear} • Click on a student to view detailed grades and honor calculation
                                 </p>
+                                
+                                {/* Filters */}
+                                <div className="mt-4 pt-4 border-t border-gray-200">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div>
+                                            <Label htmlFor="grade_level_filter">Grade Level</Label>
+                                            <Select 
+                                                value={filters?.grade_level || "all"} 
+                                                onValueChange={(value) => {
+                                                    const url = new URL(window.location.href);
+                                                    if (value && value !== "all") {
+                                                        url.searchParams.set('grade_level', value);
+                                                    } else {
+                                                        url.searchParams.delete('grade_level');
+                                                    }
+                                                    window.location.href = url.toString();
+                                                }}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="All Grade Levels" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="all">All Grade Levels</SelectItem>
+                                                    {gradeLevels && Object.entries(gradeLevels).map(([key, label]) => (
+                                                        <SelectItem key={key} value={key}>
+                                                            {label}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div>
+                                            <Label htmlFor="section_filter">Section</Label>
+                                            <Select 
+                                                value={filters?.section_id || "all"} 
+                                                onValueChange={(value) => {
+                                                    const url = new URL(window.location.href);
+                                                    if (value && value !== "all") {
+                                                        url.searchParams.set('section_id', value);
+                                                    } else {
+                                                        url.searchParams.delete('section_id');
+                                                    }
+                                                    window.location.href = url.toString();
+                                                }}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="All Sections" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="all">All Sections</SelectItem>
+                                                    {sections && sections.map((section) => (
+                                                        <SelectItem key={section.id} value={section.id.toString()}>
+                                                            {section.name} ({section.code})
+                                                            {section.specific_year_level && ` - ${section.specific_year_level.replace('grade_', 'Grade ')}`}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="flex items-end">
+                                            <Button 
+                                                variant="outline" 
+                                                onClick={() => {
+                                                    const url = new URL(window.location.href);
+                                                    url.searchParams.delete('grade_level');
+                                                    url.searchParams.delete('section_id');
+                                                    window.location.href = url.toString();
+                                                }}
+                                                className="w-full"
+                                            >
+                                                Clear Filters
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    {(filters?.grade_level || filters?.section_id) && (
+                                        <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                                            <p className="text-sm text-blue-700">
+                                                <strong>Active Filters:</strong>
+                                                {filters?.grade_level && (
+                                                    <span className="ml-2">
+                                                        Grade Level: <Badge variant="secondary">{gradeLevels?.[filters.grade_level] || filters.grade_level}</Badge>
+                                                    </span>
+                                                )}
+                                                {filters?.section_id && (
+                                                    <span className="ml-2">
+                                                        Section: <Badge variant="secondary">
+                                                            {sections?.find(s => s.id.toString() === filters.section_id)?.name || filters.section_id}
+                                                        </Badge>
+                                                    </span>
+                                                )}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
                             </CardHeader>
                             <CardContent>
                                 {safeQualifiedStudents.length === 0 ? (
@@ -652,9 +772,21 @@ export default function ElementaryHonors({ user, honorTypes, criteria, schoolYea
                                                                     <span className="text-sm font-medium text-gray-500">#{index + 1}</span>
                                                                     <h4 className="font-semibold text-lg">{qualifiedStudent.student.name}</h4>
                                                                 </div>
-                                                                <Badge variant="outline" className="text-xs">
-                                                                    {qualifiedStudent.student.student_number}
-                                                                </Badge>
+                                                                <div className="flex gap-2">
+                                                                    <Badge variant="outline" className="text-xs">
+                                                                        {qualifiedStudent.student.student_number}
+                                                                    </Badge>
+                                                                    {qualifiedStudent.student.specific_year_level && (
+                                                                        <Badge variant="secondary" className="text-xs">
+                                                                            {gradeLevels?.[qualifiedStudent.student.specific_year_level] || qualifiedStudent.student.specific_year_level.replace('grade_', 'Grade ')}
+                                                                        </Badge>
+                                                                    )}
+                                                                    {qualifiedStudent.student.section && (
+                                                                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700">
+                                                                            {qualifiedStudent.student.section.name}
+                                                                        </Badge>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                                                                 <div className="bg-blue-50 p-2 rounded">
@@ -712,6 +844,12 @@ export default function ElementaryHonors({ user, honorTypes, criteria, schoolYea
                                 <p className="text-sm text-gray-600 mt-1">
                                     Student Number: {selectedStudent.student.student_number} | 
                                     School Year: {safeCurrentSchoolYear}
+                                    {selectedStudent.student.specific_year_level && (
+                                        <> | Grade: {gradeLevels?.[selectedStudent.student.specific_year_level] || selectedStudent.student.specific_year_level.replace('grade_', 'Grade ')}</>
+                                    )}
+                                    {selectedStudent.student.section && (
+                                        <> | Section: {selectedStudent.student.section.name} ({selectedStudent.student.section.code})</>
+                                    )}
                                 </p>
                             </div>
                             <Button

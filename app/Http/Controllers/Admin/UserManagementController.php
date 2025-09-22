@@ -790,7 +790,7 @@ class UserManagementController extends Controller
             $gradeLevels = $adviserClassAssignments->pluck('grade_level')->unique()->toArray();
             
             if (!empty($gradeLevels)) {
-                $assignedStudents = \App\Models\User::with(['academicLevel'])
+                $assignedStudents = \App\Models\User::with(['section.academicLevel'])
                     ->where('user_role', 'student')
                     ->where(function ($query) use ($gradeLevels) {
                         foreach ($gradeLevels as $gradeLevel) {

@@ -88,6 +88,7 @@ class ChairpersonController extends Controller
         
         // Get pending honors for approval
         $pendingHonors = $this->getPendingHonors($user, $academicLevelId);
+        $approvedHonors = $this->getApprovedHonors($user, $academicLevelId);
         
         // Determine dashboard message
         $departmentName = is_array($department) ? $department['name'] : $department->name;
@@ -102,6 +103,7 @@ class ChairpersonController extends Controller
             'recentActivities' => $recentActivities,
             'pendingGrades' => $pendingGrades,
             'pendingHonors' => $pendingHonors,
+            'approvedHonors' => $approvedHonors,
             'dashboardMessage' => $dashboardMessage,
             'academicLevels' => $academicLevels,
             'selectedAcademicLevel' => $academicLevelId,
@@ -349,6 +351,27 @@ class ChairpersonController extends Controller
             })
             ->with(['student', 'honorType', 'academicLevel'])
             ->latest('created_at')
+            ->limit(5)
+            ->get();
+    }
+    
+    private function getApprovedHonors($user, $academicLevelId = null)
+    {
+        $departmentId = $user->department_id;
+        
+        if (!$departmentId) {
+            return collect();
+        }
+        
+        return HonorResult::where('is_approved', true)
+            ->whereHas('student.course', function ($query) use ($departmentId) {
+                $query->where('department_id', $departmentId);
+            })
+            ->when($academicLevelId, function($q) use ($academicLevelId) {
+                return $q->where('academic_level_id', $academicLevelId);
+            })
+            ->with(['student', 'honorType', 'academicLevel'])
+            ->latest('approved_at')
             ->limit(5)
             ->get();
     }

@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Link, router } from '@inertiajs/react';
-import { Users, BookOpen, Award, TrendingUp, Clock, Filter } from 'lucide-react';
+import { Users, BookOpen, Award, TrendingUp, Clock, Filter, CheckCircle } from 'lucide-react';
 
 interface User {
     id: number;
@@ -48,6 +48,18 @@ interface AcademicLevel {
     is_active: boolean;
 }
 
+interface Honor {
+    id: number;
+    student?: {
+        name: string;
+    };
+    honorType?: {
+        name: string;
+    };
+    gpa: number;
+    approved_at?: string;
+}
+
 interface DashboardProps {
     user: User;
     department: Department | null;
@@ -55,6 +67,7 @@ interface DashboardProps {
     recentActivities: Activity[];
     pendingGrades: unknown[];
     pendingHonors: unknown[];
+    approvedHonors: Honor[];
     academicLevels: AcademicLevel[];
     selectedAcademicLevel: string | null;
 }
@@ -64,6 +77,9 @@ export default function ChairpersonDashboard({
     department, 
     stats, 
     recentActivities, 
+    pendingGrades,
+    pendingHonors,
+    approvedHonors,
     academicLevels,
     selectedAcademicLevel
 }: DashboardProps) {
@@ -347,6 +363,53 @@ export default function ChairpersonDashboard({
                                                 </div>
                                             </div>
                                         ))}
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {/* Approved Honors */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Award className="h-5 w-5" />
+                                    Recently Approved Honors
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {approvedHonors.length === 0 ? (
+                                    <p className="text-gray-500 dark:text-gray-400 text-center py-4">
+                                        No approved honors found
+                                    </p>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {approvedHonors.map((honor: Honor, index: number) => (
+                                            <div key={index} className="flex items-center gap-3 p-3 rounded-lg border border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20">
+                                                <div className="flex-shrink-0">
+                                                    <CheckCircle className="h-5 w-5 text-green-500" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                                        Honor Approved
+                                                    </p>
+                                                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                                                        {honor.student?.name} - {honor.honorType?.name} (GPA: {honor.gpa})
+                                                    </p>
+                                                </div>
+                                                <div className="text-xs text-gray-400">
+                                                    {honor.approved_at ? new Date(honor.approved_at).toLocaleDateString() : 'Recently'}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                {approvedHonors.length > 0 && (
+                                    <div className="mt-4 pt-4 border-t">
+                                        <Button asChild variant="outline" size="sm" className="w-full">
+                                            <Link href={route('chairperson.honors.index')}>
+                                                View All Honors
+                                            </Link>
+                                        </Button>
                                     </div>
                                 )}
                             </CardContent>

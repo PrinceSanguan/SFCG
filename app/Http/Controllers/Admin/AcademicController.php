@@ -320,7 +320,7 @@ class AcademicController extends Controller
         ]);
     }
 
-    public function elementaryHonors()
+    public function elementaryHonors(Request $request)
     {
         $honorTypes = HonorType::orderBy('scope')->orderBy('name')->get();
         $criteria = HonorCriterion::with(['honorType', 'academicLevel'])
@@ -337,7 +337,22 @@ class AcademicController extends Controller
         // Get all qualified elementary students for the current school year
         // Use 2024-2025 for now since that's where our test data is
         $currentSchoolYear = '2024-2025'; // TODO: Make this configurable or use current active school year
-        $qualifiedStudents = $this->getQualifiedElementaryStudents($currentSchoolYear);
+        
+        // Get filter parameters
+        $gradeLevel = $request->get('grade_level');
+        $sectionId = $request->get('section_id');
+        
+        $qualifiedStudents = $this->getQualifiedElementaryStudents($currentSchoolYear, $gradeLevel, $sectionId);
+        
+        // Get available grade levels for elementary
+        $gradeLevels = \App\Models\User::getSpecificYearLevels()['elementary'];
+        
+        // Get available sections for elementary
+        $sections = \App\Models\Section::where('academic_level_id', 1)
+            ->where('is_active', true)
+            ->orderBy('specific_year_level')
+            ->orderBy('name')
+            ->get();
 
         return Inertia::render('Admin/Academic/Honors/Elementary', [
             'user' => $this->sharedUser(),
@@ -346,6 +361,12 @@ class AcademicController extends Controller
             'schoolYears' => $schoolYears,
             'qualifiedStudents' => $qualifiedStudents,
             'currentSchoolYear' => $currentSchoolYear,
+            'gradeLevels' => $gradeLevels,
+            'sections' => $sections,
+            'filters' => [
+                'grade_level' => $gradeLevel,
+                'section_id' => $sectionId,
+            ],
             'cacheBuster' => time(), // Force fresh data
         ]);
     }
@@ -391,7 +412,7 @@ class AcademicController extends Controller
     /**
      * Get all qualified elementary students for honor calculation
      */
-    private function getQualifiedElementaryStudents(string $schoolYear): array
+    private function getQualifiedElementaryStudents(string $schoolYear, ?string $gradeLevel = null, ?string $sectionId = null): array
     {
         $elementaryService = new \App\Services\ElementaryHonorCalculationService();
         $elementaryLevel = \App\Models\AcademicLevel::where('key', 'elementary')->first();
@@ -400,11 +421,22 @@ class AcademicController extends Controller
             return [];
         }
 
-        // Get all elementary students
-        $students = \App\Models\User::where('user_role', 'student')
+        // Build query for elementary students with filters
+        $studentsQuery = \App\Models\User::where('user_role', 'student')
             ->where('year_level', 'elementary')
-            ->orderBy('name')
-            ->get();
+            ->with(['section']); // Load section relationship for display
+
+        // Apply grade level filter
+        if ($gradeLevel) {
+            $studentsQuery->where('specific_year_level', $gradeLevel);
+        }
+
+        // Apply section filter
+        if ($sectionId) {
+            $studentsQuery->where('section_id', $sectionId);
+        }
+
+        $students = $studentsQuery->orderBy('name')->get();
 
         $qualifiedStudents = [];
 
@@ -423,6 +455,12 @@ class AcademicController extends Controller
                             'name' => $student->name,
                             'student_number' => $student->student_number,
                             'email' => $student->email,
+                            'specific_year_level' => $student->specific_year_level,
+                            'section' => $student->section ? [
+                                'id' => $student->section->id,
+                                'name' => $student->section->name,
+                                'code' => $student->section->code,
+                            ] : null,
                         ],
                         'average_grade' => $result['average_grade'],
                         'min_grade' => $result['min_grade'],
