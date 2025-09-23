@@ -47,14 +47,17 @@ interface StudentGrade {
   gradingPeriod: {
     id: number;
     name: string;
+    code: string;
+    sort_order?: number;
   };
-  is_approved: boolean;
-  validated_at?: string;
-  approved_at?: string;
-  validatedBy?: {
+  grading_period?: {
     id: number;
     name: string;
+    code: string;
+    sort_order?: number;
   };
+  is_approved: boolean;
+  approved_at?: string;
   approvedBy?: {
     id: number;
     name: string;
@@ -99,6 +102,17 @@ interface Props {
 }
 
 export default function StudentProfile({ user, assignedSubjects, subjectGrades, currentSchoolYear }: Props) {
+  const getPeriodLabel = (grade: StudentGrade): string => {
+    const rel = (grade as unknown as { gradingPeriod?: { name?: string; code?: string }; grading_period?: { name?: string; code?: string } }).gradingPeriod
+      || (grade as unknown as { grading_period?: { name?: string; code?: string } }).grading_period;
+    const name = rel?.name;
+    const code = rel?.code;
+    if (name && String(name).trim().length > 0) return name;
+    if (code && String(code).trim().length > 0) return code;
+    if (grade.grading_period_id) return `Period #${grade.grading_period_id}`;
+    return 'N/A';
+  };
+  const DEBUG = false;
   return (
     <StudentLayout>
       <Head title="My Profile" />
@@ -349,6 +363,19 @@ export default function StudentProfile({ user, assignedSubjects, subjectGrades, 
               <div className="space-y-6">
                 {assignedSubjects.map((assignment) => {
                   const grades = subjectGrades[assignment.subject.id] || [];
+                  if (DEBUG) {
+                    console.log('Student Profile → subject grades', {
+                      subjectId: assignment.subject.id,
+                      subjectCode: assignment.subject.code,
+                      grades: grades.map(g => ({
+                        id: g.id,
+                        grading_period_id: (g as unknown as { grading_period_id?: number }).grading_period_id,
+                        gradingPeriod: (g as unknown as { gradingPeriod?: { name?: string; code?: string } }).gradingPeriod,
+                        grading_period: (g as unknown as { grading_period?: { name?: string; code?: string } }).grading_period,
+                        raw: g,
+                      }))
+                    });
+                  }
                   const teacher = assignment.subject.teacherAssignments?.[0]?.teacher;
                   
                   return (
@@ -395,10 +422,23 @@ export default function StudentProfile({ user, assignedSubjects, subjectGrades, 
                             My Grades
                           </h5>
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                            {grades.map((grade) => (
+                            {grades
+                              .slice()
+                              .sort((a, b) => {
+                                const aOrder = (a.gradingPeriod?.sort_order ?? a.grading_period?.sort_order) ?? Number.MAX_SAFE_INTEGER;
+                                const bOrder = (b.gradingPeriod?.sort_order ?? b.grading_period?.sort_order) ?? Number.MAX_SAFE_INTEGER;
+                                if (aOrder !== bOrder) return aOrder - bOrder;
+                                return (a.grading_period_id || 0) - (b.grading_period_id || 0);
+                              })
+                              .map((grade) => (
                               <div key={grade.id} className="flex items-center justify-between p-2 bg-white dark:bg-gray-700 rounded border">
                                 <div>
-                                  <span className="text-sm font-medium">{grade.gradingPeriod.name}</span>
+                                  <span className="text-sm font-medium">{getPeriodLabel(grade)}</span>
+                                  {DEBUG && (
+                                    <div className="mt-1 text-[10px] text-gray-500">
+                                      id:{grade.grading_period_id ?? '—'} | gp:{grade.gradingPeriod?.name ?? '—'} | code:{grade.gradingPeriod?.code ?? '—'} | snake:{(grade as unknown as { grading_period?: { name?: string } }).grading_period?.name ?? '—'} | keys:{Object.keys(grade || {}).join(',')}
+                                    </div>
+                                  )}
                                   <div className="flex items-center gap-2">
                                     <span className={`text-lg font-bold ${
                                       grade.grade >= 90 ? 'text-green-600' :
@@ -414,11 +454,6 @@ export default function StudentProfile({ user, assignedSubjects, subjectGrades, 
                                     )}
                                   </div>
                                 </div>
-                                {grade.validatedBy && (
-                                  <div className="text-xs text-gray-500">
-                                    Validated by {grade.validatedBy.name}
-                                  </div>
-                                )}
                               </div>
                             ))}
                           </div>

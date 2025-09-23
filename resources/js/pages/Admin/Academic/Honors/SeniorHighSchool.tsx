@@ -39,14 +39,65 @@ interface HonorCriterion {
     honorType: HonorType;
 }
 
+interface QualifiedStudent {
+    student: {
+        id: number;
+        name: string;
+        email: string;
+        student_number: string;
+        specific_year_level?: string;
+        section?: {
+            id: number;
+            name: string;
+            code: string;
+        };
+    };
+    result: {
+        qualified: boolean;
+        qualifications: Array<{
+            honor_type: HonorType;
+            criterion: HonorCriterion;
+            gpa: number;
+            min_grade: number;
+            quarter_averages: number[];
+        }>;
+        average_grade: number;
+        min_grade: number;
+        quarter_averages: number[];
+        total_subjects: number;
+        reason: string;
+    };
+}
+
+interface GradeLevel {
+    [key: string]: string;
+}
+
+interface Section {
+    id: number;
+    name: string;
+    code: string;
+    specific_year_level: string;
+}
+
+interface Filters {
+    grade_level?: string;
+    section_id?: string;
+}
+
 interface Props {
     user: User;
     honorTypes: HonorType[];
     criteria: HonorCriterion[];
     schoolYears: string[];
+    qualifiedStudents?: QualifiedStudent[];
+    currentSchoolYear?: string;
+    gradeLevels?: GradeLevel;
+    sections?: Section[];
+    filters?: Filters;
 }
 
-export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, schoolYears }: Props) {
+export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, schoolYears, qualifiedStudents = [], currentSchoolYear = '2024-2025', gradeLevels = {}, sections = [], filters }: Props) {
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const [editingCriterion, setEditingCriterion] = useState<HonorCriterion | null>(null);
     const [editForm, setEditForm] = useState({
@@ -460,6 +511,190 @@ export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                                 )}
                                             </div>
                                         ))}
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {/* Qualified Students List */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Trophy className="h-5 w-5" />
+                                    Qualified Senior High School Students ({qualifiedStudents.length})
+                                </CardTitle>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                    School Year: {currentSchoolYear} • Click on a student to view detailed grades and honor calculation
+                                </p>
+                                
+                                {/* Filters */}
+                                <div className="mt-4 pt-4 border-t border-gray-200">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div>
+                                            <Label htmlFor="grade_level_filter">Grade Level</Label>
+                                            <Select 
+                                                value={filters?.grade_level || "all"} 
+                                                onValueChange={(value) => {
+                                                    const url = new URL(window.location.href);
+                                                    if (value && value !== "all") {
+                                                        url.searchParams.set('grade_level', value);
+                                                    } else {
+                                                        url.searchParams.delete('grade_level');
+                                                    }
+                                                    window.location.href = url.toString();
+                                                }}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="All Grade Levels" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="all">All Grade Levels</SelectItem>
+                                                    {gradeLevels && Object.entries(gradeLevels).map(([key, label]) => (
+                                                        <SelectItem key={key} value={key}>
+                                                            {label}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div>
+                                            <Label htmlFor="section_filter">Section</Label>
+                                            <Select 
+                                                value={filters?.section_id || "all"} 
+                                                onValueChange={(value) => {
+                                                    const url = new URL(window.location.href);
+                                                    if (value && value !== "all") {
+                                                        url.searchParams.set('section_id', value);
+                                                    } else {
+                                                        url.searchParams.delete('section_id');
+                                                    }
+                                                    window.location.href = url.toString();
+                                                }}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="All Sections" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="all">All Sections</SelectItem>
+                                                    {sections && sections.map((section) => (
+                                                        <SelectItem key={section.id} value={section.id.toString()}>
+                                                            {section.name} ({section.code})
+                                                            {section.specific_year_level && ` - ${section.specific_year_level.replace('grade_', 'Grade ')}`}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="flex items-end">
+                                            <Button 
+                                                variant="outline" 
+                                                onClick={() => {
+                                                    const url = new URL(window.location.href);
+                                                    url.searchParams.delete('grade_level');
+                                                    url.searchParams.delete('section_id');
+                                                    window.location.href = url.toString();
+                                                }}
+                                                className="w-full"
+                                            >
+                                                Clear Filters
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    {(filters?.grade_level || filters?.section_id) && (
+                                        <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                                            <p className="text-sm text-blue-700">
+                                                <strong>Active Filters:</strong>
+                                                {filters?.grade_level && (
+                                                    <span className="ml-2">
+                                                        Grade Level: <Badge variant="secondary">{gradeLevels?.[filters.grade_level] || filters.grade_level}</Badge>
+                                                    </span>
+                                                )}
+                                                {filters?.section_id && (
+                                                    <span className="ml-2">
+                                                        Section: <Badge variant="secondary">
+                                                            {sections?.find(s => s.id.toString() === filters.section_id)?.name || filters.section_id}
+                                                        </Badge>
+                                                    </span>
+                                                )}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                {qualifiedStudents.length === 0 ? (
+                                    <div className="text-center py-8 text-gray-500">
+                                        <Trophy className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                                        <p>No qualified students found</p>
+                                        <p className="text-sm">Students need to meet honor criteria to appear here.</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        <div className="grid gap-4">
+                                            {qualifiedStudents.map((qualifiedStudent, index) => (
+                                                <div 
+                                                    key={qualifiedStudent.student.id}
+                                                    className="border rounded-lg p-4 bg-white shadow-sm hover:shadow-md cursor-pointer transition-shadow"
+                                                >
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center gap-3 mb-2">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-sm font-medium text-gray-500">#{index + 1}</span>
+                                                                    <h4 className="font-semibold text-lg">{qualifiedStudent.student.name}</h4>
+                                                                </div>
+                                                                <div className="flex gap-2">
+                                                                    <Badge variant="outline" className="text-xs">
+                                                                        {qualifiedStudent.student.student_number}
+                                                                    </Badge>
+                                                                    {qualifiedStudent.student.specific_year_level && (
+                                                                        <Badge variant="secondary" className="text-xs">
+                                                                            {gradeLevels?.[qualifiedStudent.student.specific_year_level] || qualifiedStudent.student.specific_year_level.replace('grade_', 'Grade ')}
+                                                                        </Badge>
+                                                                    )}
+                                                                    {qualifiedStudent.student.section && (
+                                                                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700">
+                                                                            {qualifiedStudent.student.section.name}
+                                                                        </Badge>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                                                                <div className="bg-blue-50 p-2 rounded">
+                                                                    <span className="font-medium text-blue-700">Average Grade:</span>
+                                                                    <div className="text-lg font-bold">{qualifiedStudent.result.average_grade}</div>
+                                                                </div>
+                                                                <div className="bg-yellow-50 p-2 rounded">
+                                                                    <span className="font-medium text-yellow-700">Min Grade:</span>
+                                                                    <div className="text-lg font-bold">{qualifiedStudent.result.min_grade}</div>
+                                                                </div>
+                                                                <div className="bg-green-50 p-2 rounded">
+                                                                    <span className="font-medium text-green-700">Total Quarters:</span>
+                                                                    <div className="text-lg font-bold">{qualifiedStudent.result.quarter_averages.length}</div>
+                                                                </div>
+                                                                <div className="bg-purple-50 p-2 rounded">
+                                                                    <span className="font-medium text-purple-700">Honor:</span>
+                                                                    <div className="font-bold">
+                                                                        {qualifiedStudent.result.qualifications.length > 0 ? (
+                                                                            <Badge className="bg-purple-100 text-purple-800 border-purple-200">
+                                                                                {qualifiedStudent.result.qualifications[0].honor_type.name}
+                                                                            </Badge>
+                                                                        ) : (
+                                                                            <span className="text-gray-500">N/A</span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="ml-4">
+                                                            <Button variant="outline" size="sm">
+                                                                View Details
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 )}
                             </CardContent>

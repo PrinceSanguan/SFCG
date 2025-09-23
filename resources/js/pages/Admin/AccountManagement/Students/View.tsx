@@ -58,14 +58,20 @@ interface StudentGrade {
     gradingPeriod: {
         id: number;
         name: string;
+        code: string;
+        sort_order?: number;
+        period_type?: string;
     };
-    is_approved: boolean;
-    validated_at?: string;
-    approved_at?: string;
-    validatedBy?: {
+    // Some API responses may serialize relations in snake_case
+    grading_period?: {
         id: number;
         name: string;
+        code: string;
+        sort_order?: number;
+        period_type?: string;
     };
+    is_approved: boolean;
+    approved_at?: string;
     approvedBy?: {
         id: number;
         name: string;
@@ -130,6 +136,7 @@ interface ViewProps {
 export default function ViewStudent({ user, targetUser, activityLogs, assignedSubjects, subjectGrades, currentSchoolYear }: ViewProps) {
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const { errors } = usePage().props;
+    const DEBUG = false;
 
     // Safety check for user data
     if (!user || !targetUser) {
@@ -168,6 +175,25 @@ export default function ViewStudent({ user, targetUser, activityLogs, assignedSu
             'parent': 'Parent',
         };
         return roleMap[role] || role;
+    };
+
+    const getPeriodLabel = (grade: StudentGrade): string => {
+        const anyGrade = grade as unknown as Record<string, unknown>;
+        const rel = (anyGrade.gradingPeriod as { name?: string; code?: string } | undefined)
+            || (anyGrade.grading_period as { name?: string; code?: string } | undefined);
+        const snakeRaw = anyGrade.grading_period;
+        const name = rel?.name;
+        const code = rel?.code;
+        if (name && String(name).trim().length > 0) return String(name);
+        if (code && String(code).trim().length > 0) return String(code);
+        if (typeof snakeRaw === 'string' || typeof snakeRaw === 'number') {
+            return String(snakeRaw);
+        }
+        const idVal = anyGrade['grading_period_id'] as number | string | undefined;
+        if (idVal !== undefined && idVal !== null) return `Period #${idVal}`;
+        
+        // If all else fails, show a generic period name based on row index
+        return 'Unknown Period';
     };
 
     const formatActionText = (action: string) => {
@@ -492,6 +518,21 @@ export default function ViewStudent({ user, targetUser, activityLogs, assignedSu
                                     <div className="space-y-6">
                                         {assignedSubjects.map((assignment) => {
                                             const grades = subjectGrades[assignment.subject.id] || [];
+                                            if (DEBUG) {
+                                                // Debug each subject's grades to verify grading period payload
+                                                // eslint-disable-next-line no-console
+                                                console.log('Admin View → subject grades', {
+                                                    subjectId: assignment.subject.id,
+                                                    subjectCode: assignment.subject.code,
+                                                    grades: grades.map(g => ({
+                                                        id: g.id,
+                                                        grading_period_id: (g as any).grading_period_id,
+                                                        gradingPeriod: (g as any).gradingPeriod,
+                                                        grading_period: (g as any).grading_period,
+                                                        raw: g,
+                                                    }))
+                                                });
+                                            }
                                             const teacher = assignment.subject.teacherAssignments?.[0]?.teacher;
                                             
                                             return (
@@ -543,25 +584,29 @@ export default function ViewStudent({ user, targetUser, activityLogs, assignedSu
                                                                 <table className="w-full text-sm border-collapse border border-gray-300">
                                                                     <thead>
                                                                         <tr className="bg-gray-100 dark:bg-gray-700">
-                                                                            <th className="border border-gray-300 p-2 text-left">Quarter</th>
+                                                                            <th className="border border-gray-300 p-2 text-left">Period</th>
                                                                             <th className="border border-gray-300 p-2 text-center">Grade</th>
                                                                             <th className="border border-gray-300 p-2 text-center">Status</th>
-                                                                            <th className="border border-gray-300 p-2 text-center">Validated By</th>
                                                                         </tr>
                                                                     </thead>
                                                                     <tbody>
                                                                         {grades
                                                                             .sort((a, b) => {
-                                                                                // Sort by quarter order (Q1, Q2, Q3, Q4)
-                                                                                const quarterOrder = ['Q1', 'Q2', 'Q3', 'Q4'];
-                                                                                const aQuarter = a.grading_period?.code || a.gradingPeriod?.code || '';
-                                                                                const bQuarter = b.grading_period?.code || b.gradingPeriod?.code || '';
-                                                                                return quarterOrder.indexOf(aQuarter) - quarterOrder.indexOf(bQuarter);
+                                                                                const aOrder = (a.gradingPeriod?.sort_order ?? a.grading_period?.sort_order) ?? Number.MAX_SAFE_INTEGER;
+                                                                                const bOrder = (b.gradingPeriod?.sort_order ?? b.grading_period?.sort_order) ?? Number.MAX_SAFE_INTEGER;
+                                                                                if (aOrder !== bOrder) return aOrder - bOrder;
+                                                                                // fallback: by grading period id to keep stable order
+                                                                                return (a.grading_period_id || 0) - (b.grading_period_id || 0);
                                                                             })
                                                                             .map((grade) => (
                                                                             <tr key={grade.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                                                                                 <td className="border border-gray-300 p-2 font-medium">
-                                                                                    {grade.grading_period?.name || grade.gradingPeriod?.name || 'N/A'}
+                                                                                    {getPeriodLabel(grade)}
+                                                                                        {DEBUG && (
+                                                                                            <div className="mt-1 text-[10px] text-gray-500">
+                                                                                                id:{(grade as unknown as { grading_period_id?: number | string }).grading_period_id ?? '—'} | gp:{grade.gradingPeriod?.name ?? '—'} | code:{grade.gradingPeriod?.code ?? '—'} | snakeVal:{String((grade as unknown as { grading_period?: unknown }).grading_period ?? '—')} | keys:{Object.keys(grade || {}).join(',')}
+                                                                                            </div>
+                                                                                        )}
                                                                                 </td>
                                                                                 <td className="border border-gray-300 p-2 text-center">
                                                                                     <span className={`text-lg font-bold ${
@@ -582,9 +627,6 @@ export default function ViewStudent({ user, targetUser, activityLogs, assignedSu
                                                                                             Pending
                                                                                         </Badge>
                                                                                     )}
-                                                                                </td>
-                                                                                <td className="border border-gray-300 p-2 text-center text-xs text-gray-500">
-                                                                                    {grade.validated_by?.name || grade.validatedBy?.name || 'Not Validated'}
                                                                                 </td>
                                                                             </tr>
                                                                         ))}
