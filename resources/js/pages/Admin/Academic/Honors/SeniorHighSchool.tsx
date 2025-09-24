@@ -36,7 +36,8 @@ interface HonorCriterion {
     min_year: number | null;
     max_year: number | null;
     require_consistent_honor: boolean;
-    honorType: HonorType;
+    honor_type?: HonorType;  // Laravel sends snake_case
+    honorType?: HonorType;   // Keep both for compatibility
 }
 
 interface QualifiedStudent {
@@ -80,9 +81,16 @@ interface Section {
     specific_year_level: string;
 }
 
+interface Strand {
+    id: number;
+    name: string;
+    code?: string;
+}
+
 interface Filters {
     grade_level?: string;
     section_id?: string;
+    strand_id?: string;
 }
 
 interface Props {
@@ -94,10 +102,11 @@ interface Props {
     currentSchoolYear?: string;
     gradeLevels?: GradeLevel;
     sections?: Section[];
+    strands?: Strand[];
     filters?: Filters;
 }
 
-export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, schoolYears, qualifiedStudents = [], currentSchoolYear = '2024-2025', gradeLevels = {}, sections = [], filters }: Props) {
+export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, schoolYears, qualifiedStudents = [], currentSchoolYear = '2024-2025', gradeLevels = {}, sections = [], strands = [], filters }: Props) {
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const [editingCriterion, setEditingCriterion] = useState<HonorCriterion | null>(null);
     const [editForm, setEditForm] = useState({
@@ -123,6 +132,41 @@ export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, sch
         max_year: '',
         require_consistent_honor: false as boolean,
     });
+
+    // Derive an honor name when API has no qualifications: pick the highest matching criteria by min_gpa/max_gpa
+    const deriveHonorFromAverage = (avg?: number): string | null => {
+        if (typeof avg !== 'number' || !criteria || criteria.length === 0) return null;
+        // Only consider criteria that have an honorType and threshold
+        const sorted = [...criteria]
+            .filter(c => c.honorType && (c.min_gpa !== null || c.max_gpa !== null))
+            .sort((a, b) => (b.min_gpa ?? 0) - (a.min_gpa ?? 0));
+        for (const c of sorted) {
+            const minOk = (c.min_gpa === null) || (avg >= (c.min_gpa as number));
+            const maxOk = (c.max_gpa === null) || (avg <= (c.max_gpa as number));
+            if (minOk && maxOk) {
+                return c.honorType?.name || null;
+            }
+        }
+        return null;
+    };
+
+    const getHonorTypeName = (criterion: HonorCriterion): string => {
+        return (
+            criterion?.honor_type?.name ||
+            criterion?.honorType?.name ||
+            honorTypes?.find((t) => t.id === criterion?.honor_type_id)?.name ||
+            'Unknown Honor Type'
+        );
+    };
+
+    const getHonorTypeScope = (criterion: HonorCriterion): string => {
+        return (
+            criterion?.honor_type?.scope ||
+            criterion?.honorType?.scope ||
+            honorTypes?.find((t) => t.id === criterion?.honor_type_id)?.scope ||
+            'Unknown'
+        );
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -373,8 +417,8 @@ export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                                     // Edit Form
                                                     <div className="space-y-4">
                                                         <div className="flex items-center justify-between mb-3">
-                                                            <h4 className="font-medium text-lg">{criterion.honorType?.name || 'Unknown Honor Type'}</h4>
-                                                            <Badge variant="secondary">{criterion.honorType?.scope || 'Unknown'}</Badge>
+                                                            <h4 className="font-medium text-lg">{getHonorTypeName(criterion)}</h4>
+                                                            <Badge variant="secondary">{getHonorTypeScope(criterion)}</Badge>
                                                         </div>
                                                         
                                                         <div className="grid grid-cols-2 gap-4">
@@ -466,8 +510,8 @@ export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                                     // Display Mode
                                                     <>
                                                         <div className="flex items-center justify-between mb-3">
-                                                            <h4 className="font-medium text-lg">{criterion.honorType?.name || 'Unknown Honor Type'}</h4>
-                                                            <Badge variant="secondary">{criterion.honorType?.scope || 'Unknown'}</Badge>
+                                                            <h4 className="font-medium text-lg">{getHonorTypeName(criterion)}</h4>
+                                                            <Badge variant="secondary">{getHonorTypeScope(criterion)}</Badge>
                                                         </div>
                                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                                                             {criterion.min_gpa && (
@@ -529,7 +573,7 @@ export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                 
                                 {/* Filters */}
                                 <div className="mt-4 pt-4 border-t border-gray-200">
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                         <div>
                                             <Label htmlFor="grade_level_filter">Grade Level</Label>
                                             <Select 
@@ -552,6 +596,34 @@ export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                                     {gradeLevels && Object.entries(gradeLevels).map(([key, label]) => (
                                                         <SelectItem key={key} value={key}>
                                                             {label}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div>
+                                            <Label htmlFor="strand_filter">Strand</Label>
+                                            <Select 
+                                                value={filters?.strand_id || "all"} 
+                                                onValueChange={(value) => {
+                                                    const url = new URL(window.location.href);
+                                                    if (value && value !== "all") {
+                                                        url.searchParams.set('strand_id', value);
+                                                    } else {
+                                                        url.searchParams.delete('strand_id');
+                                                    }
+                                                    // Changing strand typically changes available sections
+                                                    window.location.href = url.toString();
+                                                }}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="All Strands" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="all">All Strands</SelectItem>
+                                                    {strands && strands.map((strand) => (
+                                                        <SelectItem key={strand.id} value={strand.id.toString()}>
+                                                            {strand.name}
                                                         </SelectItem>
                                                     ))}
                                                 </SelectContent>
@@ -591,6 +663,7 @@ export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                                 onClick={() => {
                                                     const url = new URL(window.location.href);
                                                     url.searchParams.delete('grade_level');
+                                                    url.searchParams.delete('strand_id');
                                                     url.searchParams.delete('section_id');
                                                     window.location.href = url.toString();
                                                 }}
@@ -600,13 +673,18 @@ export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                             </Button>
                                         </div>
                                     </div>
-                                    {(filters?.grade_level || filters?.section_id) && (
+                                    {(filters?.grade_level || filters?.section_id || filters?.strand_id) && (
                                         <div className="mt-4 p-3 bg-blue-50 rounded-lg">
                                             <p className="text-sm text-blue-700">
                                                 <strong>Active Filters:</strong>
                                                 {filters?.grade_level && (
                                                     <span className="ml-2">
                                                         Grade Level: <Badge variant="secondary">{gradeLevels?.[filters.grade_level] || filters.grade_level}</Badge>
+                                                    </span>
+                                                )}
+                                                {filters?.strand_id && (
+                                                    <span className="ml-2">
+                                                        Strand: <Badge variant="secondary">{strands?.find(s => s.id.toString() === filters.strand_id)?.name || filters.strand_id}</Badge>
                                                     </span>
                                                 )}
                                                 {filters?.section_id && (
@@ -670,17 +748,24 @@ export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                                                 </div>
                                                                 <div className="bg-green-50 p-2 rounded">
                                                                     <span className="font-medium text-green-700">Total Quarters:</span>
-                                                                    <div className="text-lg font-bold">{qualifiedStudent.result.quarter_averages.length}</div>
+                                                                    <div className="text-lg font-bold">{qualifiedStudent.result.quarter_averages?.length ?? qualifiedStudent.result.grades_breakdown?.periods?.length ?? 0}</div>
                                                                 </div>
                                                                 <div className="bg-purple-50 p-2 rounded">
                                                                     <span className="font-medium text-purple-700">Honor:</span>
                                                                     <div className="font-bold">
-                                                                        {qualifiedStudent.result.qualifications.length > 0 ? (
+                                                                        {qualifiedStudent.result?.qualifications?.length ? (
                                                                             <Badge className="bg-purple-100 text-purple-800 border-purple-200">
-                                                                                {qualifiedStudent.result.qualifications[0].honor_type.name}
+                                                                                {qualifiedStudent.result?.qualifications?.[0]?.honor_type?.name ?? 'N/A'}
                                                                             </Badge>
                                                                         ) : (
-                                                                            <span className="text-gray-500">N/A</span>
+                                                                            (() => {
+                                                                                const derived = deriveHonorFromAverage(qualifiedStudent.result?.average_grade);
+                                                                                return derived ? (
+                                                                                    <Badge className="bg-purple-100 text-purple-800 border-purple-200">{derived}</Badge>
+                                                                                ) : (
+                                                                                    <span className="text-gray-500">N/A</span>
+                                                                                );
+                                                                            })()
                                                                         )}
                                                                     </div>
                                                                 </div>

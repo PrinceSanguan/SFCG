@@ -196,6 +196,22 @@ export default function ViewStudent({ user, targetUser, activityLogs, assignedSu
         return 'Unknown Period';
     };
 
+    const isQuarterPeriod = (grade: StudentGrade): boolean => {
+        const type = grade.gradingPeriod?.period_type || grade.grading_period?.period_type;
+        const code = (grade.gradingPeriod?.code || grade.grading_period?.code || '').toUpperCase();
+        const name = (grade.gradingPeriod?.name || grade.grading_period?.name || '').toLowerCase();
+
+        // Exclude semester parents and finals/calculated explicitly
+        if (name.includes('semester')) return false;
+        if (['F_SIM', 'S2', 'F1', 'S2-FA'].includes(code)) return false;
+
+        const normalizedType = (type || '').toLowerCase();
+        if (['quarter', 'midterm', 'prefinal'].includes(normalizedType)) return true;
+
+        // Fallback by recognizable quarter codes
+        return ['Q1', 'Q2', 'Q3', 'Q4', 'P1', 'S2-MT', 'S2-PF'].some(tok => code.includes(tok));
+    };
+
     const formatActionText = (action: string) => {
         return action.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     };
@@ -520,20 +536,30 @@ export default function ViewStudent({ user, targetUser, activityLogs, assignedSu
                                             const grades = subjectGrades[assignment.subject.id] || [];
                                             if (DEBUG) {
                                                 // Debug each subject's grades to verify grading period payload
-                                                // eslint-disable-next-line no-console
                                                 console.log('Admin View → subject grades', {
                                                     subjectId: assignment.subject.id,
                                                     subjectCode: assignment.subject.code,
                                                     grades: grades.map(g => ({
                                                         id: g.id,
-                                                        grading_period_id: (g as any).grading_period_id,
-                                                        gradingPeriod: (g as any).gradingPeriod,
-                                                        grading_period: (g as any).grading_period,
+                                                        grading_period_id: (g as unknown as { grading_period_id?: number | string }).grading_period_id,
+                                                        gradingPeriod: (g as unknown as { gradingPeriod?: { name?: string; code?: string } }).gradingPeriod,
+                                                        grading_period: (g as unknown as { grading_period?: unknown }).grading_period,
                                                         raw: g,
                                                     }))
                                                 });
                                             }
                                             const teacher = assignment.subject.teacherAssignments?.[0]?.teacher;
+                                            const quarterGrades = (subjectGrades[assignment.subject.id] || []).filter(isQuarterPeriod);
+                                            const byCode = new Map<string, StudentGrade>();
+                                            quarterGrades.forEach(g => {
+                                                const c = (g.gradingPeriod?.code || g.grading_period?.code || '').toUpperCase();
+                                                if (c) byCode.set(c, g);
+                                            });
+                                            const isSeniorHigh = (targetUser.year_level === 'senior_highschool') || (assignment.subject.academicLevel?.name?.toLowerCase()?.includes('senior') ?? false);
+                                            const firstSemCodes = isSeniorHigh ? ['Q1', 'Q2'] : ['P1', 'Q1'];
+                                            const secondSemCodes = isSeniorHigh ? ['Q3', 'Q4'] : ['S2-MT', 'S2-PF'];
+                                            const firstSemGrades = firstSemCodes.map(code => byCode.get(code)).filter(Boolean) as StudentGrade[];
+                                            const secondSemGrades = secondSemCodes.map(code => byCode.get(code)).filter(Boolean) as StudentGrade[];
                                             
                                             return (
                                                 <div key={assignment.id} className="border rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
@@ -572,75 +598,75 @@ export default function ViewStudent({ user, targetUser, activityLogs, assignedSu
                                                     )}
 
                                                     {/* Grades Section */}
-                                                    {grades.length > 0 ? (
+                                                    {quarterGrades.length > 0 ? (
                                                         <div className="space-y-3">
-                                                            <h5 className="font-medium text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                                                                <Award className="h-4 w-4" />
-                                                                Grades by Quarter
-                                                            </h5>
-                                                            
-                                                            {/* Table format for better organization */}
-                                                            <div className="overflow-x-auto">
-                                                                <table className="w-full text-sm border-collapse border border-gray-300">
-                                                                    <thead>
-                                                                        <tr className="bg-gray-100 dark:bg-gray-700">
-                                                                            <th className="border border-gray-300 p-2 text-left">Period</th>
-                                                                            <th className="border border-gray-300 p-2 text-center">Grade</th>
-                                                                            <th className="border border-gray-300 p-2 text-center">Status</th>
-                                                                        </tr>
-                                                                    </thead>
-                                                                    <tbody>
-                                                                        {grades
-                                                                            .sort((a, b) => {
-                                                                                const aOrder = (a.gradingPeriod?.sort_order ?? a.grading_period?.sort_order) ?? Number.MAX_SAFE_INTEGER;
-                                                                                const bOrder = (b.gradingPeriod?.sort_order ?? b.grading_period?.sort_order) ?? Number.MAX_SAFE_INTEGER;
-                                                                                if (aOrder !== bOrder) return aOrder - bOrder;
-                                                                                // fallback: by grading period id to keep stable order
-                                                                                return (a.grading_period_id || 0) - (b.grading_period_id || 0);
-                                                                            })
-                                                                            .map((grade) => (
-                                                                            <tr key={grade.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                                                                                <td className="border border-gray-300 p-2 font-medium">
-                                                                                    {getPeriodLabel(grade)}
-                                                                                        {DEBUG && (
-                                                                                            <div className="mt-1 text-[10px] text-gray-500">
-                                                                                                id:{(grade as unknown as { grading_period_id?: number | string }).grading_period_id ?? '—'} | gp:{grade.gradingPeriod?.name ?? '—'} | code:{grade.gradingPeriod?.code ?? '—'} | snakeVal:{String((grade as unknown as { grading_period?: unknown }).grading_period ?? '—')} | keys:{Object.keys(grade || {}).join(',')}
-                                                                                            </div>
-                                                                                        )}
-                                                                                </td>
-                                                                                <td className="border border-gray-300 p-2 text-center">
-                                                                                    <span className={`text-lg font-bold ${
-                                                                                        grade.grade >= 90 ? 'text-green-600' :
-                                                                                        grade.grade >= 80 ? 'text-yellow-600' :
-                                                                                        grade.grade >= 70 ? 'text-orange-600' : 'text-red-600'
-                                                                                    }`}>
-                                                                                        {grade.grade}
-                                                                                    </span>
-                                                                                </td>
-                                                                                <td className="border border-gray-300 p-2 text-center">
-                                                                                    {grade.is_approved ? (
-                                                                                        <Badge variant="default" className="text-xs">
-                                                                                            Approved
-                                                                                        </Badge>
-                                                                                    ) : (
-                                                                                        <Badge variant="outline" className="text-xs">
-                                                                                            Pending
-                                                                                        </Badge>
-                                                                                    )}
-                                                                                </td>
+                                                            <h5 className="font-medium text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2"><Award className="h-4 w-4" />Grades by Quarter</h5>
+
+                                                            {firstSemGrades.length > 0 && (
+                                                                <div className="overflow-x-auto">
+                                                                    <div className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">{isSeniorHigh ? 'First Half' : 'First Semester'}</div>
+                                                                    <table className="w-full text-sm border-collapse border border-gray-300">
+                                                                        <thead>
+                                                                            <tr className="bg-gray-100 dark:bg-gray-700">
+                                                                                <th className="border border-gray-300 p-2 text-left">Period</th>
+                                                                                <th className="border border-gray-300 p-2 text-center">Grade</th>
                                                                             </tr>
-                                                                        ))}
-                                                                    </tbody>
-                                                                </table>
-                                                            </div>
+                                                                        </thead>
+                                                                        <tbody>
+                                                                            {firstSemCodes.map((code) => {
+                                                                                const grade = byCode.get(code);
+                                                                                return (
+                                                                                    <tr key={`fs-${code}-${grade?.id ?? 'empty'}`} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                                                                        <td className="border border-gray-300 p-2 font-medium">{grade ? getPeriodLabel(grade) : (
+                                                                                            isSeniorHigh
+                                                                                                ? (code === 'Q1' ? 'First Quarter' : 'Second Quarter')
+                                                                                                : (code === 'P1' ? 'pre final' : 'First Quarter')
+                                                                                        )}</td>
+                                                                                        <td className="border border-gray-300 p-2 text-center">{grade ? (<span className={`text-lg font-bold ${grade.grade >= 90 ? 'text-green-600' : grade.grade >= 80 ? 'text-yellow-600' : grade.grade >= 70 ? 'text-orange-600' : 'text-red-600'}`}>{grade.grade}</span>) : '—'}</td>
+                                                                                        
+                                                                                    </tr>
+                                                                                );
+                                                                            })}
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                            )}
+
+                                                            {secondSemGrades.length > 0 && (
+                                                                <div className="overflow-x-auto">
+                                                                    <div className="text-xs font-semibold text-gray-600 dark:text-gray-300 mt-4 mb-1">{isSeniorHigh ? 'Second Half' : 'Second Semester'}</div>
+                                                                    <table className="w-full text-sm border-collapse border border-gray-300">
+                                                                        <thead>
+                                                                            <tr className="bg-gray-100 dark:bg-gray-700">
+                                                                                <th className="border border-gray-300 p-2 text-left">Period</th>
+                                                                                <th className="border border-gray-300 p-2 text-center">Grade</th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody>
+                                                                            {secondSemCodes.map((code) => {
+                                                                                const grade = byCode.get(code);
+                                                                                return (
+                                                                                    <tr key={`ss-${code}-${grade?.id ?? 'empty'}`} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                                                                        <td className="border border-gray-300 p-2 font-medium">{grade ? getPeriodLabel(grade) : (
+                                                                                            isSeniorHigh
+                                                                                                ? (code === 'Q3' ? 'Third Quarter' : 'Fourth Quarter')
+                                                                                                : (code === 'S2-MT' ? 'Midterm' : 'Pre-Final')
+                                                                                        )}</td>
+                                                                                        <td className="border border-gray-300 p-2 text-center">{grade ? (<span className={`text-lg font-bold ${grade.grade >= 90 ? 'text-green-600' : grade.grade >= 80 ? 'text-yellow-600' : grade.grade >= 70 ? 'text-orange-600' : 'text-red-600'}`}>{grade.grade}</span>) : '—'}</td>
+                                                                                        
+                                                                                    </tr>
+                                                                                );
+                                                                            })}
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                            )}
                                                             
                                                             {/* Summary row */}
-                                                            {grades.length > 0 && (
+                                                            {quarterGrades.length > 0 && (
                                                                 <div className="flex justify-between items-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded border">
                                                                     <span className="font-medium text-sm">Subject Average:</span>
-                                                                    <span className="text-lg font-bold text-blue-600">
-                                                                        {(grades.reduce((sum, grade) => sum + grade.grade, 0) / grades.length).toFixed(2)}
-                                                                    </span>
+                                                                    <span className="text-lg font-bold text-blue-600">{(quarterGrades.reduce((sum, grade) => sum + grade.grade, 0) / quarterGrades.length).toFixed(2)}</span>
                                                                 </div>
                                                             )}
                                                         </div>

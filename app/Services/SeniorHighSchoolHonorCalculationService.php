@@ -36,26 +36,38 @@ class SeniorHighSchoolHonorCalculationService
             ];
         }
 
-        // Get all semester grading periods for senior high school - use semester-based periods
-        $semesterPeriods = GradingPeriod::where('academic_level_id', $academicLevelId)
-            ->where('type', 'semester')
+        // Use active quarter-level periods and group them into semesters (same layout as College)
+        $periods = GradingPeriod::where('academic_level_id', $academicLevelId)
             ->where('is_active', true)
-            ->where('is_calculated', false) // Exclude calculated periods like Final Average
+            ->where('is_calculated', false)
+            ->whereIn('period_type', ['quarter', 'midterm', 'prefinal'])
             ->orderBy('sort_order')
             ->get();
 
-        if ($semesterPeriods->isEmpty()) {
+        if ($periods->isEmpty()) {
             return [
                 'qualified' => false,
-                'reason' => 'No semester grading periods found for senior high school level'
+                'reason' => 'No grading periods found for senior high school level'
             ];
         }
 
-        // Get all grades for the student across all semester periods
+        // Map semester groups
+        $semesterGroups = [
+            'first_semester' => [
+                'label' => 'First Semester',
+                'codes' => ['Q1' => 'First Quarter', 'Q2' => 'Second Quarter'],
+            ],
+            'second_semester' => [
+                'label' => 'Second Semester',
+                'codes' => ['Q3' => 'Third Quarter', 'Q4' => 'Fourth Quarter'],
+            ],
+        ];
+
+        // Get all grades for the student across all selected periods
         $grades = StudentGrade::where('student_id', $studentId)
             ->where('academic_level_id', $academicLevelId)
             ->where('school_year', $schoolYear)
-            ->whereIn('grading_period_id', $semesterPeriods->pluck('id'))
+            ->whereIn('grading_period_id', $periods->pluck('id'))
             ->get();
 
         if ($grades->isEmpty()) {
@@ -71,7 +83,7 @@ class SeniorHighSchoolHonorCalculationService
         $totalWeight = 0;
         $allGrades = [];
         
-        foreach ($semesterPeriods as $period) {
+        foreach ($periods as $period) {
             $periodGrades = $grades->where('grading_period_id', $period->id);
             if ($periodGrades->isNotEmpty()) {
                 $periodAverage = $periodGrades->avg('grade');
@@ -146,7 +158,7 @@ class SeniorHighSchoolHonorCalculationService
                     'criterion' => $criterion,
                     'gpa' => $averageGrade,
                     'min_grade' => $minGrade,
-                    'semester_periods' => $semesterPeriods->pluck('name', 'code')->toArray()
+                    'semester_periods' => $periods->pluck('name', 'code')->toArray()
                 ];
             }
         }
@@ -156,8 +168,13 @@ class SeniorHighSchoolHonorCalculationService
             'qualifications' => $qualifications,
             'average_grade' => $averageGrade,
             'min_grade' => $minGrade,
-            'semester_periods' => $semesterPeriods->pluck('name', 'code')->toArray(),
+            'semester_periods' => $periods->pluck('name', 'code')->toArray(),
             'total_subjects' => $grades->groupBy('subject_id')->count(),
+            'grades_breakdown' => $this->getGradesBreakdown($grades, $periods, $semesterGroups),
+            'semester_groups' => [
+                'first_semester' => $semesterGroups['first_semester'],
+                'second_semester' => $semesterGroups['second_semester'],
+            ],
             'reason' => empty($qualifications) ? 'No honor criteria met' : 'Qualified for honors'
         ];
     }
@@ -191,6 +208,61 @@ class SeniorHighSchoolHonorCalculationService
         }
 
         return true;
+    }
+
+    private function getGradesBreakdown($grades, $periods, array $semesterGroups): array
+    {
+        $periodBreakdown = [];
+        foreach ($periods as $period) {
+            $pGrades = $grades->where('grading_period_id', $period->id);
+            $avg = $pGrades->avg('grade');
+            $periodBreakdown[] = [
+                'period' => $period->name,
+                'period_code' => $period->code,
+                'grade' => $avg ? round($avg, 2) : null,
+                'count' => $pGrades->count(),
+            ];
+        }
+
+        $subjectBreakdown = [];
+        $subjects = $grades->groupBy('subject_id');
+        foreach ($subjects as $subjectId => $subjectGrades) {
+            $subject = $subjectGrades->first()->subject ?? null;
+            if (!$subject) { continue; }
+
+            $entry = [
+                'periods' => []
+            ];
+
+            foreach ($periods as $period) {
+                $gradeRow = $subjectGrades->where('grading_period_id', $period->id)->first();
+                $entry['periods'][$period->code] = $gradeRow ? $gradeRow->grade : null;
+            }
+
+            $periodGrades = collect($entry['periods'])->filter()->values();
+            $entry['average'] = $periodGrades->isNotEmpty() ? round($periodGrades->avg(), 2) : null;
+
+            $subjectBreakdown[$subject->name] = $entry['periods'];
+            $subjectBreakdown[$subject->name]['average'] = $entry['average'];
+        }
+
+        $semesterSummaries = [];
+        foreach ($semesterGroups as $key => $group) {
+            $codes = array_keys($group['codes']);
+            $gradesForCodes = collect($periodBreakdown)
+                ->filter(fn($p) => in_array($p['period_code'], $codes, true) && !is_null($p['grade']))
+                ->pluck('grade');
+            $semesterSummaries[$key] = [
+                'label' => $group['label'],
+                'average' => $gradesForCodes->isNotEmpty() ? round($gradesForCodes->avg(), 2) : null,
+            ];
+        }
+
+        return [
+            'periods' => $periodBreakdown,
+            'subjects' => $subjectBreakdown,
+            'semester_summaries' => $semesterSummaries,
+        ];
     }
 
     /**

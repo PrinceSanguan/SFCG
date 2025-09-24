@@ -76,6 +76,14 @@ interface QualifiedStudent {
         quarter_averages: number[];
         total_subjects: number;
         reason: string;
+        // Added optional fields returned by the service for UI breakdowns
+        semester_periods?: Record<string, string>;
+        semester_groups?: Record<string, { label: string; codes: Record<string, string> }>;
+        grades_breakdown?: {
+            periods: Array<{ period: string; period_code: string; grade: number | null; count: number }>;
+            subjects: Record<string, Record<string, number | null> & { average?: number | null }>;
+            semester_summaries?: Record<string, { label: string; average: number | null }>;
+        };
     };
 }
 
@@ -126,6 +134,8 @@ interface Props {
 
 export default function CollegeHonors({ user, honorTypes, criteria, schoolYears, qualifiedStudents = [], currentSchoolYear = '2024-2025', gradeLevels = {}, departments = [], courses = [], sections = [], filters }: Props) {
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+    const [selectedStudent, setSelectedStudent] = useState<QualifiedStudent | null>(null);
+    const [showStudentDetails, setShowStudentDetails] = useState(false);
     const [editingCriterion, setEditingCriterion] = useState<HonorCriterion | null>(null);
     const [editForm, setEditForm] = useState({
         min_gpa: '',
@@ -188,6 +198,11 @@ export default function CollegeHonors({ user, honorTypes, criteria, schoolYears,
             max_year: '',
             require_consistent_honor: false,
         });
+    };
+
+    const handleStudentClick = (student: QualifiedStudent) => {
+        setSelectedStudent(student);
+        setShowStudentDetails(true);
     };
 
     const updateCriterion = (criterionId: number) => {
@@ -741,6 +756,7 @@ export default function CollegeHonors({ user, honorTypes, criteria, schoolYears,
                                             {qualifiedStudents.map((qualifiedStudent, index) => (
                                                 <div 
                                                     key={qualifiedStudent.student.id}
+                                                    onClick={() => handleStudentClick(qualifiedStudent)}
                                                     className="border rounded-lg p-4 bg-white shadow-sm hover:shadow-md cursor-pointer transition-shadow"
                                                 >
                                                     <div className="flex items-center justify-between">
@@ -787,14 +803,14 @@ export default function CollegeHonors({ user, honorTypes, criteria, schoolYears,
                                                                 </div>
                                                                 <div className="bg-green-50 p-2 rounded">
                                                                     <span className="font-medium text-green-700">Total Quarters:</span>
-                                                                    <div className="text-lg font-bold">{qualifiedStudent.result.quarter_averages.length}</div>
+                                                                    <div className="text-lg font-bold">{qualifiedStudent.result.quarter_averages?.length ?? 0}</div>
                                                                 </div>
                                                                 <div className="bg-purple-50 p-2 rounded">
                                                                     <span className="font-medium text-purple-700">Honor:</span>
                                                                     <div className="font-bold">
-                                                                        {qualifiedStudent.result.qualifications.length > 0 ? (
+                                                                        {qualifiedStudent.result.qualifications?.length > 0 ? (
                                                                             <Badge className="bg-purple-100 text-purple-800 border-purple-200">
-                                                                                {qualifiedStudent.result.qualifications[0].honor_type.name}
+                                                                                {qualifiedStudent.result.qualifications?.[0]?.honor_type?.name || 'N/A'}
                                                                             </Badge>
                                                                         ) : (
                                                                             <span className="text-gray-500">N/A</span>
@@ -804,7 +820,7 @@ export default function CollegeHonors({ user, honorTypes, criteria, schoolYears,
                                                             </div>
                                                         </div>
                                                         <div className="ml-4">
-                                                            <Button variant="outline" size="sm">
+                                                            <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleStudentClick(qualifiedStudent); }}>
                                                                 View Details
                                                             </Button>
                                                         </div>
@@ -816,6 +832,179 @@ export default function CollegeHonors({ user, honorTypes, criteria, schoolYears,
                                 )}
                             </CardContent>
                         </Card>
+                        
+                        {selectedStudent && showStudentDetails && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                                <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+                                    <div className="sticky top-0 bg-white border-b p-6 flex justify-between items-center">
+                                        <div>
+                                            <h2 className="text-2xl font-bold text-gray-900">
+                                                {selectedStudent.student.name} - Honor Details
+                                            </h2>
+                                            <p className="text-sm text-gray-600 mt-1">
+                                                Student Number: {selectedStudent.student.student_number} |
+                                                School Year: {currentSchoolYear}
+                                                {selectedStudent.student.specific_year_level && (
+                                                    <> | Year Level: {gradeLevels?.[selectedStudent.student.specific_year_level] || selectedStudent.student.specific_year_level.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())}</>
+                                                )}
+                                                {selectedStudent.student.course && (
+                                                    <> | Course: {selectedStudent.student.course.name} ({selectedStudent.student.course.code})</>
+                                                )}
+                                                {selectedStudent.student.section && (
+                                                    <> | Section: {selectedStudent.student.section.name} ({selectedStudent.student.section.code})</>
+                                                )}
+                                            </p>
+                                        </div>
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => { setShowStudentDetails(false); setSelectedStudent(null); }}
+                                        >
+                                            Close
+                                        </Button>
+                                    </div>
+
+                                    <div className="p-6 space-y-6">
+                                        <Card>
+                                            <CardHeader>
+                                                <CardTitle className="flex items-center gap-2">
+                                                    <Trophy className="h-5 w-5" />
+                                                    Honor Qualification Summary
+                                                </CardTitle>
+                                            </CardHeader>
+                                            <CardContent>
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                    <div className="bg-blue-50 p-4 rounded-lg">
+                                                        <div className="text-sm font-medium text-blue-700">Average Grade</div>
+                                                        <div className="text-2xl font-bold text-blue-900">{selectedStudent.result.average_grade}</div>
+                                                    </div>
+                                                    <div className="bg-yellow-50 p-4 rounded-lg">
+                                                        <div className="text-sm font-medium text-yellow-700">Min Grade</div>
+                                                        <div className="text-2xl font-bold text-yellow-900">{selectedStudent.result.min_grade}</div>
+                                                    </div>
+                                                    <div className="bg-green-50 p-4 rounded-lg">
+                                                        <div className="text-sm font-medium text-green-700">Total Quarters</div>
+                                                        <div className="text-2xl font-bold text-green-900">{selectedStudent.result.quarter_averages?.length ?? 0}</div>
+                                                    </div>
+                                                </div>
+                                                <div className="mt-4">
+                                                    <div className="text-sm font-medium text-purple-700">Honor</div>
+                                                    <div className="mt-1">
+                                                        {selectedStudent.result.qualifications?.length > 0 ? (
+                                                            <Badge className="bg-purple-100 text-purple-800 border-purple-200">
+                                                                {selectedStudent.result.qualifications?.[0]?.honor_type?.name || 'N/A'}
+                                                            </Badge>
+                                                        ) : (
+                                                            <span className="text-gray-500">N/A</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+
+                                        {/* Period Averages */}
+                                        {selectedStudent.result.grades_breakdown?.periods && selectedStudent.result.grades_breakdown.periods.length > 0 && (
+                                            <Card>
+                                                <CardHeader>
+                                                    <CardTitle>Semester Averages</CardTitle>
+                                                </CardHeader>
+                                                <CardContent>
+                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                        {selectedStudent.result.grades_breakdown.periods.map((p) => (
+                                                            <div key={p.period_code} className="text-center p-4 bg-green-50 rounded-lg">
+                                                                <div className="text-2xl font-bold text-green-700">{p.grade ? p.grade.toFixed(2) : '—'}</div>
+                                                                <div className="text-sm text-green-700">{p.period}</div>
+                                                                <div className="text-xs text-gray-500">{p.count} subjects</div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        )}
+
+                                        {/* Subject Grades Table */}
+                                        {selectedStudent.result.grades_breakdown?.subjects && Object.keys(selectedStudent.result.grades_breakdown.subjects).length > 0 && (
+                                            <Card>
+                                                <CardHeader>
+                                                    <CardTitle>Subject Grades Breakdown</CardTitle>
+                                                </CardHeader>
+                                                <CardContent>
+                                                    {selectedStudent.result.grades_breakdown?.semester_summaries && (
+                                                        <div className="mb-4 flex flex-wrap gap-2">
+                                                            {(['first_semester','second_semester'] as const).map((key) => {
+                                                                const s = selectedStudent.result.grades_breakdown?.semester_summaries?.[key];
+                                                                return (
+                                                                    <Badge key={`summary-${key}`} variant="secondary" className="text-sm">
+                                                                        {s?.label}: {s?.average ?? '—'}
+                                                                    </Badge>
+                                                                )
+                                                            })}
+                                                        </div>
+                                                    )}
+                                                    <div className="overflow-x-auto">
+                                                        <table className="w-full border-collapse border border-gray-300">
+                                                            <thead>
+                                                                <tr className="bg-gray-100">
+                                                                    <th className="border border-gray-300 p-3 text-left" rowSpan={2}>Subject</th>
+                                                                    <th className="border border-gray-300 p-3 text-center" colSpan={2}>First Semester</th>
+                                                                    <th className="border border-gray-300 p-3 text-center" rowSpan={2}>1st Sem Avg</th>
+                                                                    <th className="border border-gray-300 p-3 text-center" colSpan={2}>Second Semester</th>
+                                                                    <th className="border border-gray-300 p-3 text-center" rowSpan={2}>2nd Sem Avg</th>
+                                                                    <th className="border border-gray-300 p-3 text-center" rowSpan={2}>Overall Avg</th>
+                                                                </tr>
+                                                                <tr className="bg-gray-50">
+                                                                    <th className="border border-gray-300 p-2 text-center">Pre-Final</th>
+                                                                    <th className="border border-gray-300 p-2 text-center">First Quarter</th>
+                                                                    <th className="border border-gray-300 p-2 text-center">Midterm</th>
+                                                                    <th className="border border-gray-300 p-2 text-center">Pre-Final</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {Object.entries(selectedStudent.result.grades_breakdown.subjects).map(([subjectName, subjectData]) => {
+                                                                    const fPre = subjectData?.['p1'] ?? '—';
+                                                                    const fQ1 = subjectData?.['Q1'] ?? '—';
+                                                                    const sMt = subjectData?.['S2-MT'] ?? '—';
+                                                                    const sPf = subjectData?.['S2-PF'] ?? '—';
+
+                                                                    const firstSemValues = [subjectData?.['p1'], subjectData?.['Q1']].filter((v) => typeof v === 'number') as number[];
+                                                                    const secondSemValues = [subjectData?.['S2-MT'], subjectData?.['S2-PF']].filter((v) => typeof v === 'number') as number[];
+                                                                    const firstAvg = firstSemValues.length ? (firstSemValues.reduce((a: number,b: number)=>a+b,0)/firstSemValues.length).toFixed(2) : '—';
+                                                                    const secondAvg = secondSemValues.length ? (secondSemValues.reduce((a: number,b: number)=>a+b,0)/secondSemValues.length).toFixed(2) : '—';
+
+                                                                    return (
+                                                                        <tr key={subjectName}>
+                                                                            <td className="border border-gray-300 p-3 font-medium">{subjectName}</td>
+                                                                            <td className="border border-gray-300 p-3 text-center">{fPre}</td>
+                                                                            <td className="border border-gray-300 p-3 text-center">{fQ1}</td>
+                                                                            <td className="border border-gray-300 p-3 text-center font-semibold">{firstAvg}</td>
+                                                                            <td className="border border-gray-300 p-3 text-center">{sMt}</td>
+                                                                            <td className="border border-gray-300 p-3 text-center">{sPf}</td>
+                                                                            <td className="border border-gray-300 p-3 text-center font-semibold">{secondAvg}</td>
+                                                                            <td className="border border-gray-300 p-3 text-center font-bold text-blue-600">{subjectData?.average ?? '—'}</td>
+                                                                        </tr>
+                                                                    );
+                                                                })}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        )}
+
+                                        {/* Reasons/Notes if not qualified */}
+                                        {!selectedStudent.result.qualified && selectedStudent.result.reason && (
+                                            <Card>
+                                                <CardHeader>
+                                                    <CardTitle>Reason</CardTitle>
+                                                </CardHeader>
+                                                <CardContent>
+                                                    <div className="text-sm text-gray-700">{selectedStudent.result.reason}</div>
+                                                </CardContent>
+                                            </Card>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </main>
             </div>

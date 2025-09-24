@@ -113,6 +113,22 @@ export default function StudentProfile({ user, assignedSubjects, subjectGrades, 
     return 'N/A';
   };
   const DEBUG = false;
+  const isQuarterPeriod = (grade: StudentGrade): boolean => {
+    const type = grade.gradingPeriod?.sort_order !== undefined
+      ? (grade as unknown as { gradingPeriod?: { period_type?: string; name?: string; code?: string } }).gradingPeriod?.period_type
+      : (grade as unknown as { grading_period?: { period_type?: string; name?: string; code?: string } }).grading_period?.period_type;
+    const code = (grade.gradingPeriod?.code || grade.grading_period?.code || '').toUpperCase();
+    const name = (
+      (grade as unknown as { gradingPeriod?: { name?: string } }).gradingPeriod?.name ||
+      (grade as unknown as { grading_period?: { name?: string } }).grading_period?.name ||
+      ''
+    ).toLowerCase();
+    if (name.includes('semester')) return false;
+    if (['F_SIM', 'S2', 'F1', 'S2-FA'].includes(code)) return false;
+    const normalizedType = (type || '').toLowerCase();
+    if (['quarter', 'midterm', 'prefinal'].includes(normalizedType)) return true;
+    return ['Q1', 'Q2', 'Q3', 'Q4', 'P1', 'S2-MT', 'S2-PF'].some(tok => code.includes(tok));
+  };
   return (
     <StudentLayout>
       <Head title="My Profile" />
@@ -362,12 +378,21 @@ export default function StudentProfile({ user, assignedSubjects, subjectGrades, 
             <CardContent>
               <div className="space-y-6">
                 {assignedSubjects.map((assignment) => {
-                  const grades = subjectGrades[assignment.subject.id] || [];
+                  const quarterGrades = (subjectGrades[assignment.subject.id] || []).filter(isQuarterPeriod);
+                  const byCode = new Map<string, StudentGrade>();
+                  quarterGrades.forEach(g => {
+                    const c = (g.gradingPeriod?.code || g.grading_period?.code || '').toUpperCase();
+                    if (c) byCode.set(c, g);
+                  });
+                  const isSeniorHigh = (user.year_level === 'senior_highschool') || false;
+                  const firstSemCodes = isSeniorHigh ? ['Q1', 'Q2'] : ['P1', 'Q1'];
+                  const secondSemCodes = isSeniorHigh ? ['Q3', 'Q4'] : ['S2-MT', 'S2-PF'];
+                  // Ensure order-only rendering; maps used directly in JSX below
                   if (DEBUG) {
                     console.log('Student Profile → subject grades', {
                       subjectId: assignment.subject.id,
                       subjectCode: assignment.subject.code,
-                      grades: grades.map(g => ({
+                      grades: quarterGrades.map((g: StudentGrade) => ({
                         id: g.id,
                         grading_period_id: (g as unknown as { grading_period_id?: number }).grading_period_id,
                         gradingPeriod: (g as unknown as { gradingPeriod?: { name?: string; code?: string } }).gradingPeriod,
@@ -415,48 +440,56 @@ export default function StudentProfile({ user, assignedSubjects, subjectGrades, 
                       )}
 
                       {/* Grades Section */}
-                      {grades.length > 0 ? (
+                      {quarterGrades.length > 0 ? (
                         <div className="space-y-2">
                           <h5 className="font-medium text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2">
                             <Award className="h-4 w-4" />
                             My Grades
                           </h5>
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                            {grades
-                              .slice()
-                              .sort((a, b) => {
-                                const aOrder = (a.gradingPeriod?.sort_order ?? a.grading_period?.sort_order) ?? Number.MAX_SAFE_INTEGER;
-                                const bOrder = (b.gradingPeriod?.sort_order ?? b.grading_period?.sort_order) ?? Number.MAX_SAFE_INTEGER;
-                                if (aOrder !== bOrder) return aOrder - bOrder;
-                                return (a.grading_period_id || 0) - (b.grading_period_id || 0);
-                              })
-                              .map((grade) => (
-                              <div key={grade.id} className="flex items-center justify-between p-2 bg-white dark:bg-gray-700 rounded border">
-                                <div>
-                                  <span className="text-sm font-medium">{getPeriodLabel(grade)}</span>
-                                  {DEBUG && (
-                                    <div className="mt-1 text-[10px] text-gray-500">
-                                      id:{grade.grading_period_id ?? '—'} | gp:{grade.gradingPeriod?.name ?? '—'} | code:{grade.gradingPeriod?.code ?? '—'} | snake:{(grade as unknown as { grading_period?: { name?: string } }).grading_period?.name ?? '—'} | keys:{Object.keys(grade || {}).join(',')}
+                          {
+                            <div>
+                              <div className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">{isSeniorHigh ? 'First Half' : 'First Semester'}</div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                                {firstSemCodes.map(code => {
+                                  const grade = byCode.get(code);
+                                  return (
+                                    <div key={`fs-${code}-${grade?.id ?? 'empty'}`} className="flex items-center justify-between p-2 bg-white dark:bg-gray-700 rounded border">
+                                      <div>
+                                        <span className="text-sm font-medium">{grade ? getPeriodLabel(grade) : (
+                                          isSeniorHigh ? (code === 'Q1' ? 'First Quarter' : 'Second Quarter') : (code === 'P1' ? 'pre final' : 'First Quarter')
+                                        )}</span>
+                                        <div className="flex items-center gap-2">
+                                          <span className={`text-lg font-bold ${grade && grade.grade >= 90 ? 'text-green-600' : grade && grade.grade >= 80 ? 'text-yellow-600' : grade && grade.grade >= 70 ? 'text-orange-600' : 'text-red-600'}`}>{grade ? grade.grade : '—'}</span>
+                                        </div>
+                                      </div>
                                     </div>
-                                  )}
-                                  <div className="flex items-center gap-2">
-                                    <span className={`text-lg font-bold ${
-                                      grade.grade >= 90 ? 'text-green-600' :
-                                      grade.grade >= 80 ? 'text-yellow-600' :
-                                      grade.grade >= 70 ? 'text-orange-600' : 'text-red-600'
-                                    }`}>
-                                      {grade.grade}
-                                    </span>
-                                    {grade.is_approved && (
-                                      <Badge variant="default" className="text-xs">
-                                        Approved
-                                      </Badge>
-                                    )}
-                                  </div>
-                                </div>
+                                  );
+                                })}
                               </div>
-                            ))}
-                          </div>
+                            </div>
+                          }
+                          {
+                            <div>
+                              <div className="text-xs font-semibold text-gray-600 dark:text-gray-300 mt-3 mb-1">{isSeniorHigh ? 'Second Half' : 'Second Semester'}</div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                                {secondSemCodes.map(code => {
+                                  const grade = byCode.get(code);
+                                  return (
+                                    <div key={`ss-${code}-${grade?.id ?? 'empty'}`} className="flex items-center justify-between p-2 bg-white dark:bg-gray-700 rounded border">
+                                      <div>
+                                        <span className="text-sm font-medium">{grade ? getPeriodLabel(grade) : (
+                                          isSeniorHigh ? (code === 'Q3' ? 'Third Quarter' : 'Fourth Quarter') : (code === 'S2-MT' ? 'Midterm' : 'Pre-Final')
+                                        )}</span>
+                                        <div className="flex items-center gap-2">
+                                          <span className={`text-lg font-bold ${grade && grade.grade >= 90 ? 'text-green-600' : grade && grade.grade >= 80 ? 'text-yellow-600' : grade && grade.grade >= 70 ? 'text-orange-600' : 'text-red-600'}`}>{grade ? grade.grade : '—'}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          }
                         </div>
                       ) : (
                         <div className="text-center py-4 text-gray-500 dark:text-gray-400">

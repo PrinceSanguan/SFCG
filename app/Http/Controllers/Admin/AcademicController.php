@@ -585,7 +585,7 @@ class AcademicController extends Controller
     /**
      * Get all qualified senior high school students for honor calculation
      */
-    private function getQualifiedSeniorHighSchoolStudents(string $schoolYear, ?string $gradeLevel = null, ?string $sectionId = null): array
+    private function getQualifiedSeniorHighSchoolStudents(string $schoolYear, ?string $gradeLevel = null, ?string $sectionId = null, ?string $strandId = null): array
     {
         $seniorHighSchoolService = new \App\Services\SeniorHighSchoolHonorCalculationService();
         $seniorHighSchoolLevel = \App\Models\AcademicLevel::where('key', 'senior_highschool')->first();
@@ -597,7 +597,7 @@ class AcademicController extends Controller
         // Build query for senior high school students with filters
         $studentsQuery = \App\Models\User::where('user_role', 'student')
             ->where('year_level', 'senior_highschool')
-            ->with(['section']); // Load section relationship for display
+            ->with(['section', 'strand']); // Load relationships for display
 
         // Apply grade level filter
         if ($gradeLevel) {
@@ -607,6 +607,11 @@ class AcademicController extends Controller
         // Apply section filter
         if ($sectionId) {
             $studentsQuery->where('section_id', $sectionId);
+        }
+
+        // Apply strand filter
+        if ($strandId) {
+            $studentsQuery->where('strand_id', $strandId);
         }
 
         $students = $studentsQuery->orderBy('name')->get();
@@ -620,12 +625,11 @@ class AcademicController extends Controller
                 $schoolYear
             );
 
-            if ($result['qualified']) {
-                $qualifiedStudents[] = [
-                    'student' => $student,
-                    'result' => $result
-                ];
-            }
+            // Include all students with computed results to surface data even if not yet qualified
+            $qualifiedStudents[] = [
+                'student' => $student,
+                'result' => $result
+            ];
         }
 
         return $qualifiedStudents;
@@ -652,8 +656,9 @@ class AcademicController extends Controller
         // Get filter parameters
         $gradeLevel = $request->get('grade_level');
         $sectionId = $request->get('section_id');
+        $strandId = $request->get('strand_id');
         
-        $qualifiedStudents = $this->getQualifiedSeniorHighSchoolStudents($currentSchoolYear, $gradeLevel, $sectionId);
+        $qualifiedStudents = $this->getQualifiedSeniorHighSchoolStudents($currentSchoolYear, $gradeLevel, $sectionId, $strandId);
         
         // Get available grade levels for senior high school
         $gradeLevels = \App\Models\User::getSpecificYearLevels()['senior_highschool'];
@@ -662,6 +667,12 @@ class AcademicController extends Controller
         $sections = \App\Models\Section::where('academic_level_id', 3)
             ->where('is_active', true)
             ->orderBy('specific_year_level')
+            ->orderBy('name')
+            ->get();
+
+        // Get strands
+        $strands = \App\Models\Strand::where('academic_level_id', 3)
+            ->where('is_active', true)
             ->orderBy('name')
             ->get();
 
@@ -674,9 +685,11 @@ class AcademicController extends Controller
             'currentSchoolYear' => $currentSchoolYear,
             'gradeLevels' => $gradeLevels,
             'sections' => $sections,
+            'strands' => $strands,
             'filters' => [
                 'grade_level' => $gradeLevel,
                 'section_id' => $sectionId,
+                'strand_id' => $strandId,
             ],
         ]);
     }
