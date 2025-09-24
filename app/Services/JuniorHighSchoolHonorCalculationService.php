@@ -37,7 +37,7 @@ class JuniorHighSchoolHonorCalculationService
         }
 
         // Get all quarter grading periods for junior high school - use only Q1, Q2, Q3, Q4
-        $quarterPeriods = GradingPeriod::where('academic_level_id', $academicLevelId)
+        $periods = GradingPeriod::where('academic_level_id', $academicLevelId)
             ->where('type', 'quarter')
             ->where('period_type', 'quarter')
             ->whereIn('code', ['Q1', 'Q2', 'Q3', 'Q4'])
@@ -45,18 +45,25 @@ class JuniorHighSchoolHonorCalculationService
             ->orderBy('sort_order')
             ->get();
 
-        if ($quarterPeriods->isEmpty()) {
+        if ($periods->isEmpty()) {
             return [
                 'qualified' => false,
                 'reason' => 'No quarter grading periods found for junior high school level'
             ];
         }
 
+        // Group quarters into semesters (Q1, Q2 = First Semester; Q3, Q4 = Second Semester)
+        $semesterGroups = [
+            'first_semester' => $periods->whereIn('code', ['Q1', 'Q2'])->values(),
+            'second_semester' => $periods->whereIn('code', ['Q3', 'Q4'])->values(),
+        ];
+
         // Get all grades for the student across all quarters
         $grades = StudentGrade::where('student_id', $studentId)
             ->where('academic_level_id', $academicLevelId)
             ->where('school_year', $schoolYear)
-            ->whereIn('grading_period_id', $quarterPeriods->pluck('id'))
+            ->whereIn('grading_period_id', $periods->pluck('id'))
+            ->with('subject')
             ->get();
 
         if ($grades->isEmpty()) {
@@ -71,7 +78,7 @@ class JuniorHighSchoolHonorCalculationService
         $quarterAverages = [];
         $quarterMinGrades = [];
         
-        foreach ($quarterPeriods as $quarter) {
+        foreach ($periods as $quarter) {
             $quarterGrades = $grades->where('grading_period_id', $quarter->id);
             if ($quarterGrades->isNotEmpty()) {
                 $quarterAverage = $quarterGrades->avg('grade');
@@ -146,6 +153,9 @@ class JuniorHighSchoolHonorCalculationService
             }
         }
 
+        // Get grades breakdown with semester grouping
+        $gradesBreakdown = $this->getGradesBreakdown($grades, $periods, $semesterGroups);
+
         return [
             'qualified' => !empty($qualifications),
             'qualifications' => $qualifications,
@@ -153,7 +163,82 @@ class JuniorHighSchoolHonorCalculationService
             'min_grade' => $minGrade,
             'quarter_averages' => $quarterAverages,
             'total_subjects' => $grades->groupBy('subject_id')->count(),
+            'semester_periods' => [
+                'Q1' => 'First Quarter',
+                'Q2' => 'Second Quarter',
+                'Q3' => 'Third Quarter',
+                'Q4' => 'Fourth Quarter',
+            ],
+            'semester_groups' => [
+                'first_semester' => ['Q1', 'Q2'],
+                'second_semester' => ['Q3', 'Q4'],
+            ],
+            'grades_breakdown' => $gradesBreakdown,
             'reason' => empty($qualifications) ? 'No honor criteria met' : 'Qualified for honors'
+        ];
+    }
+
+    /**
+     * Get grades breakdown with semester grouping for display
+     */
+    private function getGradesBreakdown($grades, $periods, $semesterGroups): array
+    {
+        $periodBreakdown = [];
+        foreach ($periods as $period) {
+            $pGrades = $grades->where('grading_period_id', $period->id);
+            $avg = $pGrades->avg('grade');
+            $periodBreakdown[] = [
+                'period' => $period->name,
+                'period_code' => $period->code,
+                'grade' => $avg ? round($avg, 2) : null,
+                'count' => $pGrades->count(),
+            ];
+        }
+
+        $subjectBreakdown = [];
+        $subjects = $grades->groupBy('subject_id');
+        foreach ($subjects as $subjectId => $subjectGrades) {
+            $subject = $subjectGrades->first()->subject ?? null;
+            if (!$subject) { continue; }
+
+            $entry = [
+                'subject_name' => $subject->name,
+                'subject_code' => $subject->code ?? '',
+                'periods' => []
+            ];
+
+            foreach ($periods as $period) {
+                $gradeRow = $subjectGrades->where('grading_period_id', $period->id)->first();
+                $entry['periods'][$period->code] = $gradeRow ? $gradeRow->grade : null;
+            }
+
+            $periodGrades = collect($entry['periods'])->filter()->values();
+            $entry['average'] = $periodGrades->isNotEmpty() ? round($periodGrades->avg(), 2) : null;
+
+            $subjectBreakdown[$subject->name] = $entry['periods'];
+            $subjectBreakdown[$subject->name]['average'] = $entry['average'];
+        }
+
+        // Calculate semester summaries
+        $firstSemesterGrades = $grades->whereIn('grading_period_id', collect($semesterGroups['first_semester'])->pluck('id'));
+        $secondSemesterGrades = $grades->whereIn('grading_period_id', collect($semesterGroups['second_semester'])->pluck('id'));
+
+        $firstSemesterAverage = $firstSemesterGrades->isNotEmpty() ? round($firstSemesterGrades->avg('grade'), 2) : null;
+        $secondSemesterAverage = $secondSemesterGrades->isNotEmpty() ? round($secondSemesterGrades->avg('grade'), 2) : null;
+
+        return [
+            'periods' => $periodBreakdown,
+            'subjects' => $subjectBreakdown,
+            'semester_summaries' => [
+                'first_semester' => [
+                    'label' => 'First Semester',
+                    'average' => $firstSemesterAverage,
+                ],
+                'second_semester' => [
+                    'label' => 'Second Semester',
+                    'average' => $secondSemesterAverage,
+                ],
+            ],
         ];
     }
 
@@ -235,5 +320,71 @@ class JuniorHighSchoolHonorCalculationService
         }
 
         return $qualifiedStudents;
+    }
+
+    /**
+     * Generate and save honor results for all junior high school students
+     */
+    public function generateJuniorHighSchoolHonorResults(int $academicLevelId, string $schoolYear): array
+    {
+        $academicLevel = AcademicLevel::find($academicLevelId);
+        
+        if (!$academicLevel || $academicLevel->key !== 'junior_highschool') {
+            return [
+                'success' => false,
+                'message' => 'Invalid academic level or not junior high school level'
+            ];
+        }
+
+        $students = User::where('user_role', 'student')
+            ->where('year_level', 'junior_highschool')
+            ->get();
+
+        $results = [];
+        $totalProcessed = 0;
+        $totalQualified = 0;
+
+        foreach ($students as $student) {
+            $qualification = $this->calculateJuniorHighSchoolHonorQualification(
+                $student->id, 
+                $academicLevelId, 
+                $schoolYear
+            );
+
+            $totalProcessed++;
+
+            if ($qualification['qualified']) {
+                $totalQualified++;
+                
+                // Store honor results in database
+                foreach ($qualification['qualifications'] as $qual) {
+                    HonorResult::updateOrCreate([
+                        'student_id' => $student->id,
+                        'honor_type_id' => $qual['honor_type']->id,
+                        'academic_level_id' => $academicLevelId,
+                        'school_year' => $schoolYear,
+                    ], [
+                        'gpa' => $qualification['average_grade'],
+                        'is_overridden' => false,
+                        'is_pending_approval' => true,
+                        'is_approved' => false,
+                        'is_rejected' => false,
+                    ]);
+                }
+
+                $results[] = [
+                    'student' => $student,
+                    'qualification' => $qualification
+                ];
+            }
+        }
+
+        return [
+            'success' => true,
+            'message' => "Processed {$totalProcessed} students, {$totalQualified} qualified for honors",
+            'total_processed' => $totalProcessed,
+            'total_qualified' => $totalQualified,
+            'results' => $results
+        ];
     }
 }

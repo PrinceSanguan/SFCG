@@ -30,7 +30,9 @@ class ParentProfileController extends Controller
                 $query->where('school_year', $schoolYear);
             },
             'honorResults' => function ($query) use ($schoolYear) {
-                $query->where('school_year', $schoolYear);
+                $query->where('school_year', $schoolYear)
+                      ->where('is_approved', true)
+                      ->where('is_rejected', false);
             }
         ])
         ->withCount([
@@ -68,7 +70,10 @@ class ParentProfileController extends Controller
                 $query->with(['subject.course', 'academicLevel', 'gradingPeriod']);
             },
             'honorResults' => function ($query) use ($schoolYear) {
-                $query->with(['honorType', 'academicLevel']);
+                $query->with(['honorType', 'academicLevel'])
+                      ->where('school_year', $schoolYear)
+                      ->where('is_approved', true)
+                      ->where('is_rejected', false);
             }
         ])->findOrFail($studentId);
         

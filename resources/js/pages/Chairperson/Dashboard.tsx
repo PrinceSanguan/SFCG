@@ -33,10 +33,11 @@ interface Activity {
 
 interface Stats {
     total_students: number;
-    total_courses: number;
-    total_instructors: number;
+    total_teachers: number;
+    total_subjects: number;
     pending_grades: number;
     pending_honors: number;
+    approved_honors: number;
     average_gpa: number;
 }
 
@@ -60,28 +61,62 @@ interface Honor {
     approved_at?: string;
 }
 
+interface GradeDistribution {
+    outstanding_count: number;
+    excellent_count: number;
+    very_good_count: number;
+    good_count: number;
+    satisfactory_count: number;
+    needs_improvement_count: number;
+    total_grades: number;
+}
+
+interface AcademicLevelInsight {
+    academic_level?: string;
+    total_sections?: number;
+    honor_distribution?: any[];
+    grade_performance?: any;
+    name?: string;
+    student_count?: number;
+    honor_count?: number;
+}
+
+interface SystemActivity {
+    type: string;
+    title: string;
+    description: string;
+    timestamp: string;
+    icon: string;
+}
+
 interface DashboardProps {
     user: User;
-    department: Department | null;
     stats: Stats;
     recentActivities: Activity[];
     pendingGrades: unknown[];
     pendingHonors: unknown[];
     approvedHonors: Honor[];
+    academicLevelInsights: AcademicLevelInsight[] | AcademicLevelInsight;
+    gradeDistribution: GradeDistribution;
+    systemActivities: SystemActivity[];
     academicLevels: AcademicLevel[];
     selectedAcademicLevel: string | null;
+    dashboardMessage: string;
 }
 
 export default function ChairpersonDashboard({ 
     user, 
-    department, 
     stats, 
     recentActivities, 
     pendingGrades,
     pendingHonors,
     approvedHonors,
+    academicLevelInsights,
+    gradeDistribution,
+    systemActivities,
     academicLevels,
-    selectedAcademicLevel
+    selectedAcademicLevel,
+    dashboardMessage
 }: DashboardProps) {
     if (!user) {
         return <div>Loading...</div>;
@@ -116,7 +151,7 @@ export default function ChairpersonDashboard({
                                 Chairperson Dashboard
                             </h1>
                             <p className="text-gray-500 dark:text-gray-400">
-                                Welcome back, {user.name}! {department ? `Managing ${department.filtered_by ? department.name.replace(` - ${department.filtered_by}`, '') : department.name} department${department.filtered_by ? ` (${department.filtered_by} level only)` : ''}.` : 'No department assigned.'}
+                                {dashboardMessage}
                             </p>
                         </div>
 
@@ -148,45 +183,38 @@ export default function ChairpersonDashboard({
                             </CardContent>
                         </Card>
 
-                        {/* Department Info */}
-                        {department && (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <BookOpen className="h-5 w-5" />
-                                        Department Information
-                                        {department.filtered_by && (
-                                            <Badge variant="secondary" className="ml-2">
-                                                Filtered by {department.filtered_by}
-                                            </Badge>
-                                        )}
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="grid gap-4 md:grid-cols-3">
+                        {/* Academic Level Overview */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <BookOpen className="h-5 w-5" />
+                                    Academic Overview
+                                    {selectedAcademicLevel && (
+                                        <Badge variant="secondary" className="ml-2">
+                                            {safeAcademicLevels.find(level => level.id.toString() === selectedAcademicLevel)?.name || 'All Levels'}
+                                        </Badge>
+                                    )}
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                    {dashboardMessage}
+                                </p>
+                                
+                                {selectedAcademicLevel && Array.isArray(academicLevelInsights) === false && (
+                                    <div className="mt-4 grid gap-4 md:grid-cols-2">
                                         <div>
-                                            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Department</p>
-                                            <p className="text-lg font-semibold">{department.name}</p>
+                                            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Academic Level</p>
+                                            <p className="text-lg font-semibold">{(academicLevelInsights as AcademicLevelInsight).academic_level}</p>
                                         </div>
                                         <div>
-                                            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Code</p>
-                                            <p className="text-lg font-semibold">{department.code}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Description</p>
-                                            <p className="text-lg font-semibold">{department.description || 'No description'}</p>
+                                            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Sections</p>
+                                            <p className="text-lg font-semibold">{(academicLevelInsights as AcademicLevelInsight).total_sections || 0}</p>
                                         </div>
                                     </div>
-                                    {department.filtered_by && (
-                                        <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                                            <p className="text-sm text-blue-700 dark:text-blue-300">
-                                                <strong>Note:</strong> All statistics and data shown below are filtered for the <strong>{department.filtered_by}</strong> academic level only.
-                                            </p>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        )}
+                                )}
+                            </CardContent>
+                        </Card>
 
                         {/* Stats Cards */}
                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -198,33 +226,33 @@ export default function ChairpersonDashboard({
                                 <CardContent>
                                     <div className="text-2xl font-bold">{stats.total_students}</div>
                                     <p className="text-xs text-muted-foreground">
-                                        Enrolled in department
+                                        {selectedAcademicLevel ? 'In selected level' : 'Across all levels'}
                                     </p>
                                 </CardContent>
                             </Card>
 
                             <Card>
                                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                    <CardTitle className="text-sm font-medium">Total Courses</CardTitle>
-                                    <BookOpen className="h-4 w-4 text-muted-foreground" />
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="text-2xl font-bold">{stats.total_courses}</div>
-                                    <p className="text-xs text-muted-foreground">
-                                        Available courses
-                                    </p>
-                                </CardContent>
-                            </Card>
-
-                            <Card>
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                    <CardTitle className="text-sm font-medium">Total Instructors</CardTitle>
+                                    <CardTitle className="text-sm font-medium">Teachers & Instructors</CardTitle>
                                     <Users className="h-4 w-4 text-muted-foreground" />
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="text-2xl font-bold">{stats.total_instructors}</div>
+                                    <div className="text-2xl font-bold">{stats.total_teachers}</div>
                                     <p className="text-xs text-muted-foreground">
-                                        Teaching staff
+                                        Active teaching staff
+                                    </p>
+                                </CardContent>
+                            </Card>
+
+                            <Card>
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                    <CardTitle className="text-sm font-medium">Total Subjects</CardTitle>
+                                    <BookOpen className="h-4 w-4 text-muted-foreground" />
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="text-2xl font-bold">{stats.total_subjects}</div>
+                                    <p className="text-xs text-muted-foreground">
+                                        Available subjects
                                     </p>
                                 </CardContent>
                             </Card>
@@ -257,13 +285,26 @@ export default function ChairpersonDashboard({
 
                             <Card>
                                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                    <CardTitle className="text-sm font-medium">Approved Honors</CardTitle>
+                                    <Award className="h-4 w-4 text-muted-foreground" />
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="text-2xl font-bold">{stats.approved_honors}</div>
+                                    <p className="text-xs text-muted-foreground">
+                                        Successfully awarded
+                                    </p>
+                                </CardContent>
+                            </Card>
+
+                            <Card>
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                     <CardTitle className="text-sm font-medium">Average GPA</CardTitle>
                                     <TrendingUp className="h-4 w-4 text-muted-foreground" />
                                 </CardHeader>
                                 <CardContent>
                                     <div className="text-2xl font-bold">{stats.average_gpa}</div>
                                     <p className="text-xs text-muted-foreground">
-                                        Department average
+                                        Overall academic performance
                                     </p>
                                 </CardContent>
                             </Card>
@@ -289,7 +330,7 @@ export default function ChairpersonDashboard({
                                     </div>
                                     <div className="flex gap-2">
                                         <Button asChild size="sm">
-                                            <Link href={route('chairperson.grades.pending')}>
+                                            <Link href={route('chairperson.grades.all')}>
                                                 Review Grades
                                             </Link>
                                         </Button>

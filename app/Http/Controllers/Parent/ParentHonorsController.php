@@ -52,7 +52,9 @@ class ParentHonorsController extends Controller
                 ])
                 ->where('student_id', $studentId)
                 ->where('school_year', $schoolYear)
-                ->orderBy('created_at', 'desc')
+                ->where('is_approved', true)
+                ->where('is_rejected', false)
+                ->orderBy('approved_at', 'desc')
                 ->get();
             }
         }

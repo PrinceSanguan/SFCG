@@ -464,7 +464,8 @@ class AcademicController extends Controller
                         ],
                         'average_grade' => $result['average_grade'],
                         'min_grade' => $result['min_grade'],
-                        'total_quarters' => $result['total_quarters'],
+                        'quarter_averages' => $result['quarter_averages'],
+                        'total_subjects' => $result['total_subjects'],
                         'honor_type' => $result['qualifications'][0]['honor_type'] ?? null,
                         'grades_breakdown' => $result['grades_breakdown'],
                     ];

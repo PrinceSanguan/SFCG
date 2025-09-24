@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use App\Models\StudentSubjectAssignment;
 use App\Models\StudentGrade;
+use App\Models\HonorResult;
 use App\Models\User;
 
 class ProfileController extends Controller
@@ -31,9 +32,10 @@ class ProfileController extends Controller
         $assignedSubjects = StudentSubjectAssignment::with([
             'subject.course',
             'subject.academicLevel',
-            'subject.teacherAssignments.teacher' => function ($query) use ($currentSchoolYear) {
+            'subject.teacherAssignments' => function ($query) use ($currentSchoolYear) {
                 $query->where('school_year', $currentSchoolYear)
-                      ->where('is_active', true);
+                      ->where('is_active', true)
+                      ->with('teacher');
             }
         ])
         ->where('student_id', $user->id)
@@ -54,11 +56,24 @@ class ProfileController extends Controller
         ->where('school_year', $currentSchoolYear)
         ->get()
         ->groupBy('subject_id');
+
+        // Load honor results for the student (only approved ones)
+        $honorResults = HonorResult::with([
+            'honorType',
+            'academicLevel'
+        ])
+        ->where('student_id', $user->id)
+        ->where('school_year', $currentSchoolYear)
+        ->where('is_approved', true)
+        ->where('is_rejected', false)
+        ->orderBy('created_at', 'desc')
+        ->get();
         
         return Inertia::render('Student/Profile', [
             'user' => $user,
             'assignedSubjects' => $assignedSubjects,
             'subjectGrades' => $subjectGrades,
+            'honorResults' => $honorResults,
             'currentSchoolYear' => $currentSchoolYear,
         ]);
     }

@@ -27,7 +27,9 @@ class ParentController extends Controller
                 $query->where('school_year', $schoolYear);
             },
             'honorResults' => function ($query) use ($schoolYear) {
-                $query->where('school_year', $schoolYear);
+                $query->where('school_year', $schoolYear)
+                      ->where('is_approved', true)
+                      ->where('is_rejected', false);
             },
             'certificates' => function ($query) use ($schoolYear) {
                 $query->where('school_year', $schoolYear);

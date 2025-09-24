@@ -5,9 +5,12 @@ namespace App\Http\Controllers\Chairperson;
 use App\Http\Controllers\Controller;
 use App\Models\HonorResult;
 use App\Models\Department;
+use App\Models\ParentStudentRelationship;
+use App\Mail\ParentHonorNotificationEmail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 
 class HonorTrackingController extends Controller
@@ -15,28 +18,8 @@ class HonorTrackingController extends Controller
     public function index()
     {
         $user = Auth::user();
-        $departmentId = $user->department_id;
         
-        if (!$departmentId) {
-            return Inertia::render('Chairperson/Honors/Index', [
-                'user' => $user,
-                'honors' => [
-                    'data' => [],
-                    'current_page' => 1,
-                    'last_page' => 1,
-                    'per_page' => 20,
-                    'total' => 0,
-                ],
-                'stats' => [
-                    'pending' => 0,
-                    'approved' => 0,
-                    'rejected' => 0,
-                ],
-            ]);
-        }
-        
-        // For now, show all honors since students don't have department_id assigned
-        // TODO: Implement proper department filtering when student-department relationship is established
+        // Show all honors for chairperson (they can manage all academic levels)
         $honors = HonorResult::with(['student', 'honorType', 'academicLevel'])
             ->latest('created_at')
             ->paginate(20);
@@ -57,21 +40,8 @@ class HonorTrackingController extends Controller
     public function pendingHonors()
     {
         $user = Auth::user();
-        $departmentId = $user->department_id;
         
-        if (!$departmentId) {
-            return Inertia::render('Chairperson/Honors/Pending', [
-                'user' => $user,
-                'honors' => [
-                    'data' => [],
-                    'current_page' => 1,
-                    'last_page' => 1,
-                    'per_page' => 20,
-                    'total' => 0,
-                ],
-            ]);
-        }
-        
+        // Show all pending honors for chairperson (they can manage all academic levels)
         $honors = HonorResult::where('is_pending_approval', true)
             ->with(['student', 'honorType', 'academicLevel'])
             ->latest('created_at')
@@ -86,11 +56,14 @@ class HonorTrackingController extends Controller
     public function approveHonor(Request $request, $honorId)
     {
         $user = Auth::user();
-        $honor = HonorResult::findOrFail($honorId);
+        $honor = HonorResult::with(['student', 'academicLevel', 'honorType'])->findOrFail($honorId);
         
-        // Verify the honor belongs to the chairperson's department
-        if (!$honor->student || !$honor->student->course || $user->department_id !== $honor->student->course->department_id) {
-            abort(403, 'You can only approve honors from your department.');
+        // For Elementary and Junior High, chairperson can approve all honors
+        // For Senior High and College, verify department relationship
+        if ($honor->academicLevel && in_array($honor->academicLevel->key, ['senior_highschool', 'college'])) {
+            if (!$honor->student || !$honor->student->course || $user->department_id !== $honor->student->course->department_id) {
+                abort(403, 'You can only approve honors from your department.');
+            }
         }
         
         $honor->update([
@@ -100,28 +73,74 @@ class HonorTrackingController extends Controller
             'approved_by' => $user->id,
         ]);
         
+        // Send parent notification emails
+        $this->sendParentNotifications($honor);
+        
         Log::info('Honor approved by chairperson', [
             'chairperson_id' => $user->id,
             'honor_id' => $honorId,
             'student_id' => $honor->student_id,
             'honor_type' => $honor->honorType?->name ?? 'Unknown',
+            'academic_level' => $honor->academicLevel?->name ?? 'Unknown',
         ]);
         
-        return back()->with('success', 'Honor approved successfully.');
+        return back()->with('success', 'Honor approved successfully. Parent notifications have been sent.');
+    }
+    
+    /**
+     * Send honor notification emails to all parents of the student
+     */
+    private function sendParentNotifications($honor)
+    {
+        try {
+            // Get all parents for this student
+            $parentRelationships = ParentStudentRelationship::with('parent')
+                ->where('student_id', $honor->student_id)
+                ->get();
+            
+            foreach ($parentRelationships as $relationship) {
+                if ($relationship->parent && $relationship->parent->email) {
+                    Mail::to($relationship->parent->email)->send(
+                        new ParentHonorNotificationEmail(
+                            $relationship->parent,
+                            $honor->student,
+                            $honor,
+                            $honor->school_year
+                        )
+                    );
+                    
+                    Log::info('Parent honor notification sent', [
+                        'parent_id' => $relationship->parent->id,
+                        'parent_email' => $relationship->parent->email,
+                        'student_id' => $honor->student_id,
+                        'honor_id' => $honor->id,
+                    ]);
+                }
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to send parent honor notifications', [
+                'honor_id' => $honor->id,
+                'student_id' => $honor->student_id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
     
     public function rejectHonor(Request $request, $honorId)
     {
         $user = Auth::user();
-        $honor = HonorResult::findOrFail($honorId);
+        $honor = HonorResult::with(['student', 'academicLevel'])->findOrFail($honorId);
         
         $validated = $request->validate([
             'rejection_reason' => ['required', 'string', 'max:1000'],
         ]);
         
-        // Verify the honor belongs to the chairperson's department
-        if (!$honor->student || !$honor->student->course || $user->department_id !== $honor->student->course->department_id) {
-            abort(403, 'You can only reject honors from your department.');
+        // For Elementary and Junior High, chairperson can reject all honors
+        // For Senior High and College, verify department relationship
+        if ($honor->academicLevel && in_array($honor->academicLevel->key, ['senior_highschool', 'college'])) {
+            if (!$honor->student || !$honor->student->course || $user->department_id !== $honor->student->course->department_id) {
+                abort(403, 'You can only reject honors from your department.');
+            }
         }
         
         $honor->update([
@@ -137,6 +156,7 @@ class HonorTrackingController extends Controller
             'honor_id' => $honorId,
             'student_id' => $honor->student_id,
             'honor_type' => $honor->honorType?->name ?? 'Unknown',
+            'academic_level' => $honor->academicLevel?->name ?? 'Unknown',
             'reason' => $validated['rejection_reason'],
         ]);
         
@@ -161,13 +181,6 @@ class HonorTrackingController extends Controller
     // API methods
     public function getPendingHonors()
     {
-        $user = Auth::user();
-        $departmentId = $user->department_id;
-        
-        if (!$departmentId) {
-            return response()->json([]);
-        }
-        
         $honors = HonorResult::where('is_pending_approval', true)
             ->with(['student', 'honorType', 'academicLevel'])
             ->latest('created_at')
@@ -178,13 +191,6 @@ class HonorTrackingController extends Controller
     
     public function getApprovedHonors()
     {
-        $user = Auth::user();
-        $departmentId = $user->department_id;
-        
-        if (!$departmentId) {
-            return response()->json([]);
-        }
-        
         $honors = HonorResult::where('is_approved', true)
             ->with(['student', 'honorType', 'academicLevel'])
             ->latest('approved_at')
@@ -195,13 +201,6 @@ class HonorTrackingController extends Controller
     
     public function getRejectedHonors()
     {
-        $user = Auth::user();
-        $departmentId = $user->department_id;
-        
-        if (!$departmentId) {
-            return response()->json([]);
-        }
-        
         $honors = HonorResult::where('is_rejected', true)
             ->with(['student', 'honorType', 'academicLevel'])
             ->latest('rejected_at')

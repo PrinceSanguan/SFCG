@@ -64,6 +64,24 @@ interface StudentGrade {
   };
 }
 
+interface HonorResult {
+  id: number;
+  gpa: number;
+  status?: string;
+  school_year: string;
+  honorType: {
+    id: number;
+    name: string;
+    key: string;
+    scope: string;
+  };
+  academicLevel: {
+    id: number;
+    name: string;
+    key: string;
+  };
+}
+
 interface Props {
   user: { 
     name: string; 
@@ -98,10 +116,11 @@ interface Props {
   };
   assignedSubjects: SubjectAssignment[];
   subjectGrades: Record<number, StudentGrade[]>;
+  honorResults: HonorResult[];
   currentSchoolYear: string;
 }
 
-export default function StudentProfile({ user, assignedSubjects, subjectGrades, currentSchoolYear }: Props) {
+export default function StudentProfile({ user, assignedSubjects, subjectGrades, honorResults, currentSchoolYear }: Props) {
   const getPeriodLabel = (grade: StudentGrade): string => {
     const rel = (grade as unknown as { gradingPeriod?: { name?: string; code?: string }; grading_period?: { name?: string; code?: string } }).gradingPeriod
       || (grade as unknown as { grading_period?: { name?: string; code?: string } }).grading_period;
@@ -365,6 +384,40 @@ export default function StudentProfile({ user, assignedSubjects, subjectGrades, 
           </Card>
         )}
 
+        {/* Honor Results */}
+        {honorResults && honorResults.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Award className="h-5 w-5" />
+                My Academic Honors - {currentSchoolYear}
+              </CardTitle>
+              <CardDescription>Your academic achievements and honor qualifications</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4">
+                {honorResults.map((honor) => (
+                  <div key={honor.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-yellow-100 rounded-full">
+                        <Award className="h-5 w-5 text-yellow-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-lg">{honor.honorType.name}</h3>
+                        <p className="text-sm text-muted-foreground">{honor.academicLevel.name}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-bold text-green-600">{honor.gpa}</div>
+                      <div className="text-sm text-muted-foreground">GPA</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Academic Information - Subjects and Grades */}
         {assignedSubjects && assignedSubjects.length > 0 && (
           <Card>
@@ -385,8 +438,12 @@ export default function StudentProfile({ user, assignedSubjects, subjectGrades, 
                     if (c) byCode.set(c, g);
                   });
                   const isSeniorHigh = (user.year_level === 'senior_highschool') || false;
-                  const firstSemCodes = isSeniorHigh ? ['Q1', 'Q2'] : ['P1', 'Q1'];
-                  const secondSemCodes = isSeniorHigh ? ['Q3', 'Q4'] : ['S2-MT', 'S2-PF'];
+                  const isElementary = (user.year_level === 'elementary') || false;
+                  const isJuniorHigh = (user.year_level === 'junior_highschool') || false;
+                  
+                  // Use Q1-Q4 for Elementary, Junior High, and Senior High (all use quarter-based periods)
+                  const firstSemCodes = (isSeniorHigh || isJuniorHigh || isElementary) ? ['Q1', 'Q2'] : ['P1', 'Q1'];
+                  const secondSemCodes = (isSeniorHigh || isJuniorHigh || isElementary) ? ['Q3', 'Q4'] : ['S2-MT', 'S2-PF'];
                   // Ensure order-only rendering; maps used directly in JSX below
                   if (DEBUG) {
                     console.log('Student Profile → subject grades', {
@@ -446,50 +503,74 @@ export default function StudentProfile({ user, assignedSubjects, subjectGrades, 
                             <Award className="h-4 w-4" />
                             My Grades
                           </h5>
-                          {
-                            <div>
-                              <div className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">{isSeniorHigh ? 'First Half' : 'First Semester'}</div>
-                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                                {firstSemCodes.map(code => {
-                                  const grade = byCode.get(code);
-                                  return (
-                                    <div key={`fs-${code}-${grade?.id ?? 'empty'}`} className="flex items-center justify-between p-2 bg-white dark:bg-gray-700 rounded border">
-                                      <div>
-                                        <span className="text-sm font-medium">{grade ? getPeriodLabel(grade) : (
-                                          isSeniorHigh ? (code === 'Q1' ? 'First Quarter' : 'Second Quarter') : (code === 'P1' ? 'pre final' : 'First Quarter')
-                                        )}</span>
-                                        <div className="flex items-center gap-2">
-                                          <span className={`text-lg font-bold ${grade && grade.grade >= 90 ? 'text-green-600' : grade && grade.grade >= 80 ? 'text-yellow-600' : grade && grade.grade >= 70 ? 'text-orange-600' : 'text-red-600'}`}>{grade ? grade.grade : '—'}</span>
-                                        </div>
+                          {(isElementary || isJuniorHigh) ? (
+                            // Elementary and Junior High: Show all 4 quarters without semester grouping
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
+                              {['Q1', 'Q2', 'Q3', 'Q4'].map(code => {
+                                const grade = byCode.get(code);
+                                const quarterNames: Record<string, string> = {
+                                  'Q1': 'First Quarter',
+                                  'Q2': 'Second Quarter',
+                                  'Q3': 'Third Quarter',
+                                  'Q4': 'Fourth Quarter'
+                                };
+                                return (
+                                  <div key={`q-${code}-${grade?.id ?? 'empty'}`} className="flex items-center justify-between p-2 bg-white dark:bg-gray-700 rounded border">
+                                    <div>
+                                      <span className="text-sm font-medium">{grade ? getPeriodLabel(grade) : quarterNames[code] || code}</span>
+                                      <div className="flex items-center gap-2">
+                                        <span className={`text-lg font-bold ${grade && grade.grade >= 90 ? 'text-green-600' : grade && grade.grade >= 80 ? 'text-yellow-600' : grade && grade.grade >= 70 ? 'text-orange-600' : 'text-red-600'}`}>{grade ? grade.grade : '—'}</span>
                                       </div>
                                     </div>
-                                  );
-                                })}
-                              </div>
+                                  </div>
+                                );
+                              })}
                             </div>
-                          }
-                          {
-                            <div>
-                              <div className="text-xs font-semibold text-gray-600 dark:text-gray-300 mt-3 mb-1">{isSeniorHigh ? 'Second Half' : 'Second Semester'}</div>
-                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                                {secondSemCodes.map(code => {
-                                  const grade = byCode.get(code);
-                                  return (
-                                    <div key={`ss-${code}-${grade?.id ?? 'empty'}`} className="flex items-center justify-between p-2 bg-white dark:bg-gray-700 rounded border">
-                                      <div>
-                                        <span className="text-sm font-medium">{grade ? getPeriodLabel(grade) : (
-                                          isSeniorHigh ? (code === 'Q3' ? 'Third Quarter' : 'Fourth Quarter') : (code === 'S2-MT' ? 'Midterm' : 'Pre-Final')
-                                        )}</span>
-                                        <div className="flex items-center gap-2">
-                                          <span className={`text-lg font-bold ${grade && grade.grade >= 90 ? 'text-green-600' : grade && grade.grade >= 80 ? 'text-yellow-600' : grade && grade.grade >= 70 ? 'text-orange-600' : 'text-red-600'}`}>{grade ? grade.grade : '—'}</span>
+                          ) : (
+                            // Senior High and College: Show with semester grouping
+                            <>
+                              <div>
+                                <div className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">First Semester</div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                                  {firstSemCodes.map(code => {
+                                    const grade = byCode.get(code);
+                                    return (
+                                      <div key={`fs-${code}-${grade?.id ?? 'empty'}`} className="flex items-center justify-between p-2 bg-white dark:bg-gray-700 rounded border">
+                                        <div>
+                                          <span className="text-sm font-medium">{grade ? getPeriodLabel(grade) : (
+                                            isSeniorHigh ? (code === 'Q1' ? 'First Quarter' : 'Second Quarter') : (code === 'P1' ? 'pre final' : 'First Quarter')
+                                          )}</span>
+                                          <div className="flex items-center gap-2">
+                                            <span className={`text-lg font-bold ${grade && grade.grade >= 90 ? 'text-green-600' : grade && grade.grade >= 80 ? 'text-yellow-600' : grade && grade.grade >= 70 ? 'text-orange-600' : 'text-red-600'}`}>{grade ? grade.grade : '—'}</span>
+                                          </div>
                                         </div>
                                       </div>
-                                    </div>
-                                  );
-                                })}
+                                    );
+                                  })}
+                                </div>
                               </div>
-                            </div>
-                          }
+                              <div>
+                                <div className="text-xs font-semibold text-gray-600 dark:text-gray-300 mt-3 mb-1">Second Semester</div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                                  {secondSemCodes.map(code => {
+                                    const grade = byCode.get(code);
+                                    return (
+                                      <div key={`ss-${code}-${grade?.id ?? 'empty'}`} className="flex items-center justify-between p-2 bg-white dark:bg-gray-700 rounded border">
+                                        <div>
+                                          <span className="text-sm font-medium">{grade ? getPeriodLabel(grade) : (
+                                            isSeniorHigh ? (code === 'Q3' ? 'Third Quarter' : 'Fourth Quarter') : (code === 'S2-MT' ? 'Midterm' : 'Pre-Final')
+                                          )}</span>
+                                          <div className="flex items-center gap-2">
+                                            <span className={`text-lg font-bold ${grade && grade.grade >= 90 ? 'text-green-600' : grade && grade.grade >= 80 ? 'text-yellow-600' : grade && grade.grade >= 70 ? 'text-orange-600' : 'text-red-600'}`}>{grade ? grade.grade : '—'}</span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </>
+                          )}
                         </div>
                       ) : (
                         <div className="text-center py-4 text-gray-500 dark:text-gray-400">

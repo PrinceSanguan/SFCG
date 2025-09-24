@@ -101,21 +101,21 @@ export function Sidebar({ user }: SidebarProps) {
                             <div className="ml-6 mt-1 space-y-1">
                                 <Link href={route('chairperson.grades.index')} className="w-full">
                                     <Button
-                                        variant={isActive('/chairperson/grades') && !isActive('/chairperson/grades/pending') ? 'secondary' : 'ghost'}
+                                        variant={isActive('/chairperson/grades') && !isActive('/chairperson/grades/all') ? 'secondary' : 'ghost'}
                                         className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
                                     >
                                         <BookOpen size={16} />
-                                        All Grades
+                                        Grade Overview
                                     </Button>
                                 </Link>
                                 
-                                <Link href={route('chairperson.grades.pending')} className="w-full">
+                                <Link href={route('chairperson.grades.all')} className="w-full">
                                     <Button
-                                        variant={isActive('/chairperson/grades/pending') ? 'secondary' : 'ghost'}
+                                        variant={isActive('/chairperson/grades/all') ? 'secondary' : 'ghost'}
                                         className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
                                     >
                                         <Clock size={16} />
-                                        Pending Grades
+                                        All Grades
                                     </Button>
                                 </Link>
                             </div>

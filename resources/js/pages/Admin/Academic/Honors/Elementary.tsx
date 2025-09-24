@@ -36,7 +36,8 @@ interface HonorCriterion {
     min_year: number | null;
     max_year: number | null;
     require_consistent_honor: boolean;
-    honorType: HonorType;
+    honorType?: HonorType;  // Keep for compatibility
+    honor_type?: HonorType; // Laravel sends snake_case
 }
 
 interface QualifiedStudent {
@@ -54,7 +55,8 @@ interface QualifiedStudent {
     };
     average_grade: number;
     min_grade: number;
-    total_quarters: number;
+    quarter_averages: number[];
+    total_subjects: number;
     honor_type: {
         id: number;
         name: string;
@@ -99,6 +101,35 @@ export default function ElementaryHonors({ user, honorTypes, criteria, schoolYea
     
     // Force unique rendering by using cacheBuster
     const renderKey = cacheBuster || Date.now();
+
+    // Helper functions to get honor type info
+    const getHonorTypeName = (criterion: HonorCriterion): string => {
+        // Try snake_case first (Laravel serialization)
+        if (criterion?.honor_type?.name) {
+            return criterion.honor_type.name;
+        }
+        // Fallback to camelCase
+        if (criterion?.honorType?.name) {
+            return criterion.honorType.name;
+        }
+        // Last resort: lookup from honorTypes array
+        const honorType = honorTypes.find(t => t.id === criterion.honor_type_id);
+        return honorType?.name || 'Unknown Honor Type';
+    };
+
+    const getHonorTypeScope = (criterion: HonorCriterion): string => {
+        // Try snake_case first (Laravel serialization)
+        if (criterion?.honor_type?.scope) {
+            return criterion.honor_type.scope;
+        }
+        // Fallback to camelCase
+        if (criterion?.honorType?.scope) {
+            return criterion.honorType.scope;
+        }
+        // Last resort: lookup from honorTypes array
+        const honorType = honorTypes.find(t => t.id === criterion.honor_type_id);
+        return honorType?.scope || 'Unknown';
+    };
     
     // Force refresh when cacheBuster changes
     useEffect(() => {
@@ -594,8 +625,8 @@ export default function ElementaryHonors({ user, honorTypes, criteria, schoolYea
                                                     // Display Mode
                                                     <>
                                                         <div className="flex items-center justify-between mb-3">
-                                                            <h4 className="font-medium text-lg">{criterion.honorType?.name || 'Unknown Honor Type'}</h4>
-                                                            <Badge variant="secondary">{criterion.honorType?.scope || 'Unknown'}</Badge>
+                                                            <h4 className="font-medium text-lg">{getHonorTypeName(criterion)}</h4>
+                                                            <Badge variant="secondary">{getHonorTypeScope(criterion)}</Badge>
                                                         </div>
                                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                                                             {criterion.min_gpa && (

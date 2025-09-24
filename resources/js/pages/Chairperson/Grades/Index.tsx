@@ -212,9 +212,9 @@ export default function GradesIndex({ user, grades, stats, academicLevels, selec
                             <CardContent>
                                 <div className="flex gap-4">
                                     <Button asChild>
-                                        <Link href={route('chairperson.grades.pending')}>
+                                        <Link href={route('chairperson.grades.all')}>
                                             <Clock className="mr-2 h-4 w-4" />
-                                            Review Pending Grades
+                                            View All Grades
                                         </Link>
                                     </Button>
                                 </div>

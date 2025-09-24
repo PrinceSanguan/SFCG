@@ -23,12 +23,12 @@ interface Honor {
         name: string;
         student_number: string;
     };
-    honorType: {
+    honor_type: {
         id: number;
         name: string;
         description?: string;
     };
-    academicLevel: {
+    academic_level: {
         name: string;
     };
     gpa: number;
@@ -175,14 +175,14 @@ export default function PendingHonors({ user, honors }: PendingHonorsProps) {
                                                         </td>
                                                         <td className="p-2">
                                                             <div>
-                                                                <div className="font-medium">{honor.honorType?.name || 'N/A'}</div>
-                                                                {honor.honorType?.description && (
-                                                                    <div className="text-sm text-gray-500">{honor.honorType?.description}</div>
+                                                                <div className="font-medium">{honor.honor_type?.name || 'N/A'}</div>
+                                                                {honor.honor_type?.description && (
+                                                                    <div className="text-sm text-gray-500">{honor.honor_type?.description}</div>
                                                                 )}
                                                             </div>
                                                         </td>
                                                         <td className="p-2 font-medium">{honor.gpa}</td>
-                                                        <td className="p-2">{honor.academicLevel?.name || 'N/A'}</td>
+                                                        <td className="p-2">{honor.academic_level?.name || 'N/A'}</td>
                                                         <td className="p-2">{honor.school_year}</td>
                                                         <td className="p-2">
                                                             <span className="text-sm text-gray-500">

@@ -22,43 +22,43 @@ class CompleteElementaryDataSeeder extends Seeder
         $this->command->info('Creating complete Elementary data with teachers, advisers, subjects, and assignments...');
         
         $schoolYear = '2024-2025';
-        $elementaryLevel = AcademicLevel::where('key', 'elementary')->first();
-        $elementaryDept = Department::where('academic_level_id', 1)->first();
+        $elemLevel = AcademicLevel::where('key', 'elementary')->first();
+        $elemDept = Department::where('academic_level_id', 1)->first();
         
-        if (!$elementaryLevel) {
+        if (!$elemLevel) {
             $this->command->error('Elementary academic level not found!');
             return;
         }
 
         // Create sections for each grade level
-        $sections = $this->createSections($elementaryLevel->id);
+        $sections = $this->createSections($elemLevel->id);
         
         // Create subjects for Elementary
-        $subjects = $this->createSubjects($elementaryLevel->id);
+        $subjects = $this->createSubjects($elemLevel->id);
         
         // Create grading periods for Elementary
-        $gradingPeriods = $this->createGradingPeriods($elementaryLevel->id);
+        $gradingPeriods = $this->createGradingPeriods($elemLevel->id);
         
         // Create teachers for Elementary
-        $teachers = $this->createTeachers($elementaryDept->id);
+        $teachers = $this->createTeachers($elemDept->id);
         
         // Create advisers for Elementary
-        $advisers = $this->createAdvisers($elementaryDept->id);
+        $advisers = $this->createAdvisers($elemDept->id);
         
         // Create test students
         $students = $this->createTestStudents($sections);
         
         // Create teacher subject assignments
-        $this->createTeacherSubjectAssignments($teachers, $subjects, $elementaryLevel->id, $schoolYear);
+        $this->createTeacherSubjectAssignments($teachers, $subjects, $elemLevel->id, $schoolYear);
         
         // Create class adviser assignments
-        $this->createClassAdviserAssignments($advisers, $sections, $elementaryLevel->id, $schoolYear);
+        $this->createClassAdviserAssignments($advisers, $sections, $elemLevel->id, $schoolYear);
         
         // Create student subject assignments
         $this->createStudentSubjectAssignments($students, $subjects, $schoolYear);
         
         // Create grades for students
-        $this->createGradesForStudents($students, $subjects, $gradingPeriods, $elementaryLevel->id, $schoolYear);
+        $this->createGradesForStudents($students, $subjects, $gradingPeriods, $elemLevel->id, $schoolYear);
         
         $this->command->info('Complete Elementary data created successfully!');
     }
@@ -67,34 +67,34 @@ class CompleteElementaryDataSeeder extends Seeder
     {
         $sections = [
             // Grade 1 sections
-            ['name' => 'Grade 1 - Einstein', 'code' => 'G1-E', 'specific_year_level' => 'grade_1'],
-            ['name' => 'Grade 1 - Newton', 'code' => 'G1-N', 'specific_year_level' => 'grade_1'],
-            ['name' => 'Grade 1 - Curie', 'code' => 'G1-C', 'specific_year_level' => 'grade_1'],
+            ['name' => 'Grade 1 - Sunflower', 'code' => 'G1-SUNFLOWER', 'specific_year_level' => 'grade_1'],
+            ['name' => 'Grade 1 - Rose', 'code' => 'G1-ROSE', 'specific_year_level' => 'grade_1'],
+            ['name' => 'Grade 1 - Tulip', 'code' => 'G1-TULIP', 'specific_year_level' => 'grade_1'],
             
             // Grade 2 sections
-            ['name' => 'Grade 2 - Einstein', 'code' => 'G2-E', 'specific_year_level' => 'grade_2'],
-            ['name' => 'Grade 2 - Newton', 'code' => 'G2-N', 'specific_year_level' => 'grade_2'],
-            ['name' => 'Grade 2 - Curie', 'code' => 'G2-C', 'specific_year_level' => 'grade_2'],
+            ['name' => 'Grade 2 - Daisy', 'code' => 'G2-DAISY', 'specific_year_level' => 'grade_2'],
+            ['name' => 'Grade 2 - Lily', 'code' => 'G2-LILY', 'specific_year_level' => 'grade_2'],
+            ['name' => 'Grade 2 - Orchid', 'code' => 'G2-ORCHID', 'specific_year_level' => 'grade_2'],
             
             // Grade 3 sections
-            ['name' => 'Grade 3 - Einstein', 'code' => 'G3-E', 'specific_year_level' => 'grade_3'],
-            ['name' => 'Grade 3 - Newton', 'code' => 'G3-N', 'specific_year_level' => 'grade_3'],
-            ['name' => 'Grade 3 - Curie', 'code' => 'G3-C', 'specific_year_level' => 'grade_3'],
+            ['name' => 'Grade 3 - Jasmine', 'code' => 'G3-JASMINE', 'specific_year_level' => 'grade_3'],
+            ['name' => 'Grade 3 - Violet', 'code' => 'G3-VIOLET', 'specific_year_level' => 'grade_3'],
+            ['name' => 'Grade 3 - Marigold', 'code' => 'G3-MARIGOLD', 'specific_year_level' => 'grade_3'],
             
             // Grade 4 sections
-            ['name' => 'Grade 4 - Einstein', 'code' => 'G4-E', 'specific_year_level' => 'grade_4'],
-            ['name' => 'Grade 4 - Newton', 'code' => 'G4-N', 'specific_year_level' => 'grade_4'],
-            ['name' => 'Grade 4 - Curie', 'code' => 'G4-C', 'specific_year_level' => 'grade_4'],
+            ['name' => 'Grade 4 - Carnation', 'code' => 'G4-CARNATION', 'specific_year_level' => 'grade_4'],
+            ['name' => 'Grade 4 - Peony', 'code' => 'G4-PEONY', 'specific_year_level' => 'grade_4'],
+            ['name' => 'Grade 4 - Chrysanthemum', 'code' => 'G4-CHRYSANTHEMUM', 'specific_year_level' => 'grade_4'],
             
             // Grade 5 sections
-            ['name' => 'Grade 5 - Einstein', 'code' => 'G5-E', 'specific_year_level' => 'grade_5'],
-            ['name' => 'Grade 5 - Newton', 'code' => 'G5-N', 'specific_year_level' => 'grade_5'],
-            ['name' => 'Grade 5 - Curie', 'code' => 'G5-C', 'specific_year_level' => 'grade_5'],
+            ['name' => 'Grade 5 - Hibiscus', 'code' => 'G5-HIBISCUS', 'specific_year_level' => 'grade_5'],
+            ['name' => 'Grade 5 - Lavender', 'code' => 'G5-LAVENDER', 'specific_year_level' => 'grade_5'],
+            ['name' => 'Grade 5 - Magnolia', 'code' => 'G5-MAGNOLIA', 'specific_year_level' => 'grade_5'],
             
             // Grade 6 sections
-            ['name' => 'Grade 6 - Einstein', 'code' => 'G6-E', 'specific_year_level' => 'grade_6'],
-            ['name' => 'Grade 6 - Newton', 'code' => 'G6-N', 'specific_year_level' => 'grade_6'],
-            ['name' => 'Grade 6 - Curie', 'code' => 'G6-C', 'specific_year_level' => 'grade_6'],
+            ['name' => 'Grade 6 - Lotus', 'code' => 'G6-LOTUS', 'specific_year_level' => 'grade_6'],
+            ['name' => 'Grade 6 - Cherry Blossom', 'code' => 'G6-CHERRY', 'specific_year_level' => 'grade_6'],
+            ['name' => 'Grade 6 - Plumeria', 'code' => 'G6-PLUMERIA', 'specific_year_level' => 'grade_6'],
         ];
 
         $createdSections = [];
@@ -119,14 +119,14 @@ class CompleteElementaryDataSeeder extends Seeder
     private function createSubjects(int $academicLevelId): array
     {
         $subjects = [
-            ['name' => 'English', 'code' => 'ENG-ELEM', 'description' => 'Elementary English Language Arts'],
-            ['name' => 'Mathematics', 'code' => 'MATH-ELEM', 'description' => 'Elementary Mathematics'],
-            ['name' => 'Science', 'code' => 'SCI-ELEM', 'description' => 'Elementary Science'],
-            ['name' => 'Filipino', 'code' => 'FIL-ELEM', 'description' => 'Elementary Filipino Language'],
-            ['name' => 'Araling Panlipunan', 'code' => 'AP-ELEM', 'description' => 'Elementary Social Studies'],
-            ['name' => 'MAPEH', 'code' => 'MAPEH-ELEM', 'description' => 'Music, Arts, PE, and Health'],
-            ['name' => 'Edukasyon sa Pagpapakatao', 'code' => 'ESP-ELEM', 'description' => 'Values Education'],
-            ['name' => 'Mother Tongue', 'code' => 'MT-ELEM', 'description' => 'Mother Tongue Language'],
+            ['name' => 'English', 'code' => 'ENG-ELEM', 'description' => 'English Language Arts'],
+            ['name' => 'Mathematics', 'code' => 'MATH-ELEM', 'description' => 'Mathematics'],
+            ['name' => 'Science', 'code' => 'SCI-ELEM', 'description' => 'Science'],
+            ['name' => 'Filipino', 'code' => 'FIL-ELEM', 'description' => 'Filipino'],
+            ['name' => 'Araling Panlipunan', 'code' => 'AP-ELEM', 'description' => 'Araling Panlipunan'],
+            ['name' => 'MAPEH', 'code' => 'MAPEH-ELEM', 'description' => 'Music, Arts, Physical Education, and Health'],
+            ['name' => 'Edukasyon sa Pagpapakatao', 'code' => 'ESP-ELEM', 'description' => 'Edukasyon sa Pagpapakatao'],
+            ['name' => 'Mother Tongue', 'code' => 'MT-ELEM', 'description' => 'Mother Tongue'],
         ];
 
         $createdSubjects = [];
@@ -184,16 +184,16 @@ class CompleteElementaryDataSeeder extends Seeder
     private function createTeachers(int $departmentId): array
     {
         $teachers = [
-            ['name' => 'Maria Santos', 'email' => 'maria.santos@school.edu'],
-            ['name' => 'Jose Garcia', 'email' => 'jose.garcia@school.edu'],
-            ['name' => 'Ana Rodriguez', 'email' => 'ana.rodriguez@school.edu'],
-            ['name' => 'Carlos Lopez', 'email' => 'carlos.lopez@school.edu'],
-            ['name' => 'Elena Martinez', 'email' => 'elena.martinez@school.edu'],
-            ['name' => 'Miguel Torres', 'email' => 'miguel.torres@school.edu'],
-            ['name' => 'Isabel Flores', 'email' => 'isabel.flores@school.edu'],
-            ['name' => 'Roberto Cruz', 'email' => 'roberto.cruz@school.edu'],
-            ['name' => 'Carmen Vega', 'email' => 'carmen.vega@school.edu'],
-            ['name' => 'Antonio Ramos', 'email' => 'antonio.ramos@school.edu'],
+            ['name' => 'Ms. Sarah Johnson', 'email' => 'sarah.johnson@elem.edu'],
+            ['name' => 'Mr. Michael Brown', 'email' => 'michael.brown@elem.edu'],
+            ['name' => 'Ms. Emily Davis', 'email' => 'emily.davis@elem.edu'],
+            ['name' => 'Mr. James Wilson', 'email' => 'james.wilson@elem.edu'],
+            ['name' => 'Ms. Jessica Miller', 'email' => 'jessica.miller@elem.edu'],
+            ['name' => 'Mr. Christopher Garcia', 'email' => 'christopher.garcia@elem.edu'],
+            ['name' => 'Ms. Amanda Martinez', 'email' => 'amanda.martinez@elem.edu'],
+            ['name' => 'Mr. Daniel Rodriguez', 'email' => 'daniel.rodriguez@elem.edu'],
+            ['name' => 'Ms. Jennifer Anderson', 'email' => 'jennifer.anderson@elem.edu'],
+            ['name' => 'Mr. Matthew Taylor', 'email' => 'matthew.taylor@elem.edu'],
         ];
 
         $createdTeachers = [];
@@ -217,11 +217,12 @@ class CompleteElementaryDataSeeder extends Seeder
     private function createAdvisers(int $departmentId): array
     {
         $advisers = [
-            ['name' => 'Dr. Patricia Reyes', 'email' => 'patricia.reyes@school.edu'],
-            ['name' => 'Prof. Manuel Dela Cruz', 'email' => 'manuel.delacruz@school.edu'],
-            ['name' => 'Ms. Rosa Herrera', 'email' => 'rosa.herrera@school.edu'],
-            ['name' => 'Mr. Fernando Mendoza', 'email' => 'fernando.mendoza@school.edu'],
-            ['name' => 'Dr. Gloria Aguilar', 'email' => 'gloria.aguilar@school.edu'],
+            ['name' => 'Dr. Patricia Thompson', 'email' => 'patricia.thompson@elem.edu'],
+            ['name' => 'Prof. Robert White', 'email' => 'robert.white@elem.edu'],
+            ['name' => 'Ms. Linda Harris', 'email' => 'linda.harris@elem.edu'],
+            ['name' => 'Mr. Thomas Clark', 'email' => 'thomas.clark@elem.edu'],
+            ['name' => 'Dr. Susan Lewis', 'email' => 'susan.lewis@elem.edu'],
+            ['name' => 'Prof. Charles Walker', 'email' => 'charles.walker@elem.edu'],
         ];
 
         $createdAdvisers = [];
@@ -246,52 +247,52 @@ class CompleteElementaryDataSeeder extends Seeder
     {
         $students = [
             // Grade 1 students
-            ['name' => 'Sophia Johnson', 'email' => 'sophia.johnson@student.edu', 'section_code' => 'G1-E'],
-            ['name' => 'Liam Williams', 'email' => 'liam.williams@student.edu', 'section_code' => 'G1-E'],
-            ['name' => 'Olivia Brown', 'email' => 'olivia.brown@student.edu', 'section_code' => 'G1-N'],
-            ['name' => 'Noah Jones', 'email' => 'noah.jones@student.edu', 'section_code' => 'G1-N'],
-            ['name' => 'Emma Garcia', 'email' => 'emma.garcia@student.edu', 'section_code' => 'G1-C'],
-            ['name' => 'Oliver Miller', 'email' => 'oliver.miller@student.edu', 'section_code' => 'G1-C'],
+            ['name' => 'Alice Johnson', 'email' => 'alice.johnson@elem.edu', 'section_code' => 'G1-SUNFLOWER'],
+            ['name' => 'Bob Smith', 'email' => 'bob.smith@elem.edu', 'section_code' => 'G1-SUNFLOWER'],
+            ['name' => 'Charlie Brown', 'email' => 'charlie.brown@elem.edu', 'section_code' => 'G1-ROSE'],
+            ['name' => 'Diana Prince', 'email' => 'diana.prince@elem.edu', 'section_code' => 'G1-ROSE'],
+            ['name' => 'Ethan Hunt', 'email' => 'ethan.hunt@elem.edu', 'section_code' => 'G1-TULIP'],
+            ['name' => 'Fiona Green', 'email' => 'fiona.green@elem.edu', 'section_code' => 'G1-TULIP'],
             
             // Grade 2 students
-            ['name' => 'Ava Davis', 'email' => 'ava.davis@student.edu', 'section_code' => 'G2-E'],
-            ['name' => 'William Rodriguez', 'email' => 'william.rodriguez@student.edu', 'section_code' => 'G2-E'],
-            ['name' => 'Isabella Martinez', 'email' => 'isabella.martinez@student.edu', 'section_code' => 'G2-N'],
-            ['name' => 'James Hernandez', 'email' => 'james.hernandez@student.edu', 'section_code' => 'G2-N'],
-            ['name' => 'Charlotte Lopez', 'email' => 'charlotte.lopez@student.edu', 'section_code' => 'G2-C'],
-            ['name' => 'Benjamin Gonzalez', 'email' => 'benjamin.gonzalez@student.edu', 'section_code' => 'G2-C'],
+            ['name' => 'George Wilson', 'email' => 'george.wilson@elem.edu', 'section_code' => 'G2-DAISY'],
+            ['name' => 'Hannah Davis', 'email' => 'hannah.davis@elem.edu', 'section_code' => 'G2-DAISY'],
+            ['name' => 'Ivan Rodriguez', 'email' => 'ivan.rodriguez@elem.edu', 'section_code' => 'G2-LILY'],
+            ['name' => 'Julia Martinez', 'email' => 'julia.martinez@elem.edu', 'section_code' => 'G2-LILY'],
+            ['name' => 'Kevin Anderson', 'email' => 'kevin.anderson@elem.edu', 'section_code' => 'G2-ORCHID'],
+            ['name' => 'Luna Taylor', 'email' => 'luna.taylor@elem.edu', 'section_code' => 'G2-ORCHID'],
             
             // Grade 3 students
-            ['name' => 'Amelia Wilson', 'email' => 'amelia.wilson@student.edu', 'section_code' => 'G3-E'],
-            ['name' => 'Lucas Anderson', 'email' => 'lucas.anderson@student.edu', 'section_code' => 'G3-E'],
-            ['name' => 'Mia Thomas', 'email' => 'mia.thomas@student.edu', 'section_code' => 'G3-N'],
-            ['name' => 'Henry Taylor', 'email' => 'henry.taylor@student.edu', 'section_code' => 'G3-N'],
-            ['name' => 'Harper Moore', 'email' => 'harper.moore@student.edu', 'section_code' => 'G3-C'],
-            ['name' => 'Alexander Jackson', 'email' => 'alexander.jackson@student.edu', 'section_code' => 'G3-C'],
+            ['name' => 'Marcus Thomas', 'email' => 'marcus.thomas@elem.edu', 'section_code' => 'G3-JASMINE'],
+            ['name' => 'Nina Jackson', 'email' => 'nina.jackson@elem.edu', 'section_code' => 'G3-JASMINE'],
+            ['name' => 'Oscar White', 'email' => 'oscar.white@elem.edu', 'section_code' => 'G3-VIOLET'],
+            ['name' => 'Penny Harris', 'email' => 'penny.harris@elem.edu', 'section_code' => 'G3-VIOLET'],
+            ['name' => 'Quinn Martin', 'email' => 'quinn.martin@elem.edu', 'section_code' => 'G3-MARIGOLD'],
+            ['name' => 'Ruby Thompson', 'email' => 'ruby.thompson@elem.edu', 'section_code' => 'G3-MARIGOLD'],
             
             // Grade 4 students
-            ['name' => 'Evelyn Martin', 'email' => 'evelyn.martin@student.edu', 'section_code' => 'G4-E'],
-            ['name' => 'Mason Lee', 'email' => 'mason.lee@student.edu', 'section_code' => 'G4-E'],
-            ['name' => 'Abigail Perez', 'email' => 'abigail.perez@student.edu', 'section_code' => 'G4-N'],
-            ['name' => 'Ethan Thompson', 'email' => 'ethan.thompson@student.edu', 'section_code' => 'G4-N'],
-            ['name' => 'Emily White', 'email' => 'emily.white@student.edu', 'section_code' => 'G4-C'],
-            ['name' => 'Sebastian Harris', 'email' => 'sebastian.harris@student.edu', 'section_code' => 'G4-C'],
+            ['name' => 'Sam Garcia', 'email' => 'sam.garcia@elem.edu', 'section_code' => 'G4-CARNATION'],
+            ['name' => 'Tina Martinez', 'email' => 'tina.martinez@elem.edu', 'section_code' => 'G4-CARNATION'],
+            ['name' => 'Ulysses Robinson', 'email' => 'ulysses.robinson@elem.edu', 'section_code' => 'G4-PEONY'],
+            ['name' => 'Victoria Clark', 'email' => 'victoria.clark@elem.edu', 'section_code' => 'G4-PEONY'],
+            ['name' => 'William Rodriguez', 'email' => 'william.rodriguez@elem.edu', 'section_code' => 'G4-CHRYSANTHEMUM'],
+            ['name' => 'Xara Lewis', 'email' => 'xara.lewis@elem.edu', 'section_code' => 'G4-CHRYSANTHEMUM'],
             
             // Grade 5 students
-            ['name' => 'Elizabeth Sanchez', 'email' => 'elizabeth.sanchez@student.edu', 'section_code' => 'G5-E'],
-            ['name' => 'Jack Clark', 'email' => 'jack.clark@student.edu', 'section_code' => 'G5-E'],
-            ['name' => 'Sofia Ramirez', 'email' => 'sofia.ramirez@student.edu', 'section_code' => 'G5-N'],
-            ['name' => 'Owen Lewis', 'email' => 'owen.lewis@student.edu', 'section_code' => 'G5-N'],
-            ['name' => 'Avery Robinson', 'email' => 'avery.robinson@student.edu', 'section_code' => 'G5-C'],
-            ['name' => 'Theodore Walker', 'email' => 'theodore.walker@student.edu', 'section_code' => 'G5-C'],
+            ['name' => 'Yara Walker', 'email' => 'yara.walker@elem.edu', 'section_code' => 'G5-HIBISCUS'],
+            ['name' => 'Zoe Hall', 'email' => 'zoe.hall@elem.edu', 'section_code' => 'G5-HIBISCUS'],
+            ['name' => 'Aaron Allen', 'email' => 'aaron.allen@elem.edu', 'section_code' => 'G5-LAVENDER'],
+            ['name' => 'Bella Young', 'email' => 'bella.young@elem.edu', 'section_code' => 'G5-LAVENDER'],
+            ['name' => 'Caleb King', 'email' => 'caleb.king@elem.edu', 'section_code' => 'G5-MAGNOLIA'],
+            ['name' => 'Destiny Wright', 'email' => 'destiny.wright@elem.edu', 'section_code' => 'G5-MAGNOLIA'],
             
-            // Grade 6 students (honor students)
-            ['name' => 'Scarlett Young', 'email' => 'scarlett.young@student.edu', 'section_code' => 'G6-E'],
-            ['name' => 'Gabriel Allen', 'email' => 'gabriel.allen@student.edu', 'section_code' => 'G6-E'],
-            ['name' => 'Victoria King', 'email' => 'victoria.king@student.edu', 'section_code' => 'G6-N'],
-            ['name' => 'Julian Wright', 'email' => 'julian.wright@student.edu', 'section_code' => 'G6-N'],
-            ['name' => 'Grace Lopez', 'email' => 'grace.lopez@student.edu', 'section_code' => 'G6-C'],
-            ['name' => 'Adrian Hill', 'email' => 'adrian.hill@student.edu', 'section_code' => 'G6-C'],
+            // Grade 6 students
+            ['name' => 'Elijah Lopez', 'email' => 'elijah.lopez@elem.edu', 'section_code' => 'G6-LOTUS'],
+            ['name' => 'Faith Hill', 'email' => 'faith.hill@elem.edu', 'section_code' => 'G6-LOTUS'],
+            ['name' => 'Gabriel Scott', 'email' => 'gabriel.scott@elem.edu', 'section_code' => 'G6-CHERRY'],
+            ['name' => 'Hannah Green', 'email' => 'hannah.green@elem.edu', 'section_code' => 'G6-CHERRY'],
+            ['name' => 'Isaac Adams', 'email' => 'isaac.adams@elem.edu', 'section_code' => 'G6-PLUMERIA'],
+            ['name' => 'Jasmine Baker', 'email' => 'jasmine.baker@elem.edu', 'section_code' => 'G6-PLUMERIA'],
         ];
 
         $createdStudents = [];
@@ -392,8 +393,8 @@ class CompleteElementaryDataSeeder extends Seeder
         foreach ($students as $student) {
             $sectionCode = $student->section->code;
             
-            // Determine grade range based on section and grade level
-            $isHonorsSection = str_contains($sectionCode, 'E') || str_contains($sectionCode, '6'); // Einstein sections or Grade 6
+            // Determine grade range based on section
+            $isHonorsSection = str_contains($sectionCode, 'Sunflower') || str_contains($sectionCode, 'Lotus'); // Sunflower and Lotus sections
             
             if ($isHonorsSection) {
                 // Honors students: GPA 90-95, no grade below 85

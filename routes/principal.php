@@ -34,6 +34,20 @@ Route::middleware(['auth', 'principal'])->prefix('principal')->name('principal.'
         });
     });
     
+    // Final Average Management (Principal can approve)
+    Route::prefix('final-averages')->name('final-averages.')->group(function () {
+        Route::get('/', [GradeManagementController::class, 'finalAverages'])->name('index');
+        Route::get('/pending', [GradeManagementController::class, 'pendingFinalAverages'])->name('pending');
+        Route::post('/{grade}/approve', [GradeManagementController::class, 'approveFinalAverage'])->name('approve');
+        Route::post('/{grade}/return', [GradeManagementController::class, 'returnFinalAverage'])->name('return');
+        Route::get('/{grade}/review', [GradeManagementController::class, 'reviewFinalAverage'])->name('review');
+        
+        // API endpoints for AJAX calls
+        Route::prefix('api')->name('api.')->group(function () {
+            Route::get('/pending-final-averages', [GradeManagementController::class, 'getPendingFinalAverages'])->name('pending-final-averages');
+        });
+    });
+
     // Honor Tracking
     Route::prefix('honors')->name('honors.')->group(function () {
         Route::get('/', [HonorTrackingController::class, 'index'])->name('index');

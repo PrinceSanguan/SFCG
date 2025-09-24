@@ -33,21 +33,19 @@ Route::middleware(['auth', 'chairperson'])->prefix('chairperson')->name('chairpe
     // Grade Management (View Only)
     Route::prefix('grades')->name('grades.')->group(function () {
         Route::get('/', [GradeManagementController::class, 'index'])->name('index');
-        Route::get('/pending', [GradeManagementController::class, 'pendingGrades'])->name('pending');
+        Route::get('/all', [GradeManagementController::class, 'allGrades'])->name('all');
         Route::get('/{grade}/review', [GradeManagementController::class, 'reviewGrade'])->name('review');
         
         // API endpoints for AJAX calls
         Route::prefix('api')->name('api.')->group(function () {
-            Route::get('/pending-grades', [GradeManagementController::class, 'getPendingGrades'])->name('pending-grades');
+            Route::get('/all-grades', [GradeManagementController::class, 'getAllGrades'])->name('all-grades');
         });
     });
     
-    // Final Average Management
+    // Final Average Management (View Only - No approval powers)
     Route::prefix('final-averages')->name('final-averages.')->group(function () {
         Route::get('/', [GradeManagementController::class, 'finalAverages'])->name('index');
         Route::get('/pending', [GradeManagementController::class, 'pendingFinalAverages'])->name('pending');
-        Route::post('/{grade}/approve', [GradeManagementController::class, 'approveFinalAverage'])->name('approve');
-        Route::post('/{grade}/return', [GradeManagementController::class, 'returnFinalAverage'])->name('return');
         Route::get('/{grade}/review', [GradeManagementController::class, 'reviewFinalAverage'])->name('review');
         
         // API endpoints for AJAX calls

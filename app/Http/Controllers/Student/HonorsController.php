@@ -17,6 +17,8 @@ class HonorsController extends Controller
         $honors = HonorResult::with('honorType')
             ->where('student_id', $user->id)
             ->where('school_year', $schoolYear)
+            ->where('is_approved', true)
+            ->where('is_rejected', false)
             ->get();
 
         return Inertia::render('Student/Honors/Index', [
