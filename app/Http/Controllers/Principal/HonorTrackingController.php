@@ -6,9 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\HonorResult;
 use App\Models\HonorType;
 use App\Models\AcademicLevel;
+use App\Models\ParentStudentRelationship;
+use App\Mail\ParentHonorNotificationEmail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 
 class HonorTrackingController extends Controller
@@ -17,23 +20,41 @@ class HonorTrackingController extends Controller
     {
         $user = Auth::user();
         
-        // Get all honors with different statuses
+        // Principal can only handle Elementary, Junior High School, and Senior High School honors
+        $allowedAcademicLevels = ['elementary', 'junior_highschool', 'senior_highschool'];
+        
         $honors = HonorResult::with(['student', 'honorType', 'academicLevel', 'approvedBy', 'rejectedBy'])
+            ->whereHas('academicLevel', function($query) use ($allowedAcademicLevels) {
+                $query->whereIn('key', $allowedAcademicLevels);
+            })
             ->latest('created_at')
             ->paginate(20);
         
         $honorTypes = HonorType::all();
         $academicLevels = AcademicLevel::all();
         
-        // Get statistics
+        // Get statistics for Principal's academic levels only
         $stats = [
-            'total_honors' => HonorResult::count(),
+            'total_honors' => HonorResult::whereHas('academicLevel', function($query) use ($allowedAcademicLevels) {
+                $query->whereIn('key', $allowedAcademicLevels);
+            })->count(),
             'pending_honors' => HonorResult::where('is_pending_approval', true)
                 ->where('is_approved', false)
                 ->where('is_rejected', false)
+                ->whereHas('academicLevel', function($query) use ($allowedAcademicLevels) {
+                    $query->whereIn('key', $allowedAcademicLevels);
+                })
                 ->count(),
-            'approved_honors' => HonorResult::where('is_approved', true)->count(),
-            'rejected_honors' => HonorResult::where('is_rejected', true)->count(),
+            'approved_honors' => HonorResult::where('is_approved', true)
+                ->whereHas('academicLevel', function($query) use ($allowedAcademicLevels) {
+                    $query->whereIn('key', $allowedAcademicLevels);
+                })
+                ->count(),
+            'rejected_honors' => HonorResult::where('is_rejected', true)
+                ->whereHas('academicLevel', function($query) use ($allowedAcademicLevels) {
+                    $query->whereIn('key', $allowedAcademicLevels);
+                })
+                ->count(),
         ];
         
         return Inertia::render('Principal/Honors/Index', [
@@ -49,9 +70,15 @@ class HonorTrackingController extends Controller
     {
         $user = Auth::user();
         
+        // Principal can only handle Elementary, Junior High School, and Senior High School honors
+        $allowedAcademicLevels = ['elementary', 'junior_highschool', 'senior_highschool'];
+        
         $honors = HonorResult::where('is_pending_approval', true)
             ->where('is_approved', false)
             ->where('is_rejected', false)
+            ->whereHas('academicLevel', function($query) use ($allowedAcademicLevels) {
+                $query->whereIn('key', $allowedAcademicLevels);
+            })
             ->with(['student', 'honorType', 'academicLevel'])
             ->latest('created_at')
             ->paginate(20);
@@ -65,7 +92,13 @@ class HonorTrackingController extends Controller
     public function approveHonor(Request $request, $honorId)
     {
         $user = Auth::user();
-        $honor = HonorResult::findOrFail($honorId);
+        $honor = HonorResult::with(['student', 'academicLevel', 'honorType'])->findOrFail($honorId);
+        
+        // Verify that principal can only approve Elementary, Junior High School, and Senior High School honors
+        $allowedAcademicLevels = ['elementary', 'junior_highschool', 'senior_highschool'];
+        if (!$honor->academicLevel || !in_array($honor->academicLevel->key, $allowedAcademicLevels)) {
+            abort(403, 'Principal can only approve Elementary, Junior High School, and Senior High School honors.');
+        }
         
         $honor->update([
             'is_approved' => true,
@@ -74,20 +107,30 @@ class HonorTrackingController extends Controller
             'approved_by' => $user->id,
         ]);
         
+        // Send parent notification emails
+        $this->sendParentNotifications($honor);
+        
         Log::info('Honor approved by principal', [
             'principal_id' => $user->id,
             'honor_id' => $honorId,
             'student_id' => $honor->student_id,
             'honor_type' => $honor->honorType?->name ?? 'Unknown',
+            'academic_level' => $honor->academicLevel?->name ?? 'Unknown',
         ]);
         
-        return back()->with('success', 'Honor approved successfully.');
+        return back()->with('success', 'Honor approved successfully. Parent notifications have been sent.');
     }
     
     public function rejectHonor(Request $request, $honorId)
     {
         $user = Auth::user();
-        $honor = HonorResult::findOrFail($honorId);
+        $honor = HonorResult::with(['academicLevel', 'honorType'])->findOrFail($honorId);
+        
+        // Verify that principal can only reject Elementary, Junior High School, and Senior High School honors
+        $allowedAcademicLevels = ['elementary', 'junior_highschool', 'senior_highschool'];
+        if (!$honor->academicLevel || !in_array($honor->academicLevel->key, $allowedAcademicLevels)) {
+            abort(403, 'Principal can only reject Elementary, Junior High School, and Senior High School honors.');
+        }
         
         $validated = $request->validate([
             'rejection_reason' => ['required', 'string', 'max:1000'],
@@ -106,6 +149,7 @@ class HonorTrackingController extends Controller
             'honor_id' => $honorId,
             'student_id' => $honor->student_id,
             'honor_type' => $honor->honorType?->name ?? 'Unknown',
+            'academic_level' => $honor->academicLevel?->name ?? 'Unknown',
             'reason' => $validated['rejection_reason'],
         ]);
         
@@ -118,18 +162,70 @@ class HonorTrackingController extends Controller
         $honor = HonorResult::with(['student', 'honorType', 'academicLevel'])
             ->findOrFail($honorId);
         
+        // Verify that principal can only review Elementary, Junior High School, and Senior High School honors
+        $allowedAcademicLevels = ['elementary', 'junior_highschool', 'senior_highschool'];
+        if (!$honor->academicLevel || !in_array($honor->academicLevel->key, $allowedAcademicLevels)) {
+            abort(403, 'Principal can only review Elementary, Junior High School, and Senior High School honors.');
+        }
+        
         return Inertia::render('Principal/Honors/Review', [
             'user' => $user,
             'honor' => $honor,
         ]);
     }
     
+    /**
+     * Send honor notification emails to all parents of the student
+     */
+    private function sendParentNotifications($honor)
+    {
+        try {
+            // Get all parents for this student
+            $parentRelationships = ParentStudentRelationship::with('parent')
+                ->where('student_id', $honor->student_id)
+                ->get();
+            
+            foreach ($parentRelationships as $relationship) {
+                if ($relationship->parent && $relationship->parent->email) {
+                    Mail::to($relationship->parent->email)->send(
+                        new ParentHonorNotificationEmail(
+                            $relationship->parent,
+                            $honor->student,
+                            $honor,
+                            $honor->school_year
+                        )
+                    );
+                    
+                    Log::info('Parent honor notification sent by principal', [
+                        'parent_id' => $relationship->parent->id,
+                        'parent_email' => $relationship->parent->email,
+                        'student_id' => $honor->student_id,
+                        'honor_id' => $honor->id,
+                        'approved_by' => 'principal',
+                    ]);
+                }
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to send parent honor notifications by principal', [
+                'honor_id' => $honor->id,
+                'student_id' => $honor->student_id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+    
     // API methods
     public function getPendingHonors()
     {
+        // Principal can only handle Elementary, Junior High School, and Senior High School honors
+        $allowedAcademicLevels = ['elementary', 'junior_highschool', 'senior_highschool'];
+        
         $honors = HonorResult::where('is_pending_approval', true)
             ->where('is_approved', false)
             ->where('is_rejected', false)
+            ->whereHas('academicLevel', function($query) use ($allowedAcademicLevels) {
+                $query->whereIn('key', $allowedAcademicLevels);
+            })
             ->with(['student', 'honorType', 'academicLevel'])
             ->latest('created_at')
             ->get();
@@ -139,7 +235,13 @@ class HonorTrackingController extends Controller
     
     public function getApprovedHonors()
     {
+        // Principal can only handle Elementary, Junior High School, and Senior High School honors
+        $allowedAcademicLevels = ['elementary', 'junior_highschool', 'senior_highschool'];
+        
         $honors = HonorResult::where('is_approved', true)
+            ->whereHas('academicLevel', function($query) use ($allowedAcademicLevels) {
+                $query->whereIn('key', $allowedAcademicLevels);
+            })
             ->with(['student', 'honorType', 'academicLevel', 'approvedBy'])
             ->latest('approved_at')
             ->get();
@@ -149,7 +251,13 @@ class HonorTrackingController extends Controller
     
     public function getRejectedHonors()
     {
+        // Principal can only handle Elementary, Junior High School, and Senior High School honors
+        $allowedAcademicLevels = ['elementary', 'junior_highschool', 'senior_highschool'];
+        
         $honors = HonorResult::where('is_rejected', true)
+            ->whereHas('academicLevel', function($query) use ($allowedAcademicLevels) {
+                $query->whereIn('key', $allowedAcademicLevels);
+            })
             ->with(['student', 'honorType', 'academicLevel', 'rejectedBy'])
             ->latest('rejected_at')
             ->get();

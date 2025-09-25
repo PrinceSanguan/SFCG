@@ -19,15 +19,30 @@ class HonorTrackingController extends Controller
     {
         $user = Auth::user();
         
-        // Show all honors for chairperson (they can manage all academic levels)
+        // Chairperson can only handle College honors
         $honors = HonorResult::with(['student', 'honorType', 'academicLevel'])
+            ->whereHas('academicLevel', function($query) {
+                $query->where('key', 'college');
+            })
             ->latest('created_at')
             ->paginate(20);
         
         $stats = [
-            'pending' => HonorResult::where('is_pending_approval', true)->count(),
-            'approved' => HonorResult::where('is_approved', true)->count(),
-            'rejected' => HonorResult::where('is_rejected', true)->count(),
+            'pending' => HonorResult::where('is_pending_approval', true)
+                ->whereHas('academicLevel', function($query) {
+                    $query->where('key', 'college');
+                })
+                ->count(),
+            'approved' => HonorResult::where('is_approved', true)
+                ->whereHas('academicLevel', function($query) {
+                    $query->where('key', 'college');
+                })
+                ->count(),
+            'rejected' => HonorResult::where('is_rejected', true)
+                ->whereHas('academicLevel', function($query) {
+                    $query->where('key', 'college');
+                })
+                ->count(),
         ];
         
         return Inertia::render('Chairperson/Honors/Index', [
@@ -41,8 +56,11 @@ class HonorTrackingController extends Controller
     {
         $user = Auth::user();
         
-        // Show all pending honors for chairperson (they can manage all academic levels)
+        // Chairperson can only handle College honors
         $honors = HonorResult::where('is_pending_approval', true)
+            ->whereHas('academicLevel', function($query) {
+                $query->where('key', 'college');
+            })
             ->with(['student', 'honorType', 'academicLevel'])
             ->latest('created_at')
             ->paginate(20);
@@ -58,12 +76,14 @@ class HonorTrackingController extends Controller
         $user = Auth::user();
         $honor = HonorResult::with(['student', 'academicLevel', 'honorType'])->findOrFail($honorId);
         
-        // For Elementary and Junior High, chairperson can approve all honors
-        // For Senior High and College, verify department relationship
-        if ($honor->academicLevel && in_array($honor->academicLevel->key, ['senior_highschool', 'college'])) {
-            if (!$honor->student || !$honor->student->course || $user->department_id !== $honor->student->course->department_id) {
-                abort(403, 'You can only approve honors from your department.');
-            }
+        // Verify that chairperson can only approve College honors
+        if (!$honor->academicLevel || $honor->academicLevel->key !== 'college') {
+            abort(403, 'Chairperson can only approve College honors.');
+        }
+        
+        // Verify department relationship for college students
+        if (!$honor->student || !$honor->student->course || $user->department_id !== $honor->student->course->department_id) {
+            abort(403, 'You can only approve honors from your department.');
         }
         
         $honor->update([
@@ -82,6 +102,7 @@ class HonorTrackingController extends Controller
             'student_id' => $honor->student_id,
             'honor_type' => $honor->honorType?->name ?? 'Unknown',
             'academic_level' => $honor->academicLevel?->name ?? 'Unknown',
+            'department_id' => $user->department_id,
         ]);
         
         return back()->with('success', 'Honor approved successfully. Parent notifications have been sent.');
@@ -109,16 +130,17 @@ class HonorTrackingController extends Controller
                         )
                     );
                     
-                    Log::info('Parent honor notification sent', [
-                        'parent_id' => $relationship->parent->id,
-                        'parent_email' => $relationship->parent->email,
-                        'student_id' => $honor->student_id,
-                        'honor_id' => $honor->id,
-                    ]);
+            Log::info('Parent honor notification sent by chairperson', [
+                'parent_id' => $relationship->parent->id,
+                'parent_email' => $relationship->parent->email,
+                'student_id' => $honor->student_id,
+                'honor_id' => $honor->id,
+                'approved_by' => 'chairperson',
+            ]);
                 }
             }
         } catch (\Exception $e) {
-            Log::error('Failed to send parent honor notifications', [
+            Log::error('Failed to send parent honor notifications by chairperson', [
                 'honor_id' => $honor->id,
                 'student_id' => $honor->student_id,
                 'error' => $e->getMessage(),
@@ -129,19 +151,21 @@ class HonorTrackingController extends Controller
     public function rejectHonor(Request $request, $honorId)
     {
         $user = Auth::user();
-        $honor = HonorResult::with(['student', 'academicLevel'])->findOrFail($honorId);
+        $honor = HonorResult::with(['student', 'academicLevel', 'honorType'])->findOrFail($honorId);
+        
+        // Verify that chairperson can only reject College honors
+        if (!$honor->academicLevel || $honor->academicLevel->key !== 'college') {
+            abort(403, 'Chairperson can only reject College honors.');
+        }
+        
+        // Verify department relationship for college students
+        if (!$honor->student || !$honor->student->course || $user->department_id !== $honor->student->course->department_id) {
+            abort(403, 'You can only reject honors from your department.');
+        }
         
         $validated = $request->validate([
             'rejection_reason' => ['required', 'string', 'max:1000'],
         ]);
-        
-        // For Elementary and Junior High, chairperson can reject all honors
-        // For Senior High and College, verify department relationship
-        if ($honor->academicLevel && in_array($honor->academicLevel->key, ['senior_highschool', 'college'])) {
-            if (!$honor->student || !$honor->student->course || $user->department_id !== $honor->student->course->department_id) {
-                abort(403, 'You can only reject honors from your department.');
-            }
-        }
         
         $honor->update([
             'is_rejected' => true,
@@ -157,6 +181,7 @@ class HonorTrackingController extends Controller
             'student_id' => $honor->student_id,
             'honor_type' => $honor->honorType?->name ?? 'Unknown',
             'academic_level' => $honor->academicLevel?->name ?? 'Unknown',
+            'department_id' => $user->department_id,
             'reason' => $validated['rejection_reason'],
         ]);
         
@@ -169,8 +194,15 @@ class HonorTrackingController extends Controller
         $honor = HonorResult::with(['student', 'honorType', 'academicLevel'])
             ->findOrFail($honorId);
         
-        // For now, allow review of all honors since students don't have department_id assigned
-        // TODO: Implement proper department filtering when student-department relationship is established
+        // Verify that chairperson can only review College honors
+        if (!$honor->academicLevel || $honor->academicLevel->key !== 'college') {
+            abort(403, 'Chairperson can only review College honors.');
+        }
+        
+        // Verify department relationship for college students
+        if (!$honor->student || !$honor->student->course || $user->department_id !== $honor->student->course->department_id) {
+            abort(403, 'You can only review honors from your department.');
+        }
         
         return Inertia::render('Chairperson/Honors/Review', [
             'user' => $user,
@@ -181,7 +213,11 @@ class HonorTrackingController extends Controller
     // API methods
     public function getPendingHonors()
     {
+        // Chairperson can only handle College honors
         $honors = HonorResult::where('is_pending_approval', true)
+            ->whereHas('academicLevel', function($query) {
+                $query->where('key', 'college');
+            })
             ->with(['student', 'honorType', 'academicLevel'])
             ->latest('created_at')
             ->get();
@@ -191,7 +227,11 @@ class HonorTrackingController extends Controller
     
     public function getApprovedHonors()
     {
+        // Chairperson can only handle College honors
         $honors = HonorResult::where('is_approved', true)
+            ->whereHas('academicLevel', function($query) {
+                $query->where('key', 'college');
+            })
             ->with(['student', 'honorType', 'academicLevel'])
             ->latest('approved_at')
             ->get();
@@ -201,7 +241,11 @@ class HonorTrackingController extends Controller
     
     public function getRejectedHonors()
     {
+        // Chairperson can only handle College honors
         $honors = HonorResult::where('is_rejected', true)
+            ->whereHas('academicLevel', function($query) {
+                $query->where('key', 'college');
+            })
             ->with(['student', 'honorType', 'academicLevel'])
             ->latest('rejected_at')
             ->get();

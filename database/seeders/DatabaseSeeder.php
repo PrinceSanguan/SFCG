@@ -16,6 +16,8 @@ class DatabaseSeeder extends Seeder
             BasicStructureSeeder::class,
             CollegeGradingPeriodsSeeder::class,
             AssignChairpersonToDepartmentSeeder::class,
+            // Complete honor system with realistic data
+            CompleteHonorSystemSeeder::class,
             // Commented out temporarily - keeping only one user per role
             // AcademicManagementSeeder::class,
             // ParentStudentSeeder::class,
