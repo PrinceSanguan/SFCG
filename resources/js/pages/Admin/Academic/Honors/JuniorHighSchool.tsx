@@ -80,6 +80,46 @@ interface Section {
     specific_year_level: string;
 }
 
+interface HonorResult {
+    id: number;
+    student_id: number;
+    honor_type_id: number;
+    academic_level_id: number;
+    gpa: number;
+    school_year: string;
+    is_approved: boolean;
+    is_pending_approval: boolean;
+    is_rejected: boolean;
+    student: {
+        id: number;
+        name: string;
+        student_number: string;
+        email: string;
+        specific_year_level?: string;
+        section?: {
+            id: number;
+            name: string;
+            code: string;
+        };
+    };
+    honorType: {
+        id: number;
+        name: string;
+        key: string;
+        scope: string;
+    };
+    academicLevel: {
+        id: number;
+        name: string;
+        key: string;
+    };
+    approvedBy?: {
+        id: number;
+        name: string;
+    };
+    created_at: string;
+}
+
 interface Filters {
     grade_level?: string;
     section_id?: string;
@@ -91,13 +131,17 @@ interface Props {
     criteria: HonorCriterion[];
     schoolYears: string[];
     qualifiedStudents?: QualifiedStudent[];
+    honorResults?: HonorResult[];
     currentSchoolYear?: string;
     gradeLevels?: GradeLevel;
     sections?: Section[];
     filters?: Filters;
 }
 
-export default function JuniorHighSchoolHonors({ user, honorTypes, criteria, schoolYears, qualifiedStudents = [], currentSchoolYear = '2024-2025', gradeLevels = {}, sections = [], filters }: Props) {
+export default function JuniorHighSchoolHonors({ user, honorTypes, criteria, schoolYears, qualifiedStudents, honorResults, currentSchoolYear = '2024-2025', gradeLevels = {}, sections = [], filters }: Props) {
+    // Fallback for undefined props
+    const safeQualifiedStudents = qualifiedStudents || [];
+    const safeHonorResults = honorResults || [];
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const [editingCriterion, setEditingCriterion] = useState<HonorCriterion | null>(null);
     const [editForm, setEditForm] = useState({
@@ -123,6 +167,62 @@ export default function JuniorHighSchoolHonors({ user, honorTypes, criteria, sch
         max_year: '',
         require_consistent_honor: false as boolean,
     });
+
+    // Helper functions for better data handling
+    const getHonorTypeName = (criterion: HonorCriterion): string => {
+        // Try snake_case first (Laravel serialization)
+        if (criterion?.honor_type?.name) {
+            return criterion.honor_type.name;
+        }
+        // Fallback to camelCase
+        if (criterion?.honorType?.name) {
+            return criterion.honorType.name;
+        }
+        // Last resort: lookup from honorTypes array
+        const honorType = honorTypes.find(t => t.id === criterion.honor_type_id);
+        return honorType?.name || 'Unknown Honor Type';
+    };
+
+    const getHonorTypeScope = (criterion: HonorCriterion): string => {
+        // Try snake_case first (Laravel serialization)
+        if (criterion?.honor_type?.scope) {
+            return criterion.honor_type.scope;
+        }
+        // Fallback to camelCase
+        if (criterion?.honorType?.scope) {
+            return criterion.honorType.scope;
+        }
+        // Last resort: lookup from honorTypes array
+        const honorType = honorTypes.find(t => t.id === criterion.honor_type_id);
+        return honorType?.scope || 'Unknown';
+    };
+
+    // Helper functions for honor results (different from criteria)
+    const getHonorResultTypeName = (honorResult: any): string => {
+        // Try snake_case first (Laravel serialization)
+        if (honorResult?.honor_type?.name) {
+            return honorResult.honor_type.name;
+        }
+        // Fallback to camelCase
+        if (honorResult?.honorType?.name) {
+            return honorResult.honorType.name;
+        }
+        // Last resort: lookup from honorTypes array
+        const honorType = honorTypes.find(t => t.id === honorResult.honor_type_id);
+        return honorType?.name || 'Unknown Honor Type';
+    };
+
+    const getStudentSectionName = (student: any): string => {
+        // Try snake_case first (Laravel serialization)
+        if (student?.section?.name) {
+            return student.section.name;
+        }
+        // Fallback to camelCase
+        if (student?.sectionName) {
+            return student.sectionName;
+        }
+        return 'No Section';
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -373,8 +473,8 @@ export default function JuniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                                     // Edit Form
                                                     <div className="space-y-4">
                                                         <div className="flex items-center justify-between mb-3">
-                                                            <h4 className="font-medium text-lg">{criterion.honorType?.name || 'Unknown Honor Type'}</h4>
-                                                            <Badge variant="secondary">{criterion.honorType?.scope || 'Unknown'}</Badge>
+                                                            <h4 className="font-medium text-lg">{getHonorTypeName(criterion)}</h4>
+                                                            <Badge variant="secondary">{getHonorTypeScope(criterion)}</Badge>
                                                         </div>
                                                         
                                                         <div className="grid grid-cols-2 gap-4">
@@ -466,8 +566,8 @@ export default function JuniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                                     // Display Mode
                                                     <>
                                                         <div className="flex items-center justify-between mb-3">
-                                                            <h4 className="font-medium text-lg">{criterion.honorType?.name || 'Unknown Honor Type'}</h4>
-                                                            <Badge variant="secondary">{criterion.honorType?.scope || 'Unknown'}</Badge>
+                                                            <h4 className="font-medium text-lg">{getHonorTypeName(criterion)}</h4>
+                                                            <Badge variant="secondary">{getHonorTypeScope(criterion)}</Badge>
                                                         </div>
                                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                                                             {criterion.min_gpa && (
@@ -521,7 +621,7 @@ export default function JuniorHighSchoolHonors({ user, honorTypes, criteria, sch
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
                                     <Trophy className="h-5 w-5" />
-                                    Qualified Junior High School Students ({qualifiedStudents.length})
+                                    Junior High School Honor Results ({safeHonorResults.length}) | Qualified Students ({safeQualifiedStudents.length})
                                 </CardTitle>
                                 <p className="text-sm text-gray-600 dark:text-gray-400">
                                     School Year: {currentSchoolYear} • Click on a student to view detailed grades and honor calculation
@@ -576,6 +676,7 @@ export default function JuniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="all">All Sections</SelectItem>
+                                                    <SelectItem value="no_section">No Section</SelectItem>
                                                     {sections && sections.map((section) => (
                                                         <SelectItem key={section.id} value={section.id.toString()}>
                                                             {section.name} ({section.code})
@@ -612,7 +713,9 @@ export default function JuniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                                 {filters?.section_id && (
                                                     <span className="ml-2">
                                                         Section: <Badge variant="secondary">
-                                                            {sections?.find(s => s.id.toString() === filters.section_id)?.name || filters.section_id}
+                                                            {filters.section_id === 'no_section'
+                                                                ? 'No Section'
+                                                                : sections?.find(s => s.id.toString() === filters.section_id)?.name || filters.section_id}
                                                         </Badge>
                                                     </span>
                                                 )}
@@ -622,16 +725,98 @@ export default function JuniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                 </div>
                             </CardHeader>
                             <CardContent>
-                                {qualifiedStudents.length === 0 ? (
+                                {safeHonorResults.length === 0 && safeQualifiedStudents.length === 0 ? (
                                     <div className="text-center py-8 text-gray-500">
                                         <Trophy className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-                                        <p>No qualified students found</p>
-                                        <p className="text-sm">Students need to meet honor criteria to appear here.</p>
+                                        <p>No honor results or qualified students found</p>
+                                        <p className="text-sm">Students need to meet honor criteria and have approved honors to appear here.</p>
                                     </div>
                                 ) : (
-                                    <div className="space-y-4">
-                                        <div className="grid gap-4">
-                                            {qualifiedStudents.map((qualifiedStudent, index) => (
+                                    <div className="space-y-6">
+                                        {/* Honor Results Section */}
+                                        {safeHonorResults.length > 0 && (
+                                            <div>
+                                                <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
+                                                    Approved Honor Results ({safeHonorResults.length})
+                                                </h3>
+                                                <div className="grid gap-4">
+                                                    {safeHonorResults.map((honorResult, index) => (
+                                                        <div key={honorResult.id} className="border rounded-lg p-4 bg-white shadow-sm">
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="flex-1">
+                                                                    <div className="flex items-center gap-3 mb-2">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="text-sm font-medium text-gray-500">#{index + 1}</span>
+                                                                            <h4 className="font-semibold text-lg">{honorResult.student.name}</h4>
+                                                                        </div>
+                                                                        <div className="flex gap-2">
+                                                                            <Badge variant="outline" className="text-xs">
+                                                                                {honorResult.student.student_number}
+                                                                            </Badge>
+                                                                            {honorResult.student.specific_year_level && (
+                                                                                <Badge variant="secondary" className="text-xs">
+                                                                                    {gradeLevels?.[honorResult.student.specific_year_level] || honorResult.student.specific_year_level.replace('grade_', 'Grade ')}
+                                                                                </Badge>
+                                                                            )}
+                                                                            {honorResult.student.section ? (
+                                                                                <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700">
+                                                                                    {getStudentSectionName(honorResult.student)}
+                                                                                </Badge>
+                                                                            ) : (
+                                                                                <Badge variant="outline" className="text-xs bg-gray-50 text-gray-500">
+                                                                                    No Section
+                                                                                </Badge>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                                                                        <div className="bg-blue-50 p-2 rounded">
+                                                                            <span className="font-medium text-blue-700">GPA:</span>
+                                                                            <div className="text-lg font-bold">{honorResult.gpa}</div>
+                                                                        </div>
+                                                                        <div className="bg-purple-50 p-2 rounded">
+                                                                            <span className="font-medium text-purple-700">Honor Type:</span>
+                                                                            <div className="font-bold">
+                                                                                <Badge className="bg-purple-100 text-purple-800 border-purple-200">
+                                                                                    {getHonorResultTypeName(honorResult)}
+                                                                                </Badge>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="bg-green-50 p-2 rounded">
+                                                                            <span className="font-medium text-green-700">Status:</span>
+                                                                            <div className="font-bold">
+                                                                                {honorResult.is_approved ? (
+                                                                                    <Badge variant="default" className="bg-green-100 text-green-800">Approved</Badge>
+                                                                                ) : honorResult.is_pending_approval ? (
+                                                                                    <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">Pending</Badge>
+                                                                                ) : honorResult.is_rejected ? (
+                                                                                    <Badge variant="destructive" className="bg-red-100 text-red-800">Rejected</Badge>
+                                                                                ) : (
+                                                                                    <Badge variant="outline">Unknown</Badge>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="bg-gray-50 p-2 rounded">
+                                                                            <span className="font-medium text-gray-700">School Year:</span>
+                                                                            <div className="text-sm font-bold">{honorResult.school_year}</div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Qualified Students Section */}
+                                        {safeQualifiedStudents.length > 0 && (
+                                            <div>
+                                                <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
+                                                    Calculated Qualified Students ({safeQualifiedStudents.length})
+                                                </h3>
+                                                <div className="grid gap-4">
+                                                    {safeQualifiedStudents.map((qualifiedStudent, index) => (
                                                 <div 
                                                     key={qualifiedStudent.student.id}
                                                     className="border rounded-lg p-4 bg-white shadow-sm hover:shadow-md cursor-pointer transition-shadow"
@@ -652,9 +837,13 @@ export default function JuniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                                                             {gradeLevels?.[qualifiedStudent.student.specific_year_level] || qualifiedStudent.student.specific_year_level.replace('grade_', 'Grade ')}
                                                                         </Badge>
                                                                     )}
-                                                                    {qualifiedStudent.student.section && (
+                                                                    {qualifiedStudent.student.section ? (
                                                                         <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700">
-                                                                            {qualifiedStudent.student.section.name}
+                                                                            {getStudentSectionName(qualifiedStudent.student)}
+                                                                        </Badge>
+                                                                    ) : (
+                                                                        <Badge variant="outline" className="text-xs bg-gray-50 text-gray-500">
+                                                                            No Section
                                                                         </Badge>
                                                                     )}
                                                                 </div>
@@ -693,8 +882,10 @@ export default function JuniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                                         </div>
                                                     </div>
                                                 </div>
-                                            ))}
-                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </CardContent>

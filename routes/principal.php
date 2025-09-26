@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\Principal\DashboardController;
 use App\Http\Controllers\Principal\AccountController;
-use App\Http\Controllers\Principal\GradeManagementController;
 use App\Http\Controllers\Principal\HonorTrackingController;
 use App\Http\Controllers\Principal\ReportsController;
 use Illuminate\Support\Facades\Route;
@@ -18,35 +17,6 @@ Route::middleware(['auth', 'principal'])->prefix('principal')->name('principal.'
         Route::put('/update', [AccountController::class, 'update'])->name('update');
     });
     
-    // Grade Management
-    Route::prefix('grades')->name('grades.')->group(function () {
-        Route::get('/', [GradeManagementController::class, 'index'])->name('index');
-        Route::get('/pending', [GradeManagementController::class, 'pendingGrades'])->name('pending');
-        Route::post('/{grade}/approve', [GradeManagementController::class, 'approveGrade'])->name('approve');
-        Route::post('/{grade}/return', [GradeManagementController::class, 'returnGrade'])->name('return');
-        Route::get('/{grade}/review', [GradeManagementController::class, 'reviewGrade'])->name('review');
-        
-        // API endpoints for AJAX calls
-        Route::prefix('api')->name('api.')->group(function () {
-            Route::get('/pending-grades', [GradeManagementController::class, 'getPendingGrades'])->name('pending-grades');
-            Route::get('/approved-grades', [GradeManagementController::class, 'getApprovedGrades'])->name('approved-grades');
-            Route::get('/returned-grades', [GradeManagementController::class, 'getReturnedGrades'])->name('returned-grades');
-        });
-    });
-    
-    // Final Average Management (Principal can approve)
-    Route::prefix('final-averages')->name('final-averages.')->group(function () {
-        Route::get('/', [GradeManagementController::class, 'finalAverages'])->name('index');
-        Route::get('/pending', [GradeManagementController::class, 'pendingFinalAverages'])->name('pending');
-        Route::post('/{grade}/approve', [GradeManagementController::class, 'approveFinalAverage'])->name('approve');
-        Route::post('/{grade}/return', [GradeManagementController::class, 'returnFinalAverage'])->name('return');
-        Route::get('/{grade}/review', [GradeManagementController::class, 'reviewFinalAverage'])->name('review');
-        
-        // API endpoints for AJAX calls
-        Route::prefix('api')->name('api.')->group(function () {
-            Route::get('/pending-final-averages', [GradeManagementController::class, 'getPendingFinalAverages'])->name('pending-final-averages');
-        });
-    });
 
     // Honor Tracking
     Route::prefix('honors')->name('honors.')->group(function () {

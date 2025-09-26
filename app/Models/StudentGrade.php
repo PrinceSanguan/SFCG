@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Services\AutomaticHonorCalculationService;
 
 class StudentGrade extends Model
 {
@@ -50,6 +51,30 @@ class StudentGrade extends Model
     public function validatedBy(): BelongsTo { return $this->belongsTo(User::class, 'validated_by'); }
     public function approvedBy(): BelongsTo { return $this->belongsTo(User::class, 'approved_by'); }
     public function returnedBy(): BelongsTo { return $this->belongsTo(User::class, 'returned_by'); }
+
+    protected static function booted(): void
+    {
+        // Trigger honor calculation when a grade is approved
+        static::updated(function (StudentGrade $grade) {
+            // Only trigger if grade was just approved (final grades)
+            if ($grade->wasChanged('is_approved') && $grade->is_approved && $grade->grade_type === 'final') {
+                try {
+                    $student = $grade->student;
+                    if ($student) {
+                        $honorCalculationService = new AutomaticHonorCalculationService();
+                        $honorCalculationService->calculateHonorsForStudent($student, $grade->school_year);
+                    }
+                } catch (\Exception $e) {
+                    \Log::error('Failed to trigger automatic honor calculation after grade approval', [
+                        'grade_id' => $grade->id,
+                        'student_id' => $grade->student_id,
+                        'subject_id' => $grade->subject_id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+        });
+    }
 
     public function teacherSubjectAssignment(): BelongsTo
     {

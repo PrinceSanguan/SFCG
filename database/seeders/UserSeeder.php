@@ -5,6 +5,8 @@ namespace Database\Seeders;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use App\Models\User;
+use App\Models\Section;
+use App\Models\AcademicLevel;
 
 class UserSeeder extends Seeder
 {
@@ -62,6 +64,8 @@ class UserSeeder extends Seeder
                 'email' => 'student@school.edu',
                 'password' => bcrypt('student123'),
                 'user_role' => 'student',
+                'year_level' => 'elementary',
+                'specific_year_level' => 'grade_6',
             ],
             [
                 'name' => 'Parent User',
@@ -72,12 +76,31 @@ class UserSeeder extends Seeder
         ];
 
         foreach ($users as $userData) {
+            $additionalData = [
+                'email_verified_at' => now(),
+                'remember_token' => \Illuminate\Support\Str::random(10),
+            ];
+
+            // If creating a student, assign a section
+            if ($userData['user_role'] === 'student') {
+                // Find an appropriate section for the student
+                $elementaryLevel = AcademicLevel::where('key', 'elementary')->first();
+                if ($elementaryLevel) {
+                    $section = Section::where('academic_level_id', $elementaryLevel->id)
+                        ->where('specific_year_level', 'grade_6')
+                        ->where('is_active', true)
+                        ->first();
+
+                    if ($section) {
+                        $additionalData['section_id'] = $section->id;
+                        $additionalData['student_number'] = 'DEMO-' . date('Y') . '-001';
+                    }
+                }
+            }
+
             User::updateOrCreate(
                 ['email' => $userData['email']], // Search by email
-                array_merge($userData, [
-                    'email_verified_at' => now(),
-                    'remember_token' => \Illuminate\Support\Str::random(10),
-                ])
+                array_merge($userData, $additionalData)
             );
         }
 

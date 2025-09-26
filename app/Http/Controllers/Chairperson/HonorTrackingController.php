@@ -7,6 +7,7 @@ use App\Models\HonorResult;
 use App\Models\Department;
 use App\Models\ParentStudentRelationship;
 use App\Mail\ParentHonorNotificationEmail;
+use App\Mail\StudentHonorQualificationEmail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -121,12 +122,12 @@ class HonorTrackingController extends Controller
             
             foreach ($parentRelationships as $relationship) {
                 if ($relationship->parent && $relationship->parent->email) {
+                    // Use the new comprehensive honor qualification email
                     Mail::to($relationship->parent->email)->send(
-                        new ParentHonorNotificationEmail(
-                            $relationship->parent,
+                        new StudentHonorQualificationEmail(
                             $honor->student,
-                            $honor,
-                            $honor->school_year
+                            $relationship->parent,
+                            $honor
                         )
                     );
                     

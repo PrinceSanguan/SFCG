@@ -83,49 +83,72 @@ class StudentSubjectAssignmentService
     }
 
     /**
-     * Get subjects for a student based on their section assignment.
+     * Get subjects for a student based on their academic level, grade, course, and section.
+     * This method uses a unified logic for all academic levels.
      */
     private function getSubjectsForStudent(User $student, int $academicLevelId): \Illuminate\Database\Eloquent\Collection
     {
-        // If student has a section assigned, get subjects for that specific section
-        if ($student->section_id) {
-            $query = Subject::where('academic_level_id', $academicLevelId)
-                ->where('is_active', true)
-                ->where('section_id', $student->section_id);
-            
-            return $query->get();
-        }
-
-        // Fallback to the old logic if no section is assigned
         $query = Subject::where('academic_level_id', $academicLevelId)
             ->where('is_active', true);
 
-        // For College students, get subjects by course
-        if ($student->year_level === 'college' && $student->course_id) {
-            $query->where('course_id', $student->course_id);
-        }
-        // For Senior High School students, get subjects by strand
-        elseif ($student->year_level === 'senior_highschool' && $student->strand_id) {
-            // Get subjects that are either core subjects for the academic level
-            // or specific to the strand (if we add strand_id to subjects table later)
-            $query->where(function ($q) use ($student) {
-                $q->where('is_core', true)
-                  ->orWhere('strand_id', $student->strand_id);
+        // Apply unified filtering logic based on student's characteristics
+        $query->where(function ($q) use ($student) {
+
+            // 1. Always include core subjects for the academic level
+            $q->where('is_core', true);
+
+            // 2. Include subjects specific to the student's grade/year level
+            if ($student->specific_year_level) {
+                switch ($student->year_level) {
+                    case 'elementary':
+                        // Elementary: check grade_levels JSON array
+                        $q->orWhereJsonContains('grade_levels', $student->specific_year_level);
+                        break;
+
+                    case 'junior_highschool':
+                        // JHS: check jhs_year_level field
+                        $q->orWhere('jhs_year_level', $student->specific_year_level);
+                        break;
+
+                    case 'senior_highschool':
+                        // SHS: check shs_year_level field
+                        $q->orWhere('shs_year_level', $student->specific_year_level);
+                        break;
+
+                    case 'college':
+                        // College: use specific_year_level for year-specific subjects if needed
+                        // You can add a college_year_level field to subjects table if needed
+                        break;
+                }
+            }
+
+            // 3. Include course-specific subjects (primarily for college)
+            if ($student->course_id) {
+                $q->orWhere('course_id', $student->course_id);
+            }
+
+            // 4. Include strand-specific subjects (primarily for SHS)
+            if ($student->strand_id) {
+                $q->orWhere('strand_id', $student->strand_id);
+            }
+
+            // 5. Include section-specific subjects (for all levels)
+            if ($student->section_id) {
+                $q->orWhere('section_id', $student->section_id);
+            }
+
+            // 6. Include subjects with no specific requirements (general subjects)
+            // These are subjects that don't have specific grade, course, strand, or section requirements
+            $q->orWhere(function ($generalQuery) {
+                $generalQuery->whereNull('grade_levels')
+                    ->whereNull('jhs_year_level')
+                    ->whereNull('shs_year_level')
+                    ->whereNull('course_id')
+                    ->whereNull('strand_id')
+                    ->whereNull('section_id')
+                    ->where('is_core', false); // Exclude core subjects as they're already included above
             });
-        }
-        // For Elementary students, get subjects for their specific grade level
-        elseif ($student->year_level === 'elementary' && $student->specific_year_level) {
-            $query->where(function ($q) use ($student) {
-                // Include subjects that either have no grade levels specified (apply to all grades)
-                // or have the student's specific grade level in their grade_levels array
-                $q->whereNull('grade_levels')
-                  ->orWhereJsonContains('grade_levels', $student->specific_year_level);
-            });
-        }
-        // For Junior High School, get core subjects for the specific grade
-        else {
-            $query->where('is_core', true);
-        }
+        });
 
         return $query->get();
     }
@@ -135,14 +158,9 @@ class StudentSubjectAssignmentService
      */
     private function getAcademicLevelId(string $yearLevel): ?int
     {
-        $levelMap = [
-            'elementary' => 1,
-            'junior_highschool' => 2,
-            'senior_highschool' => 3,
-            'college' => 4,
-        ];
-
-        return $levelMap[$yearLevel] ?? null;
+        // Use the database to get the actual academic level ID
+        $academicLevel = \App\Models\AcademicLevel::where('key', $yearLevel)->first();
+        return $academicLevel ? $academicLevel->id : null;
     }
 
     /**
@@ -207,30 +225,44 @@ class StudentSubjectAssignmentService
     {
         $enrolledSubjects = [];
         $currentSchoolYear = $this->getCurrentSchoolYear();
-        
+
         // Check if student has a section assigned
         if (!$student->section_id) {
-            Log::warning('Student has no section assigned for automatic enrollment', [
+            Log::warning('Student has no section assigned, using academic level assignment instead', [
                 'student_id' => $student->id,
                 'student_name' => $student->name,
             ]);
-            return $enrolledSubjects;
+            // Fall back to academic level-based assignment
+            return $this->assignSubjectsToStudent($student);
         }
 
         // Get all subjects assigned to this section
-        $subjects = Subject::where('section_id', $student->section_id)
+        $sectionSubjects = Subject::where('section_id', $student->section_id)
             ->where('is_active', true)
             ->get();
 
-        if ($subjects->isEmpty()) {
-            Log::info('No subjects found for section', [
+        // Also get subjects based on academic level, grade, course, etc.
+        $academicLevelId = $this->getAcademicLevelId($student->year_level);
+        $academicSubjects = collect();
+
+        if ($academicLevelId) {
+            $academicSubjects = $this->getSubjectsForStudent($student, $academicLevelId);
+        }
+
+        // Combine both sets of subjects and remove duplicates
+        $allSubjects = $sectionSubjects->merge($academicSubjects)->unique('id');
+
+        if ($allSubjects->isEmpty()) {
+            Log::info('No subjects found for student', [
                 'student_id' => $student->id,
                 'section_id' => $student->section_id,
+                'academic_level' => $student->year_level,
+                'specific_year_level' => $student->specific_year_level,
             ]);
             return $enrolledSubjects;
         }
 
-        foreach ($subjects as $subject) {
+        foreach ($allSubjects as $subject) {
             try {
                 // Check if student is already enrolled in this subject
                 $existingAssignment = StudentSubjectAssignment::where([
@@ -247,7 +279,7 @@ class StudentSubjectAssignmentService
                         'semester' => $this->getSemesterForLevel($student->year_level),
                         'is_active' => true,
                         'enrolled_by' => Auth::id() ?? 1, // Fallback to admin user
-                        'notes' => 'Automatically enrolled based on section assignment',
+                        'notes' => 'Automatically enrolled based on academic level and section',
                     ]);
 
                     $enrolledSubjects[] = $assignment;
@@ -256,7 +288,7 @@ class StudentSubjectAssignmentService
                     ActivityLog::create([
                         'user_id' => Auth::id() ?? 1,
                         'target_user_id' => $student->id,
-                        'action' => 'auto_enrolled_section_subject',
+                        'action' => 'auto_enrolled_student_subject',
                         'entity_type' => 'student_subject_assignment',
                         'entity_id' => $assignment->id,
                         'details' => [
@@ -264,20 +296,23 @@ class StudentSubjectAssignmentService
                             'subject' => $subject->name,
                             'section_id' => $student->section_id,
                             'academic_level' => $student->year_level,
+                            'specific_year_level' => $student->specific_year_level,
                             'school_year' => $currentSchoolYear,
                         ],
                     ]);
 
-                    Log::info('Student automatically enrolled in section subject', [
+                    Log::info('Student automatically enrolled in subject', [
                         'student_id' => $student->id,
                         'student_name' => $student->name,
                         'subject_id' => $subject->id,
                         'subject_name' => $subject->name,
                         'section_id' => $student->section_id,
+                        'academic_level' => $student->year_level,
+                        'specific_year_level' => $student->specific_year_level,
                     ]);
                 }
             } catch (\Exception $e) {
-                Log::error('Failed to enroll student in section subject', [
+                Log::error('Failed to enroll student in subject', [
                     'student_id' => $student->id,
                     'subject_id' => $subject->id,
                     'section_id' => $student->section_id,
@@ -287,5 +322,16 @@ class StudentSubjectAssignmentService
         }
 
         return $enrolledSubjects;
+    }
+
+    /**
+     * Comprehensive method to enroll student in all applicable subjects.
+     * This method combines section-based and academic-level-based enrollment.
+     */
+    public function enrollStudentInAllApplicableSubjects(User $student): array
+    {
+        // This is essentially the same as enrollStudentInSectionSubjects now
+        // but with a clearer name that indicates it handles all types
+        return $this->enrollStudentInSectionSubjects($student);
     }
 }

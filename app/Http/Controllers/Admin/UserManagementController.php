@@ -562,42 +562,8 @@ class UserManagementController extends Controller
             'emergency_contact_relationship' => $request->emergency_contact_relationship,
         ]);
 
-        // Automatically enroll students in section subjects
-        if ($role === 'student') {
-            try {
-                $subjectAssignmentService = new StudentSubjectAssignmentService();
-                
-                // If student has a section assigned, enroll in section subjects
-                if ($user->section_id) {
-                    $enrolledSubjects = $subjectAssignmentService->enrollStudentInSectionSubjects($user);
-                    
-                    Log::info('Student automatically enrolled in section subjects', [
-                        'student_id' => $user->id,
-                        'student_name' => $user->name,
-                        'section_id' => $user->section_id,
-                        'academic_level' => $user->year_level,
-                        'enrolled_subjects_count' => count($enrolledSubjects),
-                    ]);
-                } else {
-                    // Fallback to general subject assignment if no section
-                    $assignedSubjects = $subjectAssignmentService->assignSubjectsToStudent($user);
-                    
-                    Log::info('Subjects automatically assigned to student (no section)', [
-                        'student_id' => $user->id,
-                        'student_name' => $user->name,
-                        'academic_level' => $user->year_level,
-                        'assigned_subjects_count' => count($assignedSubjects),
-                    ]);
-                }
-            } catch (\Exception $e) {
-                Log::error('Failed to automatically assign/enroll subjects to student', [
-                    'student_id' => $user->id,
-                    'student_name' => $user->name,
-                    'section_id' => $user->section_id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-        }
+        // Note: Automatic subject enrollment is now handled by the User model's boot method
+        // This ensures consistency across all student creation methods
 
         // Send email to user with their credentials
         try {
@@ -1093,11 +1059,7 @@ class UserManagementController extends Controller
                     'emergency_contact_relationship' => $emergencyContactRelationship ?: null,
                 ]);
                 
-                // Automatically enroll student in section subjects
-                if ($sectionId && $student) {
-                    $assignmentService = new \App\Services\StudentSubjectAssignmentService();
-                    $assignmentService->enrollStudentInSectionSubjects($student);
-                }
+                // Note: Automatic subject enrollment is handled by User model's boot method
                 
                 $created++;
             } catch (\Exception $e) {

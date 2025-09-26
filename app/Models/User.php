@@ -84,6 +84,34 @@ class User extends Authenticatable
                 $user->student_number = static::generateStudentNumber($user);
             }
         });
+
+        static::created(function (User $user) {
+            if ($user->user_role === 'student') {
+                // Automatically assign subjects to the student after creation
+                try {
+                    $subjectAssignmentService = new \App\Services\StudentSubjectAssignmentService();
+                    $assignedSubjects = $subjectAssignmentService->enrollStudentInAllApplicableSubjects($user);
+
+                    \Log::info('Student automatically assigned to subjects after creation', [
+                        'student_id' => $user->id,
+                        'student_name' => $user->name,
+                        'academic_level' => $user->year_level,
+                        'specific_year_level' => $user->specific_year_level,
+                        'section_id' => $user->section_id,
+                        'course_id' => $user->course_id,
+                        'strand_id' => $user->strand_id,
+                        'assigned_subjects_count' => count($assignedSubjects),
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::error('Failed to automatically assign subjects to new student', [
+                        'student_id' => $user->id,
+                        'student_name' => $user->name,
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString(),
+                    ]);
+                }
+            }
+        });
     }
 
     public static function generateStudentNumber(User $user): string

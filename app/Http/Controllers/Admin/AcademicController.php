@@ -342,6 +342,37 @@ class AcademicController extends Controller
         $gradeLevel = $request->get('grade_level');
         $sectionId = $request->get('section_id');
         
+        // Get actual honor results for elementary students
+        $elementaryLevel = AcademicLevel::where('key', 'elementary')->first();
+        $honorResultsQuery = HonorResult::with(['student', 'honorType', 'academicLevel', 'approvedBy'])
+            ->where('school_year', $currentSchoolYear);
+
+        if ($elementaryLevel) {
+            $honorResultsQuery->where('academic_level_id', $elementaryLevel->id);
+        }
+
+        // Apply filters
+        if ($gradeLevel) {
+            $honorResultsQuery->whereHas('student', function($query) use ($gradeLevel) {
+                $query->where('specific_year_level', $gradeLevel);
+            });
+        }
+
+        if ($sectionId) {
+            if ($sectionId === 'no_section') {
+                $honorResultsQuery->whereHas('student', function($query) {
+                    $query->whereNull('section_id');
+                });
+            } else {
+                $honorResultsQuery->whereHas('student', function($query) use ($sectionId) {
+                    $query->where('section_id', $sectionId);
+                });
+            }
+        }
+
+        $honorResults = $honorResultsQuery->orderBy('created_at', 'desc')->get();
+
+        // Also get the qualified students data for backward compatibility
         $qualifiedStudents = $this->getQualifiedElementaryStudents($currentSchoolYear, $gradeLevel, $sectionId);
         
         // Get available grade levels for elementary
@@ -359,6 +390,7 @@ class AcademicController extends Controller
             'honorTypes' => $honorTypes,
             'criteria' => $criteria,
             'schoolYears' => $schoolYears,
+            'honorResults' => $honorResults, // Add actual honor results
             'qualifiedStudents' => $qualifiedStudents,
             'currentSchoolYear' => $currentSchoolYear,
             'gradeLevels' => $gradeLevels,
@@ -433,7 +465,11 @@ class AcademicController extends Controller
 
         // Apply section filter
         if ($sectionId) {
-            $studentsQuery->where('section_id', $sectionId);
+            if ($sectionId === 'no_section') {
+                $studentsQuery->whereNull('section_id');
+            } else {
+                $studentsQuery->where('section_id', $sectionId);
+            }
         }
 
         $students = $studentsQuery->orderBy('name')->get();
@@ -508,7 +544,11 @@ class AcademicController extends Controller
 
         // Apply section filter
         if ($sectionId) {
-            $studentsQuery->where('section_id', $sectionId);
+            if ($sectionId === 'no_section') {
+                $studentsQuery->whereNull('section_id');
+            } else {
+                $studentsQuery->where('section_id', $sectionId);
+            }
         }
 
         $students = $studentsQuery->orderBy('name')->get();
@@ -555,8 +595,39 @@ class AcademicController extends Controller
         $gradeLevel = $request->get('grade_level');
         $sectionId = $request->get('section_id');
         
+        // Get actual honor results for JHS students
+        $jhsLevel = AcademicLevel::where('key', 'junior_highschool')->first();
+        $honorResultsQuery = HonorResult::with(['student', 'honorType', 'academicLevel', 'approvedBy'])
+            ->where('school_year', $currentSchoolYear);
+
+        if ($jhsLevel) {
+            $honorResultsQuery->where('academic_level_id', $jhsLevel->id);
+        }
+
+        // Apply filters
+        if ($gradeLevel) {
+            $honorResultsQuery->whereHas('student', function($query) use ($gradeLevel) {
+                $query->where('specific_year_level', $gradeLevel);
+            });
+        }
+
+        if ($sectionId) {
+            if ($sectionId === 'no_section') {
+                $honorResultsQuery->whereHas('student', function($query) {
+                    $query->whereNull('section_id');
+                });
+            } else {
+                $honorResultsQuery->whereHas('student', function($query) use ($sectionId) {
+                    $query->where('section_id', $sectionId);
+                });
+            }
+        }
+
+        $honorResults = $honorResultsQuery->orderBy('created_at', 'desc')->get();
+
+        // Also get the qualified students data for backward compatibility
         $qualifiedStudents = $this->getQualifiedJuniorHighSchoolStudents($currentSchoolYear, $gradeLevel, $sectionId);
-        
+
         // Get available grade levels for junior high school
         $gradeLevels = \App\Models\User::getSpecificYearLevels()['junior_highschool'];
         
@@ -572,6 +643,7 @@ class AcademicController extends Controller
             'honorTypes' => $honorTypes,
             'criteria' => $criteria,
             'schoolYears' => $schoolYears,
+            'honorResults' => $honorResults, // Add actual honor results
             'qualifiedStudents' => $qualifiedStudents,
             'currentSchoolYear' => $currentSchoolYear,
             'gradeLevels' => $gradeLevels,
@@ -659,8 +731,39 @@ class AcademicController extends Controller
         $sectionId = $request->get('section_id');
         $strandId = $request->get('strand_id');
         
+        // Get actual honor results for SHS students
+        $shsLevel = AcademicLevel::where('key', 'senior_highschool')->first();
+        $honorResultsQuery = HonorResult::with(['student', 'honorType', 'academicLevel', 'approvedBy'])
+            ->where('school_year', $currentSchoolYear);
+
+        if ($shsLevel) {
+            $honorResultsQuery->where('academic_level_id', $shsLevel->id);
+        }
+
+        // Apply filters
+        if ($gradeLevel) {
+            $honorResultsQuery->whereHas('student', function($query) use ($gradeLevel) {
+                $query->where('specific_year_level', $gradeLevel);
+            });
+        }
+
+        if ($sectionId) {
+            $honorResultsQuery->whereHas('student', function($query) use ($sectionId) {
+                $query->where('section_id', $sectionId);
+            });
+        }
+
+        if ($strandId) {
+            $honorResultsQuery->whereHas('student', function($query) use ($strandId) {
+                $query->where('strand_id', $strandId);
+            });
+        }
+
+        $honorResults = $honorResultsQuery->orderBy('created_at', 'desc')->get();
+
+        // Also get the qualified students data for backward compatibility
         $qualifiedStudents = $this->getQualifiedSeniorHighSchoolStudents($currentSchoolYear, $gradeLevel, $sectionId, $strandId);
-        
+
         // Get available grade levels for senior high school
         $gradeLevels = \App\Models\User::getSpecificYearLevels()['senior_highschool'];
         
@@ -682,6 +785,7 @@ class AcademicController extends Controller
             'honorTypes' => $honorTypes,
             'criteria' => $criteria,
             'schoolYears' => $schoolYears,
+            'honorResults' => $honorResults, // Add actual honor results
             'qualifiedStudents' => $qualifiedStudents,
             'currentSchoolYear' => $currentSchoolYear,
             'gradeLevels' => $gradeLevels,
@@ -728,8 +832,45 @@ class AcademicController extends Controller
         $courseId = $request->get('course_id');
         $sectionId = $request->get('section_id');
         
+        // Get actual honor results for College students
+        $collegeLevel = AcademicLevel::where('key', 'college')->first();
+        $honorResultsQuery = HonorResult::with(['student', 'honorType', 'academicLevel', 'approvedBy'])
+            ->where('school_year', $currentSchoolYear);
+
+        if ($collegeLevel) {
+            $honorResultsQuery->where('academic_level_id', $collegeLevel->id);
+        }
+
+        // Apply filters
+        if ($gradeLevel) {
+            $honorResultsQuery->whereHas('student', function($query) use ($gradeLevel) {
+                $query->where('specific_year_level', $gradeLevel);
+            });
+        }
+
+        if ($sectionId) {
+            $honorResultsQuery->whereHas('student', function($query) use ($sectionId) {
+                $query->where('section_id', $sectionId);
+            });
+        }
+
+        if ($departmentId) {
+            $honorResultsQuery->whereHas('student.course', function($query) use ($departmentId) {
+                $query->where('department_id', $departmentId);
+            });
+        }
+
+        if ($courseId) {
+            $honorResultsQuery->whereHas('student', function($query) use ($courseId) {
+                $query->where('course_id', $courseId);
+            });
+        }
+
+        $honorResults = $honorResultsQuery->orderBy('created_at', 'desc')->get();
+
+        // Also get the qualified students data for backward compatibility
         $qualifiedStudents = $this->getQualifiedCollegeStudents($currentSchoolYear, $gradeLevel, $departmentId, $courseId, $sectionId);
-        
+
         // Get available grade levels for college
         $gradeLevels = \App\Models\User::getSpecificYearLevels()['college'];
         
@@ -760,6 +901,7 @@ class AcademicController extends Controller
             'honorTypes' => $honorTypes,
             'criteria' => $criteria,
             'schoolYears' => $schoolYears,
+            'honorResults' => $honorResults, // Add actual honor results
             'qualifiedStudents' => $qualifiedStudents,
             'currentSchoolYear' => $currentSchoolYear,
             'gradeLevels' => $gradeLevels,

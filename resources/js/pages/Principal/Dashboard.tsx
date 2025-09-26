@@ -22,24 +22,6 @@ interface ActivityLog {
     details?: Record<string, unknown>;
 }
 
-interface StudentGrade {
-    id: number;
-    grade: number;
-    student: User;
-    subject: {
-        name: string;
-        course: {
-            name: string;
-        };
-    };
-    academicLevel: {
-        name: string;
-    };
-    gradingPeriod: {
-        name: string;
-    };
-    submitted_at: string;
-}
 
 interface HonorResult {
     id: number;
@@ -57,9 +39,7 @@ interface HonorResult {
 interface Stats {
     total_students: number;
     total_teachers: number;
-    pending_grades: number;
     pending_honors: number;
-    approved_grades_today: number;
     approved_honors_today: number;
 }
 
@@ -67,16 +47,14 @@ interface DashboardProps {
     user: User;
     stats: Stats;
     recentActivities: ActivityLog[];
-    recentGrades: StudentGrade[];
     recentHonors: HonorResult[];
 }
 
-export default function PrincipalDashboard({ 
-    user, 
-    stats, 
-    recentActivities, 
-    recentGrades, 
-    recentHonors 
+export default function PrincipalDashboard({
+    user,
+    stats,
+    recentActivities,
+    recentHonors
 }: DashboardProps) {
     if (!user) {
         return <div>Loading...</div>;
@@ -105,7 +83,7 @@ export default function PrincipalDashboard({
             </div>
 
             {/* Stats Cards */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Total Students</CardTitle>
@@ -132,18 +110,6 @@ export default function PrincipalDashboard({
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Pending Grades</CardTitle>
-                        <BookOpen className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.pending_grades}</div>
-                        <p className="text-xs text-muted-foreground">
-                            Awaiting approval
-                        </p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Pending Honors</CardTitle>
                         <Award className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
@@ -157,19 +123,7 @@ export default function PrincipalDashboard({
             </div>
 
             {/* Today's Approvals */}
-            <div className="grid gap-4 md:grid-cols-2">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Grades Approved Today</CardTitle>
-                        <CheckCircle className="h-4 w-4 text-green-600" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-green-600">{stats.approved_grades_today}</div>
-                        <p className="text-xs text-muted-foreground">
-                            Grade approvals today
-                        </p>
-                    </CardContent>
-                </Card>
+            <div className="grid gap-4 md:grid-cols-1">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Honors Approved Today</CardTitle>
@@ -184,42 +138,7 @@ export default function PrincipalDashboard({
                 </Card>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-                {/* Recent Grade Submissions */}
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle>Recent Grade Submissions</CardTitle>
-                        <Link href={route('principal.grades.pending')}>
-                            <Button variant="outline" size="sm">
-                                View All
-                            </Button>
-                        </Link>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-4">
-                            {recentGrades.map((grade) => (
-                                <div key={grade.id} className="flex items-center justify-between">
-                                    <div className="flex-1">
-                                        <p className="text-sm font-medium">{grade.student?.name || 'Unknown Student'}</p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {grade.subject?.name || 'Unknown Subject'} - {grade.subject?.course?.name || 'Unknown Course'}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {grade.academicLevel?.name || 'Unknown Level'} - {grade.gradingPeriod?.name || 'Unknown Period'}
-                                        </p>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Badge variant="outline">{grade.grade}</Badge>
-                                        <Badge variant="secondary">Pending</Badge>
-                                    </div>
-                                </div>
-                            ))}
-                            {recentGrades.length === 0 && (
-                                <p className="text-sm text-muted-foreground">No recent grade submissions</p>
-                            )}
-                        </div>
-                    </CardContent>
-                </Card>
+            <div className="grid gap-4 md:grid-cols-1">
 
                 {/* Recent Honor Submissions */}
                 <Card>
@@ -298,12 +217,6 @@ export default function PrincipalDashboard({
                 </CardHeader>
                 <CardContent>
                     <div className="flex gap-4 flex-wrap">
-                        <Link href={route('principal.grades.pending')}>
-                            <Button className="flex items-center gap-2">
-                                <BookOpen className="h-4 w-4" />
-                                Review Pending Grades
-                            </Button>
-                        </Link>
                         <Link href={route('principal.honors.pending')}>
                             <Button className="flex items-center gap-2">
                                 <Award className="h-4 w-4" />

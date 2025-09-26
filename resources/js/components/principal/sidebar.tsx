@@ -23,19 +23,15 @@ interface SidebarProps {
 
 export function Sidebar({ user }: SidebarProps) {
     const { url } = usePage(); // Get the current route
-    const [isGradeManagementExpanded, setIsGradeManagementExpanded] = useState(true);
     const [isHonorTrackingExpanded, setIsHonorTrackingExpanded] = useState(true);
     const [isReportsExpanded, setIsReportsExpanded] = useState(true);
 
     // Function to check if the route matches
     const isActive = (path: string) => url.startsWith(path);
-    
-    // Check if any grade management route is active
-    const isGradeManagementActive = isActive('/principal/grades');
-    
+
     // Check if any honor tracking route is active
     const isHonorTrackingActive = isActive('/principal/honors');
-    
+
     // Check if any reports route is active
     const isReportsActive = isActive('/principal/reports');
 
@@ -70,49 +66,6 @@ export function Sidebar({ user }: SidebarProps) {
                         </Button>
                     </Link>
 
-                    {/* Grade Management Section */}
-                    <div className="w-full">
-                        <Button
-                            variant={isGradeManagementActive ? 'secondary' : 'ghost'}
-                            onClick={() => setIsGradeManagementExpanded(!isGradeManagementExpanded)}
-                            className="flex w-full items-center justify-between rounded-md px-3 py-2 text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-                        >
-                            <div className="flex items-center gap-3">
-                                <BookOpen size={18} />
-                                Grade Management
-                            </div>
-                            <ChevronRight 
-                                size={16} 
-                                className={`transition-transform duration-200 ${
-                                    isGradeManagementExpanded ? 'rotate-90' : ''
-                                }`}
-                            />
-                        </Button>
-                        
-                        {/* Grade Management Submenu */}
-                        {isGradeManagementExpanded && (
-                            <div className="ml-6 mt-1 space-y-1">
-                                <Link href={route('principal.grades.index')} className="w-full">
-                                    <Button
-                                        variant={isActive('/principal/grades') && !isActive('/principal/grades/pending') ? 'secondary' : 'ghost'}
-                                        className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-                                    >
-                                        <BookOpen size={16} />
-                                        All Grades
-                                    </Button>
-                                </Link>
-                                <Link href={route('principal.grades.pending')} className="w-full">
-                                    <Button
-                                        variant={isActive('/principal/grades/pending') ? 'secondary' : 'ghost'}
-                                        className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-                                    >
-                                        <CheckCircle size={16} />
-                                        Pending Approval
-                                    </Button>
-                                </Link>
-                            </div>
-                        )}
-                    </div>
 
                     {/* Honor Tracking Section */}
                     <div className="w-full">

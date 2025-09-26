@@ -8,6 +8,7 @@ use App\Models\HonorType;
 use App\Models\AcademicLevel;
 use App\Models\ParentStudentRelationship;
 use App\Mail\ParentHonorNotificationEmail;
+use App\Mail\StudentHonorQualificationEmail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -107,7 +108,7 @@ class HonorTrackingController extends Controller
             'approved_by' => $user->id,
         ]);
         
-        // Send parent notification emails
+        // Send parent notification emails with new template
         $this->sendParentNotifications($honor);
         
         Log::info('Honor approved by principal', [
@@ -187,12 +188,12 @@ class HonorTrackingController extends Controller
             
             foreach ($parentRelationships as $relationship) {
                 if ($relationship->parent && $relationship->parent->email) {
+                    // Use the new comprehensive honor qualification email
                     Mail::to($relationship->parent->email)->send(
-                        new ParentHonorNotificationEmail(
-                            $relationship->parent,
+                        new StudentHonorQualificationEmail(
                             $honor->student,
-                            $honor,
-                            $honor->school_year
+                            $relationship->parent,
+                            $honor
                         )
                     );
                     
