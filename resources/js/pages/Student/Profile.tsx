@@ -435,6 +435,20 @@ export default function StudentProfile({ user, assignedSubjects, subjectGrades, 
                   const byCode = new Map<string, StudentGrade>();
                   quarterGrades.forEach(g => {
                     const c = (g.gradingPeriod?.code || g.grading_period?.code || '').toUpperCase();
+                    const name = (g.gradingPeriod?.name || g.grading_period?.name || '').toLowerCase();
+
+                    // Map database codes to Q1-Q4 format
+                    if (c === '1ST_GRADING' || name.includes('1st grading') || name.includes('first quarter')) {
+                      byCode.set('Q1', g);
+                    } else if (c === '2ND_GRADING' || name.includes('2nd grading') || name.includes('second quarter')) {
+                      byCode.set('Q2', g);
+                    } else if (c === '3RD_GRADING' || name.includes('3rd grading') || name.includes('third quarter')) {
+                      byCode.set('Q3', g);
+                    } else if (c === '4TH_GRADING' || name.includes('4th grading') || name.includes('fourth quarter')) {
+                      byCode.set('Q4', g);
+                    }
+
+                    // Also preserve original codes for backward compatibility
                     if (c) byCode.set(c, g);
                   });
                   const isSeniorHigh = (user.year_level === 'senior_highschool') || false;

@@ -185,8 +185,13 @@ class AcademicController extends Controller
           ->orderBy('school_year', 'desc')->get();
         
         $advisers = User::whereIn('user_role', ['adviser', 'teacher'])->orderBy('name')->get();
-        $subjects = Subject::whereIn('academic_level_id', [$elementaryLevel->id, $jhsLevel->id])->orderBy('name')->get();
+        $subjects = Subject::with('section')->whereIn('academic_level_id', [$elementaryLevel->id, $jhsLevel->id])->orderBy('name')->get();
         $academicLevels = AcademicLevel::orderBy('sort_order')->get();
+        $sections = \App\Models\Section::whereIn('academic_level_id', [$elementaryLevel->id, $jhsLevel->id])
+            ->where('is_active', true)
+            ->orderBy('specific_year_level')
+            ->orderBy('name')
+            ->get();
         
         // Transform assignments to ensure academic level data is included
         $transformedAssignments = $assignments->map(function ($assignment) {
@@ -216,6 +221,7 @@ class AcademicController extends Controller
             'advisers' => $advisers,
             'subjects' => $subjects,
             'academicLevels' => $academicLevels,
+            'sections' => $sections,
         ]);
     }
 
@@ -1247,6 +1253,7 @@ class AcademicController extends Controller
                 'grade_levels' => $request->grade_levels,
                 'grading_period_id' => $request->grading_period_id,
                 'course_id' => $request->course_id,
+                'section_id' => $request->section_id, // Now properly storing section_id
                 'units' => $request->units ?? 0,
                 'hours_per_week' => $request->hours_per_week ?? 0,
                 'is_core' => $request->is_core ?? false,
@@ -1321,6 +1328,7 @@ class AcademicController extends Controller
             'grade_levels' => $request->grade_levels,
             'grading_period_id' => $request->grading_period_id,
             'course_id' => $request->course_id,
+            'section_id' => $request->section_id, // Now properly updating section_id
             'units' => $request->units ?? 0,
             'hours_per_week' => $request->hours_per_week ?? 0,
             'is_core' => $request->is_core ?? false,
@@ -1803,9 +1811,9 @@ class AcademicController extends Controller
             'subject_id' => 'required|exists:subjects,id',
             'academic_level_id' => 'required|exists:academic_levels,id',
             'grade_level' => 'required|string',
-            'section' => 'required|string',
             'school_year' => 'required|string',
             'notes' => 'nullable|string',
+            'is_active' => 'nullable|boolean',
         ]);
 
         if ($validator->fails()) {
@@ -1818,33 +1826,27 @@ class AcademicController extends Controller
             return back()->with('error', 'Selected user is not an adviser or teacher.');
         }
 
-        $assignment = ClassAdviserAssignment::create([
-            'adviser_id' => $request->adviser_id,
-            'subject_id' => $request->subject_id,
-            'academic_level_id' => $request->academic_level_id,
+        // Get the subject to determine section information
+        $subject = Subject::find($request->subject_id);
+        if (!$subject) {
+            return back()->with('error', 'Subject not found.');
+        }
+
+        // Use the new TeacherStudentAssignmentService for automatic assignment
+        $teacherService = new \App\Services\TeacherStudentAssignmentService();
+
+        $assignmentData = [
             'grade_level' => $request->grade_level,
-            'section' => $request->section,
-            'school_year' => $request->school_year,
-            'assigned_by' => Auth::id(),
             'notes' => $request->notes,
-        ]);
+        ];
 
-        // Log activity
-        ActivityLog::create([
-            'user_id' => Auth::id(),
-            'target_user_id' => $request->adviser_id,
-            'action' => 'assigned_class_adviser',
-            'entity_type' => 'class_adviser_assignment',
-            'entity_id' => $assignment->id,
-            'details' => [
-                'adviser' => $adviser->name,
-                'grade_level' => $request->grade_level,
-                'section' => $request->section,
-                'school_year' => $request->school_year,
-            ],
-        ]);
+        $assignment = $teacherService->assignAdviserToSubject($adviser, $subject, $assignmentData);
 
-        return back()->with('success', 'Class adviser assigned successfully!');
+        if (!$assignment) {
+            return back()->with('error', 'Failed to assign adviser to subject. Please try again.');
+        }
+
+        return back()->with('success', 'Class adviser assigned successfully! Students in this subject are now automatically linked to this adviser.');
     }
 
     public function updateClassAdviserAssignment(Request $request, ClassAdviserAssignment $assignment)
@@ -1854,9 +1856,9 @@ class AcademicController extends Controller
             'subject_id' => 'required|exists:subjects,id',
             'academic_level_id' => 'required|exists:academic_levels,id',
             'grade_level' => 'required|string',
-            'section' => 'required|string',
             'school_year' => 'required|string',
             'notes' => 'nullable|string',
+            'is_active' => 'nullable|boolean',
         ]);
 
         if ($validator->fails()) {
@@ -1869,14 +1871,24 @@ class AcademicController extends Controller
             return back()->with('error', 'Selected user is not an adviser or teacher.');
         }
 
+        // Get the subject
+        $subject = Subject::find($request->subject_id);
+        if (!$subject) {
+            return back()->with('error', 'Subject not found.');
+        }
+
+        // Auto-generate section name if not provided
+        $sectionName = $request->section ?? $this->generateSectionName($subject, $request->grade_level);
+
         $assignment->update([
             'adviser_id' => $request->adviser_id,
             'subject_id' => $request->subject_id,
             'academic_level_id' => $request->academic_level_id,
             'grade_level' => $request->grade_level,
-            'section' => $request->section,
+            'section' => $sectionName,
             'school_year' => $request->school_year,
             'notes' => $request->notes,
+            'is_active' => $request->is_active ?? true,
         ]);
 
         // Log activity
@@ -1889,12 +1901,25 @@ class AcademicController extends Controller
             'details' => [
                 'adviser' => $adviser->name,
                 'grade_level' => $request->grade_level,
-                'section' => $request->section,
+                'section' => $sectionName,
                 'school_year' => $request->school_year,
             ],
         ]);
 
         return back()->with('success', 'Class adviser assignment updated successfully!');
+    }
+
+    /**
+     * Generate a section name based on subject and grade level.
+     */
+    private function generateSectionName($subject, $gradeLevel): string
+    {
+        if ($subject && $subject->section) {
+            return $subject->section->name;
+        }
+
+        // Fallback to a generic section name
+        return ucfirst(str_replace('_', ' ', $gradeLevel)) . ' - Main Section';
     }
 
     // Delete assignments

@@ -75,6 +75,11 @@ class Subject extends Model
         return $this->hasMany(InstructorSubjectAssignment::class);
     }
 
+    public function classAdviserAssignments(): HasMany
+    {
+        return $this->hasMany(ClassAdviserAssignment::class);
+    }
+
     public function grades(): HasMany
     {
         return $this->hasMany(StudentGrade::class);

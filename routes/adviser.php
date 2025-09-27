@@ -23,6 +23,7 @@ Route::middleware(['auth', 'adviser'])->prefix('adviser')->name('adviser.')->gro
         Route::get('/', [GradeManagementController::class, 'index'])->name('index');
         Route::get('/create', [GradeManagementController::class, 'create'])->name('create');
         Route::post('/', [GradeManagementController::class, 'store'])->name('store');
+        Route::get('/student/{student}/subject/{subject}', [GradeManagementController::class, 'showStudentGrades'])->name('student.subject');
         Route::get('/upload', [CSVUploadController::class, 'index'])->name('upload');
         Route::post('/upload', [CSVUploadController::class, 'upload'])->name('upload.process');
         Route::get('/template', [CSVUploadController::class, 'downloadTemplate'])->name('template');

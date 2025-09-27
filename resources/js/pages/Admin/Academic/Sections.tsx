@@ -502,13 +502,29 @@ export default function SectionsPage() {
                                             {selectedDepartment && selectedCourse && (
                                                 <>
                                                     <div className="space-y-2">
+                                                        <Label htmlFor="specific_year_level">Year Level *</Label>
+                                                        <Select
+                                                            value={data.specific_year_level}
+                                                            onValueChange={(v) => setData('specific_year_level', v)}
+                                                        >
+                                                            <SelectTrigger><SelectValue placeholder="Select Year Level" /></SelectTrigger>
+                                                            <SelectContent>
+                                                                {specificYearLevels.college && Object.entries(specificYearLevels.college).map(([key, label]) => (
+                                                                    <SelectItem key={key} value={key}>{label}</SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                        {errors?.specific_year_level && (<Alert variant="destructive"><AlertDescription>{errors.specific_year_level}</AlertDescription></Alert>)}
+                                                    </div>
+
+                                                    <div className="space-y-2">
                                                         <Label htmlFor="name">Section *</Label>
-                                                        <Input 
-                                                            id="name" 
-                                                            value={data.name} 
-                                                            onChange={(e) => setData('name', e.target.value)} 
-                                                            placeholder={`e.g., ${filteredCourses.find(c => c.id.toString() === selectedCourse)?.name || 'Course'} - Section A`}
-                                                            required 
+                                                        <Input
+                                                            id="name"
+                                                            value={data.name}
+                                                            onChange={(e) => setData('name', e.target.value)}
+                                                            placeholder={`e.g., ${data.specific_year_level ? (specificYearLevels.college?.[data.specific_year_level] || data.specific_year_level) : 'Year'} - ${filteredCourses.find(c => c.id.toString() === selectedCourse)?.name || 'Course'} - Section A`}
+                                                            required
                                                         />
                                                         {errors?.name && (<Alert variant="destructive"><AlertDescription>{errors.name}</AlertDescription></Alert>)}
                                                     </div>
@@ -602,6 +618,7 @@ export default function SectionsPage() {
                                                         ) : isDepartmentBasedLevel ? (
                                                             <>
                                                                 Course: {courses.find(course => course.id === s.course_id)?.name || s.course_id}
+                                                                {s.specific_year_level ? ` • Year: ${specificYearLevels.college?.[s.specific_year_level] || s.specific_year_level}` : ''}
                                                                 {typeof s.max_students === 'number' ? ` • Max: ${s.max_students}` : ''}
                                                             </>
                                                         ) : (

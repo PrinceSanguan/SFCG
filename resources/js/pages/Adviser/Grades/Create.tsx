@@ -190,11 +190,17 @@ export default function AdviserGradesCreate({ user, academicLevels, gradingPerio
                           <SelectValue placeholder="Select a student" />
                         </SelectTrigger>
                         <SelectContent>
-                          {assignedSubjects.flatMap(subject => subject.enrolled_students.map(enrollment => (
-                            <SelectItem key={enrollment.student.id} value={enrollment.student.id.toString()}>
-                              {enrollment.student.name} - {subject.subject.name}
-                            </SelectItem>
-                          )))}
+                          {assignedSubjects
+                            .filter(subject => subject.subject && subject.subject.id && subject.enrolled_students)
+                            .flatMap(subject =>
+                              subject.enrolled_students
+                                .filter(enrollment => enrollment.student && enrollment.student.id)
+                                .map(enrollment => (
+                                  <SelectItem key={enrollment.student.id} value={enrollment.student.id.toString()}>
+                                    {enrollment.student.name} - {subject.subject.name}
+                                  </SelectItem>
+                                ))
+                            )}
                         </SelectContent>
                       </Select>
                       {errors.student_id && (<p className="text-sm text-red-500 mt-1">{errors.student_id}</p>)}
@@ -207,7 +213,7 @@ export default function AdviserGradesCreate({ user, academicLevels, gradingPerio
                           <SelectValue placeholder="Select a subject" />
                         </SelectTrigger>
                         <SelectContent>
-                          {assignedSubjects.map(subject => (
+                          {assignedSubjects.filter(subject => subject.subject && subject.subject.id).map(subject => (
                             <SelectItem key={subject.subject.id} value={subject.subject.id.toString()}>
                               {subject.subject.name}
                             </SelectItem>

@@ -273,6 +273,860 @@ class RegistrarAcademicController extends Controller
         ]);
     }
 
+    public function elementaryHonors(Request $request)
+    {
+        $honorTypes = HonorType::orderBy('scope')->orderBy('name')->get();
+        $criteria = HonorCriterion::with(['honorType', 'academicLevel'])
+            ->where('academic_level_id', 1) // Elementary level ID
+            ->get();
+
+        $currentYear = date('Y');
+        $schoolYears = [
+            ($currentYear - 1) . '-' . $currentYear,
+            $currentYear . '-' . ($currentYear + 1),
+            ($currentYear + 1) . '-' . ($currentYear + 2),
+        ];
+
+        // Get all qualified elementary students for the current school year
+        // Use 2024-2025 for now since that's where our test data is
+        $currentSchoolYear = '2024-2025'; // TODO: Make this configurable or use current active school year
+
+        // Get filter parameters
+        $gradeLevel = $request->get('grade_level');
+        $sectionId = $request->get('section_id');
+
+        // Get actual honor results for elementary students
+        $elementaryLevel = AcademicLevel::where('key', 'elementary')->first();
+        $honorResultsQuery = HonorResult::with(['student', 'honorType', 'academicLevel', 'approvedBy'])
+            ->where('school_year', $currentSchoolYear);
+
+        if ($elementaryLevel) {
+            $honorResultsQuery->where('academic_level_id', $elementaryLevel->id);
+        }
+
+        // Apply filters
+        if ($gradeLevel) {
+            $honorResultsQuery->whereHas('student', function($query) use ($gradeLevel) {
+                $query->where('specific_year_level', $gradeLevel);
+            });
+        }
+
+        if ($sectionId) {
+            if ($sectionId === 'no_section') {
+                $honorResultsQuery->whereHas('student', function($query) {
+                    $query->whereNull('section_id');
+                });
+            } else {
+                $honorResultsQuery->whereHas('student', function($query) use ($sectionId) {
+                    $query->where('section_id', $sectionId);
+                });
+            }
+        }
+
+        $honorResults = $honorResultsQuery->orderBy('created_at', 'desc')->get();
+
+        // Also get the qualified students data for backward compatibility
+        $qualifiedStudents = $this->getQualifiedElementaryStudents($currentSchoolYear, $gradeLevel, $sectionId);
+
+        // Get available grade levels for elementary
+        $gradeLevels = \App\Models\User::getSpecificYearLevels()['elementary'];
+
+        // Get available sections for elementary
+        $sections = \App\Models\Section::where('academic_level_id', 1)
+            ->where('is_active', true)
+            ->orderBy('specific_year_level')
+            ->orderBy('name')
+            ->get();
+
+        return Inertia::render('Registrar/Academic/Honors/Elementary', [
+            'user' => $this->sharedUser(),
+            'honorTypes' => $honorTypes,
+            'criteria' => $criteria,
+            'schoolYears' => $schoolYears,
+            'honorResults' => $honorResults, // Add actual honor results
+            'qualifiedStudents' => $qualifiedStudents,
+            'currentSchoolYear' => $currentSchoolYear,
+            'gradeLevels' => $gradeLevels,
+            'sections' => $sections,
+            'filters' => [
+                'grade_level' => $gradeLevel,
+                'section_id' => $sectionId,
+            ],
+            'cacheBuster' => time(), // Force fresh data
+        ]);
+    }
+
+    public function calculateElementaryStudentHonor(Request $request)
+    {
+        $validated = $request->validate([
+            'student_id' => 'required|string',
+            'academic_level_id' => 'required|exists:academic_levels,id',
+            'school_year' => 'required|string',
+        ]);
+
+        // Find student by ID or student number
+        $student = null;
+        if (is_numeric($validated['student_id'])) {
+            $student = User::find($validated['student_id']);
+        } else {
+            $student = User::where('student_number', $validated['student_id'])
+                ->orWhere('email', $validated['student_id'])
+                ->first();
+        }
+
+        if (!$student || $student->user_role !== 'student') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Student not found. Please check the Student ID.'
+            ]);
+        }
+
+        $elementaryService = new \App\Services\ElementaryHonorCalculationService();
+        $result = $elementaryService->getStudentHonorCalculation(
+            $student->id,
+            $validated['academic_level_id'],
+            $validated['school_year']
+        );
+
+        return response()->json([
+            'success' => true,
+            'data' => $result
+        ]);
+    }
+
+    private function getQualifiedElementaryStudents(string $schoolYear, ?string $gradeLevel = null, ?string $sectionId = null): array
+    {
+        $elementaryService = new \App\Services\ElementaryHonorCalculationService();
+        $elementaryLevel = \App\Models\AcademicLevel::where('key', 'elementary')->first();
+
+        if (!$elementaryLevel) {
+            return [];
+        }
+
+        // Build query for elementary students with filters
+        $studentsQuery = \App\Models\User::where('user_role', 'student')
+            ->where('year_level', 'elementary')
+            ->with(['section']); // Load section relationship for display
+
+        // Apply grade level filter
+        if ($gradeLevel) {
+            $studentsQuery->where('specific_year_level', $gradeLevel);
+        }
+
+        // Apply section filter
+        if ($sectionId) {
+            if ($sectionId === 'no_section') {
+                $studentsQuery->whereNull('section_id');
+            } else {
+                $studentsQuery->where('section_id', $sectionId);
+            }
+        }
+
+        $students = $studentsQuery->orderBy('name')->get();
+
+        $qualifiedStudents = [];
+
+        foreach ($students as $student) {
+            try {
+                $result = $elementaryService->getStudentHonorCalculation(
+                    $student->id,
+                    $elementaryLevel->id,
+                    $schoolYear
+                );
+
+                if ($result['qualified']) {
+                    $qualifiedStudents[] = [
+                        'student' => [
+                            'id' => $student->id,
+                            'name' => $student->name,
+                            'student_number' => $student->student_number,
+                            'email' => $student->email,
+                            'specific_year_level' => $student->specific_year_level,
+                            'section' => $student->section ? [
+                                'id' => $student->section->id,
+                                'name' => $student->section->name,
+                                'code' => $student->section->code,
+                            ] : null,
+                        ],
+                        'average_grade' => $result['average_grade'],
+                        'min_grade' => $result['min_grade'],
+                        'quarter_averages' => $result['quarter_averages'],
+                        'total_subjects' => $result['total_subjects'],
+                        'honor_type' => $result['qualifications'][0]['honor_type'] ?? null,
+                        'grades_breakdown' => $result['grades_breakdown'],
+                    ];
+                }
+            } catch (\Exception $e) {
+                // Skip students with calculation errors
+                continue;
+            }
+        }
+
+        // Sort by average grade (highest first)
+        usort($qualifiedStudents, function($a, $b) {
+            return $b['average_grade'] <=> $a['average_grade'];
+        });
+
+        return $qualifiedStudents;
+    }
+
+    public function juniorHighSchoolHonors(Request $request)
+    {
+        $honorTypes = HonorType::orderBy('scope')->orderBy('name')->get();
+        $criteria = HonorCriterion::with(['honorType', 'academicLevel'])
+            ->where('academic_level_id', 2) // Junior High School level ID
+            ->get();
+
+        $currentYear = date('Y');
+        $schoolYears = [
+            ($currentYear - 1) . '-' . $currentYear,
+            $currentYear . '-' . ($currentYear + 1),
+            ($currentYear + 1) . '-' . ($currentYear + 2),
+        ];
+
+        // Get all qualified junior high school students for the current school year
+        // Use 2024-2025 for now since that's where our test data is
+        $currentSchoolYear = '2024-2025'; // TODO: Make this configurable or use current active school year
+
+        // Get filter parameters
+        $gradeLevel = $request->get('grade_level');
+        $sectionId = $request->get('section_id');
+
+        // Get actual honor results for JHS students
+        $jhsLevel = AcademicLevel::where('key', 'junior_highschool')->first();
+        $honorResultsQuery = HonorResult::with(['student', 'honorType', 'academicLevel', 'approvedBy'])
+            ->where('school_year', $currentSchoolYear);
+
+        if ($jhsLevel) {
+            $honorResultsQuery->where('academic_level_id', $jhsLevel->id);
+        }
+
+        // Apply filters
+        if ($gradeLevel) {
+            $honorResultsQuery->whereHas('student', function($query) use ($gradeLevel) {
+                $query->where('specific_year_level', $gradeLevel);
+            });
+        }
+
+        if ($sectionId) {
+            if ($sectionId === 'no_section') {
+                $honorResultsQuery->whereHas('student', function($query) {
+                    $query->whereNull('section_id');
+                });
+            } else {
+                $honorResultsQuery->whereHas('student', function($query) use ($sectionId) {
+                    $query->where('section_id', $sectionId);
+                });
+            }
+        }
+
+        $honorResults = $honorResultsQuery->orderBy('created_at', 'desc')->get();
+
+        // Also get the qualified students data for backward compatibility
+        $qualifiedStudents = $this->getQualifiedJuniorHighSchoolStudents($currentSchoolYear, $gradeLevel, $sectionId);
+
+        // Get available grade levels for junior high school
+        $gradeLevels = \App\Models\User::getSpecificYearLevels()['junior_highschool'];
+
+        // Get available sections for junior high school
+        $sections = \App\Models\Section::where('academic_level_id', 2)
+            ->where('is_active', true)
+            ->orderBy('specific_year_level')
+            ->orderBy('name')
+            ->get();
+
+        return Inertia::render('Registrar/Academic/Honors/JuniorHighSchool', [
+            'user' => $this->sharedUser(),
+            'honorTypes' => $honorTypes,
+            'criteria' => $criteria,
+            'schoolYears' => $schoolYears,
+            'honorResults' => $honorResults, // Add actual honor results
+            'qualifiedStudents' => $qualifiedStudents,
+            'currentSchoolYear' => $currentSchoolYear,
+            'gradeLevels' => $gradeLevels,
+            'sections' => $sections,
+            'filters' => [
+                'grade_level' => $gradeLevel,
+                'section_id' => $sectionId,
+            ],
+        ]);
+    }
+
+    private function getQualifiedJuniorHighSchoolStudents(string $schoolYear, ?string $gradeLevel = null, ?string $sectionId = null): array
+    {
+        $juniorHighSchoolService = new \App\Services\JuniorHighSchoolHonorCalculationService();
+        $juniorHighSchoolLevel = \App\Models\AcademicLevel::where('key', 'junior_highschool')->first();
+
+        if (!$juniorHighSchoolLevel) {
+            return [];
+        }
+
+        // Build query for junior high school students with filters
+        $studentsQuery = \App\Models\User::where('user_role', 'student')
+            ->where('year_level', 'junior_highschool')
+            ->with(['section']); // Load section relationship for display
+
+        // Apply grade level filter
+        if ($gradeLevel) {
+            $studentsQuery->where('specific_year_level', $gradeLevel);
+        }
+
+        // Apply section filter
+        if ($sectionId) {
+            if ($sectionId === 'no_section') {
+                $studentsQuery->whereNull('section_id');
+            } else {
+                $studentsQuery->where('section_id', $sectionId);
+            }
+        }
+
+        $students = $studentsQuery->orderBy('name')->get();
+
+        $qualifiedStudents = [];
+
+        foreach ($students as $student) {
+            $result = $juniorHighSchoolService->calculateJuniorHighSchoolHonorQualification(
+                $student->id,
+                $juniorHighSchoolLevel->id,
+                $schoolYear
+            );
+
+            if ($result['qualified']) {
+                $qualifiedStudents[] = [
+                    'student' => $student,
+                    'result' => $result
+                ];
+            }
+        }
+
+        return $qualifiedStudents;
+    }
+
+    public function seniorHighSchoolHonors(Request $request)
+    {
+        $honorTypes = HonorType::orderBy('scope')->orderBy('name')->get();
+        $criteria = HonorCriterion::with(['honorType', 'academicLevel'])
+            ->where('academic_level_id', 3) // Senior High School level ID
+            ->get();
+
+        $currentYear = date('Y');
+        $schoolYears = [
+            ($currentYear - 1) . '-' . $currentYear,
+            $currentYear . '-' . ($currentYear + 1),
+            ($currentYear + 1) . '-' . ($currentYear + 2),
+        ];
+
+        // Get all qualified senior high school students for the current school year
+        // Use 2024-2025 for now since that's where our test data is
+        $currentSchoolYear = '2024-2025'; // TODO: Make this configurable or use current active school year
+
+        // Get filter parameters
+        $gradeLevel = $request->get('grade_level');
+        $sectionId = $request->get('section_id');
+        $strandId = $request->get('strand_id');
+
+        // Get actual honor results for SHS students
+        $shsLevel = AcademicLevel::where('key', 'senior_highschool')->first();
+        $honorResultsQuery = HonorResult::with(['student', 'honorType', 'academicLevel', 'approvedBy'])
+            ->where('school_year', $currentSchoolYear);
+
+        if ($shsLevel) {
+            $honorResultsQuery->where('academic_level_id', $shsLevel->id);
+        }
+
+        // Apply filters
+        if ($gradeLevel) {
+            $honorResultsQuery->whereHas('student', function($query) use ($gradeLevel) {
+                $query->where('specific_year_level', $gradeLevel);
+            });
+        }
+
+        if ($sectionId) {
+            $honorResultsQuery->whereHas('student', function($query) use ($sectionId) {
+                $query->where('section_id', $sectionId);
+            });
+        }
+
+        if ($strandId) {
+            $honorResultsQuery->whereHas('student', function($query) use ($strandId) {
+                $query->where('strand_id', $strandId);
+            });
+        }
+
+        $honorResults = $honorResultsQuery->orderBy('created_at', 'desc')->get();
+
+        // Also get the qualified students data for backward compatibility
+        $qualifiedStudents = $this->getQualifiedSeniorHighSchoolStudents($currentSchoolYear, $gradeLevel, $sectionId, $strandId);
+
+        // Get available grade levels for senior high school
+        $gradeLevels = \App\Models\User::getSpecificYearLevels()['senior_highschool'];
+
+        // Get available sections for senior high school
+        $sections = \App\Models\Section::where('academic_level_id', 3)
+            ->where('is_active', true)
+            ->orderBy('specific_year_level')
+            ->orderBy('name')
+            ->get();
+
+        // Get strands
+        $strands = \App\Models\Strand::where('academic_level_id', 3)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
+        return Inertia::render('Registrar/Academic/Honors/SeniorHighSchool', [
+            'user' => $this->sharedUser(),
+            'honorTypes' => $honorTypes,
+            'criteria' => $criteria,
+            'schoolYears' => $schoolYears,
+            'honorResults' => $honorResults, // Add actual honor results
+            'qualifiedStudents' => $qualifiedStudents,
+            'currentSchoolYear' => $currentSchoolYear,
+            'gradeLevels' => $gradeLevels,
+            'sections' => $sections,
+            'strands' => $strands,
+            'filters' => [
+                'grade_level' => $gradeLevel,
+                'section_id' => $sectionId,
+                'strand_id' => $strandId,
+            ],
+        ]);
+    }
+
+    private function getQualifiedSeniorHighSchoolStudents(string $schoolYear, ?string $gradeLevel = null, ?string $sectionId = null, ?string $strandId = null): array
+    {
+        $seniorHighSchoolService = new \App\Services\SeniorHighSchoolHonorCalculationService();
+        $seniorHighSchoolLevel = \App\Models\AcademicLevel::where('key', 'senior_highschool')->first();
+
+        if (!$seniorHighSchoolLevel) {
+            return [];
+        }
+
+        // Build query for senior high school students with filters
+        $studentsQuery = \App\Models\User::where('user_role', 'student')
+            ->where('year_level', 'senior_highschool')
+            ->with(['section', 'strand']); // Load relationships for display
+
+        // Apply grade level filter
+        if ($gradeLevel) {
+            $studentsQuery->where('specific_year_level', $gradeLevel);
+        }
+
+        // Apply section filter
+        if ($sectionId) {
+            $studentsQuery->where('section_id', $sectionId);
+        }
+
+        // Apply strand filter
+        if ($strandId) {
+            $studentsQuery->where('strand_id', $strandId);
+        }
+
+        $students = $studentsQuery->orderBy('name')->get();
+
+        $qualifiedStudents = [];
+
+        foreach ($students as $student) {
+            $result = $seniorHighSchoolService->calculateSeniorHighSchoolHonorQualification(
+                $student->id,
+                $seniorHighSchoolLevel->id,
+                $schoolYear
+            );
+
+            // Include all students with computed results to surface data even if not yet qualified
+            $qualifiedStudents[] = [
+                'student' => $student,
+                'result' => $result
+            ];
+        }
+
+        return $qualifiedStudents;
+    }
+
+    public function collegeHonors(Request $request)
+    {
+        $honorTypes = HonorType::orderBy('scope')->orderBy('name')->get();
+        $criteria = HonorCriterion::with(['honorType', 'academicLevel'])
+            ->where('academic_level_id', 4) // College level ID
+            ->get();
+
+        $currentYear = date('Y');
+        $schoolYears = [
+            ($currentYear - 1) . '-' . $currentYear,
+            $currentYear . '-' . ($currentYear + 1),
+            ($currentYear + 1) . '-' . ($currentYear + 2),
+        ];
+
+        // Get all qualified college students for the current school year
+        // Use 2024-2025 for now since that's where our test data is
+        $currentSchoolYear = '2024-2025'; // TODO: Make this configurable or use current active school year
+
+        // Get filter parameters
+        $gradeLevel = $request->get('grade_level');
+        $departmentId = $request->get('department_id');
+        $courseId = $request->get('course_id');
+        $sectionId = $request->get('section_id');
+
+        // Get actual honor results for College students
+        $collegeLevel = AcademicLevel::where('key', 'college')->first();
+        $honorResultsQuery = HonorResult::with(['student', 'honorType', 'academicLevel', 'approvedBy'])
+            ->where('school_year', $currentSchoolYear);
+
+        if ($collegeLevel) {
+            $honorResultsQuery->where('academic_level_id', $collegeLevel->id);
+        }
+
+        // Apply filters
+        if ($gradeLevel) {
+            $honorResultsQuery->whereHas('student', function($query) use ($gradeLevel) {
+                $query->where('specific_year_level', $gradeLevel);
+            });
+        }
+
+        if ($sectionId) {
+            $honorResultsQuery->whereHas('student', function($query) use ($sectionId) {
+                $query->where('section_id', $sectionId);
+            });
+        }
+
+        if ($departmentId) {
+            $honorResultsQuery->whereHas('student.course', function($query) use ($departmentId) {
+                $query->where('department_id', $departmentId);
+            });
+        }
+
+        if ($courseId) {
+            $honorResultsQuery->whereHas('student', function($query) use ($courseId) {
+                $query->where('course_id', $courseId);
+            });
+        }
+
+        $honorResults = $honorResultsQuery->orderBy('created_at', 'desc')->get();
+
+        // Also get the qualified students data for backward compatibility
+        $qualifiedStudents = $this->getQualifiedCollegeStudents($currentSchoolYear, $gradeLevel, $departmentId, $courseId, $sectionId);
+
+        // Get available grade levels for college
+        $gradeLevels = \App\Models\User::getSpecificYearLevels()['college'];
+
+        // Get available departments for college
+        $departments = \App\Models\Department::where('academic_level_id', 4)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
+        // Get available courses for college
+        $courses = \App\Models\Course::with('department')
+            ->whereHas('department', function($query) {
+                $query->where('academic_level_id', 4);
+            })
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
+        // Get available sections for college
+        $sections = \App\Models\Section::where('academic_level_id', 4)
+            ->where('is_active', true)
+            ->orderBy('specific_year_level')
+            ->orderBy('name')
+            ->get();
+
+        return Inertia::render('Registrar/Academic/Honors/College', [
+            'user' => $this->sharedUser(),
+            'honorTypes' => $honorTypes,
+            'criteria' => $criteria,
+            'schoolYears' => $schoolYears,
+            'honorResults' => $honorResults, // Add actual honor results
+            'qualifiedStudents' => $qualifiedStudents,
+            'currentSchoolYear' => $currentSchoolYear,
+            'gradeLevels' => $gradeLevels,
+            'departments' => $departments,
+            'courses' => $courses,
+            'sections' => $sections,
+            'filters' => [
+                'grade_level' => $gradeLevel,
+                'department_id' => $departmentId,
+                'course_id' => $courseId,
+                'section_id' => $sectionId,
+            ],
+        ]);
+    }
+
+    private function getQualifiedCollegeStudents(string $schoolYear, ?string $gradeLevel = null, ?string $departmentId = null, ?string $courseId = null, ?string $sectionId = null): array
+    {
+        $collegeService = new \App\Services\CollegeHonorCalculationService();
+        return $collegeService->getQualifiedCollegeStudents($schoolYear, $gradeLevel, $departmentId, $courseId, $sectionId);
+    }
+
+    public function saveHonorType(Request $request)
+    {
+        $data = $request->validate([
+            'name' => 'required|string|max:100',
+            'key' => 'required|string|alpha_dash|max:50|unique:honor_types,key',
+            'scope' => 'required|string|in:basic,advanced,college',
+        ]);
+
+        $honorType = HonorType::create($data);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Honor type created successfully!',
+            'honorType' => $honorType
+        ]);
+    }
+
+    public function saveHonorCriteria(Request $request)
+    {
+        $data = $request->validate([
+            'academic_level_id' => 'required|exists:academic_levels,id',
+            'honor_type_id' => 'required|exists:honor_types,id',
+            'min_gpa' => 'nullable|numeric|min:0|max:100',
+            'max_gpa' => 'nullable|numeric|min:0|max:100',
+            'min_grade' => 'nullable|integer|min:0|max:100',
+            'min_grade_all' => 'nullable|integer|min:1|max:100',
+            'min_year' => 'nullable|integer|min:1|max:10',
+            'max_year' => 'nullable|integer|min:1|max:10',
+            'require_consistent_honor' => 'boolean',
+            'additional_rules' => 'array|nullable',
+        ]);
+
+        HonorCriterion::updateOrCreate(
+            [
+                'academic_level_id' => $data['academic_level_id'],
+                'honor_type_id' => $data['honor_type_id'],
+            ],
+            $data
+        );
+
+        return back()->with('success', 'Honor criteria saved.');
+    }
+
+    public function storeHonorCriterion(Request $request)
+    {
+        return $this->saveHonorCriteria($request);
+    }
+
+    public function destroyHonorCriterion(HonorCriterion $criterion)
+    {
+        $criterion->delete();
+        return back()->with('success', 'Honor criterion deleted successfully.');
+    }
+
+    public function updateHonorCriterion(Request $request, HonorCriterion $criterion)
+    {
+        $data = $request->validate([
+            'academic_level_id' => 'required|exists:academic_levels,id',
+            'honor_type_id' => 'required|exists:honor_types,id',
+            'min_gpa' => 'nullable|numeric|min:0|max:100',
+            'max_gpa' => 'nullable|numeric|min:0|max:100',
+            'min_grade' => 'nullable|integer|min:0|max:100',
+            'min_grade_all' => 'nullable|integer|min:1|max:100',
+            'min_year' => 'nullable|integer|min:1|max:10',
+            'max_year' => 'nullable|integer|min:1|max:10',
+            'require_consistent_honor' => 'boolean',
+            'additional_rules' => 'array|nullable',
+        ]);
+
+        $criterion->update($data);
+        return back()->with('success', 'Honor criterion updated successfully.');
+    }
+
+    public function generateHonorRoll(Request $request)
+    {
+        $validated = $request->validate([
+            'academic_level_id' => 'required|exists:academic_levels,id',
+            'school_year' => 'required|string',
+        ]);
+
+        $level = AcademicLevel::findOrFail($validated['academic_level_id']);
+
+        // Use specialized calculation for elementary students
+        if ($level->key === 'elementary') {
+            $elementaryService = new \App\Services\ElementaryHonorCalculationService();
+            $result = $elementaryService->generateElementaryHonorResults($level->id, $validated['school_year']);
+
+            return response()->json([
+                'success' => $result['success'],
+                'message' => $result['message'],
+                'data' => [
+                    'academic_level' => $level->name,
+                    'school_year' => $validated['school_year'],
+                    'total_processed' => $result['total_processed'],
+                    'total_qualified' => $result['total_qualified'],
+                    'results' => $result['results'],
+                ]
+            ]);
+        }
+
+        // Use standard calculation for other academic levels
+        $criteria = HonorCriterion::where('academic_level_id', $level->id)->get();
+
+        $honorResults = [];
+
+        foreach ($criteria as $criterion) {
+            $students = User::where('user_role', 'student')
+                ->where('year_level', $level->key)
+                ->get();
+
+            $qualifiedStudents = [];
+
+            foreach ($students as $student) {
+                $grades = StudentGrade::where('student_id', $student->id)
+                    ->where('academic_level_id', $level->id)
+                    ->where('school_year', $validated['school_year']);
+
+                // Apply year restrictions for college honors
+                if ($criterion->min_year || $criterion->max_year) {
+                    $grades = $grades->whereBetween('year_of_study', [
+                        $criterion->min_year ?? 1,
+                        $criterion->max_year ?? 4
+                    ]);
+                }
+
+                $grades = $grades->pluck('grade');
+
+                if ($grades->isEmpty()) {
+                    continue;
+                }
+
+                $gpa = round($grades->avg(), 2);
+                $minGrade = (int) floor($grades->min());
+
+                // Check if student qualifies for this honor
+                $qualifies = true;
+
+                // GPA requirements
+                if ($criterion->min_gpa && $gpa < $criterion->min_gpa) {
+                    $qualifies = false;
+                }
+                if ($criterion->max_gpa && $gpa > $criterion->max_gpa) {
+                    $qualifies = false;
+                }
+
+                // Minimum grade requirements
+                if ($criterion->min_grade && $minGrade < $criterion->min_grade) {
+                    $qualifies = false;
+                }
+
+                // Consistent honor standing (for Dean's List)
+                if ($criterion->require_consistent_honor) {
+                    // Check if student has been on honor roll in previous years
+                    $previousHonors = HonorResult::where('student_id', $student->id)
+                        ->where('academic_level_id', $level->id)
+                        ->where('school_year', '!=', $validated['school_year'])
+                        ->where('is_overridden', false)
+                        ->exists();
+
+                    if (!$previousHonors) {
+                        $qualifies = false;
+                    }
+                }
+
+                if ($qualifies) {
+                    $qualifiedStudents[] = [
+                        'id' => $student->id,
+                        'name' => $student->name,
+                        'student_number' => $student->student_number,
+                        'gpa' => $gpa,
+                        'min_grade' => $minGrade,
+                        'grades_count' => $grades->count(),
+                    ];
+                }
+            }
+
+            if (!empty($qualifiedStudents)) {
+                $honorResults[] = [
+                    'honor_type' => $criterion->honorType,
+                    'criterion' => $criterion,
+                    'students' => $qualifiedStudents,
+                    'count' => count($qualifiedStudents),
+                ];
+            }
+        }
+
+        // Store results in honor_results table
+        foreach ($honorResults as $result) {
+            foreach ($result['students'] as $student) {
+                HonorResult::updateOrCreate([
+                    'student_id' => $student['id'],
+                    'honor_type_id' => $result['honor_type']->id,
+                    'academic_level_id' => $level->id,
+                    'school_year' => $validated['school_year'],
+                ], [
+                    'gpa' => $student['gpa'],
+                    'is_overridden' => false,
+                    'is_pending_approval' => true, // Set as pending for Principal approval
+                    'is_approved' => false,
+                    'is_rejected' => false,
+                ]);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Honor roll generated successfully',
+            'data' => [
+                'academic_level' => $level->name,
+                'school_year' => $validated['school_year'],
+                'honor_results' => $honorResults,
+                'total_students' => array_sum(array_column($honorResults, 'count')),
+            ]
+        ]);
+    }
+
+    public function overrideHonorResult(Request $request, HonorResult $result)
+    {
+        $data = $request->validate([
+            'honor_type_id' => 'required|exists:honor_types,id',
+            'override_reason' => 'required|string|max:1000',
+        ]);
+
+        $result->update([
+            'honor_type_id' => $data['honor_type_id'],
+            'is_overridden' => true,
+            'override_reason' => $data['override_reason'],
+        ]);
+
+        return back()->with('success', 'Honor result overridden.');
+    }
+
+    public function exportHonorRoll(Request $request)
+    {
+        $validated = $request->validate([
+            'academic_level_id' => 'required|exists:academic_levels,id',
+            'school_year' => 'required|string',
+        ]);
+
+        $results = HonorResult::with(['student', 'honorType'])
+            ->where('academic_level_id', $validated['academic_level_id'])
+            ->where('school_year', $validated['school_year'])
+            ->orderBy('honor_type_id')
+            ->get();
+
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="honor_roll_'.$validated['school_year'].'.csv"',
+        ];
+
+        $callback = function () use ($results) {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, ['Student ID', 'Name', 'Honor', 'GPA', 'Overridden', 'Reason']);
+            foreach ($results as $row) {
+                fputcsv($handle, [
+                    $row->student->student_number ?? $row->student->id,
+                    $row->student->name,
+                    $row->honorType->name,
+                    $row->gpa,
+                    $row->is_overridden ? 'Yes' : 'No',
+                    $row->override_reason,
+                ]);
+            }
+            fclose($handle);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
     public function certificates()
     {
         $academicLevels = AcademicLevel::orderBy('sort_order')->get();

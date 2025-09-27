@@ -78,6 +78,8 @@ export interface Grade {
     validated_by: number | null;
     created_at: string;
     updated_at: string;
+    teacher_name?: string | null;
+    teacher_role?: string | null;
     gradingPeriod: GradingPeriod | null;
 }
 

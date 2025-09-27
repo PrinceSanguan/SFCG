@@ -20,13 +20,21 @@ class SectionController extends Controller
 {
     public function index()
     {
-        return Inertia::render('Admin/Academic/SectionsHome', [
-            'user' => Auth::user(),
+        $user = Auth::user();
+        $isRegistrar = $user->user_role === 'registrar';
+        $viewPath = $isRegistrar ? 'Registrar/Academic/SectionsHome' : 'Admin/Academic/SectionsHome';
+
+        return Inertia::render($viewPath, [
+            'user' => $user,
         ]);
     }
 
     public function manage(string $levelKey)
     {
+        $user = Auth::user();
+        $isRegistrar = $user->user_role === 'registrar';
+        $viewPath = $isRegistrar ? 'Registrar/Academic/Sections' : 'Admin/Academic/Sections';
+
         $sections = Section::with(['academicLevel', 'track', 'strand', 'department', 'course'])
             ->orderBy('academic_level_id')
             ->orderBy('name')
@@ -38,8 +46,8 @@ class SectionController extends Controller
         $departments = Department::orderBy('name')->get();
         $courses = Course::with('department')->orderBy('name')->get();
 
-        return Inertia::render('Admin/Academic/Sections', [
-            'user' => Auth::user(),
+        return Inertia::render($viewPath, [
+            'user' => $user,
             'sections' => $sections,
             'academicLevels' => $academicLevels,
             'tracks' => $tracks,

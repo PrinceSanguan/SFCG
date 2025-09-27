@@ -264,6 +264,30 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
     
     // Student Subject Management - REMOVED (subjects are now auto-assigned)
     Route::get('/honors', [RegistrarAcademicController::class, 'honors'])->name('honors');
+    Route::get('/honors/elementary', [RegistrarAcademicController::class, 'elementaryHonors'])->name('honors.elementary');
+    Route::post('/honors/elementary/calculate', [RegistrarAcademicController::class, 'calculateElementaryStudentHonor'])->name('honors.elementary.calculate');
+    Route::get('/honors/junior-high-school', [RegistrarAcademicController::class, 'juniorHighSchoolHonors'])->name('honors.junior-high-school');
+    Route::get('/honors/senior-high-school', [RegistrarAcademicController::class, 'seniorHighSchoolHonors'])->name('honors.senior-high-school');
+    Route::get('/honors/college', [RegistrarAcademicController::class, 'collegeHonors'])->name('honors.college');
+    Route::post('/honors/criteria', [RegistrarAcademicController::class, 'saveHonorCriteria'])->name('honors.criteria.save');
+    Route::put('/honors/criteria/{criterion}', [RegistrarAcademicController::class, 'updateHonorCriterion'])->name('honors.criteria.update');
+    Route::delete('/honors/criteria/{criterion}', [RegistrarAcademicController::class, 'destroyHonorCriterion'])->name('honors.criteria.destroy');
+    Route::post('/honors/types', [RegistrarAcademicController::class, 'saveHonorType'])->name('honors.types.save');
+    Route::post('/honors/generate', [RegistrarAcademicController::class, 'generateHonorRoll'])->name('honors.generate');
+    Route::post('/honors/{result}/override', [RegistrarAcademicController::class, 'overrideHonorResult'])->name('honors.override');
+    Route::get('/honors/export', [RegistrarAcademicController::class, 'exportHonorRoll'])->name('honors.export');
+
+    // Sections management
+    Route::get('/sections', [\App\Http\Controllers\Admin\SectionController::class, 'index'])->name('sections');
+    Route::get('/sections/elementary', [\App\Http\Controllers\Admin\SectionController::class, 'manage'])->defaults('levelKey','elementary')->name('sections.elementary');
+    Route::get('/sections/junior-highschool', [\App\Http\Controllers\Admin\SectionController::class, 'manage'])->defaults('levelKey','junior_highschool')->name('sections.junior');
+    Route::get('/sections/senior-highschool', [\App\Http\Controllers\Admin\SectionController::class, 'manage'])->defaults('levelKey','senior_highschool')->name('sections.senior');
+    Route::get('/sections/college', [\App\Http\Controllers\Admin\SectionController::class, 'manage'])->defaults('levelKey','college')->name('sections.college');
+    Route::post('/sections', [\App\Http\Controllers\Admin\SectionController::class, 'store'])->name('sections.store');
+    Route::put('/sections/{section}', [\App\Http\Controllers\Admin\SectionController::class, 'update'])->name('sections.update');
+    Route::delete('/sections/{section}', [\App\Http\Controllers\Admin\SectionController::class, 'destroy'])->name('sections.destroy');
+    Route::get('/api/sections', [\App\Http\Controllers\Admin\SectionController::class, 'list'])->name('api.sections');
+
     Route::get('/assign-instructors', [RegistrarAcademicController::class, 'assignInstructors'])->name('assign-instructors');
     
     // New Subject-Based Instructor Assignments

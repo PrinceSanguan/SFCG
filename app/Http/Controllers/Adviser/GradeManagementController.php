@@ -8,6 +8,8 @@ use App\Models\ClassAdviserAssignment;
 use App\Models\GradingPeriod;
 use App\Models\StudentGrade;
 use App\Models\StudentSubjectAssignment;
+use App\Models\Subject;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -28,21 +30,25 @@ class GradeManagementController extends Controller
             ->where('adviser_id', $user->id)
             ->where('school_year', $schoolYear)
             ->where('is_active', true)
+            ->whereHas('subject')
             ->get();
 
         $subjectIds = $assignments->pluck('subject_id')->filter()->unique();
 
-        $assignedData = $assignments->map(function ($assignment) use ($schoolYear) {
+        $assignedData = $assignments->filter(function ($assignment) {
+            return $assignment->subject && $assignment->academicLevel;
+        })->map(function ($assignment) use ($schoolYear) {
             $enrolledStudents = StudentSubjectAssignment::with('student')
                 ->where('subject_id', $assignment->subject_id)
                 ->where('school_year', $schoolYear)
                 ->where('is_active', true)
+                ->whereHas('student')
                 ->get();
 
             return [
                 'id' => $assignment->id,
                 'subject_id' => $assignment->subject_id,
-                'subject' => $assignment->subject ? [
+                'subject' => [
                     'id' => $assignment->subject->id,
                     'name' => $assignment->subject->name,
                     'code' => $assignment->subject->code,
@@ -51,15 +57,17 @@ class GradeManagementController extends Controller
                         'name' => $assignment->subject->course->name,
                         'code' => $assignment->subject->course->code,
                     ] : null,
-                ] : null,
-                'academicLevel' => $assignment->academicLevel ? [
+                ],
+                'academicLevel' => [
                     'id' => $assignment->academicLevel->id,
                     'name' => $assignment->academicLevel->name,
                     'key' => $assignment->academicLevel->key,
-                ] : null,
+                ],
                 'school_year' => $assignment->school_year,
                 'is_active' => $assignment->is_active,
-                'enrolled_students' => $enrolledStudents->map(function ($enrollment) {
+                'enrolled_students' => $enrolledStudents->filter(function ($enrollment) {
+                    return $enrollment->student;
+                })->map(function ($enrollment) {
                     return [
                         'id' => $enrollment->id,
                         'student' => [
@@ -118,31 +126,37 @@ class GradeManagementController extends Controller
             ->where('adviser_id', $user->id)
             ->where('school_year', $schoolYear)
             ->where('is_active', true)
+            ->whereHas('subject') // Only get assignments that have valid subjects
             ->get();
 
-        $assignedData = $assignments->map(function ($assignment) use ($schoolYear) {
+        $assignedData = $assignments->filter(function ($assignment) {
+            return $assignment->subject && $assignment->academicLevel; // Filter out any null relationships
+        })->map(function ($assignment) use ($schoolYear) {
             $enrolledStudents = StudentSubjectAssignment::with('student')
                 ->where('subject_id', $assignment->subject_id)
                 ->where('school_year', $schoolYear)
                 ->where('is_active', true)
+                ->whereHas('student') // Only get enrollments with valid students
                 ->get();
 
             return [
                 'id' => $assignment->id,
                 'subject_id' => $assignment->subject_id,
-                'subject' => $assignment->subject ? [
+                'subject' => [
                     'id' => $assignment->subject->id,
                     'name' => $assignment->subject->name,
                     'code' => $assignment->subject->code,
-                ] : null,
-                'academicLevel' => $assignment->academicLevel ? [
+                ],
+                'academicLevel' => [
                     'id' => $assignment->academicLevel->id,
                     'name' => $assignment->academicLevel->name,
                     'key' => $assignment->academicLevel->key,
-                ] : null,
+                ],
                 'school_year' => $assignment->school_year,
                 'is_active' => $assignment->is_active,
-                'enrolled_students' => $enrolledStudents->map(function ($enrollment) {
+                'enrolled_students' => $enrolledStudents->filter(function ($enrollment) {
+                    return $enrollment->student; // Filter out null students
+                })->map(function ($enrollment) {
                     return [
                         'id' => $enrollment->id,
                         'student' => [
@@ -237,6 +251,101 @@ class GradeManagementController extends Controller
 
         return redirect()->route('adviser.grades.index')
             ->with('success', 'Grade created successfully.');
+    }
+
+    /**
+     * Show detailed grades for a specific student and subject.
+     */
+    public function showStudentGrades(User $student, Subject $subject)
+    {
+        $user = Auth::user();
+        $schoolYear = request('school_year', '2024-2025');
+
+        // Verify adviser is assigned to this subject
+        $isAssigned = ClassAdviserAssignment::where('adviser_id', $user->id)
+            ->where('subject_id', $subject->id)
+            ->where('school_year', $schoolYear)
+            ->where('is_active', true)
+            ->exists();
+
+        if (!$isAssigned) {
+            return redirect()->route('adviser.grades.index')
+                ->with('error', 'You are not assigned to this subject.');
+        }
+
+        // Check if the student is enrolled in this subject
+        $enrollment = StudentSubjectAssignment::where('student_id', $student->id)
+            ->where('subject_id', $subject->id)
+            ->where('school_year', $schoolYear)
+            ->where('is_active', true)
+            ->first();
+
+        if (!$enrollment) {
+            return redirect()->route('adviser.grades.index')
+                ->with('error', 'Student is not enrolled in this subject.');
+        }
+
+        $query = StudentGrade::with(['gradingPeriod'])
+            ->where('student_id', $student->id)
+            ->where('subject_id', $subject->id)
+            ->orderByRaw('COALESCE(grading_period_id, 0) asc, created_at desc');
+        if ($schoolYear) {
+            $query->where('school_year', $schoolYear);
+        }
+        $grades = $query->get();
+
+        // Get the teacher/adviser for this subject
+        $teacherService = new \App\Services\TeacherStudentAssignmentService();
+        $assignedTeacher = $teacherService->getTeacherForStudentSubject($student, $subject);
+
+        // Transform grades to include explicit grading period data and teacher information
+        $transformedGrades = $grades->map(function($grade) use ($assignedTeacher) {
+            return [
+                'id' => $grade->id,
+                'student_id' => $grade->student_id,
+                'subject_id' => $grade->subject_id,
+                'academic_level_id' => $grade->academic_level_id,
+                'grading_period_id' => $grade->grading_period_id,
+                'school_year' => $grade->school_year,
+                'year_of_study' => $grade->year_of_study,
+                'grade' => $grade->grade,
+                'is_submitted_for_validation' => $grade->is_submitted_for_validation,
+                'submitted_at' => $grade->submitted_at,
+                'validated_at' => $grade->validated_at,
+                'validated_by' => $grade->validated_by,
+                'created_at' => $grade->created_at,
+                'updated_at' => $grade->updated_at,
+                'teacher_name' => $assignedTeacher ? $assignedTeacher->name : null,
+                'teacher_role' => $assignedTeacher ? $assignedTeacher->user_role : null,
+                'gradingPeriod' => $grade->gradingPeriod ? [
+                    'id' => $grade->gradingPeriod->id,
+                    'name' => $grade->gradingPeriod->name,
+                    'code' => $grade->gradingPeriod->code,
+                    'academic_level_id' => $grade->gradingPeriod->academic_level_id,
+                    'start_date' => $grade->gradingPeriod->start_date,
+                    'end_date' => $grade->gradingPeriod->end_date,
+                    'sort_order' => $grade->gradingPeriod->sort_order,
+                    'is_active' => $grade->gradingPeriod->is_active,
+                ] : null,
+            ];
+        });
+
+        return Inertia::render('Adviser/Grades/Show', [
+            'user' => $user,
+            'student' => [
+                'id' => $student->id,
+                'name' => $student->name,
+                'email' => $student->email,
+                'student_number' => $student->student_number ?? null,
+            ],
+            'subject' => [
+                'id' => $subject->id,
+                'name' => $subject->name,
+                'code' => $subject->code,
+            ],
+            'schoolYear' => $schoolYear,
+            'grades' => $transformedGrades,
+        ]);
     }
 }
 

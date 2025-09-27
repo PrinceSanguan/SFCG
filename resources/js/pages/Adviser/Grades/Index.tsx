@@ -39,6 +39,22 @@ interface AssignedSubject {
     student_count: number;
 }
 
+interface StudentForSubject {
+    id: number;
+    name: string;
+    email: string;
+    latestGrade: number;
+    latestGradeDate: string;
+    hasGradesInCurrentSubject: boolean;
+    actualGradeSubjectId: number;
+    academicLevel: {
+        key: string;
+        name: string;
+    };
+    gradingPeriod?: { name: string };
+    schoolYear: string;
+}
+
 interface IndexProps {
     user: User;
     grades: { data: StudentGrade[]; current_page: number; last_page: number; per_page: number; total: number };
@@ -79,18 +95,22 @@ export default function AdviserGradesIndex({ user, grades, assignedSubjects }: I
         return 'Failing';
     };
 
-    const getStudentsForSubject = (subjectId: string) => {
-        if (!subjectId || !assignedSubjects || !Array.isArray(assignedSubjects)) return [] as any[];
+    const getStudentsForSubject = (subjectId: string): StudentForSubject[] => {
+        if (!subjectId || !assignedSubjects || !Array.isArray(assignedSubjects)) return [];
         const subjectAssignment = assignedSubjects.find(subject => subject.subject?.id?.toString() === subjectId);
-        if (!subjectAssignment || !subjectAssignment.enrolled_students) return [] as any[];
+        if (!subjectAssignment || !subjectAssignment.enrolled_students) return [];
         return subjectAssignment.enrolled_students.map(enrollment => {
             const studentGrade = grades?.data?.find(grade => grade.student.id === enrollment.student.id && grade.subject.id === parseInt(subjectId));
+            // Find any grade for this student to get the subject they actually have grades for
+            const anyStudentGrade = grades?.data?.find(grade => grade.student.id === enrollment.student.id);
             return {
                 id: enrollment.student.id,
                 name: enrollment.student.name,
                 email: enrollment.student.email,
                 latestGrade: studentGrade ? studentGrade.grade : 0,
                 latestGradeDate: studentGrade ? studentGrade.updated_at : '',
+                hasGradesInCurrentSubject: !!studentGrade,
+                actualGradeSubjectId: anyStudentGrade ? anyStudentGrade.subject.id : parseInt(subjectId),
                 academicLevel: {
                     key: subjectAssignment.academicLevel?.key || '',
                     name: subjectAssignment.academicLevel?.name || ''
@@ -230,7 +250,12 @@ export default function AdviserGradesIndex({ user, grades, assignedSubjects }: I
                                                             </td>
                                                             <td className="p-3">
                                                                 {student.latestGrade === 0 ? (
-                                                                    <Badge variant="outline" className="text-gray-500">No Grade</Badge>
+                                                                    <div className="flex flex-col gap-1">
+                                                                        <Badge variant="outline" className="text-gray-500">No Grade</Badge>
+                                                                        {!student.hasGradesInCurrentSubject && (
+                                                                            <span className="text-xs text-blue-600">Has grades in other subjects</span>
+                                                                        )}
+                                                                    </div>
                                                                 ) : (
                                                                     <Badge className={getGradeColor(student.latestGrade, student.academicLevel.key)}>{student.latestGrade}</Badge>
                                                                 )}
@@ -243,8 +268,13 @@ export default function AdviserGradesIndex({ user, grades, assignedSubjects }: I
                                                             <td className="p-3 text-sm text-gray-600 dark:text-gray-400">{student.latestGradeDate ? new Date(student.latestGradeDate).toLocaleDateString() : 'N/A'}</td>
                                                             <td className="p-3">
                                                                 <div className="flex gap-2">
-                                                                    <Link href={route('adviser.grades.create')}>
-                                                                        <Button variant="outline" size="sm" onClick={(e) => e.stopPropagation()}>
+                                                                    <Link href={route('adviser.grades.student.subject', { student: student.id, subject: student.actualGradeSubjectId })}>
+                                                                        <Button
+                                                                            variant="outline"
+                                                                            size="sm"
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                            title={!student.hasGradesInCurrentSubject ? "View grades in other subject" : "View grade details"}
+                                                                        >
                                                                             <Edit className="h-4 w-4 mr-2" />
                                                                             View Details
                                                                         </Button>

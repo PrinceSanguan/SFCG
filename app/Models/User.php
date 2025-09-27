@@ -396,6 +396,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Subject assignments for this user when they are a student.
+     */
+    public function studentSubjectAssignments(): HasMany
+    {
+        return $this->hasMany(StudentSubjectAssignment::class, 'student_id');
+    }
+
+    /**
      * Honor results for this user when they are a student.
      */
     public function honorResults(): HasMany
@@ -409,5 +417,61 @@ class User extends Authenticatable
     public function certificates(): HasMany
     {
         return $this->hasMany(Certificate::class, 'student_id');
+    }
+
+    /**
+     * Get students assigned to this teacher/adviser/instructor through subjects.
+     */
+    public function getStudentsThroughSubjects(): \Illuminate\Support\Collection
+    {
+        $service = new \App\Services\TeacherStudentAssignmentService();
+        return $service->getStudentsForTeacher($this);
+    }
+
+    /**
+     * Get teacher/adviser/instructor for this student's subject.
+     */
+    public function getTeacherForSubject(Subject $subject): ?User
+    {
+        $service = new \App\Services\TeacherStudentAssignmentService();
+        return $service->getTeacherForStudentSubject($this, $subject);
+    }
+
+    /**
+     * Get all subjects this user teaches/advises/instructs.
+     */
+    public function getAssignedSubjects(): \Illuminate\Support\Collection
+    {
+        $currentSchoolYear = "2024-2025";
+
+        if ($this->isAdviser()) {
+            return Subject::whereHas('classAdviserAssignments', function ($query) use ($currentSchoolYear) {
+                $query->where('adviser_id', $this->id)
+                    ->where('school_year', $currentSchoolYear)
+                    ->where('is_active', true);
+            })->get();
+        } elseif ($this->isTeacher()) {
+            return Subject::whereHas('teacherAssignments', function ($query) use ($currentSchoolYear) {
+                $query->where('teacher_id', $this->id)
+                    ->where('school_year', $currentSchoolYear)
+                    ->where('is_active', true);
+            })->get();
+        } elseif ($this->isInstructor()) {
+            return Subject::whereHas('instructorAssignments', function ($query) use ($currentSchoolYear) {
+                $query->where('instructor_id', $this->id)
+                    ->where('school_year', $currentSchoolYear)
+                    ->where('is_active', true);
+            })->get();
+        }
+
+        return collect();
+    }
+
+    /**
+     * Check if this user teaches/advises/instructs a specific subject.
+     */
+    public function teachesSubject(Subject $subject): bool
+    {
+        return $this->getAssignedSubjects()->contains('id', $subject->id);
     }
 }

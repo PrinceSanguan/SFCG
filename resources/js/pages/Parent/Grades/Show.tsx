@@ -27,10 +27,34 @@ export default function ParentGradesShow({ schoolYear, student, subject, grades 
   // Find all quarter grades for elementary students
   const findQuarterGrades = () => {
     const quarterGrades = {
-      Q1: grades.find(g => g.gradingPeriod?.name?.includes('First Quarter') && g.grade !== null && g.grade !== undefined),
-      Q2: grades.find(g => g.gradingPeriod?.name?.includes('Second Quarter') && g.grade !== null && g.grade !== undefined),
-      Q3: grades.find(g => g.gradingPeriod?.name?.includes('Third Quarter') && g.grade !== null && g.grade !== undefined),
-      Q4: grades.find(g => g.gradingPeriod?.name?.includes('Fourth Quarter') && g.grade !== null && g.grade !== undefined),
+      Q1: grades.find(g =>
+        (g.gradingPeriod?.name?.includes('First Quarter') ||
+         g.gradingPeriod?.name?.includes('1st Grading') ||
+         g.gradingPeriod?.code === '1ST_GRADING' ||
+         g.gradingPeriod?.code === 'Q1') &&
+        g.grade !== null && g.grade !== undefined
+      ),
+      Q2: grades.find(g =>
+        (g.gradingPeriod?.name?.includes('Second Quarter') ||
+         g.gradingPeriod?.name?.includes('2nd Grading') ||
+         g.gradingPeriod?.code === '2ND_GRADING' ||
+         g.gradingPeriod?.code === 'Q2') &&
+        g.grade !== null && g.grade !== undefined
+      ),
+      Q3: grades.find(g =>
+        (g.gradingPeriod?.name?.includes('Third Quarter') ||
+         g.gradingPeriod?.name?.includes('3rd Grading') ||
+         g.gradingPeriod?.code === '3RD_GRADING' ||
+         g.gradingPeriod?.code === 'Q3') &&
+        g.grade !== null && g.grade !== undefined
+      ),
+      Q4: grades.find(g =>
+        (g.gradingPeriod?.name?.includes('Fourth Quarter') ||
+         g.gradingPeriod?.name?.includes('4th Grading') ||
+         g.gradingPeriod?.code === '4TH_GRADING' ||
+         g.gradingPeriod?.code === 'Q4') &&
+        g.grade !== null && g.grade !== undefined
+      ),
     };
     return quarterGrades;
   };

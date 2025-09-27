@@ -55,6 +55,10 @@ class StudentSubjectAssignmentService
 
                     $assignedSubjects[] = $assignment;
 
+                    // Check if there's a teacher/adviser/instructor assigned to this subject
+                    // and log the student-teacher relationship
+                    $this->logTeacherStudentRelationship($student, $subject);
+
                     // Log activity
                     ActivityLog::create([
                         'user_id' => Auth::id() ?? 1,
@@ -284,6 +288,10 @@ class StudentSubjectAssignmentService
 
                     $enrolledSubjects[] = $assignment;
 
+                    // Check if there's a teacher/adviser/instructor assigned to this subject
+                    // and log the student-teacher relationship
+                    $this->logTeacherStudentRelationship($student, $subject);
+
                     // Log activity
                     ActivityLog::create([
                         'user_id' => Auth::id() ?? 1,
@@ -333,5 +341,62 @@ class StudentSubjectAssignmentService
         // This is essentially the same as enrollStudentInSectionSubjects now
         // but with a clearer name that indicates it handles all types
         return $this->enrollStudentInSectionSubjects($student);
+    }
+
+    /**
+     * Log the teacher-student relationship when a student is assigned to a subject.
+     */
+    private function logTeacherStudentRelationship(User $student, Subject $subject): void
+    {
+        try {
+            $teacherService = new \App\Services\TeacherStudentAssignmentService();
+            $teacher = $teacherService->getTeacherForStudentSubject($student, $subject);
+
+            if ($teacher) {
+                Log::info('Student-teacher relationship established through subject assignment', [
+                    'student_id' => $student->id,
+                    'student_name' => $student->name,
+                    'teacher_id' => $teacher->id,
+                    'teacher_name' => $teacher->name,
+                    'teacher_role' => $teacher->user_role,
+                    'subject_id' => $subject->id,
+                    'subject_name' => $subject->name,
+                    'academic_level' => $student->year_level,
+                    'specific_year_level' => $student->specific_year_level,
+                    'relationship_method' => 'automatic_through_subject_assignment',
+                ]);
+
+                // Also create an activity log for this relationship
+                ActivityLog::create([
+                    'user_id' => Auth::id() ?? 1,
+                    'target_user_id' => $student->id,
+                    'action' => 'student_teacher_relationship_established',
+                    'entity_type' => 'subject',
+                    'entity_id' => $subject->id,
+                    'details' => [
+                        'student' => $student->name,
+                        'teacher' => $teacher->name,
+                        'teacher_role' => $teacher->user_role,
+                        'subject' => $subject->name,
+                        'academic_level' => $student->year_level,
+                        'relationship_method' => 'automatic_through_subject_assignment',
+                    ],
+                ]);
+            } else {
+                Log::info('No teacher assigned to subject for student', [
+                    'student_id' => $student->id,
+                    'student_name' => $student->name,
+                    'subject_id' => $subject->id,
+                    'subject_name' => $subject->name,
+                    'note' => 'Consider assigning a teacher/adviser/instructor to this subject',
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to check teacher-student relationship', [
+                'student_id' => $student->id,
+                'subject_id' => $subject->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }

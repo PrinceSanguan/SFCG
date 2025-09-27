@@ -28,10 +28,34 @@ export default function StudentSubjectGradesShow({ user, subject, grades }: Prop
 
   // Find all quarter grades for elementary students
   const quarterGrades = {
-    Q1: grades.find(g => g.gradingPeriod?.code === 'Q1' && g.grade !== null),
-    Q2: grades.find(g => g.gradingPeriod?.code === 'Q2' && g.grade !== null),
-    Q3: grades.find(g => g.gradingPeriod?.code === 'Q3' && g.grade !== null),
-    Q4: grades.find(g => g.gradingPeriod?.code === 'Q4' && g.grade !== null),
+    Q1: grades.find(g =>
+      (g.gradingPeriod?.code === 'Q1' ||
+       g.gradingPeriod?.code === '1ST_GRADING' ||
+       g.gradingPeriod?.name === '1st Grading' ||
+       g.gradingPeriod?.name === 'First Quarter') &&
+      g.grade !== null
+    ),
+    Q2: grades.find(g =>
+      (g.gradingPeriod?.code === 'Q2' ||
+       g.gradingPeriod?.code === '2ND_GRADING' ||
+       g.gradingPeriod?.name === '2nd Grading' ||
+       g.gradingPeriod?.name === 'Second Quarter') &&
+      g.grade !== null
+    ),
+    Q3: grades.find(g =>
+      (g.gradingPeriod?.code === 'Q3' ||
+       g.gradingPeriod?.code === '3RD_GRADING' ||
+       g.gradingPeriod?.name === '3rd Grading' ||
+       g.gradingPeriod?.name === 'Third Quarter') &&
+      g.grade !== null
+    ),
+    Q4: grades.find(g =>
+      (g.gradingPeriod?.code === 'Q4' ||
+       g.gradingPeriod?.code === '4TH_GRADING' ||
+       g.gradingPeriod?.name === '4th Grading' ||
+       g.gradingPeriod?.name === 'Fourth Quarter') &&
+      g.grade !== null
+    ),
   };
 
   // For backward compatibility, also find First Quarter grade
@@ -165,7 +189,7 @@ export default function StudentSubjectGradesShow({ user, subject, grades }: Prop
                   <TableCell className="px-4 py-3">
                     <div className="flex items-center space-x-2">
                       <GraduationCap className="h-4 w-4 text-green-500" />
-                      <span>Jane Instructor</span>
+                      <span>{validGrades.length > 0 && validGrades[0].teacher_name ? validGrades[0].teacher_name : 'No Teacher Assigned'}</span>
                     </div>
                   </TableCell>
                   <TableCell className="px-4 py-3">

@@ -112,8 +112,12 @@ class GradesController extends Controller
         }
         $grades = $query->get();
 
-        // Transform grades to include explicit grading period data
-        $transformedGrades = $grades->map(function($grade) {
+        // Get the teacher/adviser/instructor for this subject
+        $teacherService = new \App\Services\TeacherStudentAssignmentService();
+        $assignedTeacher = $teacherService->getTeacherForStudentSubject($user, $subject);
+
+        // Transform grades to include explicit grading period data and teacher information
+        $transformedGrades = $grades->map(function($grade) use ($assignedTeacher) {
             return [
                 'id' => $grade->id,
                 'student_id' => $grade->student_id,
@@ -129,6 +133,8 @@ class GradesController extends Controller
                 'validated_by' => $grade->validated_by,
                 'created_at' => $grade->created_at,
                 'updated_at' => $grade->updated_at,
+                'teacher_name' => $assignedTeacher ? $assignedTeacher->name : null,
+                'teacher_role' => $assignedTeacher ? $assignedTeacher->user_role : null,
                 'gradingPeriod' => $grade->gradingPeriod ? [
                     'id' => $grade->gradingPeriod->id,
                     'name' => $grade->gradingPeriod->name,

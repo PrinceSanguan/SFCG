@@ -32,6 +32,21 @@ interface Subject {
     description: string;
     units: number;
     academic_level_id: number;
+    section_id?: number;
+    section?: {
+        id: number;
+        name: string;
+        code: string;
+        specific_year_level: string;
+    };
+}
+
+interface Section {
+    id: number;
+    name: string;
+    code: string;
+    academic_level_id: number;
+    specific_year_level: string;
 }
 
 interface ClassAdviserAssignment {
@@ -53,9 +68,10 @@ interface Props {
     advisers: User[];
     subjects: Subject[];
     academicLevels: AcademicLevel[];
+    sections: Section[];
 }
 
-export default function AssignAdvisers({ user, assignments, advisers, subjects, academicLevels }: Props) {
+export default function AssignAdvisers({ user, assignments, advisers, subjects, academicLevels, sections }: Props) {
     const { addToast } = useToast();
     
     const [assignmentForm, setAssignmentForm] = useState({
@@ -63,6 +79,7 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
         subject_id: '',
         academic_level_id: '',
         grade_level: '',
+        section_id: '',
         school_year: '',
         notes: '',
         is_active: true,
@@ -133,21 +150,47 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
         return [];
     };
 
-    const getFilteredSubjects = () => {
+    const getFilteredSections = () => {
         if (!assignmentForm.academic_level_id || !assignmentForm.grade_level) {
             return [];
         }
-        
+
+        // Convert grade level to specific year level format
+        const gradeMapping: Record<string, string> = {
+            'Grade 1': 'grade_1',
+            'Grade 2': 'grade_2',
+            'Grade 3': 'grade_3',
+            'Grade 4': 'grade_4',
+            'Grade 5': 'grade_5',
+            'Grade 6': 'grade_6',
+            'Grade 7': 'grade_7',
+            'Grade 8': 'grade_8',
+            'Grade 9': 'grade_9',
+            'Grade 10': 'grade_10',
+        };
+
+        const specificYearLevel = gradeMapping[assignmentForm.grade_level];
+
+        return sections.filter(section =>
+            section.academic_level_id.toString() === assignmentForm.academic_level_id &&
+            section.specific_year_level === specificYearLevel
+        );
+    };
+
+    const getFilteredSubjects = () => {
+        if (!assignmentForm.academic_level_id || !assignmentForm.grade_level || !assignmentForm.section_id) {
+            return [];
+        }
+
         const selectedLevel = relevantLevels.find(l => l?.id.toString() === assignmentForm.academic_level_id);
         if (!selectedLevel) return [];
-        
-        // Filter subjects by academic level
-        const filteredSubjects = subjects.filter(subject => subject.academic_level_id.toString() === assignmentForm.academic_level_id);
-        
-        // For now, we'll show all subjects for the selected academic level
-        // In the future, you could add more specific filtering based on grade level
-        // if subjects have grade_level specific data
-        
+
+        // Filter subjects by academic level and section
+        const filteredSubjects = subjects.filter(subject =>
+            subject.academic_level_id.toString() === assignmentForm.academic_level_id &&
+            subject.section_id?.toString() === assignmentForm.section_id
+        );
+
         return filteredSubjects;
     };
 
@@ -203,6 +246,7 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
             subject_id: '', // Will be filled from assignment data when we update the backend
             academic_level_id: assignment.academic_level_id.toString(),
             grade_level: assignment.grade_level,
+            section_id: '',
             school_year: assignment.school_year,
             notes: assignment.notes || '',
             is_active: assignment.is_active,
@@ -235,6 +279,7 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
             subject_id: '',
             academic_level_id: '',
             grade_level: '',
+            section_id: '',
             school_year: '',
             notes: '',
             is_active: true,
@@ -328,10 +373,11 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
                                 <Select
                                     value={assignmentForm.academic_level_id}
                                     onValueChange={(value) => {
-                                        setAssignmentForm({ 
-                                            ...assignmentForm, 
+                                        setAssignmentForm({
+                                            ...assignmentForm,
                                             academic_level_id: value,
                                             grade_level: '',
+                                            section_id: '',
                                             subject_id: ''
                                         });
                                     }}
@@ -357,7 +403,7 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
                                 <Label htmlFor="grade_level">Grade Level</Label>
                                 <Select
                                     value={assignmentForm.grade_level}
-                                    onValueChange={(value) => setAssignmentForm({ ...assignmentForm, grade_level: value, subject_id: '' })}
+                                    onValueChange={(value) => setAssignmentForm({ ...assignmentForm, grade_level: value, section_id: '', subject_id: '' })}
                                     required
                                     disabled={!assignmentForm.academic_level_id}
                                 >
@@ -379,12 +425,33 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
                             </div>
 
                             <div>
+                                <Label htmlFor="section_id">Section</Label>
+                                <Select
+                                    value={assignmentForm.section_id}
+                                    onValueChange={(value) => setAssignmentForm({ ...assignmentForm, section_id: value, subject_id: '' })}
+                                    required
+                                    disabled={!assignmentForm.academic_level_id || !assignmentForm.grade_level}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select section" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {getFilteredSections().map((section) => (
+                                            <SelectItem key={section.id} value={section.id.toString()}>
+                                                {section.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div>
                                 <Label htmlFor="subject_id">Subject</Label>
                                 <Select
                                     value={assignmentForm.subject_id}
                                     onValueChange={(value) => setAssignmentForm({ ...assignmentForm, subject_id: value })}
                                     required
-                                    disabled={!assignmentForm.academic_level_id || !assignmentForm.grade_level}
+                                    disabled={!assignmentForm.academic_level_id || !assignmentForm.grade_level || !assignmentForm.section_id}
                                 >
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select subject" />
@@ -392,7 +459,7 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
                                     <SelectContent>
                                         {getFilteredSubjects().map((subject) => (
                                             <SelectItem key={subject.id} value={subject.id.toString()}>
-                                                {subject.name} ({subject.code})
+                                                {subject.name} ({subject.code}) - {subject.section?.name || 'No Section'}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
@@ -560,12 +627,33 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
                         </div>
 
                         <div>
+                            <Label htmlFor="edit_section_id">Section</Label>
+                            <Select
+                                value={assignmentForm.section_id}
+                                onValueChange={(value) => setAssignmentForm({ ...assignmentForm, section_id: value, subject_id: '' })}
+                                required
+                                disabled={!assignmentForm.academic_level_id || !assignmentForm.grade_level}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select section" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {getFilteredSections().map((section) => (
+                                        <SelectItem key={section.id} value={section.id.toString()}>
+                                            {section.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div>
                             <Label htmlFor="edit_subject_id">Subject</Label>
                             <Select
                                 value={assignmentForm.subject_id}
                                 onValueChange={(value) => setAssignmentForm({ ...assignmentForm, subject_id: value })}
                                 required
-                                disabled={!assignmentForm.academic_level_id || !assignmentForm.grade_level}
+                                disabled={!assignmentForm.academic_level_id || !assignmentForm.grade_level || !assignmentForm.section_id}
                             >
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select subject" />
@@ -573,7 +661,7 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
                                 <SelectContent>
                                     {getFilteredSubjects().map((subject) => (
                                         <SelectItem key={subject.id} value={subject.id.toString()}>
-                                            {subject.name} ({subject.code})
+                                            {subject.name} ({subject.code}) - {subject.section?.name || 'No Section'}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -585,10 +673,11 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
                             <Select
                                 value={assignmentForm.academic_level_id}
                                 onValueChange={(value) => {
-                                    setAssignmentForm({ 
-                                        ...assignmentForm, 
+                                    setAssignmentForm({
+                                        ...assignmentForm,
                                         academic_level_id: value,
                                         grade_level: '',
+                                        section_id: '',
                                         subject_id: ''
                                     });
                                 }}
@@ -614,7 +703,7 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
                             <Label htmlFor="edit_grade_level">Grade Level</Label>
                             <Select
                                 value={assignmentForm.grade_level}
-                                onValueChange={(value) => setAssignmentForm({ ...assignmentForm, grade_level: value, subject_id: '' })}
+                                onValueChange={(value) => setAssignmentForm({ ...assignmentForm, grade_level: value, section_id: '', subject_id: '' })}
                                 required
                                 disabled={!assignmentForm.academic_level_id}
                             >

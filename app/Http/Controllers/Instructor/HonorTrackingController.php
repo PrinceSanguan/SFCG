@@ -19,24 +19,61 @@ class HonorTrackingController extends Controller
     public function index()
     {
         $user = Auth::user();
-        
+        $schoolYear = request('school_year', '2024-2025');
+
         // Get instructor's assigned courses
-        $assignedCourses = InstructorCourseAssignment::with(['course', 'academicLevel'])
+        $assignments = InstructorCourseAssignment::with(['course', 'academicLevel'])
             ->where('instructor_id', $user->id)
+            ->where('school_year', $schoolYear)
             ->where('is_active', true)
             ->get();
-        
-        // Get academic levels where the instructor has assignments
-        $academicLevels = $assignedCourses->pluck('academicLevel')->unique('id')->values();
-        
-        // Get honor types
+
+        $academicLevels = $assignments->pluck('academicLevel')->filter()->unique('id')->values();
+        $academicLevelIds = $academicLevels->pluck('id');
         $honorTypes = HonorType::all();
-        
+
+        // Get honor statistics for instructor's assigned academic levels
+        $allHonorResults = HonorResult::with(['student', 'honorType', 'academicLevel'])
+            ->whereIn('academic_level_id', $academicLevelIds)
+            ->where('school_year', $schoolYear)
+            ->get();
+
+        // Calculate statistics for each academic level
+        $academicLevelStats = $academicLevels->map(function ($level) use ($allHonorResults, $schoolYear) {
+            $levelResults = $allHonorResults->where('academic_level_id', $level->id);
+
+            return [
+                'id' => $level->id,
+                'name' => $level->name,
+                'key' => $level->key,
+                'total_students' => $levelResults->pluck('student_id')->unique()->count(),
+                'qualified_honors' => $levelResults->count(),
+                'approved_honors' => $levelResults->where('is_approved', true)->count(),
+                'pending_honors' => $levelResults->where('is_pending_approval', true)->count(),
+                'rejected_honors' => $levelResults->where('is_rejected', true)->count(),
+                'average_gpa' => $levelResults->avg('gpa') ?: 0,
+            ];
+        });
+
+        // Overall statistics
+        $overallStats = [
+            'total_honor_students' => $allHonorResults->pluck('student_id')->unique()->count(),
+            'total_qualified' => $allHonorResults->count(),
+            'total_approved' => $allHonorResults->where('is_approved', true)->count(),
+            'total_pending' => $allHonorResults->where('is_pending_approval', true)->count(),
+            'with_highest_honors' => $allHonorResults->where('honorType.key', 'with_highest_honors')->where('is_approved', true)->count(),
+            'with_high_honors' => $allHonorResults->where('honorType.key', 'with_high_honors')->where('is_approved', true)->count(),
+            'with_honors' => $allHonorResults->where('honorType.key', 'with_honors')->where('is_approved', true)->count(),
+            'average_gpa' => $allHonorResults->avg('gpa') ?: 0,
+        ];
+
         return Inertia::render('Instructor/Honors/Index', [
             'user' => $user,
-            'academicLevels' => $academicLevels,
+            'academicLevels' => $academicLevelStats,
             'honorTypes' => $honorTypes,
-            'assignedCourses' => $assignedCourses,
+            'schoolYear' => $schoolYear,
+            'assignedCourses' => $assignments,
+            'overallStats' => $overallStats,
         ]);
     }
     
