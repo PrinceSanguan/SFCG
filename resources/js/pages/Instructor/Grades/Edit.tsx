@@ -251,15 +251,60 @@ export default function Edit({ user, grade, gradingPeriods }: EditProps) {
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="0">No Period</SelectItem>
-                                                    {gradingPeriods && gradingPeriods.length > 0 ? gradingPeriods
-                                                        .filter(period => period.academic_level_id === (grade.academic_level_id || 0))
-                                                        .map((period) => (
-                                                            <SelectItem key={period.id} value={period.id.toString()}>
-                                                                {period.name}
-                                                            </SelectItem>
-                                                        ))
-                                                    : (
-                                                        <SelectItem value="0" disabled>No grading periods available</SelectItem>
+                                                    {gradingPeriods && gradingPeriods.length > 0 ? (() => {
+                                                        const filteredPeriods = gradingPeriods.filter(period =>
+                                                            period.academic_level_id === (grade.academic_level_id || 0)
+                                                        );
+
+                                                        // Group periods by semester for college level
+                                                        if (grade.academicLevel?.key === 'college') {
+                                                            // Get main semesters (not sub-periods)
+                                                            const mainSemesters = filteredPeriods.filter(p =>
+                                                                (p.code === 'COL_S1' || p.code === 'COL_S2') && !p.code.includes('_')
+                                                            );
+
+                                                            return mainSemesters.map((semester) => {
+                                                                // Get sub-periods for this specific semester, excluding Final Average
+                                                                const subPeriods = filteredPeriods.filter(p =>
+                                                                    p.code.startsWith(semester.code + '_') &&
+                                                                    !p.code.includes('_FA') // Exclude Final Average
+                                                                ).sort((a, b) => a.sort_order - b.sort_order);
+
+                                                                return (
+                                                                    <div key={semester.id}>
+                                                                        {/* Main semester - selectable */}
+                                                                        <SelectItem
+                                                                            value={semester.id.toString()}
+                                                                            className="font-semibold"
+                                                                        >
+                                                                            {semester.name}
+                                                                        </SelectItem>
+                                                                        {/* Sub-periods - quarters only */}
+                                                                        {subPeriods.map((period) => (
+                                                                            <SelectItem
+                                                                                key={period.id}
+                                                                                value={period.id.toString()}
+                                                                                className="pl-6 text-sm"
+                                                                            >
+                                                                                • {period.name}
+                                                                            </SelectItem>
+                                                                        ))}
+                                                                    </div>
+                                                                );
+                                                            });
+                                                        } else {
+                                                            // For other academic levels, show regular list (excluding final averages)
+                                                            return filteredPeriods
+                                                                .filter(period => !period.name.toLowerCase().includes('final average'))
+                                                                .sort((a, b) => a.sort_order - b.sort_order)
+                                                                .map((period) => (
+                                                                    <SelectItem key={period.id} value={period.id.toString()}>
+                                                                        {period.name}
+                                                                    </SelectItem>
+                                                                ));
+                                                        }
+                                                    })() : (
+                                                        <SelectItem value="none" disabled>No grading periods available</SelectItem>
                                                     )}
                                                 </SelectContent>
                                             </Select>

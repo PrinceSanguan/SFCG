@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
 import { useForm } from '@inertiajs/react';
 import { ArrowLeft, Save, Plus } from 'lucide-react';
 import { Link } from '@inertiajs/react';
@@ -194,8 +194,11 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
     const hasPreSelectedStudent = data.student_id && data.subject_id && data.academic_level_id;
     
     // Debug logging (can be removed in production)
-    // console.log('Form data:', data);
-    // console.log('hasPreSelectedStudent:', hasPreSelectedStudent);
+    console.log('Form data:', data);
+    console.log('hasPreSelectedStudent:', hasPreSelectedStudent);
+    console.log('Academic Levels:', academicLevels);
+    console.log('Grading Periods:', gradingPeriods);
+    console.log('Grading Periods Length:', gradingPeriods?.length);
 
     // Show loading state while initializing
     if (!isInitialized) {
@@ -328,18 +331,42 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                                         <SelectValue placeholder="Select grading period" />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        {gradingPeriods
-                                                            .filter(period => {
-                                                                // Filter periods for the current academic level
-                                                                const currentLevel = academicLevels.find(l => l.id.toString() === data.academic_level_id);
-                                                                return currentLevel ? period.academic_level_id === currentLevel.id : true;
-                                                            })
-                                                            .map((period) => (
-                                                                <SelectItem key={period.id} value={period.id.toString()}>
-                                                                    {period.name}
-                                                                </SelectItem>
-                                                            ))
-                                                        }
+                                                        <SelectItem value="0">No Period</SelectItem>
+                                                        {gradingPeriods && gradingPeriods.length > 0 ? (
+                                                            <>
+                                                                {/* First Semester */}
+                                                                <SelectGroup>
+                                                                    <SelectLabel>First Semester</SelectLabel>
+                                                                    {gradingPeriods
+                                                                        .filter(period => period.code.startsWith('COL_S1_') && !period.code.includes('_FA'))
+                                                                        .sort((a, b) => a.sort_order - b.sort_order)
+                                                                        .map((period) => (
+                                                                            <SelectItem key={period.id} value={period.id.toString()}>
+                                                                                {period.name}
+                                                                            </SelectItem>
+                                                                        ))
+                                                                    }
+                                                                </SelectGroup>
+
+                                                                {/* Second Semester */}
+                                                                <SelectGroup>
+                                                                    <SelectLabel>Second Semester</SelectLabel>
+                                                                    {gradingPeriods
+                                                                        .filter(period => period.code.startsWith('COL_S2_') && !period.code.includes('_FA'))
+                                                                        .sort((a, b) => a.sort_order - b.sort_order)
+                                                                        .map((period) => (
+                                                                            <SelectItem key={period.id} value={period.id.toString()}>
+                                                                                {period.name}
+                                                                            </SelectItem>
+                                                                        ))
+                                                                    }
+                                                                </SelectGroup>
+                                                            </>
+                                                        ) : (
+                                                            <SelectItem value="debug" disabled>
+                                                                No grading periods available (Debug: {gradingPeriods?.length || 'undefined'})
+                                                            </SelectItem>
+                                                        )}
                                                     </SelectContent>
                                                 </Select>
                                                 {errors.grading_period_id && (
@@ -439,11 +466,41 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="0">No Period</SelectItem>
-                                                    {gradingPeriods.map((period) => (
-                                                        <SelectItem key={period.id} value={period.id.toString()}>
-                                                            {period.name}
+                                                    {gradingPeriods && gradingPeriods.length > 0 ? (
+                                                        <>
+                                                            {/* First Semester */}
+                                                            <SelectGroup>
+                                                                <SelectLabel>First Semester</SelectLabel>
+                                                                {gradingPeriods
+                                                                    .filter(period => period.code.startsWith('COL_S1_') && !period.code.includes('_FA'))
+                                                                    .sort((a, b) => a.sort_order - b.sort_order)
+                                                                    .map((period) => (
+                                                                        <SelectItem key={period.id} value={period.id.toString()}>
+                                                                            {period.name}
+                                                                        </SelectItem>
+                                                                    ))
+                                                                }
+                                                            </SelectGroup>
+
+                                                            {/* Second Semester */}
+                                                            <SelectGroup>
+                                                                <SelectLabel>Second Semester</SelectLabel>
+                                                                {gradingPeriods
+                                                                    .filter(period => period.code.startsWith('COL_S2_') && !period.code.includes('_FA'))
+                                                                    .sort((a, b) => a.sort_order - b.sort_order)
+                                                                    .map((period) => (
+                                                                        <SelectItem key={period.id} value={period.id.toString()}>
+                                                                            {period.name}
+                                                                        </SelectItem>
+                                                                    ))
+                                                                }
+                                                            </SelectGroup>
+                                                        </>
+                                                    ) : (
+                                                        <SelectItem value="debug" disabled>
+                                                            No grading periods available (Debug: {gradingPeriods?.length || 'undefined'})
                                                         </SelectItem>
-                                                    ))}
+                                                    )}
                                                 </SelectContent>
                                             </Select>
                                         </div>

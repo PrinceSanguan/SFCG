@@ -226,8 +226,20 @@ class GradeManagementController extends Controller
         });
         
         // Get available subjects, academic levels, and grading periods
-        $academicLevels = AcademicLevel::all();
-        $gradingPeriods = GradingPeriod::all();
+        // Instructors only handle college level courses
+        $academicLevels = AcademicLevel::where('key', 'college')->get();
+
+        // Get college grading periods
+        $gradingPeriods = GradingPeriod::where('academic_level_id', 4) // College level ID
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->get();
+
+        // Debug logging for grading periods
+        Log::info('Grade Creation - Academic Levels:', $academicLevels->toArray());
+        Log::info('Grade Creation - Grading Periods:', $gradingPeriods->toArray());
+        Log::info('Grade Creation - Selected Student:', $selectedStudent ?: []);
+        Log::info('Grade Creation - Request Parameters:', request()->all());
         
         return Inertia::render('Instructor/Grades/Create', [
             'user' => $user,
