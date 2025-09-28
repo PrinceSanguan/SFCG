@@ -520,6 +520,15 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/aca
     Route::post('/certificates/generate-bulk', [CertificateController::class, 'generateBulk'])->name('certificates.generate-bulk');
     Route::get('/certificates/resolve-student', [CertificateController::class, 'resolveStudentApi'])->name('certificates.resolve-student');
 
+    // New bulk certificate generation routes
+    Route::post('/certificates/bulk-generate-by-level', [CertificateController::class, 'bulkGenerateByLevel'])->name('certificates.bulk-generate-by-level');
+    Route::post('/certificates/bulk-generate-by-honor-type', [CertificateController::class, 'bulkGenerateByHonorType'])->name('certificates.bulk-generate-by-honor-type');
+    Route::post('/certificates/bulk-print-pdf', [CertificateController::class, 'bulkPrintPDF'])->name('certificates.bulk-print-pdf');
+
+    // Honor roll routes
+    Route::get('/certificates/honor-roll', [CertificateController::class, 'honorRoll'])->name('certificates.honor-roll');
+    Route::get('/certificates/honor-roll/pdf', [CertificateController::class, 'generateHonorRollPDF'])->name('certificates.honor-roll.pdf');
+
     Route::get('/certificates/{certificate}/download', [CertificateController::class, 'download'])->name('certificates.download');
     Route::get('/certificates/{certificate}/print', [CertificateController::class, 'print'])->name('certificates.print');
 });

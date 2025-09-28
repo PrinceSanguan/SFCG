@@ -83,35 +83,79 @@ class HonorTrackingController extends Controller
     public function showByLevel(AcademicLevel $academicLevel)
     {
         $user = Auth::user();
-        
+        $schoolYear = request('school_year', '2024-2025');
+
         // Verify the instructor has assignments in this academic level
         $hasAssignment = InstructorCourseAssignment::where('instructor_id', $user->id)
             ->where('academic_level_id', $academicLevel->id)
+            ->where('school_year', $schoolYear)
             ->where('is_active', true)
             ->exists();
-        
+
         if (!$hasAssignment) {
             abort(403, 'You are not assigned to any courses in this academic level.');
         }
-        
-        // Get honor results for this academic level
-        $honorResults = HonorResult::with(['student', 'honorType'])
+
+        $honorResults = HonorResult::with(['student', 'honorType', 'approvedBy', 'rejectedBy'])
             ->where('academic_level_id', $academicLevel->id)
-            ->where('school_year', request('school_year', '2024-2025'))
+            ->where('school_year', $schoolYear)
+            ->orderBy('created_at', 'desc')
             ->get();
-        
-        // Group by honor type
-        $groupedResults = $honorResults->groupBy('honor_type_id');
-        
-        // Get honor types
+
+        // Transform results to include status information
+        $transformedResults = $honorResults->map(function ($result) {
+            $status = 'pending';
+            $statusColor = 'yellow';
+            if ($result->is_approved) {
+                $status = 'approved';
+                $statusColor = 'green';
+            } elseif ($result->is_rejected) {
+                $status = 'rejected';
+                $statusColor = 'red';
+            }
+
+            return [
+                'id' => $result->id,
+                'student' => $result->student,
+                'honorType' => $result->honorType,
+                'gpa' => $result->gpa,
+                'school_year' => $result->school_year,
+                'status' => $status,
+                'status_color' => $statusColor,
+                'is_approved' => $result->is_approved,
+                'is_pending_approval' => $result->is_pending_approval,
+                'is_rejected' => $result->is_rejected,
+                'approved_at' => $result->approved_at,
+                'approved_by' => $result->approvedBy,
+                'rejected_at' => $result->rejected_at,
+                'rejected_by' => $result->rejectedBy,
+                'rejection_reason' => $result->rejection_reason,
+                'is_overridden' => $result->is_overridden,
+                'override_reason' => $result->override_reason,
+                'created_at' => $result->created_at,
+            ];
+        });
+
+        $groupedResults = $transformedResults->groupBy('honorType.id');
         $honorTypes = HonorType::all();
-        
+
+        // Calculate statistics for this level
+        $levelStats = [
+            'total_qualified' => $honorResults->count(),
+            'total_approved' => $honorResults->where('is_approved', true)->count(),
+            'total_pending' => $honorResults->where('is_pending_approval', true)->count(),
+            'total_rejected' => $honorResults->where('is_rejected', true)->count(),
+            'average_gpa' => $honorResults->avg('gpa') ?: 0,
+        ];
+
         return Inertia::render('Instructor/Honors/ShowByLevel', [
             'user' => $user,
             'academicLevel' => $academicLevel,
             'honorResults' => $groupedResults,
+            'transformedResults' => $transformedResults,
             'honorTypes' => $honorTypes,
-            'schoolYear' => request('school_year', '2024-2025'),
+            'schoolYear' => $schoolYear,
+            'levelStats' => $levelStats,
         ]);
     }
     
@@ -121,27 +165,28 @@ class HonorTrackingController extends Controller
     public function getHonorResults(Request $request)
     {
         $user = Auth::user();
-        
+
         $request->validate([
             'academic_level_id' => 'required|exists:academic_levels,id',
             'school_year' => 'required|string',
         ]);
-        
+
         // Verify the instructor has assignments in this academic level
         $hasAssignment = InstructorCourseAssignment::where('instructor_id', $user->id)
             ->where('academic_level_id', $request->academic_level_id)
+            ->where('school_year', $request->school_year)
             ->where('is_active', true)
             ->exists();
-        
+
         if (!$hasAssignment) {
             abort(403, 'You are not assigned to any courses in this academic level.');
         }
-        
+
         $honorResults = HonorResult::with(['student', 'honorType'])
             ->where('academic_level_id', $request->academic_level_id)
             ->where('school_year', $request->school_year)
             ->get();
-        
+
         return response()->json($honorResults);
     }
     
@@ -151,27 +196,28 @@ class HonorTrackingController extends Controller
     public function getStatistics(Request $request)
     {
         $user = Auth::user();
-        
+
         $request->validate([
             'academic_level_id' => 'required|exists:academic_levels,id',
             'school_year' => 'required|string',
         ]);
-        
+
         // Verify the instructor has assignments in this academic level
         $hasAssignment = InstructorCourseAssignment::where('instructor_id', $user->id)
             ->where('academic_level_id', $request->academic_level_id)
+            ->where('school_year', $request->school_year)
             ->where('is_active', true)
             ->exists();
-        
+
         if (!$hasAssignment) {
             abort(403, 'You are not assigned to any courses in this academic level.');
         }
-        
+
         $honorResults = HonorResult::with(['honorType'])
             ->where('academic_level_id', $request->academic_level_id)
             ->where('school_year', $request->school_year)
             ->get();
-        
+
         $statistics = [
             'total_honors' => $honorResults->count(),
             'by_type' => $honorResults->groupBy('honor_type_id')->map(function ($group) {
@@ -183,7 +229,7 @@ class HonorTrackingController extends Controller
             'average_gpa' => $honorResults->avg('gpa'),
             'overridden_count' => $honorResults->where('is_overridden', true)->count(),
         ];
-        
+
         return response()->json($statistics);
     }
 }

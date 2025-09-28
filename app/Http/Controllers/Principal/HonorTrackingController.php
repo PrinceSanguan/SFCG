@@ -9,6 +9,7 @@ use App\Models\AcademicLevel;
 use App\Models\ParentStudentRelationship;
 use App\Mail\ParentHonorNotificationEmail;
 use App\Mail\StudentHonorQualificationEmail;
+use App\Services\CertificateGenerationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -107,9 +108,23 @@ class HonorTrackingController extends Controller
             'approved_at' => now(),
             'approved_by' => $user->id,
         ]);
-        
+
+        // Generate certificate automatically
+        $certificateService = app(CertificateGenerationService::class);
+        $certificate = $certificateService->generateHonorCertificate($honor);
+
+        if ($certificate) {
+            Log::info('Certificate generated automatically for approved honor', [
+                'certificate_id' => $certificate->id,
+                'certificate_serial' => $certificate->serial_number,
+                'honor_id' => $honor->id,
+                'student_id' => $honor->student_id,
+                'approved_by' => 'principal',
+            ]);
+        }
+
         // Send parent notification emails with new template
-        $this->sendParentNotifications($honor);
+        $this->sendParentNotifications($honor, $certificate);
         
         Log::info('Honor approved by principal', [
             'principal_id' => $user->id,
@@ -119,7 +134,11 @@ class HonorTrackingController extends Controller
             'academic_level' => $honor->academicLevel?->name ?? 'Unknown',
         ]);
         
-        return back()->with('success', 'Honor approved successfully. Parent notifications have been sent.');
+        $message = 'Honor approved successfully. Parent notifications have been sent.';
+        if ($certificate) {
+            $message .= ' Certificate has been generated with serial number: ' . $certificate->serial_number;
+        }
+        return back()->with('success', $message);
     }
     
     public function rejectHonor(Request $request, $honorId)
@@ -178,7 +197,7 @@ class HonorTrackingController extends Controller
     /**
      * Send honor notification emails to all parents of the student
      */
-    private function sendParentNotifications($honor)
+    private function sendParentNotifications($honor, $certificate = null)
     {
         try {
             // Get all parents for this student
