@@ -47,8 +47,8 @@ interface Student {
 interface HonorResult {
     id: number;
     student: Student;
-    honorType: HonorType;
-    academicLevel: AcademicLevel;
+    honor_type: HonorType;
+    academic_level: AcademicLevel;
     gpa: number;
     school_year: string;
     is_approved: boolean;
@@ -62,7 +62,7 @@ interface Certificate {
     serial_number: string;
     student: Student;
     template: Template;
-    academicLevel: AcademicLevel;
+    academic_level: AcademicLevel;
     status: string;
     generated_at: string;
     school_year: string;
@@ -124,6 +124,7 @@ export default function CertificatesIndex({
 }: Props) {
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [schoolYear, setSchoolYear] = useState<string>(currentSchoolYear || schoolYears?.[0] || '2024-2025');
+
     const [selectedTemplate, setSelectedTemplate] = useState<string>('');
     const [selectedStudents, setSelectedStudents] = useState<number[]>([]);
     const [selectedCertificates, setSelectedCertificates] = useState<number[]>([]);
@@ -155,8 +156,8 @@ export default function CertificatesIndex({
         return allHonors
             .filter(honor =>
                 honor &&
-                honor.academicLevel &&
-                honor.academicLevel.key === categoryKey &&
+                honor.academic_level &&
+                honor.academic_level.key === categoryKey &&
                 honor.school_year === schoolYear
             )
             .sort((a, b) => {
@@ -186,7 +187,7 @@ export default function CertificatesIndex({
         setGenerateData({
             student_id: honor.student.id.toString(),
             template_id: selectedTemplate,
-            academic_level_id: honor.academicLevel.id.toString(),
+            academic_level_id: honor.academic_level.id.toString(),
             school_year: schoolYear,
         });
 
@@ -298,7 +299,7 @@ export default function CertificatesIndex({
                                 {CATEGORIES.map((category) => {
                                     const Icon = category.icon;
                                     const categoryCount = allHonors.filter(honor =>
-                                        honor?.academicLevel?.key === category.key &&
+                                        honor?.academic_level?.key === category.key &&
                                         honor.school_year === schoolYear
                                     ).length;
 
@@ -403,7 +404,7 @@ export default function CertificatesIndex({
                                                             .map(honor => {
                                                                 const cert = generatedCertificates?.find(c =>
                                                                     c.student.id === honor.student.id &&
-                                                                    c.academicLevel.id === honor.academicLevel.id
+                                                                    c.academicLevel.id === honor.academic_level.id
                                                                 );
                                                                 return cert?.id;
                                                             })
@@ -487,7 +488,7 @@ export default function CertificatesIndex({
                                                                 </TableCell>
                                                                 <TableCell>
                                                                     <Badge variant="secondary">
-                                                                        {honor.honorType?.name || 'Unknown Honor'}
+                                                                        {honor.honor_type?.name || 'Unknown Honor'}
                                                                     </Badge>
                                                                 </TableCell>
                                                                 <TableCell className="font-mono">
@@ -497,7 +498,7 @@ export default function CertificatesIndex({
                                                                     {(() => {
                                                                         const certificate = generatedCertificates?.find(cert =>
                                                                             cert.student.id === honor.student.id &&
-                                                                            cert.academicLevel.id === honor.academicLevel.id &&
+                                                                            cert.academic_level.id === honor.academic_level.id &&
                                                                             cert.school_year === honor.school_year
                                                                         );
                                                                         return certificate ? (
@@ -522,7 +523,7 @@ export default function CertificatesIndex({
                                                                         {(() => {
                                                                             const certificate = generatedCertificates?.find(cert =>
                                                                                 cert.student.id === honor.student.id &&
-                                                                                cert.academicLevel.id === honor.academicLevel.id &&
+                                                                                cert.academic_level.id === honor.academic_level.id &&
                                                                                 cert.school_year === honor.school_year
                                                                             );
                                                                             return certificate ? (
