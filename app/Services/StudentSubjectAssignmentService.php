@@ -205,6 +205,7 @@ class StudentSubjectAssignmentService
                     'removed_count' => $deletedCount,
                 ],
             ]);
+     
         }
 
         return $deletedCount;

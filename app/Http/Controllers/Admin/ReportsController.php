@@ -49,10 +49,17 @@ class ReportsController extends Controller
             'active_periods' => GradingPeriod::where('is_active', true)->count(),
         ];
 
+        // Get the most recent school year from actual data
+        $currentSchoolYear = StudentGrade::select('school_year')
+            ->distinct()
+            ->orderBy('school_year', 'DESC')
+            ->value('school_year') ?? $schoolYears[0];
+
         return Inertia::render('Admin/Reports/Index', [
             'user' => $this->sharedUser(),
             'academicLevels' => $academicLevels,
             'schoolYears' => $schoolYears,
+            'currentSchoolYear' => $currentSchoolYear,
             'gradingPeriods' => $gradingPeriods,
             'honorTypes' => $honorTypes,
             'stats' => $stats,

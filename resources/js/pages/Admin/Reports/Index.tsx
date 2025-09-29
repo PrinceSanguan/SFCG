@@ -31,6 +31,7 @@ interface Props {
   user: User;
   academicLevels: AcademicLevel[];
   schoolYears: string[];
+  currentSchoolYear: string;
   gradingPeriods: GradingPeriod[];
   honorTypes: HonorType[];
   stats: {
@@ -41,7 +42,7 @@ interface Props {
   };
 }
 
-export default function ReportsIndex({ user, academicLevels, schoolYears, gradingPeriods, honorTypes, stats }: Props) {
+export default function ReportsIndex({ user, academicLevels, schoolYears, currentSchoolYear, gradingPeriods, honorTypes, stats }: Props) {
   const [activeTab, setActiveTab] = useState('grade-reports');
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -49,7 +50,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, gradin
   const { data: gradeData, setData: setGradeData, post: postGrade, processing: gradeProcessing } = useForm({
     academic_level_id: 'all',
     grading_period_id: 'all',
-    school_year: schoolYears[0] || '',
+    school_year: currentSchoolYear || schoolYears[0] || '',
     format: 'pdf',
     include_statistics: true,
   });
@@ -57,7 +58,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, gradin
   // Honor Statistics Form
   const { data: honorData, setData: setHonorData, post: postHonor, processing: honorProcessing } = useForm({
     academic_level_id: 'all',
-    school_year: schoolYears[0] || '',
+    school_year: currentSchoolYear || schoolYears[0] || '',
     honor_type_id: 'all',
     format: 'pdf',
   });
@@ -65,7 +66,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, gradin
   // Archive Records Form
   const { data: archiveData, setData: setArchiveData, post: postArchive, processing: archiveProcessing } = useForm({
     academic_level_id: '',
-    school_year: schoolYears[0] || '',
+    school_year: currentSchoolYear || schoolYears[0] || '',
     include_grades: true,
     include_honors: true,
     include_certificates: true,
@@ -75,13 +76,13 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, gradin
   const handleGradeReport = (e: React.FormEvent) => {
     e.preventDefault();
     setIsGenerating(true);
-    
+
     // Create a temporary form for file download
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = route('admin.reports.grade-report');
-    form.target = '_blank';
-    
+    // Remove target="_blank" to avoid session issues
+
     // Add CSRF token
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
     if (csrfToken) {
@@ -90,8 +91,12 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, gradin
       csrfInput.name = '_token';
       csrfInput.value = csrfToken;
       form.appendChild(csrfInput);
+    } else {
+      console.error('CSRF token not found');
+      setIsGenerating(false);
+      return;
     }
-    
+
     // Add form data
     Object.entries(gradeData).forEach(([key, value]) => {
       const input = document.createElement('input');
@@ -105,11 +110,11 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, gradin
       }
       form.appendChild(input);
     });
-    
+
     document.body.appendChild(form);
     form.submit();
     document.body.removeChild(form);
-    
+
     // Reset loading state after a delay
     setTimeout(() => setIsGenerating(false), 2000);
   };
@@ -117,13 +122,13 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, gradin
   const handleHonorStatistics = (e: React.FormEvent) => {
     e.preventDefault();
     setIsGenerating(true);
-    
+
     // Create a temporary form for file download
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = route('admin.reports.honor-statistics');
-    form.target = '_blank';
-    
+    // Remove target="_blank" to avoid session issues
+
     // Add CSRF token
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
     if (csrfToken) {
@@ -132,8 +137,12 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, gradin
       csrfInput.name = '_token';
       csrfInput.value = csrfToken;
       form.appendChild(csrfInput);
+    } else {
+      console.error('CSRF token not found');
+      setIsGenerating(false);
+      return;
     }
-    
+
     // Add form data
     Object.entries(honorData).forEach(([key, value]) => {
       const input = document.createElement('input');
@@ -147,11 +156,11 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, gradin
       }
       form.appendChild(input);
     });
-    
+
     document.body.appendChild(form);
     form.submit();
     document.body.removeChild(form);
-    
+
     // Reset loading state after a delay
     setTimeout(() => setIsGenerating(false), 2000);
   };
@@ -159,13 +168,13 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, gradin
   const handleArchiveRecords = (e: React.FormEvent) => {
     e.preventDefault();
     setIsGenerating(true);
-    
+
     // Create a temporary form for file download
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = route('admin.reports.archive-records');
-    form.target = '_blank';
-    
+    // Remove target="_blank" to avoid session issues
+
     // Add CSRF token
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
     if (csrfToken) {
@@ -174,8 +183,12 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, gradin
       csrfInput.name = '_token';
       csrfInput.value = csrfToken;
       form.appendChild(csrfInput);
+    } else {
+      console.error('CSRF token not found');
+      setIsGenerating(false);
+      return;
     }
-    
+
     // Add form data
     Object.entries(archiveData).forEach(([key, value]) => {
       const input = document.createElement('input');
@@ -189,11 +202,11 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, gradin
       }
       form.appendChild(input);
     });
-    
+
     document.body.appendChild(form);
     form.submit();
     document.body.removeChild(form);
-    
+
     // Reset loading state after a delay
     setTimeout(() => setIsGenerating(false), 2000);
   };
