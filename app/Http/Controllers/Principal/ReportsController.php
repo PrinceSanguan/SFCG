@@ -8,8 +8,7 @@ use App\Models\HonorResult;
 use App\Models\User;
 use App\Models\AcademicLevel;
 use App\Models\Course;
-// use App\Exports\GradeReportExport;
-// use App\Exports\HonorStatisticsExport;
+use App\Exports\GradeReportExport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -243,10 +242,104 @@ class ReportsController extends Controller
         }
     }
     
-    public function export($type)
+    public function export($type, Request $request)
     {
-        // TODO: Implement export functionality
-        return back()->with('error', 'Export functionality is not yet implemented.');
+        try {
+            $filters = $request->only(['academic_level_id', 'course_id', 'year', 'period']);
+
+            if ($type === 'grades') {
+                return $this->exportGrades($filters);
+            } elseif ($type === 'honors') {
+                return $this->exportHonors($filters);
+            }
+
+            return back()->with('error', 'Invalid export type specified.');
+
+        } catch (\Exception $e) {
+            Log::error('Export Error: ' . $e->getMessage());
+            return back()->with('error', 'An error occurred while generating the report: ' . $e->getMessage());
+        }
+    }
+
+    private function exportGrades($filters)
+    {
+        // Query grades with relationships
+        $query = StudentGrade::with(['student', 'subject.course', 'academicLevel', 'gradingPeriod'])
+            ->where('is_approved', true);
+
+        // Apply filters
+        if (!empty($filters['academic_level_id'])) {
+            $query->where('academic_level_id', $filters['academic_level_id']);
+        }
+
+        if (!empty($filters['course_id'])) {
+            $query->whereHas('subject.course', function ($q) use ($filters) {
+                $q->where('id', $filters['course_id']);
+            });
+        }
+
+        if (!empty($filters['year'])) {
+            $query->where('school_year', $filters['year']);
+        }
+
+        if (!empty($filters['period'])) {
+            $query->where('grading_period_id', $filters['period']);
+        }
+
+        $grades = $query->get();
+
+        // Calculate statistics
+        $gradeValues = $grades->pluck('grade')->filter();
+        $statistics = [
+            'total_records' => $grades->count(),
+            'average_grade' => $gradeValues->count() > 0 ? $gradeValues->avg() : 0,
+            'highest_grade' => $gradeValues->count() > 0 ? $gradeValues->max() : 0,
+            'lowest_grade' => $gradeValues->count() > 0 ? $gradeValues->min() : 0,
+            'grade_distribution' => $this->calculateGradeDistribution($gradeValues),
+            'subject_averages' => $this->calculateSubjectAverages($grades),
+        ];
+
+        $filename = 'grade_report_' . now()->format('Y-m-d_H-i-s') . '.xlsx';
+
+        return Excel::download(new GradeReportExport($grades, $statistics), $filename);
+    }
+
+    private function exportHonors($filters)
+    {
+        // For now, return a simple message for honors export
+        // This can be implemented later with a proper HonorReportExport class
+        return back()->with('info', 'Honor statistics export is not yet available. Please use the Grade Report export.');
+    }
+
+    private function calculateGradeDistribution($gradeValues)
+    {
+        if ($gradeValues->count() === 0) {
+            return [];
+        }
+
+        return [
+            '95-100 (Excellent)' => $gradeValues->filter(function($grade) { return $grade >= 95 && $grade <= 100; })->count(),
+            '90-94 (Very Good)' => $gradeValues->filter(function($grade) { return $grade >= 90 && $grade <= 94; })->count(),
+            '85-89 (Good)' => $gradeValues->filter(function($grade) { return $grade >= 85 && $grade <= 89; })->count(),
+            '80-84 (Satisfactory)' => $gradeValues->filter(function($grade) { return $grade >= 80 && $grade <= 84; })->count(),
+            '75-79 (Fair)' => $gradeValues->filter(function($grade) { return $grade >= 75 && $grade <= 79; })->count(),
+            'Below 75 (Failing)' => $gradeValues->filter(function($grade) { return $grade < 75; })->count(),
+        ];
+    }
+
+    private function calculateSubjectAverages($grades)
+    {
+        return $grades->groupBy('subject.name')
+            ->map(function ($subjectGrades) {
+                $gradeValues = $subjectGrades->pluck('grade')->filter();
+                return [
+                    'subject' => $subjectGrades->first()->subject->name,
+                    'average' => $gradeValues->count() > 0 ? $gradeValues->avg() : 0,
+                    'count' => $gradeValues->count(),
+                ];
+            })
+            ->values()
+            ->toArray();
     }
     
     // API methods
