@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { router } from '@inertiajs/react';
 import { Header } from '@/components/admin/header';
 import { Sidebar } from '@/components/admin/sidebar';
@@ -41,6 +41,16 @@ interface Subject {
     };
 }
 
+interface GradingPeriod {
+    id: number;
+    name: string;
+    code: string;
+    academic_level_id: number;
+    type: string;
+    period_type: string;
+    parent_id: number | null;
+}
+
 interface Section {
     id: number;
     name: string;
@@ -69,9 +79,10 @@ interface Props {
     subjects: Subject[];
     academicLevels: AcademicLevel[];
     sections: Section[];
+    gradingPeriods: GradingPeriod[];
 }
 
-export default function AssignAdvisers({ user, assignments, advisers, subjects, academicLevels, sections }: Props) {
+export default function AssignAdvisers({ user, assignments, advisers, subjects, academicLevels, sections, gradingPeriods }: Props) {
     const { addToast } = useToast();
     
     const [assignmentForm, setAssignmentForm] = useState({
@@ -80,10 +91,13 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
         academic_level_id: '',
         grade_level: '',
         section_id: '',
+        grading_period_ids: [] as string[],
         school_year: '',
         notes: '',
         is_active: true,
     });
+
+    const [filteredGradingPeriods, setFilteredGradingPeriods] = useState<GradingPeriod[]>([]);
 
     const [assignmentModal, setAssignmentModal] = useState(false);
     const [editAssignment, setEditAssignment] = useState<ClassAdviserAssignment | null>(null);
@@ -273,6 +287,17 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
         }
     };
 
+    // Filter grading periods based on selected academic level
+    useEffect(() => {
+        if (assignmentForm.academic_level_id) {
+            const levelId = parseInt(assignmentForm.academic_level_id);
+            const filtered = gradingPeriods.filter(period => period.academic_level_id === levelId);
+            setFilteredGradingPeriods(filtered);
+        } else {
+            setFilteredGradingPeriods([]);
+        }
+    }, [assignmentForm.academic_level_id, gradingPeriods]);
+
     const resetForm = () => {
         setAssignmentForm({
             adviser_id: '',
@@ -280,10 +305,12 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
             academic_level_id: '',
             grade_level: '',
             section_id: '',
+            grading_period_ids: [],
             school_year: '',
             notes: '',
             is_active: true,
         });
+        setFilteredGradingPeriods([]);
     };
 
     return (
@@ -486,6 +513,45 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
                                     </SelectContent>
                                 </Select>
                             </div>
+
+                            {filteredGradingPeriods.length > 0 && (
+                                <div className="border rounded-lg p-4">
+                                    <Label className="text-base font-semibold mb-3 block">Grading Periods (Optional)</Label>
+                                    <p className="text-sm text-gray-500 mb-3">Select specific grading periods for this assignment, or leave empty to apply to all periods.</p>
+                                    <div className="space-y-2">
+                                        {filteredGradingPeriods
+                                            .filter(p => !p.parent_id)
+                                            .sort((a, b) => a.name.localeCompare(b.name))
+                                            .map((period) => (
+                                                <div key={period.id} className="flex items-center space-x-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        id={`period-${period.id}`}
+                                                        checked={assignmentForm.grading_period_ids.includes(period.id.toString())}
+                                                        onChange={(e) => {
+                                                            const periodId = period.id.toString();
+                                                            if (e.target.checked) {
+                                                                setAssignmentForm({
+                                                                    ...assignmentForm,
+                                                                    grading_period_ids: [...assignmentForm.grading_period_ids, periodId]
+                                                                });
+                                                            } else {
+                                                                setAssignmentForm({
+                                                                    ...assignmentForm,
+                                                                    grading_period_ids: assignmentForm.grading_period_ids.filter(id => id !== periodId)
+                                                                });
+                                                            }
+                                                        }}
+                                                        className="w-4 h-4 rounded border-gray-300"
+                                                    />
+                                                    <Label htmlFor={`period-${period.id}`} className="text-sm font-normal cursor-pointer">
+                                                        {period.name} ({period.code})
+                                                    </Label>
+                                                </div>
+                                            ))}
+                                    </div>
+                                </div>
+                            )}
 
                             <div>
                                 <Label htmlFor="notes">Notes</Label>

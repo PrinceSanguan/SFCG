@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { router } from '@inertiajs/react';
 import { Header } from '@/components/admin/header';
 import { Sidebar } from '@/components/admin/sidebar';
@@ -30,6 +30,9 @@ interface GradingPeriod {
     name: string;
     code: string;
     academic_level_id: number;
+    semester_number: number | null;
+    parent_id: number | null;
+    type: string;
 }
 
 interface Subject {
@@ -131,7 +134,8 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
         strand_id: '',
         department_id: '',
         course_id: '',
-        grading_period_id: '',
+        semester_ids: [] as string[],
+        grading_period_ids: [] as string[],
         school_year: '',
         notes: '',
         is_active: true,
@@ -143,6 +147,7 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
     const [filteredStrands, setFilteredStrands] = useState<Strand[]>([]);
     const [filteredSubjects, setFilteredSubjects] = useState<Subject[]>([]);
     const [filteredCourses, setFilteredCourses] = useState<Course[]>([]);
+    const [filteredGradingPeriods, setFilteredGradingPeriods] = useState<GradingPeriod[]>([]);
     // const [filteredDepartments, setFilteredDepartments] = useState<Department[]>([]);
 
     // Get academic levels
@@ -169,22 +174,54 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
     };
     
     const currentHierarchy = getFilteringHierarchy(assignmentForm.academic_level_id);
-    
-    
 
-    
-    const shsAssignments = assignments.filter(assignment => 
+    // Get semester options for College/SHS
+    const getSemesterOptions = () => {
+        if (assignmentForm.academic_level_id) {
+            const levelId = parseInt(assignmentForm.academic_level_id);
+            const selectedLevel = academicLevels.find(level => level.id === levelId);
+
+            // Only show semester selector for College and SHS
+            if (selectedLevel && (selectedLevel.key === 'college' || selectedLevel.key === 'senior_highschool')) {
+                return gradingPeriods.filter(period =>
+                    period.academic_level_id === levelId &&
+                    period.parent_id === null &&
+                    period.type === 'semester'
+                );
+            }
+        }
+        return [];
+    };
+
+    const semesterOptions = getSemesterOptions();
+
+    // Filter grading periods based on selected academic level and semesters
+    useEffect(() => {
+        if (assignmentForm.academic_level_id) {
+            const levelId = parseInt(assignmentForm.academic_level_id);
+            let filtered = gradingPeriods.filter(period => period.academic_level_id === levelId);
+
+            // If semesters are selected, filter by selected semesters
+            if (assignmentForm.semester_ids.length > 0) {
+                const semesterIds = assignmentForm.semester_ids.map(id => parseInt(id));
+                // Get periods that belong to selected semesters (children of selected semesters)
+                filtered = filtered.filter(period =>
+                    period.parent_id && semesterIds.includes(period.parent_id)
+                );
+            }
+
+            setFilteredGradingPeriods(filtered);
+        } else {
+            setFilteredGradingPeriods([]);
+        }
+    }, [assignmentForm.academic_level_id, assignmentForm.semester_ids, gradingPeriods]);
+
+
+    const shsAssignments = assignments.filter(assignment =>
         shsLevel && assignment.academic_level_id === shsLevel.id
     );
     // Subjects are already filtered by SHS level in the backend
     const shsSubjects = subjects;
-    const shsGradingPeriods = gradingPeriods.filter(period => 
-        shsLevel && period.academic_level_id === shsLevel.id
-    );
-
-    // Debug logging
-    console.log('Props received:', { assignments, teachers, subjects, gradingPeriods, academicLevels });
-    console.log('Filtered data:', { shsLevel, shsSubjects, shsGradingPeriods });
 
     const schoolYearOptions = [
         '2024-2025',
@@ -299,7 +336,8 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
             strand_id: '',
             department_id: '',
             course_id: '',
-            grading_period_id: '',
+            semester_ids: [],
+            grading_period_ids: [],
             school_year: '',
             notes: '',
             is_active: true,
@@ -307,6 +345,7 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
         setFilteredStrands([]);
         setFilteredSubjects([]);
         setFilteredCourses([]);
+        setFilteredGradingPeriods([]);
         // setFilteredDepartments([]);
     };
 
@@ -640,26 +679,97 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                                 </div>
                             )}
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <Label htmlFor="grading_period_id">Grading Period</Label>
-                                    <Select
-                                        value={assignmentForm.grading_period_id}
-                                        onValueChange={(value) => setAssignmentForm({ ...assignmentForm, grading_period_id: value })}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select grading period (optional)" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {shsGradingPeriods.map((period) => (
-                                                <SelectItem key={period.id} value={period.id.toString()}>
-                                                    {period.name}
-                                                </SelectItem>
+                            {semesterOptions.length > 0 && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="border rounded-lg p-4">
+                                        <Label className="text-lg font-semibold mb-3 block">Semesters</Label>
+                                        <div className="space-y-3">
+                                            {semesterOptions.map((semester) => (
+                                                <div key={semester.id} className="flex items-center space-x-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        id={`semester-${semester.id}`}
+                                                        checked={assignmentForm.semester_ids.includes(semester.id.toString())}
+                                                        onChange={(e) => {
+                                                            const semesterId = semester.id.toString();
+                                                            if (e.target.checked) {
+                                                                setAssignmentForm({
+                                                                    ...assignmentForm,
+                                                                    semester_ids: [...assignmentForm.semester_ids, semesterId],
+                                                                    grading_period_ids: []
+                                                                });
+                                                            } else {
+                                                                setAssignmentForm({
+                                                                    ...assignmentForm,
+                                                                    semester_ids: assignmentForm.semester_ids.filter(id => id !== semesterId),
+                                                                    grading_period_ids: []
+                                                                });
+                                                            }
+                                                        }}
+                                                        className="w-5 h-5 rounded border-gray-300"
+                                                    />
+                                                    <Label htmlFor={`semester-${semester.id}`} className="text-base font-normal cursor-pointer">
+                                                        {semester.name}
+                                                    </Label>
+                                                </div>
                                             ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
+                                        </div>
+                                    </div>
 
+                                    <div className="border rounded-lg p-4">
+                                        <Label className="text-lg font-semibold mb-3 block">Grading Periods</Label>
+                                        {assignmentForm.semester_ids.length === 0 ? (
+                                            <p className="text-sm text-gray-500">Select a semester first</p>
+                                        ) : (
+                                            <div className="space-y-4">
+                                                {assignmentForm.semester_ids.map((semesterId) => {
+                                                    const semester = semesterOptions.find(s => s.id.toString() === semesterId);
+                                                    const periods = filteredGradingPeriods.filter(p => p.parent_id === parseInt(semesterId));
+
+                                                    return periods.length > 0 ? (
+                                                        <div key={semesterId}>
+                                                            <div className="text-sm font-medium text-blue-600 mb-2 border-l-4 border-blue-600 pl-2">
+                                                                {semester?.name} Periods:
+                                                            </div>
+                                                            <div className="space-y-2 ml-2">
+                                                                {periods.map((period) => (
+                                                                    <div key={period.id} className="flex items-center space-x-2">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            id={`period-${period.id}`}
+                                                                            checked={assignmentForm.grading_period_ids.includes(period.id.toString())}
+                                                                            onChange={(e) => {
+                                                                                const periodId = period.id.toString();
+                                                                                if (e.target.checked) {
+                                                                                    setAssignmentForm({
+                                                                                        ...assignmentForm,
+                                                                                        grading_period_ids: [...assignmentForm.grading_period_ids, periodId]
+                                                                                    });
+                                                                                } else {
+                                                                                    setAssignmentForm({
+                                                                                        ...assignmentForm,
+                                                                                        grading_period_ids: assignmentForm.grading_period_ids.filter(id => id !== periodId)
+                                                                                    });
+                                                                                }
+                                                                            }}
+                                                                            className="w-4 h-4 rounded border-gray-300"
+                                                                        />
+                                                                        <Label htmlFor={`period-${period.id}`} className="text-base font-normal cursor-pointer">
+                                                                            {period.name}
+                                                                        </Label>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    ) : null;
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <Label htmlFor="school_year">School Year</Label>
                                     <Select
@@ -867,14 +977,15 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                         <div>
                             <Label htmlFor="edit_grading_period_id">Grading Period</Label>
                             <Select
-                                value={assignmentForm.grading_period_id}
-                                onValueChange={(value) => setAssignmentForm({ ...assignmentForm, grading_period_id: value })}
+                                value={assignmentForm.grading_period_id || 'none'}
+                                onValueChange={(value) => setAssignmentForm({ ...assignmentForm, grading_period_id: value === 'none' ? '' : value })}
                             >
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select grading period (optional)" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {shsGradingPeriods.map((period) => (
+                                    <SelectItem value="none">No grading period</SelectItem>
+                                    {filteredGradingPeriods.filter(p => p.parent_id !== null).map((period) => (
                                         <SelectItem key={period.id} value={period.id.toString()}>
                                             {period.name}
                                         </SelectItem>

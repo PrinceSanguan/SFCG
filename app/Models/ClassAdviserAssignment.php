@@ -16,6 +16,7 @@ class ClassAdviserAssignment extends Model
         'academic_level_id',
         'grade_level',
         'section',
+        'grading_period_ids',
         'school_year',
         'is_active',
         'assigned_at',
@@ -26,6 +27,7 @@ class ClassAdviserAssignment extends Model
     protected $casts = [
         'is_active' => 'boolean',
         'assigned_at' => 'datetime',
+        'grading_period_ids' => 'array',
     ];
 
     public function adviser(): BelongsTo

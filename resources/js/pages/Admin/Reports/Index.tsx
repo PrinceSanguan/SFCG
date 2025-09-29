@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Header } from '@/components/admin/header';
 import { Sidebar } from '@/components/admin/sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,7 +24,14 @@ import {
 
 interface User { name: string; email: string; user_role: string; }
 interface AcademicLevel { id: number; name: string; key: string; }
-interface GradingPeriod { id: number; name: string; academic_level_id: number; }
+interface GradingPeriod {
+  id: number;
+  name: string;
+  academic_level_id: number;
+  semester_number: number | null;
+  parent_id: number | null;
+  type: string;
+}
 interface HonorType { id: number; name: string; }
 
 interface Props {
@@ -45,10 +52,13 @@ interface Props {
 export default function ReportsIndex({ user, academicLevels, schoolYears, currentSchoolYear, gradingPeriods, honorTypes, stats }: Props) {
   const [activeTab, setActiveTab] = useState('grade-reports');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [selectedSemester, setSelectedSemester] = useState<string>('');
+  const [filteredGradingPeriods, setFilteredGradingPeriods] = useState<GradingPeriod[]>([]);
 
   // Grade Report Form
   const { data: gradeData, setData: setGradeData, post: postGrade, processing: gradeProcessing } = useForm({
     academic_level_id: 'all',
+    semester_id: '',
     grading_period_id: 'all',
     school_year: currentSchoolYear || schoolYears[0] || '',
     format: 'pdf',
@@ -72,6 +82,27 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
     include_certificates: true,
     format: 'excel',
   });
+
+  // Filter grading periods based on selected academic level and semester
+  useEffect(() => {
+    if (gradeData.academic_level_id && gradeData.academic_level_id !== 'all') {
+      const levelId = parseInt(gradeData.academic_level_id);
+      let filtered = gradingPeriods.filter(period => period.academic_level_id === levelId);
+
+      // If semester is selected, filter by semester
+      if (selectedSemester) {
+        const semesterId = parseInt(selectedSemester);
+        // Get main semester periods and their children
+        filtered = filtered.filter(period =>
+          period.id === semesterId || period.parent_id === semesterId
+        );
+      }
+
+      setFilteredGradingPeriods(filtered);
+    } else {
+      setFilteredGradingPeriods([]);
+    }
+  }, [gradeData.academic_level_id, selectedSemester, gradingPeriods]);
 
   const handleGradeReport = (e: React.FormEvent) => {
     e.preventDefault();
@@ -211,9 +242,25 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
     setTimeout(() => setIsGenerating(false), 2000);
   };
 
-  const filteredGradingPeriods = gradingPeriods.filter(
-    period => !gradeData.academic_level_id || period.academic_level_id.toString() === gradeData.academic_level_id
-  );
+  // Get semester options for College/SHS
+  const getSemesterOptions = () => {
+    if (gradeData.academic_level_id && gradeData.academic_level_id !== 'all') {
+      const levelId = parseInt(gradeData.academic_level_id);
+      const selectedLevel = academicLevels.find(level => level.id === levelId);
+
+      // Only show semester selector for College and SHS
+      if (selectedLevel && (selectedLevel.key === 'college' || selectedLevel.key === 'senior_highschool')) {
+        return gradingPeriods.filter(period =>
+          period.academic_level_id === levelId &&
+          period.parent_id === null &&
+          period.type === 'semester'
+        );
+      }
+    }
+    return [];
+  };
+
+  const semesterOptions = getSemesterOptions();
 
   return (
     <div className="flex min-h-screen bg-gray-100 dark:bg-gray-900">
@@ -293,7 +340,15 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <Label>Academic Level</Label>
-                          <Select value={gradeData.academic_level_id} onValueChange={(v) => setGradeData('academic_level_id', v)}>
+                          <Select
+                            value={gradeData.academic_level_id}
+                            onValueChange={(v) => {
+                              setGradeData('academic_level_id', v);
+                              setGradeData('semester_id', '');
+                              setGradeData('grading_period_id', 'all');
+                              setSelectedSemester('');
+                            }}
+                          >
                             <SelectTrigger><SelectValue placeholder="All levels" /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="all">All Levels</SelectItem>
@@ -303,13 +358,41 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                             </SelectContent>
                           </Select>
                         </div>
+                        {semesterOptions.length > 0 && (
+                          <div>
+                            <Label>Semester</Label>
+                            <Select
+                              value={selectedSemester}
+                              onValueChange={(v) => {
+                                setSelectedSemester(v);
+                                setGradeData('semester_id', v);
+                                setGradeData('grading_period_id', 'all');
+                              }}
+                            >
+                              <SelectTrigger><SelectValue placeholder="Select semester" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="">All Semesters</SelectItem>
+                                {semesterOptions.map(semester => (
+                                  <SelectItem key={semester.id} value={semester.id.toString()}>{semester.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <Label>Grading Period</Label>
-                          <Select value={gradeData.grading_period_id} onValueChange={(v) => setGradeData('grading_period_id', v)}>
+                          <Select
+                            value={gradeData.grading_period_id}
+                            onValueChange={(v) => setGradeData('grading_period_id', v)}
+                            disabled={gradeData.academic_level_id === 'all'}
+                          >
                             <SelectTrigger><SelectValue placeholder="All periods" /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="all">All Periods</SelectItem>
-                              {filteredGradingPeriods.map(period => (
+                              {filteredGradingPeriods.filter(p => p.parent_id !== null).map(period => (
                                 <SelectItem key={period.id} value={period.id.toString()}>{period.name}</SelectItem>
                               ))}
                             </SelectContent>

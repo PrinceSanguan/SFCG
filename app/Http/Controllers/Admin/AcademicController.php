@@ -192,6 +192,10 @@ class AcademicController extends Controller
             ->orderBy('specific_year_level')
             ->orderBy('name')
             ->get();
+        $gradingPeriods = GradingPeriod::with('academicLevel')
+            ->whereIn('academic_level_id', [$elementaryLevel->id, $jhsLevel->id])
+            ->orderBy('sort_order')
+            ->get();
         
         // Transform assignments to ensure academic level data is included
         $transformedAssignments = $assignments->map(function ($assignment) {
@@ -222,6 +226,7 @@ class AcademicController extends Controller
             'subjects' => $subjects,
             'academicLevels' => $academicLevels,
             'sections' => $sections,
+            'gradingPeriods' => $gradingPeriods,
         ]);
     }
 
@@ -1811,6 +1816,8 @@ class AcademicController extends Controller
             'subject_id' => 'required|exists:subjects,id',
             'academic_level_id' => 'required|exists:academic_levels,id',
             'grade_level' => 'required|string',
+            'grading_period_ids' => 'nullable|array',
+            'grading_period_ids.*' => 'exists:grading_periods,id',
             'school_year' => 'required|string',
             'notes' => 'nullable|string',
             'is_active' => 'nullable|boolean',
@@ -1837,6 +1844,7 @@ class AcademicController extends Controller
 
         $assignmentData = [
             'grade_level' => $request->grade_level,
+            'grading_period_ids' => $request->grading_period_ids,
             'notes' => $request->notes,
         ];
 
@@ -1856,6 +1864,8 @@ class AcademicController extends Controller
             'subject_id' => 'required|exists:subjects,id',
             'academic_level_id' => 'required|exists:academic_levels,id',
             'grade_level' => 'required|string',
+            'grading_period_ids' => 'nullable|array',
+            'grading_period_ids.*' => 'exists:grading_periods,id',
             'school_year' => 'required|string',
             'notes' => 'nullable|string',
             'is_active' => 'nullable|boolean',
@@ -1886,6 +1896,7 @@ class AcademicController extends Controller
             'academic_level_id' => $request->academic_level_id,
             'grade_level' => $request->grade_level,
             'section' => $sectionName,
+            'grading_period_ids' => $request->grading_period_ids,
             'school_year' => $request->school_year,
             'notes' => $request->notes,
             'is_active' => $request->is_active ?? true,
