@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ArrowLeft, Plus, Edit, Trash2, Building2, Calendar, User, BookOpen } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
@@ -108,7 +109,8 @@ export default function AssignInstructors({ user, assignments, instructors, depa
         course_id: '',
         subject_id: '',
         academic_level_id: '',
-        grading_period_id: '',
+        semester_ids: [] as string[],
+        grading_period_ids: [] as string[],
         school_year: '',
         notes: '',
         is_active: true,
@@ -119,7 +121,6 @@ export default function AssignInstructors({ user, assignments, instructors, depa
     const [editModal, setEditModal] = useState(false);
     const [filteredCourses, setFilteredCourses] = useState<Course[]>([]);
     const [filteredSubjects, setFilteredSubjects] = useState<Subject[]>([]);
-    const [selectedSemesterId, setSelectedSemesterId] = useState<string>('');
 
     // Filter for College level only
     const collegeLevel = academicLevels.find(level => level.key === 'college');
@@ -186,9 +187,17 @@ export default function AssignInstructors({ user, assignments, instructors, depa
         ((period.type === 'semester') || /semester/i.test(period.name))
     );
 
-    const semesterChildPeriods = gradingPeriods.filter(p =>
-        selectedSemesterId && p.parent_id?.toString() === selectedSemesterId
+    const allCollegeGradingPeriods = gradingPeriods.filter(period =>
+        period.academic_level_id === collegeLevel?.id &&
+        period.parent_id != null // Only child periods (not main semesters)
     );
+
+    // Get grading periods for selected semesters only
+    const getGradingPeriodsForSelectedSemesters = () => {
+        return allCollegeGradingPeriods.filter(period =>
+            period.parent_id && assignmentForm.semester_ids.includes(period.parent_id.toString())
+        );
+    };
 
     const schoolYearOptions = [
         '2024-2025',
@@ -257,7 +266,8 @@ export default function AssignInstructors({ user, assignments, instructors, depa
             course_id: assignment.course_id.toString(),
             subject_id: '',
             academic_level_id: assignment.academic_level_id.toString(),
-            grading_period_id: assignment.grading_period_id?.toString() || '',
+            semester_ids: assignment.gradingPeriod?.parent_id ? [assignment.gradingPeriod.parent_id.toString()] : [],
+            grading_period_ids: assignment.grading_period_id ? [assignment.grading_period_id.toString()] : [],
             school_year: assignment.school_year,
             notes: assignment.notes || '',
             is_active: assignment.is_active,
@@ -281,13 +291,50 @@ export default function AssignInstructors({ user, assignments, instructors, depa
             course_id: '',
             subject_id: '',
             academic_level_id: '',
-            grading_period_id: '',
+            semester_ids: [],
+            grading_period_ids: [],
             school_year: '',
             notes: '',
             is_active: true,
         });
         setFilteredCourses([]);
         setFilteredSubjects([]);
+    };
+
+    // Helper functions for checkbox handling
+    const handleSemesterChange = (semesterId: string, checked: boolean) => {
+        const updatedSemesters = checked
+            ? [...assignmentForm.semester_ids, semesterId]
+            : assignmentForm.semester_ids.filter(id => id !== semesterId);
+
+        // If unchecking a semester, also uncheck its grading periods
+        let updatedGradingPeriods = assignmentForm.grading_period_ids;
+        if (!checked) {
+            const periodsToRemove = allCollegeGradingPeriods
+                .filter(period => period.parent_id?.toString() === semesterId)
+                .map(period => period.id.toString());
+
+            updatedGradingPeriods = assignmentForm.grading_period_ids.filter(
+                periodId => !periodsToRemove.includes(periodId)
+            );
+        }
+
+        setAssignmentForm({
+            ...assignmentForm,
+            semester_ids: updatedSemesters,
+            grading_period_ids: updatedGradingPeriods,
+        });
+    };
+
+    const handleGradingPeriodChange = (periodId: string, checked: boolean) => {
+        const updatedPeriods = checked
+            ? [...assignmentForm.grading_period_ids, periodId]
+            : assignmentForm.grading_period_ids.filter(id => id !== periodId);
+
+        setAssignmentForm({
+            ...assignmentForm,
+            grading_period_ids: updatedPeriods,
+        });
     };
 
     return (
@@ -498,44 +545,72 @@ export default function AssignInstructors({ user, assignments, instructors, depa
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <Label htmlFor="semester_id">Semester</Label>
-                                    <Select
-                                        value={selectedSemesterId}
-                                        onValueChange={(value) => { setSelectedSemesterId(value); setAssignmentForm({ ...assignmentForm, grading_period_id: '' }); }}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select semester first" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {collegeSemesters.map((sem) => (
-                                                <SelectItem key={sem.id} value={sem.id.toString()}>
-                                                    {sem.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <Label>Semesters</Label>
+                                    <div className="space-y-3 p-4 border rounded-md bg-gray-50">
+                                        {collegeSemesters.map((semester) => (
+                                            <div key={semester.id} className="flex items-center space-x-2">
+                                                <Checkbox
+                                                    id={`semester-${semester.id}`}
+                                                    checked={assignmentForm.semester_ids.includes(semester.id.toString())}
+                                                    onCheckedChange={(checked) =>
+                                                        handleSemesterChange(semester.id.toString(), checked as boolean)
+                                                    }
+                                                />
+                                                <Label htmlFor={`semester-${semester.id}`} className="text-sm font-medium">
+                                                    {semester.name}
+                                                </Label>
+                                            </div>
+                                        ))}
+                                        {collegeSemesters.length === 0 && (
+                                            <p className="text-sm text-gray-500 italic">No semesters available</p>
+                                        )}
+                                    </div>
                                 </div>
 
                                 <div>
-                                    <Label htmlFor="grading_period_id">Grading Period</Label>
-                                    <Select
-                                        value={assignmentForm.grading_period_id}
-                                        onValueChange={(value) => setAssignmentForm({ ...assignmentForm, grading_period_id: value })}
-                                        disabled={!selectedSemesterId}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select grading period (optional)" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {semesterChildPeriods
-                                                .filter((p, i, arr) => arr.findIndex(x => x.name.toLowerCase() === p.name.toLowerCase()) === i)
-                                                .map((period) => (
-                                                    <SelectItem key={period.id} value={period.id.toString()}>
-                                                        {period.name}
-                                                    </SelectItem>
-                                                ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <Label>Grading Periods</Label>
+                                    <div className="space-y-3 p-4 border rounded-md bg-gray-50 max-h-40 overflow-y-auto">
+                                        {assignmentForm.semester_ids.length === 0 ? (
+                                            <p className="text-sm text-gray-500 italic">Select a semester first to see grading periods</p>
+                                        ) : (
+                                            assignmentForm.semester_ids.map((semesterId) => {
+                                                const semester = collegeSemesters.find(s => s.id.toString() === semesterId);
+                                                const periodsForSemester = allCollegeGradingPeriods
+                                                    .filter(period =>
+                                                        period.parent_id?.toString() === semesterId &&
+                                                        !period.name.toLowerCase().includes('final average')
+                                                    )
+                                                    .filter((p, i, arr) => arr.findIndex(x => x.name.toLowerCase() === p.name.toLowerCase()) === i);
+
+                                                return (
+                                                    <div key={semesterId} className="border-l-2 border-blue-300 pl-3">
+                                                        <div className="text-sm font-medium text-blue-700 mb-2">
+                                                            {semester?.name} Periods:
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            {periodsForSemester.map((period) => (
+                                                                <div key={period.id} className="flex items-center space-x-2 ml-2">
+                                                                    <Checkbox
+                                                                        id={`period-${period.id}`}
+                                                                        checked={assignmentForm.grading_period_ids.includes(period.id.toString())}
+                                                                        onCheckedChange={(checked) =>
+                                                                            handleGradingPeriodChange(period.id.toString(), checked as boolean)
+                                                                        }
+                                                                    />
+                                                                    <Label htmlFor={`period-${period.id}`} className="text-sm">
+                                                                        {period.name}
+                                                                    </Label>
+                                                                </div>
+                                                            ))}
+                                                            {periodsForSemester.length === 0 && (
+                                                                <p className="text-xs text-gray-400 italic ml-2">No periods available for this semester</p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })
+                                        )}
+                                    </div>
                                 </div>
 
                                 <div>
@@ -787,24 +862,69 @@ export default function AssignInstructors({ user, assignments, instructors, depa
                         </div>
 
                         <div>
-                            <Label htmlFor="edit_grading_period_id">Grading Period</Label>
-                            <Select
-                                value={assignmentForm.grading_period_id}
-                                onValueChange={(value) => setAssignmentForm({ ...assignmentForm, grading_period_id: value })}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select grading period (optional)" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {semesterChildPeriods
-                                        .filter((p, i, arr) => arr.findIndex(x => x.name.toLowerCase() === p.name.toLowerCase()) === i)
-                                        .map((period) => (
-                                            <SelectItem key={period.id} value={period.id.toString()}>
-                                                {period.name}
-                                            </SelectItem>
-                                        ))}
-                                </SelectContent>
-                            </Select>
+                            <Label>Semesters</Label>
+                            <div className="space-y-2 p-3 border rounded-md bg-gray-50 max-h-24 overflow-y-auto">
+                                {collegeSemesters.map((semester) => (
+                                    <div key={semester.id} className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id={`edit-semester-${semester.id}`}
+                                            checked={assignmentForm.semester_ids.includes(semester.id.toString())}
+                                            onCheckedChange={(checked) =>
+                                                handleSemesterChange(semester.id.toString(), checked as boolean)
+                                            }
+                                        />
+                                        <Label htmlFor={`edit-semester-${semester.id}`} className="text-sm">
+                                            {semester.name}
+                                        </Label>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div>
+                            <Label>Grading Periods</Label>
+                            <div className="space-y-2 p-3 border rounded-md bg-gray-50 max-h-32 overflow-y-auto">
+                                {assignmentForm.semester_ids.length === 0 ? (
+                                    <p className="text-xs text-gray-500 italic">Select a semester first to see grading periods</p>
+                                ) : (
+                                    assignmentForm.semester_ids.map((semesterId) => {
+                                        const semester = collegeSemesters.find(s => s.id.toString() === semesterId);
+                                        const periodsForSemester = allCollegeGradingPeriods
+                                            .filter(period =>
+                                                period.parent_id?.toString() === semesterId &&
+                                                !period.name.toLowerCase().includes('final average')
+                                            )
+                                            .filter((p, i, arr) => arr.findIndex(x => x.name.toLowerCase() === p.name.toLowerCase()) === i);
+
+                                        return (
+                                            <div key={semesterId} className="border-l-2 border-blue-300 pl-2">
+                                                <div className="text-xs font-medium text-blue-700 mb-1">
+                                                    {semester?.name} Periods:
+                                                </div>
+                                                <div className="space-y-1">
+                                                    {periodsForSemester.map((period) => (
+                                                        <div key={period.id} className="flex items-center space-x-2 ml-1">
+                                                            <Checkbox
+                                                                id={`edit-period-${period.id}`}
+                                                                checked={assignmentForm.grading_period_ids.includes(period.id.toString())}
+                                                                onCheckedChange={(checked) =>
+                                                                    handleGradingPeriodChange(period.id.toString(), checked as boolean)
+                                                                }
+                                                            />
+                                                            <Label htmlFor={`edit-period-${period.id}`} className="text-xs">
+                                                                {period.name}
+                                                            </Label>
+                                                        </div>
+                                                    ))}
+                                                    {periodsForSemester.length === 0 && (
+                                                        <p className="text-xs text-gray-400 italic ml-1">No periods for this semester</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
                         </div>
 
                         <div>

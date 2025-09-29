@@ -409,7 +409,9 @@ export default function Show({ user, student, subject, academicLevel, grades, gr
                                                     <th className="text-left p-3 font-medium border-r border-gray-700">Student ID</th>
                                                     <th className="text-left p-3 font-medium border-r border-gray-700">Subject</th>
                                                     <th className="text-left p-3 font-medium border-r border-gray-700">Faculty</th>
-                                                    {gradingPeriods.map((period) => (
+                                                    {gradingPeriods
+                                                        .filter(period => !period.name.toLowerCase().includes('final average') && !period.code.includes('FA'))
+                                                        .map((period) => (
                                                         <th key={period.id} className="text-left p-3 font-medium border-r border-gray-700">
                                                             {period.name}
                                                         </th>
@@ -440,7 +442,9 @@ export default function Show({ user, student, subject, academicLevel, grades, gr
                                                             {user.name}
                                                         </p>
                                                     </td>
-                                                    {gradingPeriods.map((period) => {
+                                                    {gradingPeriods
+                                                        .filter(period => !period.name.toLowerCase().includes('final average') && !period.code.includes('FA'))
+                                                        .map((period) => {
                                                         // Find the grade for this specific period
                                                         const gradeForPeriod = grades.find(g => {
                                                             // Check if the grade has a grading period and it matches
@@ -453,11 +457,9 @@ export default function Show({ user, student, subject, academicLevel, grades, gr
                                                             }
                                                             return false;
                                                         });
-                                                        
-                                                        const gradeValue = gradeForPeriod ? gradeForPeriod.grade : null;
-                                                        
 
-                                                        
+                                                        const gradeValue = gradeForPeriod ? gradeForPeriod.grade : null;
+
                                                         return (
                                                             <td key={period.id} className="p-3 border-r border-gray-200 dark:border-gray-600 text-center">
                                                                 {gradeValue ? (
@@ -473,10 +475,10 @@ export default function Show({ user, student, subject, academicLevel, grades, gr
                                                     <td className="p-3 border-r border-gray-200 dark:border-gray-600 text-center">
                                                         {(() => {
                                                             const validGrades = grades.map(g => g.grade).filter(g => g !== null);
-                                                            const average = validGrades.length > 0 
-                                                                ? validGrades.reduce((sum, g) => sum + g, 0) / validGrades.length 
+                                                            const average = validGrades.length > 0
+                                                                ? validGrades.reduce((sum, g) => sum + g, 0) / validGrades.length
                                                                 : 0;
-                                                            
+
                                                             return average > 0 ? (
                                                                 <Badge className={`text-lg px-3 py-1 ${getGradeColor(average, academicLevel.key)}`}>
                                                                     {average.toFixed(1)}
@@ -489,14 +491,14 @@ export default function Show({ user, student, subject, academicLevel, grades, gr
                                                     <td className="p-3 border-r border-gray-200 dark:border-gray-600 text-center">
                                                         {(() => {
                                                             const validGrades = grades.map(g => g.grade).filter(g => g !== null);
-                                                            const average = validGrades.length > 0 
-                                                                ? validGrades.reduce((sum, g) => sum + g, 0) / validGrades.length 
+                                                            const average = validGrades.length > 0
+                                                                ? validGrades.reduce((sum, g) => sum + g, 0) / validGrades.length
                                                                 : 0;
-                                                            
+
                                                             return average > 0 ? (
                                                                 <span className={`text-sm font-medium ${
                                                                     ['Superior', 'Very Good', 'Good', 'Satisfactory', 'Fair', 'Outstanding'].includes(getGradeStatus(average, academicLevel.key))
-                                                                        ? 'text-green-600 dark:text-green-400' 
+                                                                        ? 'text-green-600 dark:text-green-400'
                                                                         : 'text-red-600 dark:text-red-400'
                                                                 }`}>
                                                                     {getGradeStatus(average, academicLevel.key)}
