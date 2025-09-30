@@ -26,14 +26,17 @@ class CSVUploadController extends Controller
         $user = Auth::user();
         
         try {
-            // Get teacher's assigned subjects
+            // Get teacher's assigned subjects (Senior High School only)
             $assignedSubjects = \App\Models\TeacherSubjectAssignment::with([
-                'subject.course', 
-                'academicLevel', 
+                'subject.course',
+                'academicLevel',
                 'gradingPeriod'
             ])
             ->where('teacher_id', $user->id)
             ->where('is_active', true)
+            ->whereHas('academicLevel', function ($query) {
+                $query->where('key', 'senior_highschool');
+            })
             ->get()
             ->map(function ($assignment) {
                 $enrolledStudents = \App\Models\StudentSubjectAssignment::with(['student'])
@@ -54,8 +57,8 @@ class CSVUploadController extends Controller
                 ];
             });
 
-            // Get academic levels
-            $academicLevels = \App\Models\AcademicLevel::where('is_active', true)->get();
+            // Get academic levels (SHS only)
+            $academicLevels = \App\Models\AcademicLevel::where('key', 'senior_highschool')->get();
             
             // Get grading periods
             $gradingPeriods = \App\Models\GradingPeriod::where('is_active', true)->get();

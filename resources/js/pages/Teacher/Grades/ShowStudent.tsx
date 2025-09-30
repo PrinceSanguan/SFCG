@@ -77,12 +77,14 @@ export default function ShowStudent({ user, student, subject, academicLevel, gra
     console.log('ShowStudent props:', { user, student, subject, academicLevel, grades, gradingPeriods });
 
     const getGradeColor = (grade: number, academicLevelKey: string) => {
-        if (academicLevelKey === 'college') {
+        // SHS and College both use 1.0-5.0 scale (1.0 is highest, 5.0 is lowest, 3.0 is passing)
+        if (academicLevelKey === 'college' || academicLevelKey === 'senior_highschool') {
             if (grade <= 1.5) return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
             if (grade <= 2.5) return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
             if (grade <= 3.0) return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
             return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
         } else {
+            // Elementary and JHS use 75-100 scale
             if (grade >= 95) return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
             if (grade >= 90) return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
             if (grade >= 85) return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
@@ -92,13 +94,15 @@ export default function ShowStudent({ user, student, subject, academicLevel, gra
     };
 
     const getGradeStatus = (grade: number, academicLevelKey: string) => {
-        if (academicLevelKey === 'college') {
+        // SHS and College both use 1.0-5.0 scale (1.0 is highest, 5.0 is lowest, 3.0 is passing)
+        if (academicLevelKey === 'college' || academicLevelKey === 'senior_highschool') {
             if (grade <= 1.5) return 'Superior';
             if (grade <= 2.0) return 'Very Good';
             if (grade <= 2.5) return 'Good';
             if (grade <= 3.0) return 'Satisfactory';
             return 'Failing';
         } else {
+            // Elementary and JHS use 75-100 scale
             if (grade >= 95) return 'Outstanding';
             if (grade >= 90) return 'Very Good';
             if (grade >= 85) return 'Good';
@@ -197,11 +201,14 @@ export default function ShowStudent({ user, student, subject, academicLevel, gra
                     };
                 }
 
-                // Only include input periods (exclude calculated Final Average)
-                if (!period.name.toLowerCase().includes('final average') &&
-                    !period.code.includes('FA') &&
-                    !period.name.toLowerCase().includes('final') &&
-                    !period.code.toLowerCase().includes('final')) {
+                // Only include input periods (Midterm and Pre-Final)
+                // Exclude: Final Average, parent semester periods
+                const isParentSemester = periodName === 'first semester' || periodName === 'second semester';
+                const isFinalAverage = period.name.toLowerCase().includes('final average') ||
+                                      period.code.includes('FA') ||
+                                      period.code.toLowerCase().includes('_fa');
+
+                if (!isParentSemester && !isFinalAverage) {
                     semesters[semesterNum].periods.push({
                         id: period.id,
                         name: period.name,
@@ -219,12 +226,14 @@ export default function ShowStudent({ user, student, subject, academicLevel, gra
             // If no periods were grouped, create a fallback structure
             if (result.length === 0 || result.every(sem => sem.periods.length === 0)) {
                 console.log('🔍 No periods grouped by semester, creating fallback structure');
-                const allInputPeriods = relevantPeriods.filter(period =>
-                    !period.name.toLowerCase().includes('final average') &&
-                    !period.code.includes('FA') &&
-                    !period.name.toLowerCase().includes('final') &&
-                    !period.code.toLowerCase().includes('final')
-                );
+                const allInputPeriods = relevantPeriods.filter(period => {
+                    const periodName = period.name.toLowerCase();
+                    const isParentSemester = periodName === 'first semester' || periodName === 'second semester';
+                    const isFinalAverage = period.name.toLowerCase().includes('final average') ||
+                                          period.code.includes('FA') ||
+                                          period.code.toLowerCase().includes('_fa');
+                    return !isParentSemester && !isFinalAverage;
+                });
 
                 console.log('🔍 All input periods for fallback:', allInputPeriods.map(p => ({ id: p.id, name: p.name, code: p.code })));
 
@@ -281,10 +290,14 @@ export default function ShowStudent({ user, student, subject, academicLevel, gra
                 semesterNumber: 1,
                 name: 'Academic Year',
                 periods: relevantPeriods
-                    .filter(period =>
-                        !period.name.toLowerCase().includes('final average') &&
-                        !period.code.includes('FA')
-                    )
+                    .filter(period => {
+                        const periodName = period.name.toLowerCase();
+                        const isParentSemester = periodName === 'first semester' || periodName === 'second semester';
+                        const isFinalAverage = period.name.toLowerCase().includes('final average') ||
+                                              period.code.includes('FA') ||
+                                              period.code.toLowerCase().includes('_fa');
+                        return !isParentSemester && !isFinalAverage;
+                    })
                     .sort((a, b) => a.id - b.id)
                     .map(period => ({
                         id: period.id,
@@ -311,51 +324,96 @@ export default function ShowStudent({ user, student, subject, academicLevel, gra
         totalPeriodsInStructure: semesterStructure.reduce((total, sem) => total + sem.periods.length, 0)
     });
 
-    // Calculate final grade using the correct formula: (Midterm + Pre-Final) / 2
-    // Apply this calculation to both College and Senior High School
-    const calculateFinalGrade = () => {
-        // Only apply (Midterm + Pre-Final) / 2 calculation for College and Senior High School
-        const useSpecialFormula = ['college', 'senior_highschool'].includes(academicLevelKey);
+    // Calculate semester averages and overall average
+    // For SHS/College: Each semester average = (Midterm + Pre-Final) / 2
+    // Overall average = (Semester 1 Average + Semester 2 Average) / 2
+    const calculateSemesterAverages = () => {
+        const isSemesterBased = ['college', 'senior_highschool'].includes(academicLevelKey);
 
-        if (!useSpecialFormula) {
+        if (!isSemesterBased) {
             // For Elementary and Junior High, use simple average of all valid grades
             const validGrades = grades
                 .filter(g => g.grade !== null && g.grade !== undefined)
                 .map(g => g.grade);
 
             if (validGrades.length > 0) {
-                return validGrades.reduce((sum, grade) => sum + grade, 0) / validGrades.length;
+                return {
+                    semester1Average: null,
+                    semester2Average: null,
+                    overallAverage: validGrades.reduce((sum, grade) => sum + grade, 0) / validGrades.length
+                };
             }
-            return null;
+            return { semester1Average: null, semester2Average: null, overallAverage: null };
         }
 
-        // Find Midterm and Pre-Final grades for College and Senior High School
-        const midtermGrade = grades.find(g =>
-            g.gradingPeriod?.name.toLowerCase().includes('midterm') ||
-            g.gradingPeriod?.code.toLowerCase().includes('mt')
-        );
-
-        const preFinalGrade = grades.find(g =>
-            g.gradingPeriod?.name.toLowerCase().includes('pre-final') ||
-            g.gradingPeriod?.name.toLowerCase().includes('prefinal') ||
-            g.gradingPeriod?.code.toLowerCase().includes('pf')
-        );
-
-        console.log('🔍 Grade calculation data for', academicLevelKey, ':', {
-            midtermGrade: midtermGrade ? { id: midtermGrade.gradingPeriod?.id, name: midtermGrade.gradingPeriod?.name, grade: midtermGrade.grade } : null,
-            preFinalGrade: preFinalGrade ? { id: preFinalGrade.gradingPeriod?.id, name: preFinalGrade.gradingPeriod?.name, grade: preFinalGrade.grade } : null
+        // Calculate First Semester Average
+        const s1Midterm = grades.find(g => {
+            const code = g.gradingPeriod?.code?.toUpperCase() || '';
+            return code.includes('S1_MT') || code.includes('_S1_MT');
+        });
+        const s1PreFinal = grades.find(g => {
+            const code = g.gradingPeriod?.code?.toUpperCase() || '';
+            return code.includes('S1_PF') || code.includes('_S1_PF');
         });
 
-        if (midtermGrade && preFinalGrade && midtermGrade.grade && preFinalGrade.grade) {
-            const finalGrade = (midtermGrade.grade + preFinalGrade.grade) / 2;
-            console.log('🔍 Calculated final grade for', academicLevelKey, ':', finalGrade);
-            return finalGrade;
+        let semester1Average = null;
+        if (s1Midterm?.grade !== null && s1Midterm?.grade !== undefined &&
+            s1PreFinal?.grade !== null && s1PreFinal?.grade !== undefined) {
+            semester1Average = (parseFloat(s1Midterm.grade) + parseFloat(s1PreFinal.grade)) / 2;
         }
 
-        return null;
+        // Calculate Second Semester Average
+        const s2Midterm = grades.find(g => {
+            const code = g.gradingPeriod?.code?.toUpperCase() || '';
+            return code.includes('S2_MT') || code.includes('_S2_MT');
+        });
+        const s2PreFinal = grades.find(g => {
+            const code = g.gradingPeriod?.code?.toUpperCase() || '';
+            return code.includes('S2_PF') || code.includes('_S2_PF');
+        });
+
+        let semester2Average = null;
+        if (s2Midterm?.grade !== null && s2Midterm?.grade !== undefined &&
+            s2PreFinal?.grade !== null && s2PreFinal?.grade !== undefined) {
+            semester2Average = (parseFloat(s2Midterm.grade) + parseFloat(s2PreFinal.grade)) / 2;
+        }
+
+        // Calculate Overall Average
+        let overallAverage = null;
+        if (semester1Average !== null && semester2Average !== null) {
+            overallAverage = (semester1Average + semester2Average) / 2;
+        } else if (semester1Average !== null) {
+            overallAverage = semester1Average;
+        } else if (semester2Average !== null) {
+            overallAverage = semester2Average;
+        }
+
+        console.log('🔍 Semester averages:', {
+            semester1: { midterm: s1Midterm?.grade, preFinal: s1PreFinal?.grade, average: semester1Average },
+            semester2: { midterm: s2Midterm?.grade, preFinal: s2PreFinal?.grade, average: semester2Average },
+            overall: overallAverage
+        });
+
+        return { semester1Average, semester2Average, overallAverage };
     };
 
-    const finalGrade = calculateFinalGrade();
+    const { semester1Average, semester2Average, overallAverage } = calculateSemesterAverages();
+    const finalGrade = overallAverage;
+
+    // Debug logging
+    console.log('🔍 FINAL CALCULATION RESULT:', {
+        grades: grades.map(g => ({
+            id: g.id,
+            grade: g.grade,
+            period_id: g.grading_period_id,
+            period_code: g.gradingPeriod?.code,
+            period_name: g.gradingPeriod?.name
+        })),
+        semester1Average,
+        semester2Average,
+        overallAverage,
+        finalGrade
+    });
 
     // Calculate total available periods for summary
     const totalAvailablePeriods = semesterStructure.reduce((total, semester) => total + semester.periods.length, 0);

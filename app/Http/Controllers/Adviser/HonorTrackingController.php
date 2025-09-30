@@ -22,6 +22,9 @@ class HonorTrackingController extends Controller
             ->where('adviser_id', $user->id)
             ->where('school_year', $schoolYear)
             ->where('is_active', true)
+            ->whereHas('academicLevel', function ($query) {
+                $query->whereIn('key', ['elementary', 'junior_highschool']);
+            })
             ->get();
 
         $academicLevels = $assignments->pluck('academicLevel')->filter()->unique('id')->values();
@@ -82,6 +85,9 @@ class HonorTrackingController extends Controller
             ->where('academic_level_id', $academicLevel->id)
             ->where('school_year', $schoolYear)
             ->where('is_active', true)
+            ->whereHas('academicLevel', function ($query) {
+                $query->whereIn('key', ['elementary', 'junior_highschool']);
+            })
             ->exists();
 
         if (!$hasAssignment) {
@@ -163,6 +169,9 @@ class HonorTrackingController extends Controller
             ->where('academic_level_id', $request->academic_level_id)
             ->where('school_year', $request->school_year)
             ->where('is_active', true)
+            ->whereHas('academicLevel', function ($query) {
+                $query->whereIn('key', ['elementary', 'junior_highschool']);
+            })
             ->exists();
 
         if (!$hasAssignment) {
@@ -189,6 +198,9 @@ class HonorTrackingController extends Controller
             ->where('academic_level_id', $request->academic_level_id)
             ->where('school_year', $request->school_year)
             ->where('is_active', true)
+            ->whereHas('academicLevel', function ($query) {
+                $query->whereIn('key', ['elementary', 'junior_highschool']);
+            })
             ->exists();
 
         if (!$hasAssignment) {

@@ -25,15 +25,18 @@ class DashboardController extends Controller
         // Debug logging
         Log::info('Teacher Dashboard accessed by user: ' . $user->id . ' - ' . $user->name . ' for school year: ' . $schoolYear);
         
-        // Get teacher's assigned subjects
+        // Get teacher's assigned subjects (Senior High School only)
         $assignedSubjects = TeacherSubjectAssignment::with([
-            'subject.course', 
-            'academicLevel', 
+            'subject.course',
+            'academicLevel',
             'gradingPeriod'
         ])
         ->where('teacher_id', $user->id)
         ->where('is_active', true)
         ->where('school_year', $schoolYear)
+        ->whereHas('academicLevel', function ($query) {
+            $query->where('key', 'senior_highschool');
+        })
         ->get();
         
         // Debug logging
@@ -106,10 +109,13 @@ class DashboardController extends Controller
     {
         $user = Auth::user();
         
-        // Get assigned subjects for the specific school year
+        // Get assigned subjects for the specific school year (SHS only)
         $assignedSubjects = TeacherSubjectAssignment::where('teacher_id', $user->id)
             ->where('is_active', true)
             ->where('school_year', $schoolYear)
+            ->whereHas('academicLevel', function ($query) {
+                $query->where('key', 'senior_highschool');
+            })
             ->get();
         
         // Count students in assigned subjects for the specific school year
@@ -146,6 +152,9 @@ class DashboardController extends Controller
         
         $assignedSubjects = TeacherSubjectAssignment::where('teacher_id', $user->id)
             ->where('is_active', true)
+            ->whereHas('academicLevel', function ($query) {
+                $query->where('key', 'senior_highschool');
+            })
             ->get();
         
         return StudentGrade::with(['student', 'subject', 'academicLevel', 'gradingPeriod'])
@@ -174,14 +183,17 @@ class DashboardController extends Controller
     {
         $user = Auth::user();
         
-        // Get teacher's assigned subjects
+        // Get teacher's assigned subjects (SHS only)
         $assignedSubjects = TeacherSubjectAssignment::with([
-            'subject.course', 
-            'academicLevel', 
+            'subject.course',
+            'academicLevel',
             'gradingPeriod'
         ])
         ->where('teacher_id', $user->id)
         ->where('is_active', true)
+        ->whereHas('academicLevel', function ($query) {
+            $query->where('key', 'senior_highschool');
+        })
         ->get();
         
         // Get students enrolled in each assigned subject

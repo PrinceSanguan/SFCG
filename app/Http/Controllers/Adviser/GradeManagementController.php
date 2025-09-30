@@ -31,6 +31,9 @@ class GradeManagementController extends Controller
             ->where('school_year', $schoolYear)
             ->where('is_active', true)
             ->whereHas('subject')
+            ->whereHas('academicLevel', function ($query) {
+                $query->whereIn('key', ['elementary', 'junior_highschool']);
+            })
             ->get();
 
         $subjectIds = $assignments->pluck('subject_id')->filter()->unique();
@@ -127,6 +130,9 @@ class GradeManagementController extends Controller
             ->where('school_year', $schoolYear)
             ->where('is_active', true)
             ->whereHas('subject') // Only get assignments that have valid subjects
+            ->whereHas('academicLevel', function ($query) {
+                $query->whereIn('key', ['elementary', 'junior_highschool']);
+            })
             ->get();
 
         $assignedData = $assignments->filter(function ($assignment) {
@@ -170,8 +176,8 @@ class GradeManagementController extends Controller
             ];
         });
 
-        $academicLevels = AcademicLevel::all();
-        $gradingPeriods = GradingPeriod::all();
+        $academicLevels = AcademicLevel::whereIn('key', ['elementary', 'junior_highschool'])->orderBy('name')->get();
+        $gradingPeriods = GradingPeriod::where('is_active', true)->orderBy('sort_order')->get();
 
         return Inertia::render('Adviser/Grades/Create', [
             'user' => $user,
@@ -206,15 +212,18 @@ class GradeManagementController extends Controller
             $request->merge(['grading_period_id' => null]);
         }
 
-        // Verify adviser is assigned to this subject for the school year
+        // Verify adviser is assigned to this subject for the school year and academic level is Elementary or JHS
         $isAssigned = ClassAdviserAssignment::where('adviser_id', $user->id)
             ->where('subject_id', $request->subject_id)
             ->where('school_year', $request->school_year)
             ->where('is_active', true)
+            ->whereHas('academicLevel', function ($query) {
+                $query->whereIn('key', ['elementary', 'junior_highschool']);
+            })
             ->exists();
 
         if (!$isAssigned) {
-            return back()->withErrors(['subject_id' => 'You are not assigned to this subject.']);
+            return back()->withErrors(['subject_id' => 'You are not assigned to this subject or advisers can only manage Elementary and Junior High School grades.']);
         }
 
         if ($validator->fails()) {

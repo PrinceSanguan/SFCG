@@ -123,15 +123,15 @@ export default function GradesIndex({ user, grades, assignedSubjects }: IndexPro
     }
 
     const getGradeColor = (grade: number, academicLevelKey?: string) => {
-        // College grading system: 1.0 (highest) to 5.0 (lowest), 3.0 is passing
-        if (academicLevelKey === 'college') {
+        // SHS and College both use 1.0-5.0 scale (1.0 is highest, 5.0 is lowest, 3.0 is passing)
+        if (academicLevelKey === 'college' || academicLevelKey === 'senior_highschool') {
             if (grade <= 1.5) return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
             if (grade <= 2.5) return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
             if (grade <= 3.0) return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
             return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
         }
-        
-        // Elementary to Senior High grading system: 75 (passing) to 100 (highest)
+
+        // Elementary and JHS use 75-100 scale
         if (grade >= 90) return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
         if (grade >= 80) return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
         if (grade >= 75) return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
@@ -141,17 +141,17 @@ export default function GradesIndex({ user, grades, assignedSubjects }: IndexPro
     const getGradeStatus = (grade: number, academicLevelKey?: string) => {
         // If no grade (0), return "No Grade"
         if (grade === 0) return 'No Grade';
-        
-        if (academicLevelKey === 'college') {
-            // College grading system: 1.0 (highest) to 5.0 (lowest)
+
+        // SHS and College both use 1.0-5.0 scale (1.0 is highest, 5.0 is lowest, 3.0 is passing)
+        if (academicLevelKey === 'college' || academicLevelKey === 'senior_highschool') {
             if (grade <= 1.5) return 'Superior';
             if (grade <= 2.0) return 'Very Good';
             if (grade <= 2.5) return 'Good';
             if (grade <= 3.0) return 'Satisfactory';
             return 'Failing';
         }
-        
-        // Elementary to Senior High grading system: 75 (passing) to 100 (highest)
+
+        // Elementary and JHS use 75-100 scale
         if (grade >= 95) return 'Outstanding';
         if (grade >= 90) return 'Very Good';
         if (grade >= 85) return 'Good';
@@ -160,33 +160,100 @@ export default function GradesIndex({ user, grades, assignedSubjects }: IndexPro
         return 'Failing';
     };
 
+    // Calculate semester average for a student
+    const calculateOverallAverage = (studentId: number, subjectId: number, academicLevelKey: string) => {
+        // Get all grades for this student and subject
+        const studentGrades = grades?.data?.filter(grade =>
+            grade.student.id === studentId &&
+            grade.subject.id === subjectId
+        ) || [];
+
+        if (studentGrades.length === 0) return 0;
+
+        const isSemesterBased = academicLevelKey === 'senior_highschool' || academicLevelKey === 'college';
+
+        if (!isSemesterBased) {
+            // For Elementary/JHS: simple average
+            const validGrades = studentGrades.filter(g => g.grade !== null && g.grade !== undefined);
+            if (validGrades.length === 0) return 0;
+            return validGrades.reduce((sum, g) => sum + g.grade, 0) / validGrades.length;
+        }
+
+        // For SHS/College: Calculate semester averages
+        const s1Midterm = studentGrades.find(g =>
+            g.gradingPeriod?.code?.toUpperCase().includes('S1_MT')
+        );
+        const s1PreFinal = studentGrades.find(g =>
+            g.gradingPeriod?.code?.toUpperCase().includes('S1_PF')
+        );
+        const s2Midterm = studentGrades.find(g =>
+            g.gradingPeriod?.code?.toUpperCase().includes('S2_MT')
+        );
+        const s2PreFinal = studentGrades.find(g =>
+            g.gradingPeriod?.code?.toUpperCase().includes('S2_PF')
+        );
+
+        let semester1Avg = null;
+        if (s1Midterm?.grade && s1PreFinal?.grade) {
+            semester1Avg = (parseFloat(s1Midterm.grade.toString()) + parseFloat(s1PreFinal.grade.toString())) / 2;
+        }
+
+        let semester2Avg = null;
+        if (s2Midterm?.grade && s2PreFinal?.grade) {
+            semester2Avg = (parseFloat(s2Midterm.grade.toString()) + parseFloat(s2PreFinal.grade.toString())) / 2;
+        }
+
+        // Calculate overall average
+        if (semester1Avg !== null && semester2Avg !== null) {
+            return (semester1Avg + semester2Avg) / 2;
+        } else if (semester1Avg !== null) {
+            return semester1Avg;
+        } else if (semester2Avg !== null) {
+            return semester2Avg;
+        }
+
+        return 0;
+    };
+
     // Get students for selected subject
     const getStudentsForSubject = (subjectId: string) => {
         if (!subjectId || !assignedSubjects || !Array.isArray(assignedSubjects)) return [];
-        
+
         // Find the subject assignment
-        const subjectAssignment = assignedSubjects.find(subject => 
+        const subjectAssignment = assignedSubjects.find(subject =>
             subject.subject?.id?.toString() === subjectId
         );
-        
+
         if (!subjectAssignment || !subjectAssignment.enrolled_students) return [];
-        
-        // Return enrolled students with their grades
+
+        const academicLevelKey = subjectAssignment.academicLevel?.key || '';
+
+        // Return enrolled students with their calculated averages
         return subjectAssignment.enrolled_students.map(enrollment => {
-            // Find the latest grade for this student in this subject
-            const studentGrade = grades?.data?.find(grade => 
-                grade.student.id === enrollment.student.id && 
-                grade.subject.id === parseInt(subjectId)
+            // Calculate overall average for this student
+            const overallAverage = calculateOverallAverage(
+                enrollment.student.id,
+                parseInt(subjectId),
+                academicLevelKey
             );
-            
+
+            // Find the most recent grade date
+            const studentGrades = grades?.data?.filter(grade =>
+                grade.student.id === enrollment.student.id &&
+                grade.subject.id === parseInt(subjectId)
+            ) || [];
+            const latestGradeDate = studentGrades.length > 0
+                ? studentGrades.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())[0].updated_at
+                : '';
+
             return {
                 id: enrollment.student.id,
                 name: enrollment.student.name,
                 email: enrollment.student.email,
-                latestGrade: studentGrade ? studentGrade.grade : 0,
-                latestGradeDate: studentGrade ? studentGrade.updated_at : '',
+                latestGrade: overallAverage,
+                latestGradeDate: latestGradeDate,
                 academicLevel: {
-                    key: subjectAssignment.academicLevel?.key || '',
+                    key: academicLevelKey,
                     name: subjectAssignment.academicLevel?.name || ''
                 },
                 gradingPeriod: subjectAssignment.gradingPeriod ? {
@@ -397,7 +464,9 @@ export default function GradesIndex({ user, grades, assignedSubjects }: IndexPro
                                                                     </Badge>
                                                                 ) : (
                                                                     <Badge className={getGradeColor(student.latestGrade, student.academicLevel.key)}>
-                                                                        {student.latestGrade}
+                                                                        {(student.academicLevel.key === 'senior_highschool' || student.academicLevel.key === 'college')
+                                                                            ? student.latestGrade.toFixed(2)
+                                                                            : Math.round(student.latestGrade)}
                                                                     </Badge>
                                                                 )}
                                                             </td>

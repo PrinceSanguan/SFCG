@@ -6,8 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\ClassAdviserAssignment;
 use App\Models\StudentGrade;
 use App\Models\User;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class DashboardController extends Controller
@@ -28,9 +29,24 @@ class DashboardController extends Controller
             ->orderBy('academic_level_id')
             ->get();
 
-        // Stats (basic for now)
+        // Stats
         $sectionsCount = $assignments->count();
-        $studentsCount = 0; // TODO: derive from section-to-student mapping when available
+
+        // Calculate students count
+        // Get academic level IDs from assignments
+        $academicLevelIds = $assignments->pluck('academic_level_id')->unique();
+
+        // Get all sections for these academic levels in current school year
+        $sectionIds = DB::table('sections')
+            ->whereIn('academic_level_id', $academicLevelIds)
+            ->where('school_year', $schoolYear)
+            ->where('is_active', true)
+            ->pluck('id');
+
+        // Count students in these sections
+        $studentsCount = User::where('user_role', 'student')
+            ->whereIn('section_id', $sectionIds)
+            ->count();
 
         // Only count grades for adviser's assigned subjects
         $subjectIds = $assignments->pluck('subject_id')->filter()->unique();

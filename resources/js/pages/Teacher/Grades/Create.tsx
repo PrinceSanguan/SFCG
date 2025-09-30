@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
 import { useForm } from '@inertiajs/react';
 import { ArrowLeft, Save, Plus } from 'lucide-react';
 import { Link } from '@inertiajs/react';
@@ -219,10 +219,9 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
 
     // Get current academic level key for grade validation
     const getCurrentAcademicLevelKey = () => {
-        if (data.academic_level_id) {
-            return academicLevels.find(level => level.id.toString() === data.academic_level_id)?.key;
-        }
-        return null;
+        // For teachers, always use college grading scale since they work with SHS students
+        // SHS uses the same 1.0-5.0 scale as college
+        return 'college';
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -346,10 +345,10 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                                 <Input
                                                     id="grade"
                                                     type="number"
-                                                    step="0.01"
-                                                    min={getCurrentAcademicLevelKey() === 'college' ? '1.0' : '75'}
-                                                    max={getCurrentAcademicLevelKey() === 'college' ? '5.0' : '100'}
-                                                    placeholder={getCurrentAcademicLevelKey() === 'college' ? 'Enter grade (1.0-5.0)' : 'Enter grade (75-100)'}
+                                                    step="0.1"
+                                                    min="1.0"
+                                                    max="5.0"
+                                                    placeholder="Enter grade (1.0-5.0)"
                                                     value={data.grade}
                                                     onChange={(e) => setData('grade', e.target.value)}
                                                     className={errors.grade ? 'border-red-500' : ''}
@@ -359,10 +358,7 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                                     <p className="text-sm text-red-500 mt-1">{errors.grade}</p>
                                                 )}
                                                 <p className="text-sm text-muted-foreground mt-1">
-                                                    {getCurrentAcademicLevelKey() === 'college' 
-                                                        ? 'College: 1.0 (highest) to 5.0 (lowest). 3.0 is passing (equivalent to 75).' 
-                                                        : 'Elementary to Senior High: 75 (passing) to 100 (highest).'
-                                                    }
+                                                    Senior High School: 1.0 (highest) to 5.0 (lowest). 3.0 is passing (equivalent to 75).
                                                 </p>
                                             </div>
 
@@ -374,12 +370,36 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                                     </SelectTrigger>
                                                     <SelectContent>
                                                         <SelectItem value="0">No Period</SelectItem>
-                                                        {quarterOptions.length > 0 ? (
-                                                            quarterOptions.map((quarter) => (
-                                                                <SelectItem key={quarter.id} value={quarter.value}>
-                                                                    {quarter.name}
-                                                                </SelectItem>
-                                                            ))
+                                                        {gradingPeriods && gradingPeriods.length > 0 ? (
+                                                            <>
+                                                                {/* First Semester */}
+                                                                <SelectGroup>
+                                                                    <SelectLabel>First Semester</SelectLabel>
+                                                                    {gradingPeriods
+                                                                        .filter(period => period.code.startsWith('SHS_S1_') && !period.code.includes('_FA'))
+                                                                        .sort((a, b) => a.sort_order - b.sort_order)
+                                                                        .map((period) => (
+                                                                            <SelectItem key={period.id} value={period.id.toString()}>
+                                                                                {period.name}
+                                                                            </SelectItem>
+                                                                        ))
+                                                                    }
+                                                                </SelectGroup>
+
+                                                                {/* Second Semester */}
+                                                                <SelectGroup>
+                                                                    <SelectLabel>Second Semester</SelectLabel>
+                                                                    {gradingPeriods
+                                                                        .filter(period => period.code.startsWith('SHS_S2_') && !period.code.includes('_FA'))
+                                                                        .sort((a, b) => a.sort_order - b.sort_order)
+                                                                        .map((period) => (
+                                                                            <SelectItem key={period.id} value={period.id.toString()}>
+                                                                                {period.name}
+                                                                            </SelectItem>
+                                                                        ))
+                                                                    }
+                                                                </SelectGroup>
+                                                            </>
                                                         ) : (
                                                             <SelectItem value="none" disabled>
                                                                 No grading periods available

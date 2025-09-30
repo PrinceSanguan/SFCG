@@ -161,7 +161,18 @@ export default function AdviserGradesCreate({ user, academicLevels, gradingPerio
                           <SelectContent>
                             {gradingPeriods.filter(period => {
                               const currentLevel = academicLevels.find(l => l.id.toString() === data.academic_level_id);
-                              return currentLevel ? period.academic_level_id === currentLevel.id : true;
+                              if (!currentLevel) return false;
+
+                              // Filter by academic level
+                              if (period.academic_level_id !== currentLevel.id) return false;
+
+                              // For SHS and College, only show parent semesters (no parent_id)
+                              if (currentLevel.key === 'senior_highschool' || currentLevel.key === 'college') {
+                                return !period.parent_id;
+                              }
+
+                              // For Elementary and JHS, show all periods
+                              return true;
                             }).map(period => (
                               <SelectItem key={period.id} value={period.id.toString()}>{period.name}</SelectItem>
                             ))}
@@ -226,7 +237,7 @@ export default function AdviserGradesCreate({ user, academicLevels, gradingPerio
                     <div className="grid gap-4 md:grid-cols-2">
                       <div>
                         <Label htmlFor="academic_level_id">Academic Level</Label>
-                        <Select value={data.academic_level_id} onValueChange={(value) => setData('academic_level_id', value)}>
+                        <Select value={data.academic_level_id} onValueChange={(value) => setData({ ...data, academic_level_id: value, grading_period_id: '0' })}>
                           <SelectTrigger className={errors.academic_level_id ? 'border-red-500' : ''}>
                             <SelectValue placeholder="Select academic level" />
                           </SelectTrigger>
@@ -240,13 +251,27 @@ export default function AdviserGradesCreate({ user, academicLevels, gradingPerio
                       </div>
                       <div>
                         <Label htmlFor="grading_period_id">Grading Period</Label>
-                        <Select value={data.grading_period_id} onValueChange={(value) => setData('grading_period_id', value)}>
+                        <Select value={data.grading_period_id} onValueChange={(value) => setData('grading_period_id', value)} disabled={!data.academic_level_id}>
                           <SelectTrigger>
                             <SelectValue placeholder="Select grading period (optional)" />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="0">No Period</SelectItem>
-                            {gradingPeriods.map(period => (
+                            {gradingPeriods.filter(period => {
+                              const currentLevel = academicLevels.find(l => l.id.toString() === data.academic_level_id);
+                              if (!currentLevel) return false;
+
+                              // Filter by academic level
+                              if (period.academic_level_id !== currentLevel.id) return false;
+
+                              // For SHS and College, only show parent semesters (no parent_id)
+                              if (currentLevel.key === 'senior_highschool' || currentLevel.key === 'college') {
+                                return !period.parent_id;
+                              }
+
+                              // For Elementary and JHS, show all periods
+                              return true;
+                            }).map(period => (
                               <SelectItem key={period.id} value={period.id.toString()}>{period.name}</SelectItem>
                             ))}
                           </SelectContent>

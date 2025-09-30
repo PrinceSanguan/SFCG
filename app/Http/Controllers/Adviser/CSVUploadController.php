@@ -20,13 +20,35 @@ class CSVUploadController extends Controller
 
         $schoolYear = request('school_year', '2024-2025');
 
-        $assignedSubjects = ClassAdviserAssignment::with(['subject.course', 'academicLevel'])
+        $assignments = ClassAdviserAssignment::with(['subject.course', 'academicLevel'])
             ->where('adviser_id', $user->id)
             ->where('school_year', $schoolYear)
             ->where('is_active', true)
+            ->whereHas('subject')
+            ->whereHas('academicLevel', function ($query) {
+                $query->whereIn('key', ['elementary', 'junior_highschool']);
+            })
             ->get();
 
-        $academicLevels = AcademicLevel::orderBy('name')->get();
+        $assignedSubjects = $assignments->filter(function ($assignment) {
+            return $assignment->subject && $assignment->academicLevel;
+        })->map(function ($assignment) {
+            return [
+                'id' => $assignment->id,
+                'subject' => [
+                    'id' => $assignment->subject->id,
+                    'name' => $assignment->subject->name,
+                    'code' => $assignment->subject->code,
+                ],
+                'academicLevel' => [
+                    'id' => $assignment->academicLevel->id,
+                    'name' => $assignment->academicLevel->name,
+                    'key' => $assignment->academicLevel->key,
+                ],
+            ];
+        })->values();
+
+        $academicLevels = AcademicLevel::whereIn('key', ['elementary', 'junior_highschool'])->orderBy('name')->get();
         $gradingPeriods = GradingPeriod::where('is_active', true)->orderBy('sort_order')->get();
 
         return Inertia::render('Adviser/Grades/Upload', [

@@ -25,10 +25,13 @@ class CSVUploadController extends Controller
         $assignedSubjects = \App\Models\InstructorSubjectAssignment::with(['subject.course', 'academicLevel', 'gradingPeriod'])
             ->where('instructor_id', $user->id)
             ->where('is_active', true)
+            ->whereHas('academicLevel', function ($query) {
+                $query->where('key', 'college');
+            })
             ->get();
         
-        // Get academic levels and grading periods for the form
-        $academicLevels = \App\Models\AcademicLevel::orderBy('name')->get();
+        // Get academic levels (College only) and grading periods for the form
+        $academicLevels = \App\Models\AcademicLevel::where('key', 'college')->orderBy('name')->get();
         $gradingPeriods = \App\Models\GradingPeriod::where('is_active', true)->orderBy('sort_order')->get();
         
         return Inertia::render('Instructor/Grades/Upload', [

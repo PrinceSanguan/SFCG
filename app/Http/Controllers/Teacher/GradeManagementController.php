@@ -208,9 +208,10 @@ class GradeManagementController extends Controller
         ]);
         
         // Custom validation for grade based on academic level
+        // SHS uses 1.0-5.0 scale (same as college)
         $academicLevel = AcademicLevel::find($request->academic_level_id);
         if ($academicLevel) {
-            if ($academicLevel->key === 'college') {
+            if ($academicLevel->key === 'college' || $academicLevel->key === 'senior_highschool') {
                 $validator->addRules(['grade' => 'numeric|min:1.0|max:5.0']);
             } else {
                 $validator->addRules(['grade' => 'numeric|min:75|max:100']);
@@ -327,35 +328,67 @@ class GradeManagementController extends Controller
             
             // Get student information
             $studentData = User::findOrFail($student);
-            $subjectData = Subject::findOrFail($subject);
-            
+            $subjectData = Subject::with('course')->findOrFail($subject);
+
+            // Get academic level from the subject or from the teacher's assignment
+            $teacherAssignment = TeacherSubjectAssignment::with('academicLevel')
+                ->where('teacher_id', $user->id)
+                ->where('subject_id', $subject)
+                ->where('is_active', true)
+                ->first();
+
+            $academicLevel = $teacherAssignment ? $teacherAssignment->academicLevel : AcademicLevel::where('key', 'senior_highschool')->first();
+
             // Get student's grades for this subject
             $grades = StudentGrade::with(['academicLevel', 'gradingPeriod'])
                 ->where('student_id', $student)
                 ->where('subject_id', $subject)
                 ->orderBy('school_year', 'desc')
                 ->orderBy('grading_period_id')
-                ->get();
-            
-            // Get grading periods relevant to the teacher's assigned subjects
-            // For now, get all active grading periods, but we could filter by academic level later
+                ->get()
+                ->map(function($grade) {
+                    return [
+                        'id' => $grade->id,
+                        'grade' => $grade->grade,
+                        'school_year' => $grade->school_year,
+                        'year_of_study' => $grade->year_of_study,
+                        'grading_period_id' => $grade->grading_period_id,
+                        'gradingPeriod' => $grade->gradingPeriod ? [
+                            'id' => $grade->gradingPeriod->id,
+                            'name' => $grade->gradingPeriod->name,
+                            'code' => $grade->gradingPeriod->code,
+                        ] : null,
+                        'academicLevel' => $grade->academicLevel ? [
+                            'id' => $grade->academicLevel->id,
+                            'name' => $grade->academicLevel->name,
+                            'key' => $grade->academicLevel->key,
+                        ] : null,
+                        'created_at' => $grade->created_at,
+                        'updated_at' => $grade->updated_at,
+                    ];
+                });
+
+            // Get grading periods relevant to SHS (teachers only handle SHS)
             $gradingPeriods = GradingPeriod::where('is_active', true)
-                ->orderBy('id')
+                ->where('academic_level_id', $academicLevel->id)
+                ->orderBy('sort_order')
                 ->get();
-            
+
             // Log the grading periods for debugging
             Log::info('Grading periods for teacher showStudent', [
                 'teacher_id' => $user->id,
+                'academic_level' => $academicLevel->name,
                 'grading_periods_count' => $gradingPeriods->count(),
                 'grading_periods' => $gradingPeriods->map(function($p) {
                     return ['id' => $p->id, 'name' => $p->name, 'code' => $p->code];
                 })
             ]);
-            
+
             return Inertia::render('Teacher/Grades/ShowStudent', [
                 'user' => $user,
                 'student' => $studentData,
                 'subject' => $subjectData,
+                'academicLevel' => $academicLevel,
                 'grades' => $grades,
                 'gradingPeriods' => $gradingPeriods,
             ]);
