@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Link } from '@inertiajs/react';
-import { ArrowLeft, Edit, User, Calendar, Mail, Shield, Key } from 'lucide-react';
+import { ArrowLeft, Edit, User, Calendar, Mail, Shield, Key, GraduationCap, School, Users } from 'lucide-react';
 import { useState } from 'react';
 import PasswordResetModal from '@/components/registrar/PasswordResetModal';
 
@@ -14,6 +14,13 @@ interface User {
     email: string;
     user_role: string;
     created_at: string;
+    student_number?: string;
+    year_level?: string;
+    specific_year_level?: string;
+    section?: {
+        id: number;
+        name: string;
+    };
     parents?: Array<{
         id: number;
         name: string;
@@ -130,6 +137,44 @@ export default function UsersShow({ user, targetUser, activityLogs }: UsersShowP
                                         </div>
                                     </CardContent>
                                 </Card>
+
+                                {/* Student Information (for students) */}
+                                {targetUser.user_role === 'student' && (targetUser.student_number || targetUser.year_level || targetUser.specific_year_level || targetUser.section) && (
+                                    <Card className="mt-6">
+                                        <CardHeader>
+                                            <CardTitle className="flex items-center gap-2">
+                                                <GraduationCap className="h-5 w-5" />
+                                                Student Information
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="space-y-4">
+                                            {targetUser.student_number && (
+                                                <div>
+                                                    <label className="text-sm font-medium text-gray-500">Student Number</label>
+                                                    <p className="text-sm">{targetUser.student_number}</p>
+                                                </div>
+                                            )}
+                                            {targetUser.year_level && (
+                                                <div>
+                                                    <label className="text-sm font-medium text-gray-500">Academic Level</label>
+                                                    <p className="text-sm capitalize">{targetUser.year_level.replace('_', ' ')}</p>
+                                                </div>
+                                            )}
+                                            {targetUser.specific_year_level && (
+                                                <div>
+                                                    <label className="text-sm font-medium text-gray-500">Year Level</label>
+                                                    <p className="text-sm capitalize">{targetUser.specific_year_level.replace('_', ' ')}</p>
+                                                </div>
+                                            )}
+                                            {targetUser.section && (
+                                                <div>
+                                                    <label className="text-sm font-medium text-gray-500">Section</label>
+                                                    <p className="text-sm">{targetUser.section.name}</p>
+                                                </div>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                )}
                             </div>
 
                             {/* Linked Parents (for students) */}

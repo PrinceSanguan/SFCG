@@ -112,6 +112,36 @@ class User extends Authenticatable
                 }
             }
         });
+
+        static::updated(function (User $user) {
+            if ($user->user_role === 'student') {
+                // Check if section or academic level has changed
+                $sectionChanged = $user->isDirty('section_id');
+                $academicLevelChanged = $user->isDirty('academic_level_id');
+
+                if ($sectionChanged || $academicLevelChanged) {
+                    try {
+                        $teacherService = new \App\Services\TeacherStudentAssignmentService();
+                        $enrolledCount = $teacherService->autoEnrollStudentInSectionSubjects($user);
+
+                        \Log::info('Student re-enrolled in subjects after section/level change', [
+                            'student_id' => $user->id,
+                            'student_name' => $user->name,
+                            'section_id' => $user->section_id,
+                            'academic_level_id' => $user->academic_level_id,
+                            'enrolled_subjects_count' => $enrolledCount,
+                        ]);
+                    } catch (\Exception $e) {
+                        \Log::error('Failed to re-enroll student in subjects after update', [
+                            'student_id' => $user->id,
+                            'student_name' => $user->name,
+                            'error' => $e->getMessage(),
+                            'trace' => $e->getTraceAsString(),
+                        ]);
+                    }
+                }
+            }
+        });
     }
 
     public static function generateStudentNumber(User $user): string

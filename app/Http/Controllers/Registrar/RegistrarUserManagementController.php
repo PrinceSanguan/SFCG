@@ -68,9 +68,12 @@ class RegistrarUserManagementController extends Controller
 
         // Load additional relationships based on user role
         if ($user->user_role === 'student') {
-            $user->load(['parents' => function ($query) {
-                $query->withPivot(['relationship_type', 'emergency_contact', 'notes']);
-            }]);
+            $user->load([
+                'parents' => function ($query) {
+                    $query->withPivot(['relationship_type', 'emergency_contact', 'notes']);
+                },
+                'section'
+            ]);
         } elseif ($user->user_role === 'parent') {
             $user->load(['students' => function ($query) {
                 $query->withPivot(['relationship_type', 'emergency_contact', 'notes']);

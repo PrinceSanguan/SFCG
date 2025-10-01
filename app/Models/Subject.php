@@ -19,6 +19,7 @@ class Subject extends Model
         'strand_id',
         'grade_levels',
         'grading_period_id',
+        'grading_period_ids',
         'course_id',
         'shs_year_level',
         'jhs_year_level',
@@ -36,6 +37,7 @@ class Subject extends Model
         'units' => 'decimal:1',
         'hours_per_week' => 'integer',
         'grade_levels' => 'array',
+        'grading_period_ids' => 'array',
         'shs_year_level' => 'string',
         'jhs_year_level' => 'string',
     ];
@@ -53,6 +55,18 @@ class Subject extends Model
     public function gradingPeriod(): BelongsTo
     {
         return $this->belongsTo(GradingPeriod::class);
+    }
+
+    /**
+     * Get all grading periods for this subject.
+     * Returns a collection of GradingPeriod models.
+     */
+    public function gradingPeriods()
+    {
+        if (!$this->grading_period_ids || empty($this->grading_period_ids)) {
+            return collect([]);
+        }
+        return GradingPeriod::whereIn('id', $this->grading_period_ids)->get();
     }
 
     public function course(): BelongsTo

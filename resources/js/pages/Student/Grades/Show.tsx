@@ -63,13 +63,13 @@ export default function StudentSubjectGradesShow({ user, subject, grades }: Prop
     g.gradingPeriod?.name === 'First Quarter' && g.grade !== null
   );
 
-  // Determine grade status based on average grade (0-100 scale for elementary/junior high)
+  // Determine grade status based on average grade (performance descriptors)
   const getGradeStatus = (averageGrade: number) => {
-    if (averageGrade >= 95) return { text: 'With Highest Honors', color: 'bg-green-100 text-green-800 border-green-200' };
-    if (averageGrade >= 90) return { text: 'With High Honors', color: 'bg-blue-100 text-blue-800 border-blue-200' };
-    if (averageGrade >= 85) return { text: 'With Honors', color: 'bg-purple-100 text-purple-800 border-purple-200' };
-    if (averageGrade >= 75) return { text: 'Passed', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
-    return { text: 'Failed', color: 'bg-red-100 text-red-800 border-red-200' };
+    if (averageGrade >= 90) return { text: 'Outstanding', color: 'bg-green-100 text-green-800 border-green-200' };
+    if (averageGrade >= 85) return { text: 'Very Satisfactory', color: 'bg-blue-100 text-blue-800 border-blue-200' };
+    if (averageGrade >= 80) return { text: 'Satisfactory', color: 'bg-purple-100 text-purple-800 border-purple-200' };
+    if (averageGrade >= 75) return { text: 'Fairly Satisfactory', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
+    return { text: 'Did Not Meet Expectations', color: 'bg-red-100 text-red-800 border-red-200' };
   };
 
   // Calculate overall average from all valid grades

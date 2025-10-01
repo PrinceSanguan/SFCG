@@ -30,14 +30,15 @@ interface Section {
     max_students?: number;
     academic_level: AcademicLevel;
 }
-interface Subject { 
-    id: number; 
-    name: string; 
-    code: string; 
+interface Subject {
+    id: number;
+    name: string;
+    code: string;
     description?: string;
-    academic_level_id: number; 
+    academic_level_id: number;
     grade_levels?: string[];
     grading_period_id?: number;
+    grading_period_ids?: number[];
     course_id?: number;
     units: number;
     hours_per_week: number;
@@ -45,6 +46,7 @@ interface Subject {
     is_active: boolean;
     academic_level: AcademicLevel;
     grading_period?: GradingPeriod;
+    grading_periods?: GradingPeriod[];
     course?: { id: number; name: string; code: string };
     // Additional properties for different academic levels
     shs_year_level?: string;
@@ -75,26 +77,26 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
     const { addToast } = useToast();
     
     // Subject form state
-    const [subjectForm, setSubjectForm] = useState({ 
-        name: '', 
-        code: '', 
-        description: '', 
-        academic_level_id: '', 
+    const [subjectForm, setSubjectForm] = useState({
+        name: '',
+        code: '',
+        description: '',
+        academic_level_id: '',
         grade_levels: [] as string[],
         selected_grade_level: '',
-        grading_period_id: '', 
+        grading_period_ids: [] as string[],
         department_id: '',
-        course_id: '', 
+        course_id: '',
         semester_id: '',
-        units: 0, 
-        hours_per_week: 0, 
-        is_core: false, 
+        units: 0,
+        hours_per_week: 0,
+        is_core: false,
         is_active: true,
         track_id: '',
         strand_id: '',
         shs_year_level: '',
         jhs_year_level: '',
-        section_id: '' 
+        section_id: ''
     });
     const [subjectModal, setSubjectModal] = useState(false);
     const [editSubject, setEditSubject] = useState<Subject | null>(null);
@@ -108,20 +110,20 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
         setCurrentStep(1);
         setSelectedAcademicLevel(null);
         setErrors({});
-        setSubjectForm({ 
-            name: '', 
-            code: '', 
-            description: '', 
-            academic_level_id: '', 
+        setSubjectForm({
+            name: '',
+            code: '',
+            description: '',
+            academic_level_id: '',
             grade_levels: [],
             selected_grade_level: '',
-            grading_period_id: '', 
+            grading_period_ids: [],
             department_id: '',
-            course_id: '', 
+            course_id: '',
             semester_id: '',
-            units: 0, 
-            hours_per_week: 0, 
-            is_core: false, 
+            units: 0,
+            hours_per_week: 0,
+            is_core: false,
             is_active: true,
             track_id: '',
             strand_id: '',
@@ -148,20 +150,20 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
         setSubjectModal(false);
         setCurrentStep(1);
         setSelectedAcademicLevel(null);
-        setSubjectForm({ 
-            name: '', 
-            code: '', 
-            description: '', 
-            academic_level_id: '', 
+        setSubjectForm({
+            name: '',
+            code: '',
+            description: '',
+            academic_level_id: '',
             grade_levels: [],
             selected_grade_level: '',
-            grading_period_id: '', 
+            grading_period_ids: [],
             department_id: '',
-            course_id: '', 
+            course_id: '',
             semester_id: '',
-            units: 0, 
-            hours_per_week: 0, 
-            is_core: false, 
+            units: 0,
+            hours_per_week: 0,
+            is_core: false,
             is_active: true,
             track_id: '',
             strand_id: '',
@@ -246,18 +248,18 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
         const cleanedForm = {
             ...subjectForm,
             description: subjectForm.description || null,
-            grading_period_id: subjectForm.grading_period_id || null,
+            grading_period_ids: subjectForm.grading_period_ids.length > 0 ? subjectForm.grading_period_ids : null,
             course_id: subjectForm.course_id || null,
         };
-        
+
         router.post(route('admin.academic.subjects.store'), cleanedForm, {
             preserveScroll: true,
-            onSuccess: (page) => { 
+            onSuccess: (page) => {
                 console.log('Subject created successfully:', page);
                 addToast("Subject created successfully!", "success");
-                setSubjectForm({ name: '', code: '', description: '', academic_level_id: '', grade_levels: [], selected_grade_level: '', grading_period_id: '', department_id: '', course_id: '', semester_id: '', units: 0, hours_per_week: 0, is_core: false, is_active: true, track_id: '', strand_id: '', shs_year_level: '', jhs_year_level: '', section_id: '' }); 
+                setSubjectForm({ name: '', code: '', description: '', academic_level_id: '', grade_levels: [], selected_grade_level: '', grading_period_ids: [], department_id: '', course_id: '', semester_id: '', units: 0, hours_per_week: 0, is_core: false, is_active: true, track_id: '', strand_id: '', shs_year_level: '', jhs_year_level: '', section_id: '' });
                 setErrors({});
-                setSubjectModal(false); 
+                setSubjectModal(false);
             },
             onError: (errors) => {
                 console.log('Subject creation failed:', errors);
@@ -280,21 +282,21 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
     };
     
     const updateSubject = (subject: Subject) => {
-        const data = { 
-            name: subject.name, 
-            code: subject.code, 
+        const data = {
+            name: subject.name,
+            code: subject.code,
             description: subject.description || '',
-            academic_level_id: subject.academic_level_id, 
+            academic_level_id: subject.academic_level_id,
             grade_levels: subject.grade_levels || [],
-            grading_period_id: subject.grading_period_id || '',
+            grading_period_ids: subject.grading_period_ids || [],
             course_id: subject.course_id || '',
             units: subject.units,
             hours_per_week: subject.hours_per_week,
             is_core: subject.is_core,
             is_active: subject.is_active
         };
-        router.put(route('admin.academic.subjects.update', subject.id), data, { 
-            preserveScroll: true, 
+        router.put(route('admin.academic.subjects.update', subject.id), data, {
+            preserveScroll: true,
             onSuccess: () => {
                 addToast("Subject updated successfully!", "success");
                 setEditModal(false);
@@ -482,9 +484,9 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                     <div>
                                                         <Label htmlFor="subject-level">Academic Level</Label>
                                                             <div className="relative">
-                                                                <Select 
-                                                                    value={subjectForm.academic_level_id} 
-                                                                    onValueChange={(value) => setSubjectForm({ ...subjectForm, academic_level_id: value, grading_period_id: '', course_id: '' })}
+                                                                <Select
+                                                                    value={subjectForm.academic_level_id}
+                                                                    onValueChange={(value) => setSubjectForm({ ...subjectForm, academic_level_id: value, grading_period_ids: [], course_id: '' })}
                                                                     disabled={true}
                                                                 >
                                                                     <SelectTrigger className="bg-gray-50 cursor-not-allowed">
@@ -518,23 +520,50 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                         console.log('Debug - Generic Period - Selected Level:', sel);
                                                         console.log('Debug - Generic Period - Should Show:', shouldShow);
                                                         if (!shouldShow) return null;
+
+                                                        const availablePeriods = subjectForm.academic_level_id
+                                                            ? getGradingPeriodsByLevel(parseInt(subjectForm.academic_level_id)).filter(gp => gp.parent_id == null)
+                                                            : [];
+
                                                         return (
                                                             <div>
-                                                                <Label htmlFor="subject-grading">Grading Period</Label>
-                                                                <Select value={subjectForm.grading_period_id} onValueChange={(value) => setSubjectForm({ ...subjectForm, grading_period_id: value })} disabled={!subjectForm.academic_level_id}>
-                                                                    <SelectTrigger>
-                                                                        <SelectValue placeholder="Select grading period" />
-                                                                    </SelectTrigger>
-                                                                    <SelectContent>
-                                                                            {subjectForm.academic_level_id && getGradingPeriodsByLevel(parseInt(subjectForm.academic_level_id))
-                                                                                .filter(gp => gp.parent_id == null) // quarters have no parent
-                                                                                .map((gp) => (
-                                                                            <SelectItem key={gp.id} value={gp.id.toString()}>
-                                                                                {gp.name} ({gp.code})
-                                                                            </SelectItem>
-                                                                        ))}
-                                                                    </SelectContent>
-                                                                </Select>
+                                                                <Label htmlFor="subject-grading">Grading Periods</Label>
+                                                                <div className="space-y-2 p-3 border rounded-md">
+                                                                    {availablePeriods.length === 0 ? (
+                                                                        <p className="text-sm text-gray-500">No grading periods available</p>
+                                                                    ) : (
+                                                                        availablePeriods.map((gp) => (
+                                                                            <div key={gp.id} className="flex items-center space-x-2">
+                                                                                <input
+                                                                                    type="checkbox"
+                                                                                    id={`gp-${gp.id}`}
+                                                                                    checked={subjectForm.grading_period_ids.includes(gp.id.toString())}
+                                                                                    onChange={(e) => {
+                                                                                        const periodId = gp.id.toString();
+                                                                                        if (e.target.checked) {
+                                                                                            setSubjectForm({
+                                                                                                ...subjectForm,
+                                                                                                grading_period_ids: [...subjectForm.grading_period_ids, periodId]
+                                                                                            });
+                                                                                        } else {
+                                                                                            setSubjectForm({
+                                                                                                ...subjectForm,
+                                                                                                grading_period_ids: subjectForm.grading_period_ids.filter(id => id !== periodId)
+                                                                                            });
+                                                                                        }
+                                                                                    }}
+                                                                                    className="rounded border-gray-300"
+                                                                                />
+                                                                                <Label htmlFor={`gp-${gp.id}`} className="text-sm font-normal cursor-pointer">
+                                                                                    {gp.name} ({gp.code})
+                                                                                </Label>
+                                                                            </div>
+                                                                        ))
+                                                                    )}
+                                                                </div>
+                                                                <p className="text-xs text-gray-500 mt-1">
+                                                                    Select one or more grading periods for this subject
+                                                                </p>
                                                             </div>
                                                         );
                                                     })()}
@@ -1113,7 +1142,15 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                                 )}
                                                             </td>
                                                             <td className="p-3">
-                                                                {subject.grading_period ? (
+                                                                {subject.grading_periods && subject.grading_periods.length > 0 ? (
+                                                                    <div className="flex flex-wrap gap-1">
+                                                                        {subject.grading_periods.map((period) => (
+                                                                            <Badge key={period.id} variant="outline" className="text-xs">
+                                                                                {period.name}
+                                                                            </Badge>
+                                                                        ))}
+                                                                    </div>
+                                                                ) : subject.grading_period ? (
                                                                     <Badge variant="outline">
                                                                         {subject.grading_period.name}
                                                                     </Badge>
@@ -1216,6 +1253,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                                         <th className="text-left p-3">Code</th>
                                                                         <th className="text-left p-3">Name</th>
                                                                         <th className="text-left p-3">Grade Levels</th>
+                                                                        <th className="text-left p-3">Period</th>
                                                                         <th className="text-left p-3">Units</th>
                                                                         <th className="text-left p-3">Hours/Week</th>
                                                                         <th className="text-left p-3">Type</th>
@@ -1241,6 +1279,23 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                                                     <Badge variant="outline" className="text-xs text-gray-500">
                                                                                         All Grades
                                                                                     </Badge>
+                                                                                )}
+                                                                            </td>
+                                                                            <td className="p-3">
+                                                                                {subject.grading_periods && subject.grading_periods.length > 0 ? (
+                                                                                    <div className="flex flex-wrap gap-1">
+                                                                                        {subject.grading_periods.map((period) => (
+                                                                                            <Badge key={period.id} variant="outline" className="text-xs">
+                                                                                                {period.code}
+                                                                                            </Badge>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                ) : subject.grading_period ? (
+                                                                                    <Badge variant="outline" className="text-xs">
+                                                                                        {subject.grading_period.code}
+                                                                                    </Badge>
+                                                                                ) : (
+                                                                                    <span className="text-gray-400">-</span>
                                                                                 )}
                                                                             </td>
                                                                             <td className="p-3">{subject.units}</td>
@@ -1303,7 +1358,16 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                                                     </Badge>
                                                                                 </div>
                                                                                 <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
-                                                                                    {subject.grading_period && (
+                                                                                    {subject.grading_periods && subject.grading_periods.length > 0 ? (
+                                                                                        <div className="flex items-center gap-1 flex-wrap">
+                                                                                            <Clock className="h-3 w-3" />
+                                                                                            {subject.grading_periods.map((period, idx) => (
+                                                                                                <span key={period.id}>
+                                                                                                    {period.name}{idx < subject.grading_periods!.length - 1 ? ', ' : ''}
+                                                                                                </span>
+                                                                                            ))}
+                                                                                        </div>
+                                                                                    ) : subject.grading_period && (
                                                                                         <span className="flex items-center gap-1">
                                                                                             <Clock className="h-3 w-3" />
                                                                                             {subject.grading_period.name}
@@ -1428,23 +1492,55 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                         const sel = academicLevels.find(level => level.id === editSubject.academic_level_id);
                                         const shouldShow = sel?.key === 'elementary' || sel?.key === 'junior_highschool';
                                         if (!shouldShow) return null;
+
+                                        const availablePeriods = editSubject.academic_level_id
+                                            ? getGradingPeriodsByLevel(editSubject.academic_level_id).filter(gp => gp.parent_id == null)
+                                            : [];
+
+                                        // Get current grading period IDs
+                                        const currentGradingPeriodIds = editSubject.grading_period_ids ||
+                                            (editSubject.grading_period_id ? [editSubject.grading_period_id.toString()] : []);
+
                                     return (
                                         <div>
-                                                <Label htmlFor="edit-subject-grading">Grading Period</Label>
-                                                <Select value={editSubject.grading_period_id?.toString() || ''} onValueChange={(value) => setEditSubject({ ...editSubject, grading_period_id: Number(value) })} disabled={!editSubject.academic_level_id}>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select grading period" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                        {editSubject.academic_level_id && getGradingPeriodsByLevel(editSubject.academic_level_id)
-                                                            .filter(gp => gp.parent_id == null) // quarters have no parent
-                                                            .map((gp) => (
-                                                        <SelectItem key={gp.id} value={gp.id.toString()}>
-                                                            {gp.name} ({gp.code})
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                                <Label htmlFor="edit-subject-grading">Grading Periods</Label>
+                                                <div className="space-y-2 p-3 border rounded-md">
+                                                    {availablePeriods.length === 0 ? (
+                                                        <p className="text-sm text-gray-500">No grading periods available</p>
+                                                    ) : (
+                                                        availablePeriods.map((gp) => (
+                                                            <div key={gp.id} className="flex items-center space-x-2">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    id={`edit-gp-${gp.id}`}
+                                                                    checked={currentGradingPeriodIds.includes(gp.id.toString())}
+                                                                    onChange={(e) => {
+                                                                        const periodId = gp.id.toString();
+                                                                        let updatedIds = [...currentGradingPeriodIds];
+                                                                        if (e.target.checked) {
+                                                                            if (!updatedIds.includes(periodId)) {
+                                                                                updatedIds.push(periodId);
+                                                                            }
+                                                                        } else {
+                                                                            updatedIds = updatedIds.filter(id => id !== periodId);
+                                                                        }
+                                                                        setEditSubject({
+                                                                            ...editSubject,
+                                                                            grading_period_ids: updatedIds.map(id => Number(id))
+                                                                        });
+                                                                    }}
+                                                                    className="rounded border-gray-300"
+                                                                />
+                                                                <Label htmlFor={`edit-gp-${gp.id}`} className="text-sm font-normal cursor-pointer">
+                                                                    {gp.name} ({gp.code})
+                                                                </Label>
+                                                            </div>
+                                                        ))
+                                                    )}
+                                                </div>
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    Select one or more grading periods for this subject
+                                                </p>
                                         </div>
                                     );
                                 })()}

@@ -270,6 +270,9 @@ class GradeManagementController extends Controller
         $user = Auth::user();
         $schoolYear = request('school_year', '2024-2025');
 
+        // Load the academic level relationship
+        $subject->load('academicLevel');
+
         // Verify adviser is assigned to this subject
         $isAssigned = ClassAdviserAssignment::where('adviser_id', $user->id)
             ->where('subject_id', $subject->id)
@@ -339,6 +342,20 @@ class GradeManagementController extends Controller
             ];
         });
 
+        // Get available grading periods for the subject's academic level
+        $gradingPeriods = GradingPeriod::where('academic_level_id', $subject->academic_level_id)
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->get()
+            ->map(function($period) {
+                return [
+                    'id' => $period->id,
+                    'name' => $period->name,
+                    'code' => $period->code,
+                    'sort_order' => $period->sort_order,
+                ];
+            });
+
         return Inertia::render('Adviser/Grades/Show', [
             'user' => $user,
             'student' => [
@@ -351,9 +368,15 @@ class GradeManagementController extends Controller
                 'id' => $subject->id,
                 'name' => $subject->name,
                 'code' => $subject->code,
+                'academicLevel' => $subject->academicLevel ? [
+                    'id' => $subject->academicLevel->id,
+                    'name' => $subject->academicLevel->name,
+                    'key' => $subject->academicLevel->key,
+                ] : null,
             ],
             'schoolYear' => $schoolYear,
             'grades' => $transformedGrades,
+            'gradingPeriods' => $gradingPeriods,
         ]);
     }
 }

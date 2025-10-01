@@ -88,6 +88,10 @@ interface ViewUser {
     student_number?: string;
     year_level?: string;
     specific_year_level?: string;
+    section?: {
+        id: number;
+        name: string;
+    };
     // Personal Information
     birth_date?: string;
     gender?: string;
@@ -311,7 +315,7 @@ export default function ViewStudent({ user, targetUser, activityLogs, assignedSu
                         </Card>
 
                         {/* Student Information */}
-                        {(targetUser.student_number || targetUser.year_level || targetUser.specific_year_level) && (
+                        {(targetUser.student_number || targetUser.year_level || targetUser.specific_year_level || targetUser.section) && (
                             <Card>
                                 <CardHeader>
                                     <CardTitle>Student Information</CardTitle>
@@ -342,6 +346,15 @@ export default function ViewStudent({ user, targetUser, activityLogs, assignedSu
                                                 <div>
                                                     <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Year Level</p>
                                                     <p className="text-sm capitalize">{targetUser.specific_year_level.replace('_', ' ')}</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {targetUser.section && (
+                                            <div className="flex items-center gap-3">
+                                                <Users className="h-5 w-5 text-gray-500" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Section</p>
+                                                    <p className="text-sm">{targetUser.section.name}</p>
                                                 </div>
                                             </div>
                                         )}

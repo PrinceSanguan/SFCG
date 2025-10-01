@@ -245,50 +245,86 @@ class TeacherStudentAssignmentService
 
     /**
      * Link adviser to students through subject.
+     * Automatically enrolls all students in the section to this subject.
      */
     private function linkAdviserToStudentsThroughSubject(User $adviser, Subject $subject): int
     {
         $currentSchoolYear = $this->getCurrentSchoolYear();
         $linkedCount = 0;
 
-        // Find all students enrolled in this subject AND in the same section
-        $studentAssignments = StudentSubjectAssignment::where([
-            'subject_id' => $subject->id,
-            'school_year' => $currentSchoolYear,
-            'is_active' => true,
-        ])->with('student')->get();
+        // Find all students in the same section and academic level
+        $students = User::where('user_role', 'student')
+            ->where('is_active', true)
+            ->when($subject->section_id, function($query) use ($subject) {
+                return $query->where('section_id', $subject->section_id);
+            })
+            ->when($subject->academic_level_id, function($query) use ($subject) {
+                return $query->where('academic_level_id', $subject->academic_level_id);
+            })
+            ->get();
 
-        foreach ($studentAssignments as $studentAssignment) {
-            $student = $studentAssignment->student;
-            if (!$student) continue;
+        foreach ($students as $student) {
+            // Check if student is already enrolled in this subject
+            $existingAssignment = StudentSubjectAssignment::where([
+                'student_id' => $student->id,
+                'subject_id' => $subject->id,
+                'school_year' => $currentSchoolYear,
+            ])->first();
 
-            // Check if student is in the same section as the subject
-            if ($subject->section_id && $student->section_id !== $subject->section_id) {
-                Log::info('Student skipped - not in the same section as subject', [
-                    'student_id' => $student->id,
-                    'student_name' => $student->name,
-                    'student_section_id' => $student->section_id,
-                    'subject_section_id' => $subject->section_id,
-                    'subject_name' => $subject->name,
-                ]);
+            if ($existingAssignment) {
+                // Update existing assignment to active
+                if (!$existingAssignment->is_active) {
+                    $existingAssignment->update(['is_active' => true]);
+                    Log::info('Reactivated student subject assignment', [
+                        'student_id' => $student->id,
+                        'student_name' => $student->name,
+                        'subject_id' => $subject->id,
+                        'subject_name' => $subject->name,
+                    ]);
+                }
+                $linkedCount++;
                 continue;
             }
 
-            // Log the relationship (this could be expanded to create actual relationship records if needed)
-            Log::info('Adviser linked to student through subject', [
-                'adviser_id' => $adviser->id,
-                'adviser_name' => $adviser->name,
-                'student_id' => $student->id,
-                'student_name' => $student->name,
-                'subject_id' => $subject->id,
-                'subject_name' => $subject->name,
-                'section_id' => $subject->section_id,
-                'section_name' => $subject->section ? $subject->section->name : null,
-                'link_method' => 'section_specific_subject_assignment',
-            ]);
+            // Create new student subject assignment
+            try {
+                StudentSubjectAssignment::create([
+                    'student_id' => $student->id,
+                    'subject_id' => $subject->id,
+                    'academic_level_id' => $subject->academic_level_id,
+                    'section_id' => $subject->section_id,
+                    'school_year' => $currentSchoolYear,
+                    'is_active' => true,
+                    'enrolled_at' => now(),
+                    'enrolled_by' => Auth::id() ?? 1,
+                ]);
 
-            $linkedCount++;
+                Log::info('Auto-enrolled student in subject when adviser assigned', [
+                    'adviser_id' => $adviser->id,
+                    'adviser_name' => $adviser->name,
+                    'student_id' => $student->id,
+                    'student_name' => $student->name,
+                    'subject_id' => $subject->id,
+                    'subject_name' => $subject->name,
+                    'section_id' => $subject->section_id,
+                    'section_name' => $subject->section ? $subject->section->name : null,
+                ]);
+
+                $linkedCount++;
+            } catch (\Exception $e) {
+                Log::error('Failed to auto-enroll student in subject', [
+                    'student_id' => $student->id,
+                    'subject_id' => $subject->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
+
+        Log::info('Completed auto-enrollment for subject', [
+            'subject_id' => $subject->id,
+            'subject_name' => $subject->name,
+            'students_enrolled' => $linkedCount,
+        ]);
 
         return $linkedCount;
     }
@@ -523,5 +559,93 @@ class TeacherStudentAssignmentService
         }
 
         return null;
+    }
+
+    /**
+     * Automatically enroll a student in all subjects for their section/academic level.
+     * This should be called when a student is assigned to a section.
+     */
+    public function autoEnrollStudentInSectionSubjects(User $student): int
+    {
+        $currentSchoolYear = $this->getCurrentSchoolYear();
+        $enrolledCount = 0;
+
+        if (!$student->section_id || !$student->academic_level_id) {
+            Log::warning('Cannot auto-enroll student - missing section or academic level', [
+                'student_id' => $student->id,
+                'student_name' => $student->name,
+                'section_id' => $student->section_id,
+                'academic_level_id' => $student->academic_level_id,
+            ]);
+            return 0;
+        }
+
+        // Find all subjects for this section and academic level
+        $subjects = Subject::where('section_id', $student->section_id)
+            ->where('academic_level_id', $student->academic_level_id)
+            ->where('is_active', true)
+            ->get();
+
+        foreach ($subjects as $subject) {
+            // Check if student is already enrolled
+            $existingAssignment = StudentSubjectAssignment::where([
+                'student_id' => $student->id,
+                'subject_id' => $subject->id,
+                'school_year' => $currentSchoolYear,
+            ])->first();
+
+            if ($existingAssignment) {
+                // Reactivate if inactive
+                if (!$existingAssignment->is_active) {
+                    $existingAssignment->update(['is_active' => true]);
+                    Log::info('Reactivated student subject assignment', [
+                        'student_id' => $student->id,
+                        'subject_id' => $subject->id,
+                    ]);
+                }
+                $enrolledCount++;
+                continue;
+            }
+
+            // Create new enrollment
+            try {
+                StudentSubjectAssignment::create([
+                    'student_id' => $student->id,
+                    'subject_id' => $subject->id,
+                    'academic_level_id' => $subject->academic_level_id,
+                    'section_id' => $subject->section_id,
+                    'school_year' => $currentSchoolYear,
+                    'is_active' => true,
+                    'enrolled_at' => now(),
+                    'enrolled_by' => Auth::id() ?? 1,
+                ]);
+
+                Log::info('Auto-enrolled student in subject based on section', [
+                    'student_id' => $student->id,
+                    'student_name' => $student->name,
+                    'subject_id' => $subject->id,
+                    'subject_name' => $subject->name,
+                    'section_id' => $student->section_id,
+                    'academic_level_id' => $student->academic_level_id,
+                ]);
+
+                $enrolledCount++;
+            } catch (\Exception $e) {
+                Log::error('Failed to auto-enroll student in subject', [
+                    'student_id' => $student->id,
+                    'subject_id' => $subject->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        Log::info('Completed auto-enrollment for student in section subjects', [
+            'student_id' => $student->id,
+            'student_name' => $student->name,
+            'section_id' => $student->section_id,
+            'subjects_enrolled' => $enrolledCount,
+        ]);
+
+        return $enrolledCount;
     }
 }

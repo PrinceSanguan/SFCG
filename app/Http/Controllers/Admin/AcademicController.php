@@ -235,8 +235,14 @@ class AcademicController extends Controller
         $subjects = Subject::with(['academicLevel', 'gradingPeriod', 'course', 'section'])
             ->orderBy('academic_level_id')
             ->orderBy('name')
-            ->get();
-        
+            ->get()
+            ->map(function ($subject) {
+                // Add grading periods collection to each subject
+                $subjectArray = $subject->toArray();
+                $subjectArray['grading_periods'] = $subject->gradingPeriods()->toArray();
+                return $subjectArray;
+            });
+
         $academicLevels = AcademicLevel::orderBy('sort_order')->get();
         $gradingPeriods = GradingPeriod::orderBy('academic_level_id')->orderBy('sort_order')->get();
         $courses = Course::with('department')->orderBy('name')->get();
@@ -246,7 +252,7 @@ class AcademicController extends Controller
         $tracks = Track::orderBy('name')->get();
         $strands = Strand::orderBy('name')->get();
         $sections = Section::with(['academicLevel'])->orderBy('academic_level_id')->orderBy('specific_year_level')->orderBy('name')->get();
-        
+
         return Inertia::render('Admin/Academic/Subjects', [
             'user' => $this->sharedUser(),
             'subjects' => $subjects,
@@ -1213,7 +1219,8 @@ class AcademicController extends Controller
             'grade_levels' => 'nullable|array',
             'grade_levels.*' => 'string|in:grade_1,grade_2,grade_3,grade_4,grade_5,grade_6',
             'selected_grade_level' => 'nullable|string|in:grade_1,grade_2,grade_3,grade_4,grade_5,grade_6',
-            'grading_period_id' => 'nullable|exists:grading_periods,id',
+            'grading_period_ids' => 'nullable|array',
+            'grading_period_ids.*' => 'exists:grading_periods,id',
             'course_id' => 'nullable|exists:courses,id',
             'units' => 'nullable|numeric|min:0',
             'hours_per_week' => 'nullable|integer|min:0',
@@ -1230,12 +1237,12 @@ class AcademicController extends Controller
         try {
             // Get the academic level
             $level = AcademicLevel::find($request->academic_level_id);
-            
+
             // If SHS, ensure strand is present
             if ($level && $level->key === 'senior_highschool' && !$request->filled('strand_id')) {
                 return back()->withErrors(['strand_id' => 'Strand is required for Senior High School subjects.'])->withInput();
             }
-            
+
             // If Elementary, Junior High School, Senior High School, or College, ensure section is present
             if ($level && in_array($level->key, ['elementary', 'junior_highschool', 'senior_highschool', 'college']) && !$request->filled('section_id')) {
                 $levelNames = [
@@ -1247,6 +1254,8 @@ class AcademicController extends Controller
                 $levelName = $levelNames[$level->key];
                 return back()->withErrors(['section_id' => "Section is required for {$levelName} subjects."])->withInput();
             }
+
+            // Create one subject with multiple grading periods stored in grading_period_ids
             $data = [
                 'name' => $request->name,
                 'code' => $request->code,
@@ -1256,16 +1265,16 @@ class AcademicController extends Controller
                 'shs_year_level' => $request->shs_year_level,
                 'jhs_year_level' => $request->jhs_year_level,
                 'grade_levels' => $request->grade_levels,
-                'grading_period_id' => $request->grading_period_id,
+                'grading_period_id' => null, // Keep for backward compatibility
+                'grading_period_ids' => $request->grading_period_ids, // Store multiple grading periods
                 'course_id' => $request->course_id,
-                'section_id' => $request->section_id, // Now properly storing section_id
+                'section_id' => $request->section_id,
                 'units' => $request->units ?? 0,
                 'hours_per_week' => $request->hours_per_week ?? 0,
                 'is_core' => $request->is_core ?? false,
                 'is_active' => $request->is_active ?? true,
             ];
             $subject = Subject::create($data);
-            
             Log::info('Subject created successfully:', $subject->toArray());
         } catch (\Exception $e) {
             Log::error('Subject creation failed:', [
@@ -1304,7 +1313,8 @@ class AcademicController extends Controller
             'jhs_year_level' => 'nullable|string|in:grade_7,grade_8,grade_9,grade_10',
             'grade_levels' => 'nullable|array',
             'grade_levels.*' => 'string|in:grade_1,grade_2,grade_3,grade_4,grade_5,grade_6',
-            'grading_period_id' => 'nullable|exists:grading_periods,id',
+            'grading_period_ids' => 'nullable|array',
+            'grading_period_ids.*' => 'exists:grading_periods,id',
             'course_id' => 'nullable|exists:courses,id',
             'units' => 'nullable|numeric|min:0',
             'hours_per_week' => 'nullable|integer|min:0',
@@ -1331,9 +1341,10 @@ class AcademicController extends Controller
             'shs_year_level' => $request->shs_year_level,
             'jhs_year_level' => $request->jhs_year_level,
             'grade_levels' => $request->grade_levels,
-            'grading_period_id' => $request->grading_period_id,
+            'grading_period_id' => null, // Keep for backward compatibility
+            'grading_period_ids' => $request->grading_period_ids,
             'course_id' => $request->course_id,
-            'section_id' => $request->section_id, // Now properly updating section_id
+            'section_id' => $request->section_id,
             'units' => $request->units ?? 0,
             'hours_per_week' => $request->hours_per_week ?? 0,
             'is_core' => $request->is_core ?? false,

@@ -8,6 +8,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ArrowLeft, BookOpen, GraduationCap, User } from 'lucide-react';
 import { Grade } from '@/types';
 
+interface GradingPeriod {
+  id: number;
+  name: string;
+  code: string;
+  sort_order: number;
+}
+
 interface Props {
   user: {
     id: number;
@@ -25,53 +32,54 @@ interface Props {
     id: number;
     name: string;
     code: string;
+    academicLevel?: {
+      id: number;
+      name: string;
+      key: string;
+    };
   };
   grades: Grade[];
   schoolYear: string;
+  gradingPeriods: GradingPeriod[];
 }
 
-export default function AdviserStudentGradesShow({ user, student, subject, grades, schoolYear }: Props) {
+export default function AdviserStudentGradesShow({ user, student, subject, grades, schoolYear, gradingPeriods }: Props) {
   // Calculate grade statistics
   const validGrades = grades.filter(g => g.grade !== null);
 
-  // Find all quarter grades for elementary students
-  const quarterGrades = {
-    Q1: grades.find(g =>
-      (g.gradingPeriod?.code === 'Q1' ||
-       g.gradingPeriod?.code === '1ST_GRADING' ||
-       g.gradingPeriod?.code === 'F1' ||
-       g.gradingPeriod?.name === '1st Grading' ||
-       g.gradingPeriod?.name === 'First Quarter') &&
-      g.grade !== null
-    ),
-    Q2: grades.find(g =>
-      (g.gradingPeriod?.code === 'Q2' ||
-       g.gradingPeriod?.code === '2ND_GRADING' ||
-       g.gradingPeriod?.code === 'F2' ||
-       g.gradingPeriod?.name === '2nd Grading' ||
-       g.gradingPeriod?.name === 'Second Quarter') &&
-      g.grade !== null
-    ),
-    Q3: grades.find(g =>
-      (g.gradingPeriod?.code === 'Q3' ||
-       g.gradingPeriod?.code === '3RD_GRADING' ||
-       g.gradingPeriod?.code === 'F3' ||
-       g.gradingPeriod?.name === '3rd Grading' ||
-       g.gradingPeriod?.name === 'Third Quarter') &&
-      g.grade !== null
-    ),
-    Q4: grades.find(g =>
-      (g.gradingPeriod?.code === 'Q4' ||
-       g.gradingPeriod?.code === '4TH_GRADING' ||
-       g.gradingPeriod?.code === 'F4' ||
-       g.gradingPeriod?.name === '4th Grading' ||
-       g.gradingPeriod?.name === 'Fourth Quarter') &&
-      g.grade !== null
-    ),
-  };
+  // Create a map of period code to grade
+  const periodGrades = gradingPeriods.reduce((acc, period) => {
+    const grade = grades.find(g =>
+      g.gradingPeriod?.id === period.id && g.grade !== null
+    );
+    acc[period.code] = grade;
+    return acc;
+  }, {} as Record<string, Grade | undefined>);
 
-  // Determine grade status based on average grade (0-100 scale for elementary/junior high)
+  // Define color classes for each period (cycling through colors)
+  const colorClasses = [
+    { bg: 'bg-blue-50', text: 'text-blue-600' },
+    { bg: 'bg-green-50', text: 'text-green-600' },
+    { bg: 'bg-yellow-50', text: 'text-yellow-600' },
+    { bg: 'bg-purple-50', text: 'text-purple-600' },
+    { bg: 'bg-pink-50', text: 'text-pink-600' },
+    { bg: 'bg-indigo-50', text: 'text-indigo-600' },
+  ];
+
+  // Determine grade status based on average grade and academic level
   const getGradeStatus = (averageGrade: number) => {
+    const academicLevelKey = subject.academicLevel?.key;
+
+    // For Elementary and JHS: use descriptive ratings
+    if (academicLevelKey === 'elementary' || academicLevelKey === 'junior_highschool') {
+      if (averageGrade >= 90) return { text: 'Outstanding', color: 'bg-green-100 text-green-800 border-green-200' };
+      if (averageGrade >= 85) return { text: 'Very Satisfactory', color: 'bg-blue-100 text-blue-800 border-blue-200' };
+      if (averageGrade >= 80) return { text: 'Satisfactory', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
+      if (averageGrade >= 75) return { text: 'Fairly Satisfactory', color: 'bg-orange-100 text-orange-800 border-orange-200' };
+      return { text: 'Did Not Meet Expectations', color: 'bg-red-100 text-red-800 border-red-200' };
+    }
+
+    // For other levels: use honors system
     if (averageGrade >= 95) return { text: 'With Highest Honors', color: 'bg-green-100 text-green-800 border-green-200' };
     if (averageGrade >= 90) return { text: 'With High Honors', color: 'bg-blue-100 text-blue-800 border-blue-200' };
     if (averageGrade >= 85) return { text: 'With Honors', color: 'bg-purple-100 text-purple-800 border-purple-200' };
@@ -118,31 +126,19 @@ export default function AdviserStudentGradesShow({ user, student, subject, grade
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                  <div className="text-center p-4 bg-blue-50 rounded-lg">
-                    <div className="text-2xl font-bold text-blue-600">
-                      {quarterGrades.Q1 ? quarterGrades.Q1.grade : '—'}
-                    </div>
-                    <div className="text-sm text-blue-600">First Quarter</div>
-                  </div>
-                  <div className="text-center p-4 bg-green-50 rounded-lg">
-                    <div className="text-2xl font-bold text-green-600">
-                      {quarterGrades.Q2 ? quarterGrades.Q2.grade : '—'}
-                    </div>
-                    <div className="text-sm text-green-600">Second Quarter</div>
-                  </div>
-                  <div className="text-center p-4 bg-yellow-50 rounded-lg">
-                    <div className="text-2xl font-bold text-yellow-600">
-                      {quarterGrades.Q3 ? quarterGrades.Q3.grade : '—'}
-                    </div>
-                    <div className="text-sm text-yellow-600">Third Quarter</div>
-                  </div>
-                  <div className="text-center p-4 bg-purple-50 rounded-lg">
-                    <div className="text-2xl font-bold text-purple-600">
-                      {quarterGrades.Q4 ? quarterGrades.Q4.grade : '—'}
-                    </div>
-                    <div className="text-sm text-purple-600">Fourth Quarter</div>
-                  </div>
+                <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-${Math.min(gradingPeriods.length, 4)} gap-4 mb-4`}>
+                  {gradingPeriods.map((period, index) => {
+                    const colors = colorClasses[index % colorClasses.length];
+                    const grade = periodGrades[period.code];
+                    return (
+                      <div key={period.id} className={`text-center p-4 ${colors.bg} rounded-lg`}>
+                        <div className={`text-2xl font-bold ${colors.text}`}>
+                          {grade ? grade.grade : '—'}
+                        </div>
+                        <div className={`text-sm ${colors.text}`}>{period.name}</div>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -176,10 +172,11 @@ export default function AdviserStudentGradesShow({ user, student, subject, grade
                       <TableHead className="bg-gray-900 text-white">Student ID</TableHead>
                       <TableHead className="bg-gray-900 text-white">Subject</TableHead>
                       <TableHead className="bg-gray-900 text-white">Faculty</TableHead>
-                      <TableHead className="bg-gray-900 text-white">Q1</TableHead>
-                      <TableHead className="bg-gray-900 text-white">Q2</TableHead>
-                      <TableHead className="bg-gray-900 text-white">Q3</TableHead>
-                      <TableHead className="bg-gray-900 text-white">Q4</TableHead>
+                      {gradingPeriods.map((period) => (
+                        <TableHead key={period.id} className="bg-gray-900 text-white">
+                          {period.name}
+                        </TableHead>
+                      ))}
                       <TableHead className="bg-gray-900 text-white">AVERAGE</TableHead>
                       <TableHead className="bg-gray-900 text-white">Grade Status</TableHead>
                     </TableRow>
@@ -204,42 +201,22 @@ export default function AdviserStudentGradesShow({ user, student, subject, grade
                           <span>{validGrades.length > 0 && validGrades[0].teacher_name ? validGrades[0].teacher_name : 'No Teacher Assigned'}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="px-4 py-3">
-                        {quarterGrades.Q1 ? (
-                          <Badge className="bg-blue-100 text-blue-800 border-blue-200">
-                            {quarterGrades.Q1.grade}
-                          </Badge>
-                        ) : (
-                          <span className="text-gray-400">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="px-4 py-3">
-                        {quarterGrades.Q2 ? (
-                          <Badge className="bg-green-100 text-green-800 border-green-200">
-                            {quarterGrades.Q2.grade}
-                          </Badge>
-                        ) : (
-                          <span className="text-gray-400">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="px-4 py-3">
-                        {quarterGrades.Q3 ? (
-                          <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">
-                            {quarterGrades.Q3.grade}
-                          </Badge>
-                        ) : (
-                          <span className="text-gray-400">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="px-4 py-3">
-                        {quarterGrades.Q4 ? (
-                          <Badge className="bg-purple-100 text-purple-800 border-purple-200">
-                            {quarterGrades.Q4.grade}
-                          </Badge>
-                        ) : (
-                          <span className="text-gray-400">—</span>
-                        )}
-                      </TableCell>
+                      {gradingPeriods.map((period, index) => {
+                        const colors = colorClasses[index % colorClasses.length];
+                        const grade = periodGrades[period.code];
+                        const badgeColor = colors.bg.replace('50', '100') + ' ' + colors.text.replace('600', '800') + ' border-' + colors.text.split('-')[1] + '-200';
+                        return (
+                          <TableCell key={period.id} className="px-4 py-3">
+                            {grade ? (
+                              <Badge className={badgeColor}>
+                                {grade.grade}
+                              </Badge>
+                            ) : (
+                              <span className="text-gray-400">—</span>
+                            )}
+                          </TableCell>
+                        );
+                      })}
                       <TableCell className="px-4 py-3">
                         {validGrades.length > 0 ? (
                           <Badge className="bg-gray-100 text-gray-800 border-gray-200">

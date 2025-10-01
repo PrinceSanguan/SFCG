@@ -68,6 +68,9 @@ interface Props {
 }
 
 export default function StudentSubjectsIndex({ user, schoolYear, assignedSubjects, subjectsBySemester, stats }: Props) {
+  // Check if student is elementary or junior high (quarters-based, not semesters)
+  const isQuarterBased = user?.year_level === 'elementary' || user?.year_level === 'junior_high_school';
+
   return (
     <StudentLayout>
       <Head title="My Subjects" />
@@ -121,7 +124,7 @@ export default function StudentSubjectsIndex({ user, schoolYear, assignedSubject
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <div className={`grid grid-cols-1 gap-4 ${isQuarterBased ? 'md:grid-cols-3' : 'md:grid-cols-4'}`}>
           <Card>
             <CardHeader className="pb-3">
               <CardDescription>Total Subjects</CardDescription>
@@ -140,19 +143,21 @@ export default function StudentSubjectsIndex({ user, schoolYear, assignedSubject
               <CardTitle className="text-2xl font-semibold">{stats.total_units}</CardTitle>
             </CardHeader>
           </Card>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardDescription>Semesters</CardDescription>
-              <CardTitle className="text-2xl font-semibold">{stats.semesters}</CardTitle>
-            </CardHeader>
-          </Card>
+          {!isQuarterBased && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardDescription>Semesters</CardDescription>
+                <CardTitle className="text-2xl font-semibold">{stats.semesters}</CardTitle>
+              </CardHeader>
+            </Card>
+          )}
         </div>
 
         {/* Subjects Display */}
         {assignedSubjects && assignedSubjects.length > 0 ? (
           <div className="space-y-6">
-            {/* Group by Semester */}
-            {Object.keys(subjectsBySemester).length > 1 ? (
+            {/* Group by Semester (only for semester-based levels) */}
+            {!isQuarterBased && Object.keys(subjectsBySemester).length > 1 ? (
               Object.entries(subjectsBySemester).map(([semester, subjects]) => (
                 <div key={semester || 'no-semester'} className="space-y-4">
                   <div className="flex items-center gap-2">
@@ -166,7 +171,7 @@ export default function StudentSubjectsIndex({ user, schoolYear, assignedSubject
                   </div>
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {subjects.map((assignment) => (
-                      <SubjectCard key={assignment.id} assignment={assignment} />
+                      <SubjectCard key={assignment.id} assignment={assignment} isQuarterBased={isQuarterBased} />
                     ))}
                   </div>
                 </div>
@@ -174,7 +179,7 @@ export default function StudentSubjectsIndex({ user, schoolYear, assignedSubject
             ) : (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {assignedSubjects.map((assignment) => (
-                  <SubjectCard key={assignment.id} assignment={assignment} />
+                  <SubjectCard key={assignment.id} assignment={assignment} isQuarterBased={isQuarterBased} />
                 ))}
               </div>
             )}
@@ -198,7 +203,7 @@ export default function StudentSubjectsIndex({ user, schoolYear, assignedSubject
   );
 }
 
-function SubjectCard({ assignment }: { assignment: SubjectAssignment }) {
+function SubjectCard({ assignment, isQuarterBased }: { assignment: SubjectAssignment; isQuarterBased: boolean }) {
   return (
     <Card className="hover:shadow-lg transition-shadow border-l-4 border-l-blue-500">
       <CardHeader className="pb-3">
@@ -217,7 +222,7 @@ function SubjectCard({ assignment }: { assignment: SubjectAssignment }) {
                 Core
               </Badge>
             )}
-            {assignment.semester && (
+            {!isQuarterBased && assignment.semester && (
               <Badge variant="outline" className="text-xs">
                 {assignment.semester}
               </Badge>

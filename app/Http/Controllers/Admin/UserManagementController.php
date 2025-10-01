@@ -624,6 +624,7 @@ class UserManagementController extends Controller
         $relations = ['activityLogs', 'targetActivityLogs.user'];
         if ($role === 'student') {
             $relations[] = 'parents';
+            $relations[] = 'section';
         }
         $user->load($relations);
 

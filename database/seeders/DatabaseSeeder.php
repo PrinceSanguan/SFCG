@@ -15,9 +15,11 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             BasicStructureSeeder::class,
             CollegeGradingPeriodsSeeder::class,
-            AssignChairpersonToDepartmentSeeder::class,
-            // Comprehensive realistic school data
-            RealisticSchoolDataSeeder::class,
+            TrackStrandSeeder::class,
+            // Commented out - requires departments which don't exist with minimal seeding
+            // AssignChairpersonToDepartmentSeeder::class,
+            // Commented out - only keeping 9 users (one per role)
+            // RealisticSchoolDataSeeder::class,
             // Commented out temporarily - keeping only one user per role
             // AcademicManagementSeeder::class,
             // ParentStudentSeeder::class,
