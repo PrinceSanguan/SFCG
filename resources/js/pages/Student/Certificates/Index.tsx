@@ -101,7 +101,7 @@ export default function CertificatesIndex({ user, certificates }: IndexProps) {
                                                 Academic Levels
                                             </p>
                                             <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                                                {new Set(certificates.map(c => c.academicLevel.name)).size}
+                                                {new Set(certificates.map(c => c.academicLevel?.name).filter(Boolean)).size}
                                             </p>
                                         </div>
                                     </div>
@@ -152,7 +152,7 @@ export default function CertificatesIndex({ user, certificates }: IndexProps) {
                                                             {certificate.template.name}
                                                         </h3>
                                                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                                                            {certificate.academicLevel.name} • {certificate.school_year}
+                                                            {certificate.academicLevel?.name || 'N/A'} • {certificate.school_year}
                                                         </p>
                                                         <p className="text-xs text-gray-400 dark:text-gray-500">
                                                             Serial: {certificate.serial_number}

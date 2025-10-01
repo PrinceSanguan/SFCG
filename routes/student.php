@@ -4,7 +4,6 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Student\DashboardController;
 use App\Http\Controllers\Student\GradesController;
 use App\Http\Controllers\Student\HonorsController;
-use App\Http\Controllers\Student\CertificatesController;
 use App\Http\Controllers\Student\ProfileController;
 use App\Http\Controllers\Student\SubjectsController;
 

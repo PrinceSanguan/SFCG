@@ -220,11 +220,17 @@ export default function Show({ user, student, subject, academicLevel, grades, gr
                     };
                 }
 
-                // Only include input periods (exclude calculated Final Average)
-                if (!period.name.toLowerCase().includes('final average') &&
-                    !period.code.includes('FA') &&
-                    !period.name.toLowerCase().includes('final') &&
-                    !period.code.toLowerCase().includes('final')) {
+                // Only include input periods (exclude calculated Final Average and parent semester containers)
+                const isParentContainer = period.name.toLowerCase() === 'first semester' ||
+                                          period.name.toLowerCase() === 'second semester' ||
+                                          period.code.match(/^(COL|SHS|EL|JHS)_S[12]$/i);
+
+                // Exclude Final Average but NOT Pre-Final
+                const isFinalAverage = period.name.toLowerCase().includes('final average') ||
+                                       period.code.includes('FA') ||
+                                       (period.name.toLowerCase() === 'final' && !period.name.toLowerCase().includes('pre'));
+
+                if (!isFinalAverage && !isParentContainer) {
                     semesters[semesterNum].periods.push({
                         id: period.id,
                         name: period.name,

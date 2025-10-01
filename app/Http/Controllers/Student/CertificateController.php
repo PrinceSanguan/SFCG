@@ -16,11 +16,28 @@ class CertificateController extends Controller
     public function index()
     {
         $user = Auth::user();
-        
+        $schoolYear = request('school_year', '2024-2025');
+
         $certificates = Certificate::with(['template', 'academicLevel'])
             ->where('student_id', $user->id)
+            ->where('school_year', $schoolYear)
             ->orderByDesc('created_at')
-            ->get();
+            ->get()
+            ->map(function ($certificate) {
+                return [
+                    'id' => $certificate->id,
+                    'serial_number' => $certificate->serial_number,
+                    'school_year' => $certificate->school_year,
+                    'status' => $certificate->status,
+                    'generated_at' => $certificate->generated_at?->toISOString(),
+                    'template' => [
+                        'name' => $certificate->template?->name ?? 'Unknown Template',
+                    ],
+                    'academicLevel' => [
+                        'name' => $certificate->academicLevel?->name ?? 'Unknown Level',
+                    ],
+                ];
+            });
 
         return Inertia::render('Student/Certificates/Index', [
             'user' => [
@@ -29,6 +46,7 @@ class CertificateController extends Controller
                 'user_role' => $user->user_role,
             ],
             'certificates' => $certificates,
+            'schoolYear' => $schoolYear,
         ]);
     }
 
@@ -38,7 +56,7 @@ class CertificateController extends Controller
     public function show(Certificate $certificate)
     {
         $user = Auth::user();
-        
+
         // Ensure the student can only view their own certificates
         if ($certificate->student_id !== $user->id) {
             abort(403, 'You can only view your own certificates.');
@@ -53,7 +71,20 @@ class CertificateController extends Controller
                 'email' => $user->email,
                 'user_role' => $user->user_role,
             ],
-            'certificate' => $certificate,
+            'certificate' => [
+                'id' => $certificate->id,
+                'serial_number' => $certificate->serial_number,
+                'school_year' => $certificate->school_year,
+                'status' => $certificate->status,
+                'generated_at' => $certificate->generated_at?->toISOString(),
+                'payload' => $certificate->payload ?? [],
+                'template' => [
+                    'name' => $certificate->template?->name ?? 'Unknown Template',
+                ],
+                'academicLevel' => [
+                    'name' => $certificate->academicLevel?->name ?? 'Unknown Level',
+                ],
+            ],
         ]);
     }
 

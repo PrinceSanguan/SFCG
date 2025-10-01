@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useForm, Link } from '@inertiajs/react';
-import { Upload as UploadIcon, Download } from 'lucide-react';
+import { useForm, usePage } from '@inertiajs/react';
+import { Upload as UploadIcon, Download, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
 
 interface User {
   id: number;
@@ -47,6 +47,7 @@ interface UploadProps {
 }
 
 export default function AdviserGradesUpload({ user, assignedSubjects, academicLevels, gradingPeriods, schoolYear }: UploadProps) {
+  const { flash } = usePage().props as any;
   const { data, setData, post, processing, errors } = useForm({
     csv_file: null as File | null,
     subject_id: '',
@@ -69,12 +70,50 @@ export default function AdviserGradesUpload({ user, assignedSubjects, academicLe
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header user={user} />
         <main className="flex-1 overflow-y-auto bg-gray-100 p-4 md:p-6 dark:bg-gray-900">
-          <Card>
-            <CardHeader><CardTitle>Upload Grades CSV</CardTitle></CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4 max-w-2xl">
+          <div className="space-y-4">
+            {/* Success Message */}
+            {flash?.success && (
+              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 flex items-start gap-3">
+                <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-green-800 dark:text-green-200">{flash.success}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Warning Message */}
+            {flash?.warning && (
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200 whitespace-pre-line">{flash.warning}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Error Messages */}
+            {Object.keys(errors).length > 0 && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-start gap-3">
+                <XCircle className="h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  {Object.values(errors).map((error, idx) => (
+                    <p key={idx} className="text-sm text-red-800 dark:text-red-200">{error}</p>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Upload Grades CSV</CardTitle>
+                <p className="text-sm text-gray-500 mt-2">
+                  Upload multiple student grades at once using a CSV file. Select the subject and academic level, then download the template pre-filled with your students.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSubmit} className="space-y-4 max-w-2xl">
                 <div>
-                  <Label>Subject</Label>
+                  <Label>Subject <span className="text-red-500">*</span></Label>
                   <Select value={data.subject_id} onValueChange={(v) => setData('subject_id', v)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select subject" />
@@ -90,7 +129,7 @@ export default function AdviserGradesUpload({ user, assignedSubjects, academicLe
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
-                    <Label>Academic Level</Label>
+                    <Label>Academic Level <span className="text-red-500">*</span></Label>
                     <Select value={data.academic_level_id} onValueChange={(v) => setData({ ...data, academic_level_id: v, grading_period_id: '0' })}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select academic level" />
@@ -144,22 +183,74 @@ export default function AdviserGradesUpload({ user, assignedSubjects, academicLe
                     <Input value={data.school_year} onChange={(e) => setData('school_year', e.target.value)} />
                   </div>
                   <div>
-                    <Label>CSV File</Label>
-                    <Input type="file" accept=".csv,text/csv" onChange={(e) => setData('csv_file', e.target.files ? e.target.files[0] : null)} />
+                    <Label>CSV File <span className="text-red-500">*</span></Label>
+                    <Input
+                      type="file"
+                      accept=".csv,text/csv"
+                      onChange={(e) => setData('csv_file', e.target.files ? e.target.files[0] : null)}
+                    />
                     {errors.csv_file && <p className="text-sm text-red-500 mt-1">{errors.csv_file}</p>}
+                    {data.csv_file && (
+                      <p className="text-xs text-green-600 mt-1">
+                        ✓ File selected: {data.csv_file.name}
+                      </p>
+                    )}
                   </div>
                 </div>
 
-                <div className="flex gap-3">
-                  <Button type="submit" disabled={processing} className="flex items-center gap-2">
-                    <UploadIcon className="h-4 w-4" />
-                    {processing ? 'Uploading...' : 'Upload CSV'}
-                  </Button>
-                  <Link href={route('adviser.grades.template')}><Button type="button" variant="outline" className="flex items-center gap-2"><Download className="h-4 w-4" />Download Template</Button></Link>
+                {/* Instructions Box */}
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">📋 How to Upload Grades</h4>
+                  <ol className="text-sm text-blue-800 dark:text-blue-200 space-y-1 list-decimal list-inside">
+                    <li>Select the <strong>Subject</strong> and <strong>Academic Level</strong></li>
+                    <li>Click <strong>"Download Template"</strong> to get a CSV with enrolled students</li>
+                    <li>Fill in the <strong>Grade</strong> column (values: 75-100)</li>
+                    <li>Save the file and upload it using the form above</li>
+                  </ol>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <div className="flex gap-3">
+                    <Button
+                      type="submit"
+                      disabled={processing || !data.subject_id || !data.academic_level_id || !data.csv_file}
+                      className="flex items-center gap-2"
+                      title={
+                        !data.subject_id
+                          ? 'Please select a subject'
+                          : !data.academic_level_id
+                          ? 'Please select an academic level'
+                          : !data.csv_file
+                          ? 'Please select a CSV file'
+                          : 'Upload grades from CSV'
+                      }
+                    >
+                      <UploadIcon className="h-4 w-4" />
+                      {processing ? 'Uploading...' : 'Upload CSV'}
+                    </Button>
+                    <a
+                      href={route('adviser.grades.template', {
+                        subject_id: data.subject_id || undefined,
+                        school_year: data.school_year
+                      })}
+                      download
+                    >
+                      <Button type="button" variant="outline" className="flex items-center gap-2">
+                        <Download className="h-4 w-4" />
+                        {data.subject_id ? 'Download Template (with students)' : 'Download Template'}
+                      </Button>
+                    </a>
+                  </div>
+                  {(!data.subject_id || !data.academic_level_id || !data.csv_file) && (
+                    <p className="text-sm text-amber-600 dark:text-amber-400">
+                      ⚠️ Please fill in all required fields (*) to enable upload
+                    </p>
+                  )}
                 </div>
               </form>
             </CardContent>
           </Card>
+          </div>
         </main>
       </div>
     </div>
