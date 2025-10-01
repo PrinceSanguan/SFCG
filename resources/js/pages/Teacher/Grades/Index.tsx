@@ -32,6 +32,7 @@ interface StudentGrade {
     gradingPeriod?: {
         id: number;
         name: string;
+        code: string;
     };
     grade: number;
     school_year: string;
@@ -60,6 +61,7 @@ interface AssignedSubject {
     gradingPeriod?: {
         id: number;
         name: string;
+        code: string;
     };
     school_year: string;
     is_active: boolean;
@@ -93,11 +95,16 @@ export default function GradesIndex({ user, grades, assignedSubjects }: IndexPro
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedSubject, setSelectedSubject] = useState<string>('');
 
-    // Debug logging
-    console.log('GradesIndex props:', { user, grades, assignedSubjects });
-    console.log('assignedSubjects type:', typeof assignedSubjects);
-    console.log('assignedSubjects is array:', Array.isArray(assignedSubjects));
+    // Debug logging - Initial props
+    console.log('='.repeat(80));
+    console.log('GradesIndex INITIAL LOAD');
+    console.log('User:', user?.name);
+    console.log('Grades received:', grades);
+    console.log('Grades.data length:', grades?.data?.length || 0);
+    console.log('Grades.data:', grades?.data);
+    console.log('assignedSubjects:', assignedSubjects);
     console.log('assignedSubjects length:', assignedSubjects?.length);
+    console.log('='.repeat(80));
 
     // Safety check for required props
     if (!assignedSubjects || !Array.isArray(assignedSubjects)) {
@@ -162,24 +169,45 @@ export default function GradesIndex({ user, grades, assignedSubjects }: IndexPro
 
     // Calculate semester average for a student
     const calculateOverallAverage = (studentId: number, subjectId: number, academicLevelKey: string) => {
+        console.log('=== calculateOverallAverage called ===');
+        console.log('studentId:', studentId, 'subjectId:', subjectId, 'academicLevelKey:', academicLevelKey);
+        console.log('grades.data:', grades?.data);
+
         // Get all grades for this student and subject
         const studentGrades = grades?.data?.filter(grade =>
             grade.student.id === studentId &&
             grade.subject.id === subjectId
         ) || [];
 
-        if (studentGrades.length === 0) return 0;
+        console.log('studentGrades found:', studentGrades);
+        console.log('studentGrades length:', studentGrades.length);
+
+        if (studentGrades.length === 0) {
+            console.log('No grades found - returning 0');
+            return 0;
+        }
 
         const isSemesterBased = academicLevelKey === 'senior_highschool' || academicLevelKey === 'college';
+        console.log('isSemesterBased:', isSemesterBased);
 
         if (!isSemesterBased) {
             // For Elementary/JHS: simple average
             const validGrades = studentGrades.filter(g => g.grade !== null && g.grade !== undefined);
+            console.log('Non-semester based - validGrades:', validGrades);
             if (validGrades.length === 0) return 0;
-            return validGrades.reduce((sum, g) => sum + g.grade, 0) / validGrades.length;
+            const average = validGrades.reduce((sum, g) => sum + g.grade, 0) / validGrades.length;
+            console.log('Non-semester based average:', average);
+            return average;
         }
 
         // For SHS/College: Calculate semester averages
+        console.log('Semester based - Looking for grading periods');
+        studentGrades.forEach(g => {
+            console.log('Grade:', g.grade, 'Period code:', g.gradingPeriod?.code, 'Period name:', g.gradingPeriod?.name);
+            console.log('FULL gradingPeriod object:', g.gradingPeriod);
+            console.log('FULL grade object:', g);
+        });
+
         const s1Midterm = studentGrades.find(g =>
             g.gradingPeriod?.code?.toUpperCase().includes('S1_MT')
         );
@@ -193,43 +221,68 @@ export default function GradesIndex({ user, grades, assignedSubjects }: IndexPro
             g.gradingPeriod?.code?.toUpperCase().includes('S2_PF')
         );
 
+        console.log('Found periods - S1_MT:', s1Midterm?.grade, 'S1_PF:', s1PreFinal?.grade, 'S2_MT:', s2Midterm?.grade, 'S2_PF:', s2PreFinal?.grade);
+
         let semester1Avg = null;
         if (s1Midterm?.grade && s1PreFinal?.grade) {
             semester1Avg = (parseFloat(s1Midterm.grade.toString()) + parseFloat(s1PreFinal.grade.toString())) / 2;
+            console.log('Semester 1 Average:', semester1Avg);
         }
 
         let semester2Avg = null;
         if (s2Midterm?.grade && s2PreFinal?.grade) {
             semester2Avg = (parseFloat(s2Midterm.grade.toString()) + parseFloat(s2PreFinal.grade.toString())) / 2;
+            console.log('Semester 2 Average:', semester2Avg);
         }
 
         // Calculate overall average
+        let finalAverage = 0;
         if (semester1Avg !== null && semester2Avg !== null) {
-            return (semester1Avg + semester2Avg) / 2;
+            finalAverage = (semester1Avg + semester2Avg) / 2;
+            console.log('Both semesters - Final Average:', finalAverage);
         } else if (semester1Avg !== null) {
-            return semester1Avg;
+            finalAverage = semester1Avg;
+            console.log('Semester 1 only - Final Average:', finalAverage);
         } else if (semester2Avg !== null) {
-            return semester2Avg;
+            finalAverage = semester2Avg;
+            console.log('Semester 2 only - Final Average:', finalAverage);
+        } else {
+            console.log('No complete semester grades - returning 0');
         }
 
-        return 0;
+        console.log('=== calculateOverallAverage returning:', finalAverage, '===');
+        return finalAverage;
     };
 
     // Get students for selected subject
     const getStudentsForSubject = (subjectId: string) => {
-        if (!subjectId || !assignedSubjects || !Array.isArray(assignedSubjects)) return [];
+        console.log('>>> getStudentsForSubject called with subjectId:', subjectId);
+
+        if (!subjectId || !assignedSubjects || !Array.isArray(assignedSubjects)) {
+            console.log('>>> Early return - invalid params');
+            return [];
+        }
 
         // Find the subject assignment
         const subjectAssignment = assignedSubjects.find(subject =>
             subject.subject?.id?.toString() === subjectId
         );
 
-        if (!subjectAssignment || !subjectAssignment.enrolled_students) return [];
+        console.log('>>> Found subjectAssignment:', subjectAssignment);
+
+        if (!subjectAssignment || !subjectAssignment.enrolled_students) {
+            console.log('>>> Early return - no assignment or students');
+            return [];
+        }
 
         const academicLevelKey = subjectAssignment.academicLevel?.key || '';
+        console.log('>>> Academic level key:', academicLevelKey);
+        console.log('>>> Enrolled students count:', subjectAssignment.enrolled_students.length);
 
         // Return enrolled students with their calculated averages
-        return subjectAssignment.enrolled_students.map(enrollment => {
+        const mappedStudents = subjectAssignment.enrolled_students.map(enrollment => {
+            console.log('>>> Mapping student:', enrollment.student.name, 'ID:', enrollment.student.id);
+
             // Calculate overall average for this student
             const overallAverage = calculateOverallAverage(
                 enrollment.student.id,
@@ -246,7 +299,7 @@ export default function GradesIndex({ user, grades, assignedSubjects }: IndexPro
                 ? studentGrades.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())[0].updated_at
                 : '';
 
-            return {
+            const studentData = {
                 id: enrollment.student.id,
                 name: enrollment.student.name,
                 email: enrollment.student.email,
@@ -261,7 +314,14 @@ export default function GradesIndex({ user, grades, assignedSubjects }: IndexPro
                 } : undefined,
                 schoolYear: enrollment.school_year
             };
+
+            console.log('>>> Student data created:', studentData);
+
+            return studentData;
         });
+
+        console.log('>>> Returning', mappedStudents.length, 'students');
+        return mappedStudents;
     };
 
     // Get available subjects from assigned subjects with safe access

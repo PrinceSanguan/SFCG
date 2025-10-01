@@ -46,14 +46,17 @@ class GradeManagementController extends Controller
                 'subjects_count' => $assignedSubjects->count(),
                 'subjects' => $assignedSubjects->pluck('subject.name')->toArray()
             ]);
-            
+
+            // Extract subject IDs before mapping
+            $subjectIds = $assignedSubjects->pluck('subject_id')->toArray();
+
             $assignedSubjects = $assignedSubjects->map(function ($assignment) {
                 $enrolledStudents = \App\Models\StudentSubjectAssignment::with(['student'])
                     ->where('subject_id', $assignment->subject_id)
                     ->where('school_year', $assignment->school_year)
                     ->where('is_active', true)
                     ->get();
-                
+
                 return [
                     'id' => $assignment->id,
                     'subject' => $assignment->subject,
@@ -66,18 +69,46 @@ class GradeManagementController extends Controller
                 ];
             });
 
-            // Get recent grades
-            $grades = \App\Models\StudentGrade::with(['student', 'subject', 'academicLevel', 'gradingPeriod'])
-                ->whereHas('subject', function ($query) use ($assignedSubjects) {
-                    $query->whereIn('id', $assignedSubjects->pluck('subject.id'));
-                })
+            // Get recent grades using the subject IDs extracted before mapping
+            $gradesQuery = \App\Models\StudentGrade::with(['student', 'subject', 'academicLevel', 'gradingPeriod'])
+                ->whereIn('subject_id', $subjectIds)
                 ->latest()
                 ->paginate(15);
-                
+
+            // Format grades data to ensure gradingPeriod has all fields
+            $grades = $gradesQuery->toArray();
+            $grades['data'] = collect($gradesQuery->items())->map(function ($grade) {
+                return [
+                    'id' => $grade->id,
+                    'student' => [
+                        'id' => $grade->student->id,
+                        'name' => $grade->student->name,
+                    ],
+                    'subject' => [
+                        'id' => $grade->subject->id,
+                        'name' => $grade->subject->name,
+                    ],
+                    'academicLevel' => [
+                        'id' => $grade->academicLevel->id,
+                        'name' => $grade->academicLevel->name,
+                    ],
+                    'gradingPeriod' => $grade->gradingPeriod ? [
+                        'id' => $grade->gradingPeriod->id,
+                        'name' => $grade->gradingPeriod->name,
+                        'code' => $grade->gradingPeriod->code,
+                    ] : null,
+                    'grade' => $grade->grade,
+                    'school_year' => $grade->school_year,
+                    'is_submitted_for_validation' => $grade->is_submitted_for_validation,
+                    'created_at' => $grade->created_at,
+                    'updated_at' => $grade->updated_at,
+                ];
+            })->toArray();
+
             Log::info('Teacher grades data prepared successfully', [
                 'teacher_id' => $user->id,
                 'assigned_subjects_count' => $assignedSubjects->count(),
-                'grades_count' => $grades->total()
+                'grades_count' => $gradesQuery->total()
             ]);
 
             return Inertia::render('Teacher/Grades/Index', [

@@ -100,9 +100,8 @@ export default function AdviserGradesIndex({ user, grades, assignedSubjects }: I
         const subjectAssignment = assignedSubjects.find(subject => subject.subject?.id?.toString() === subjectId);
         if (!subjectAssignment || !subjectAssignment.enrolled_students) return [];
         return subjectAssignment.enrolled_students.map(enrollment => {
+            // Get grades for this student in the CURRENTLY SELECTED subject
             const studentGrade = grades?.data?.find(grade => grade.student.id === enrollment.student.id && grade.subject.id === parseInt(subjectId));
-            // Find any grade for this student to get the subject they actually have grades for
-            const anyStudentGrade = grades?.data?.find(grade => grade.student.id === enrollment.student.id);
             return {
                 id: enrollment.student.id,
                 name: enrollment.student.name,
@@ -110,7 +109,7 @@ export default function AdviserGradesIndex({ user, grades, assignedSubjects }: I
                 latestGrade: studentGrade ? studentGrade.grade : 0,
                 latestGradeDate: studentGrade ? studentGrade.updated_at : '',
                 hasGradesInCurrentSubject: !!studentGrade,
-                actualGradeSubjectId: anyStudentGrade ? anyStudentGrade.subject.id : parseInt(subjectId),
+                actualGradeSubjectId: parseInt(subjectId), // Always use the currently selected subject
                 academicLevel: {
                     key: subjectAssignment.academicLevel?.key || '',
                     name: subjectAssignment.academicLevel?.name || ''
@@ -135,7 +134,11 @@ export default function AdviserGradesIndex({ user, grades, assignedSubjects }: I
     }).filter((s): s is NonNullable<typeof s> => s !== null);
 
     const handleInputGrade = (student: { id: number; name: string; email: string; latestGrade: number; latestGradeDate: string; academicLevel: { key: string; name: string }; gradingPeriod?: { name: string }; schoolYear: string; }) => {
-        const subjectAssignment = assignedSubjects.find(subject => subject.enrolled_students.some(enrollment => enrollment.student.id === student.id));
+        // Find the CURRENTLY SELECTED subject assignment, not just any subject the student is enrolled in
+        const subjectAssignment = assignedSubjects.find(subject =>
+            subject.subject?.id?.toString() === selectedSubject &&
+            subject.enrolled_students.some(enrollment => enrollment.student.id === student.id)
+        );
         if (subjectAssignment) {
             window.location.href = route('adviser.grades.create') +
                 `?student_id=${student.id}` +
@@ -250,12 +253,7 @@ export default function AdviserGradesIndex({ user, grades, assignedSubjects }: I
                                                             </td>
                                                             <td className="p-3">
                                                                 {student.latestGrade === 0 ? (
-                                                                    <div className="flex flex-col gap-1">
-                                                                        <Badge variant="outline" className="text-gray-500">No Grade</Badge>
-                                                                        {!student.hasGradesInCurrentSubject && (
-                                                                            <span className="text-xs text-blue-600">Has grades in other subjects</span>
-                                                                        )}
-                                                                    </div>
+                                                                    <Badge variant="outline" className="text-gray-500">No Grade</Badge>
                                                                 ) : (
                                                                     <Badge className={getGradeColor(student.latestGrade, student.academicLevel.key)}>{student.latestGrade}</Badge>
                                                                 )}
@@ -273,7 +271,6 @@ export default function AdviserGradesIndex({ user, grades, assignedSubjects }: I
                                                                             variant="outline"
                                                                             size="sm"
                                                                             onClick={(e) => e.stopPropagation()}
-                                                                            title={!student.hasGradesInCurrentSubject ? "View grades in other subject" : "View grade details"}
                                                                         >
                                                                             <Edit className="h-4 w-4 mr-2" />
                                                                             View Details
