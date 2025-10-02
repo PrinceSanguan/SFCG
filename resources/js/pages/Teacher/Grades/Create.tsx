@@ -562,7 +562,7 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                             step="0.01"
                                             min={getCurrentAcademicLevelKey() === 'college' ? '1.0' : '75'}
                                             max={getCurrentAcademicLevelKey() === 'college' ? '5.0' : '100'}
-                                            placeholder={getCurrentAcademicLevelKey() === 'college' ? 'Enter grade (1.0-5.0)' : 'Enter grade (75-100)'}
+                                            placeholder={getCurrentAcademicLevelKey() === 'college' ? 'Enter grade (1.0-5.0)' : 'Enter grade (0-100)'}
                                             value={data.grade}
                                             onChange={(e) => setData('grade', e.target.value)}
                                             className={errors.grade ? 'border-red-500' : ''}

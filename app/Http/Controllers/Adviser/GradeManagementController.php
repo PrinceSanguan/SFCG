@@ -201,7 +201,7 @@ class GradeManagementController extends Controller
             'grading_period_id' => 'nullable',
             'school_year' => 'required|string|max:20',
             'year_of_study' => 'nullable|integer|min:1|max:10',
-            'grade' => 'required|numeric|min:75|max:100',
+            'grade' => 'required|numeric|min:0|max:100',
         ]);
 
         if ($request->grading_period_id && $request->grading_period_id !== '0') {

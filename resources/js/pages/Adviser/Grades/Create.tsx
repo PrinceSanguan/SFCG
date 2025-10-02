@@ -149,7 +149,7 @@ export default function AdviserGradesCreate({ user, academicLevels, gradingPerio
                     <div className="grid gap-4 md:grid-cols-2">
                       <div>
                         <Label htmlFor="grade">Grade</Label>
-                        <Input id="grade" type="number" step="0.01" min={getCurrentAcademicLevelKey() === 'college' ? '1.0' : '75'} max={getCurrentAcademicLevelKey() === 'college' ? '5.0' : '100'} placeholder={getCurrentAcademicLevelKey() === 'college' ? 'Enter grade (1.0-5.0)' : 'Enter grade (75-100)'} value={data.grade} onChange={(e) => setData('grade', e.target.value)} className={errors.grade ? 'border-red-500' : ''} autoFocus />
+                        <Input id="grade" type="number" step="0.01" min={getCurrentAcademicLevelKey() === 'college' ? '1.0' : '0'} max={getCurrentAcademicLevelKey() === 'college' ? '5.0' : '100'} placeholder={getCurrentAcademicLevelKey() === 'college' ? 'Enter grade (1.0-5.0)' : 'Enter grade (0-100)'} value={data.grade} onChange={(e) => setData('grade', e.target.value)} className={errors.grade ? 'border-red-500' : ''} autoFocus />
                         {errors.grade && (<p className="text-sm text-red-500 mt-1">{errors.grade}</p>)}
                       </div>
                       <div>
@@ -293,7 +293,7 @@ export default function AdviserGradesCreate({ user, academicLevels, gradingPerio
 
                     <div>
                       <Label htmlFor="grade">Grade</Label>
-                      <Input id="grade" type="number" step="0.01" min={getCurrentAcademicLevelKey() === 'college' ? '1.0' : '75'} max={getCurrentAcademicLevelKey() === 'college' ? '5.0' : '100'} placeholder={getCurrentAcademicLevelKey() === 'college' ? 'Enter grade (1.0-5.0)' : 'Enter grade (75-100)'} value={data.grade} onChange={(e) => setData('grade', e.target.value)} className={errors.grade ? 'border-red-500' : ''} />
+                      <Input id="grade" type="number" step="0.01" min={getCurrentAcademicLevelKey() === 'college' ? '1.0' : '0'} max={getCurrentAcademicLevelKey() === 'college' ? '5.0' : '100'} placeholder={getCurrentAcademicLevelKey() === 'college' ? 'Enter grade (1.0-5.0)' : 'Enter grade (0-100)'} value={data.grade} onChange={(e) => setData('grade', e.target.value)} className={errors.grade ? 'border-red-500' : ''} />
                       {errors.grade && (<p className="text-sm text-red-500 mt-1">{errors.grade}</p>)}
                     </div>
 

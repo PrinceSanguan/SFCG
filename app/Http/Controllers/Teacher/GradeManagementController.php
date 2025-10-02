@@ -245,7 +245,7 @@ class GradeManagementController extends Controller
             if ($academicLevel->key === 'college' || $academicLevel->key === 'senior_highschool') {
                 $validator->addRules(['grade' => 'numeric|min:1.0|max:5.0']);
             } else {
-                $validator->addRules(['grade' => 'numeric|min:75|max:100']);
+                $validator->addRules(['grade' => 'numeric|min:0|max:100']);
             }
         }
         
@@ -530,7 +530,7 @@ class GradeManagementController extends Controller
                 if ($academicLevel->key === 'college') {
                     $validator->addRules(['grade' => 'numeric|min:1.0|max:5.0']);
                 } else {
-                    $validator->addRules(['grade' => 'numeric|min:75|max:100']);
+                    $validator->addRules(['grade' => 'numeric|min:0|max:100']);
                 }
             }
             
