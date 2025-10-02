@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { FileText, Download, User } from 'lucide-react';
+import { FileText, Eye, User } from 'lucide-react';
 
 interface LinkedStudent {
   id: number;
@@ -86,7 +86,7 @@ export default function ParentCertificatesIndex({ schoolYear, certificates, link
                 <FileText className="h-5 w-5" />
                 Available Certificates - {selectedStudent.name}
               </CardTitle>
-              <CardDescription>Download earned certificates and achievements</CardDescription>
+              <CardDescription>View earned certificates and achievements</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
@@ -102,22 +102,18 @@ export default function ParentCertificatesIndex({ schoolYear, certificates, link
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <Badge 
-                        variant="secondary" 
-                        className={`${
-                          c.status === 'Ready' 
-                            ? 'bg-green-100 text-green-800 border-green-200' 
-                            : 'bg-gray-100 text-gray-800 border-gray-200'
-                        }`}
+                      <Badge
+                        variant="secondary"
+                        className="bg-green-100 text-green-800 border-green-200"
                       >
-                        {c.status ?? 'Ready'}
+                        Available
                       </Badge>
-                      {c.status === 'Ready' && (
+                      <a href={route('parent.certificates.view', c.id)} target="_blank" rel="noopener noreferrer">
                         <Button variant="outline" size="sm" className="flex items-center gap-2">
-                          <Download className="h-4 w-4" />
-                          Download
+                          <Eye className="h-4 w-4" />
+                          View
                         </Button>
-                      )}
+                      </a>
                     </div>
                   </div>
                 ))}

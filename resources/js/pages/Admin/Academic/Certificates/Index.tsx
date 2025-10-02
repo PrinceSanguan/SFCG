@@ -5,9 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { useForm } from '@inertiajs/react';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Download, GraduationCap, School, BookOpen, Users, FileText, Printer, Package } from 'lucide-react';
+import { ArrowLeft, Download, GraduationCap, School, BookOpen, Users, FileText, Printer, Package, MoreVertical } from 'lucide-react';
 import { router } from '@inertiajs/react';
 
 interface User {
@@ -149,6 +150,12 @@ export default function CertificatesIndex({
         certificate_ids: [] as number[],
     });
 
+    const { data: bulkByLevelData, setData: setBulkByLevelData, post: postBulkByLevel, processing: bulkByLevelGenerating } = useForm({
+        academic_level_id: '',
+        school_year: schoolYear,
+        honor_type_id: '',
+    });
+
     // Get students for selected category
     const getCategoryStudents = (categoryKey: string) => {
         if (!allHonors.length) return [];
@@ -239,6 +246,24 @@ export default function CertificatesIndex({
         setSelectedStudents(
             selectedStudents.length === allIds.length ? [] : allIds
         );
+    };
+
+    // Handle generate all missing certificates for current level
+    const handleGenerateAllMissing = () => {
+        const academicLevel = academicLevels.find(level => level.key === selectedCategory);
+        if (!academicLevel) return;
+
+        setBulkByLevelData({
+            academic_level_id: academicLevel.id.toString(),
+            school_year: schoolYear,
+            honor_type_id: '',
+        });
+
+        postBulkByLevel(route('admin.academic.certificates.bulk-generate-by-level'), {
+            onSuccess: () => {
+                router.reload();
+            }
+        });
     };
 
     const selectedCategoryData = selectedCategory ? getCategoryStudents(selectedCategory) : [];
@@ -367,67 +392,87 @@ export default function CertificatesIndex({
                                             <div className="flex-1">
                                                 <label className="text-sm font-medium mb-2 block">
                                                     Select Certificate Template
+                                                    {categoryTemplates.length === 0 && (
+                                                        <span className="ml-2 text-xs text-red-600 font-normal">
+                                                            (No templates - Run: php artisan db:seed --class=CertificateTemplateSeeder)
+                                                        </span>
+                                                    )}
                                                 </label>
                                                 <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Choose a template..." />
+                                                    <SelectTrigger className={categoryTemplates.length === 0 ? 'border-red-300' : ''}>
+                                                        <SelectValue placeholder={categoryTemplates.length > 0 ? "Choose a template..." : "⚠️ No templates available - seed database first"} />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        {categoryTemplates.map((template) => (
-                                                            <SelectItem key={template.id} value={template.id.toString()}>
-                                                                {template.name}
+                                                        {categoryTemplates.length > 0 ? (
+                                                            categoryTemplates.map((template) => (
+                                                                <SelectItem key={template.id} value={template.id.toString()}>
+                                                                    {template.name}
+                                                                </SelectItem>
+                                                            ))
+                                                        ) : (
+                                                            <SelectItem value="none" disabled>
+                                                                No templates available - run CertificateTemplateSeeder
                                                             </SelectItem>
-                                                        ))}
+                                                        )}
                                                     </SelectContent>
                                                 </Select>
                                             </div>
                                             <div className="flex gap-2">
                                                 <Button
-                                                    variant="outline"
-                                                    onClick={handleSelectAll}
-                                                    disabled={selectedCategoryData.length === 0}
+                                                    onClick={handleGenerateAllMissing}
+                                                    disabled={selectedCategoryData.length === 0 || bulkByLevelGenerating}
+                                                    className="bg-purple-600 hover:bg-purple-700 text-white"
                                                 >
-                                                    {selectedStudents.length === selectedCategoryData.length ? 'Deselect All' : 'Select All'}
+                                                    <FileText className="h-4 w-4 mr-2" />
+                                                    {bulkByLevelGenerating ? 'Generating All...' : 'Generate All Missing Certificates'}
                                                 </Button>
-                                                <Button
-                                                    onClick={handleBulkGenerate}
-                                                    disabled={selectedStudents.length === 0 || !selectedTemplate || bulkGenerating}
-                                                    className="bg-green-600 hover:bg-green-700 text-white"
-                                                >
-                                                    {bulkGenerating ? 'Generating...' : `Generate ${selectedStudents.length} Certificates`}
-                                                </Button>
-                                                <Button
-                                                    variant="outline"
-                                                    onClick={() => {
-                                                        const certificateIds = selectedCategoryData
-                                                            .filter(honor => selectedStudents.includes(honor.student.id))
-                                                            .map(honor => {
-                                                                const cert = generatedCertificates?.find(c =>
-                                                                    c.student.id === honor.student.id &&
-                                                                    c.academicLevel.id === honor.academic_level.id
-                                                                );
-                                                                return cert?.id;
-                                                            })
-                                                            .filter(Boolean);
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="outline">
+                                                            <MoreVertical className="h-4 w-4 mr-2" />
+                                                            More Actions
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end" className="w-56">
+                                                        <DropdownMenuItem
+                                                            onClick={handleBulkGenerate}
+                                                            disabled={selectedStudents.length === 0 || !selectedTemplate || bulkGenerating}
+                                                        >
+                                                            <FileText className="h-4 w-4 mr-2" />
+                                                            {bulkGenerating ? 'Generating...' : `Generate ${selectedStudents.length} Selected`}
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem
+                                                            onClick={() => {
+                                                                const certificateIds = selectedCategoryData
+                                                                    .filter(honor => selectedStudents.includes(honor.student.id))
+                                                                    .map(honor => {
+                                                                        const cert = generatedCertificates?.find(c =>
+                                                                            c.student.id === honor.student.id &&
+                                                                            c.academicLevel.id === honor.academic_level.id
+                                                                        );
+                                                                        return cert?.id;
+                                                                    })
+                                                                    .filter(Boolean);
 
-                                                        if (certificateIds.length > 0) {
-                                                            setBulkPrintData({ certificate_ids: certificateIds });
-                                                            postBulkPrint(route('admin.academic.certificates.bulk-print-pdf'));
-                                                        }
-                                                    }}
-                                                    disabled={selectedStudents.length === 0 || bulkPrinting}
-                                                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                                                >
-                                                    <Package className="h-4 w-4 mr-2" />
-                                                    {bulkPrinting ? 'Preparing...' : `Download ${selectedStudents.length} Certificates`}
-                                                </Button>
-                                                <Button
-                                                    variant="outline"
-                                                    onClick={() => window.open(`/admin/academic/certificates/honor-roll/pdf?academic_level_id=${academicLevels.find(l => l.key === selectedCategory)?.id}&school_year=${schoolYear}`, '_blank')}
-                                                >
-                                                    <Download className="h-4 w-4 mr-2" />
-                                                    Honor Roll PDF
-                                                </Button>
+                                                                if (certificateIds.length > 0) {
+                                                                    setBulkPrintData({ certificate_ids: certificateIds });
+                                                                    postBulkPrint(route('admin.academic.certificates.bulk-print-pdf'));
+                                                                }
+                                                            }}
+                                                            disabled={selectedStudents.length === 0 || bulkPrinting}
+                                                        >
+                                                            <Package className="h-4 w-4 mr-2" />
+                                                            {bulkPrinting ? 'Preparing...' : `Download ${selectedStudents.length} Selected`}
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem
+                                                            onClick={() => window.open(`/admin/academic/certificates/honor-roll/pdf?academic_level_id=${academicLevels.find(l => l.key === selectedCategory)?.id}&school_year=${schoolYear}`, '_blank')}
+                                                        >
+                                                            <Download className="h-4 w-4 mr-2" />
+                                                            Honor Roll PDF
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
                                             </div>
                                         </div>
                                     </CardContent>

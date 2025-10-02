@@ -297,7 +297,7 @@ class RegistrarAcademicController extends Controller
 
         // Get actual honor results for elementary students
         $elementaryLevel = AcademicLevel::where('key', 'elementary')->first();
-        $honorResultsQuery = HonorResult::with(['student', 'honorType', 'academicLevel', 'approvedBy'])
+        $honorResultsQuery = HonorResult::with(['student.section', 'honorType', 'academicLevel', 'approvedBy'])
             ->where('school_year', $currentSchoolYear);
 
         if ($elementaryLevel) {
@@ -494,7 +494,7 @@ class RegistrarAcademicController extends Controller
 
         // Get actual honor results for JHS students
         $jhsLevel = AcademicLevel::where('key', 'junior_highschool')->first();
-        $honorResultsQuery = HonorResult::with(['student', 'honorType', 'academicLevel', 'approvedBy'])
+        $honorResultsQuery = HonorResult::with(['student.section', 'honorType', 'academicLevel', 'approvedBy'])
             ->where('school_year', $currentSchoolYear);
 
         if ($jhsLevel) {
@@ -627,7 +627,7 @@ class RegistrarAcademicController extends Controller
 
         // Get actual honor results for SHS students
         $shsLevel = AcademicLevel::where('key', 'senior_highschool')->first();
-        $honorResultsQuery = HonorResult::with(['student', 'honorType', 'academicLevel', 'approvedBy'])
+        $honorResultsQuery = HonorResult::with(['student.section', 'honorType', 'academicLevel', 'approvedBy'])
             ->where('school_year', $currentSchoolYear);
 
         if ($shsLevel) {
@@ -769,7 +769,7 @@ class RegistrarAcademicController extends Controller
 
         // Get actual honor results for College students
         $collegeLevel = AcademicLevel::where('key', 'college')->first();
-        $honorResultsQuery = HonorResult::with(['student', 'honorType', 'academicLevel', 'approvedBy'])
+        $honorResultsQuery = HonorResult::with(['student.section', 'honorType', 'academicLevel', 'approvedBy'])
             ->where('school_year', $currentSchoolYear);
 
         if ($collegeLevel) {

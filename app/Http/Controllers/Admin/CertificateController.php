@@ -252,12 +252,11 @@ class CertificateController extends Controller
     {
         $validated = $request->validate([
             'student_id' => ['required', 'string'],
-            'template_id' => ['required', 'exists:certificate_templates,id'],
+            'template_id' => ['nullable', 'exists:certificate_templates,id'], // Optional - service will find template
             'academic_level_id' => ['required', 'exists:academic_levels,id'],
             'school_year' => ['required', 'string'],
         ]);
 
-        $template = CertificateTemplate::findOrFail($validated['template_id']);
         $academicLevel = AcademicLevel::findOrFail($validated['academic_level_id']);
 
         // Resolve student ID if it's a student number
@@ -289,22 +288,39 @@ class CertificateController extends Controller
         ])->first();
 
         if ($existingCertificate) {
-            return back()->withErrors(['student_id' => 'Certificate already exists for this student.']);
+            return back()->with('info', 'Certificate already exists for this student. Serial: ' . $existingCertificate->serial_number);
         }
 
-        // Create certificate
-        $certificate = new Certificate();
-        $certificate->template_id = $validated['template_id'];
-        $certificate->student_id = $studentId;
-        $certificate->academic_level_id = $validated['academic_level_id'];
-        $certificate->school_year = $validated['school_year'];
-        $certificate->serial_number = $this->generateSerialNumber($validated['school_year']);
-        $certificate->status = 'generated';
-        $certificate->generated_at = now();
-        $certificate->generated_by = Auth::id();
-        $certificate->save();
+        // Use CertificateGenerationService to generate certificate with payload
+        $certificateService = app(CertificateGenerationService::class);
 
-        return back()->with('success', 'Certificate generated successfully! Serial: ' . $certificate->serial_number);
+        try {
+            $certificate = $certificateService->generateHonorCertificate($honor);
+
+            if ($certificate) {
+                Log::info('Certificate generated manually by admin', [
+                    'certificate_id' => $certificate->id,
+                    'serial_number' => $certificate->serial_number,
+                    'student_id' => $studentId,
+                    'academic_level' => $academicLevel->key,
+                    'school_year' => $validated['school_year'],
+                    'generated_by' => Auth::id(),
+                ]);
+
+                return back()->with('success', 'Certificate generated successfully! Serial: ' . $certificate->serial_number);
+            } else {
+                return back()->withErrors(['error' => 'Certificate generation failed. Check logs for details.']);
+            }
+        } catch (\Exception $e) {
+            Log::error('Admin certificate generation failed', [
+                'student_id' => $studentId,
+                'academic_level' => $academicLevel->key,
+                'error' => $e->getMessage(),
+                'generated_by' => Auth::id(),
+            ]);
+
+            return back()->withErrors(['error' => 'Certificate generation failed: ' . $e->getMessage()]);
+        }
     }
 
     public function generateBulk(Request $request)
@@ -312,12 +328,11 @@ class CertificateController extends Controller
         $validated = $request->validate([
             'student_ids' => ['required', 'array'],
             'student_ids.*' => ['integer', 'exists:users,id'],
-            'template_id' => ['required', 'exists:certificate_templates,id'],
+            'template_id' => ['nullable', 'exists:certificate_templates,id'], // Optional - service will find template
             'academic_level_id' => ['required', 'exists:academic_levels,id'],
             'school_year' => ['required', 'string'],
         ]);
 
-        $template = CertificateTemplate::findOrFail($validated['template_id']);
         $academicLevel = AcademicLevel::findOrFail($validated['academic_level_id']);
         $certificateService = app(CertificateGenerationService::class);
 
@@ -350,19 +365,19 @@ class CertificateController extends Controller
                     continue;
                 }
 
-                // Create certificate directly using the selected template
-                $certificate = new Certificate();
-                $certificate->template_id = $template->id;
-                $certificate->student_id = $honor->student_id;
-                $certificate->academic_level_id = $honor->academic_level_id;
-                $certificate->school_year = $honor->school_year;
-                $certificate->serial_number = $this->generateSerialNumber($honor->school_year);
-                $certificate->status = 'generated';
-                $certificate->generated_at = now();
-                $certificate->generated_by = Auth::id();
-                $certificate->save();
+                // Use CertificateGenerationService to generate certificate with payload
+                $certificate = $certificateService->generateHonorCertificate($honor);
 
-                $results['success']++;
+                if ($certificate) {
+                    $results['success']++;
+                } else {
+                    $results['failed']++;
+                    $results['errors'][] = [
+                        'student_name' => $honor->student->name,
+                        'student_number' => $honor->student->student_number,
+                        'error' => 'Certificate generation returned null',
+                    ];
+                }
             } catch (\Exception $e) {
                 $results['failed']++;
                 $results['errors'][] = [
@@ -877,15 +892,15 @@ class CertificateController extends Controller
             'school_year' => ['required', 'string'],
         ]);
 
-        $honorsQuery = HonorResult::with(['student', 'honorType', 'academicLevel'])
+        $honorsQuery = HonorResult::with(['student', 'honorType', 'academicLevel', 'approvedBy'])
             ->where('is_approved', true)
             ->where('school_year', $validated['school_year']);
 
-        if ($validated['academic_level_id']) {
+        if (!empty($validated['academic_level_id'])) {
             $honorsQuery->where('academic_level_id', $validated['academic_level_id']);
         }
 
-        if ($validated['honor_type_id']) {
+        if (!empty($validated['honor_type_id'])) {
             $honorsQuery->where('honor_type_id', $validated['honor_type_id']);
         }
 

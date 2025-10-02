@@ -22,7 +22,7 @@ class HonorTrackingController extends Controller
         $user = Auth::user();
         
         // Chairperson can only handle College honors
-        $honors = HonorResult::with(['student', 'honorType', 'academicLevel'])
+        $honors = HonorResult::with(['student.section', 'honorType', 'academicLevel'])
             ->whereHas('academicLevel', function($query) {
                 $query->where('key', 'college');
             })
@@ -97,14 +97,28 @@ class HonorTrackingController extends Controller
 
         // Generate certificate automatically
         $certificateService = app(CertificateGenerationService::class);
-        $certificate = $certificateService->generateHonorCertificate($honor);
+        $certificate = null;
+        $certificateError = null;
 
-        if ($certificate) {
-            Log::info('Certificate generated automatically for approved honor', [
-                'certificate_id' => $certificate->id,
-                'certificate_serial' => $certificate->serial_number,
+        try {
+            $certificate = $certificateService->generateHonorCertificate($honor);
+
+            if ($certificate) {
+                Log::info('Certificate generated automatically for approved honor', [
+                    'certificate_id' => $certificate->id,
+                    'certificate_serial' => $certificate->serial_number,
+                    'honor_id' => $honor->id,
+                    'student_id' => $honor->student_id,
+                    'approved_by' => 'chairperson',
+                ]);
+            }
+        } catch (\Exception $e) {
+            $certificateError = $e->getMessage();
+            Log::error('Certificate generation FAILED for approved honor', [
                 'honor_id' => $honor->id,
                 'student_id' => $honor->student_id,
+                'academic_level' => $honor->academicLevel->key,
+                'error' => $certificateError,
                 'approved_by' => 'chairperson',
             ]);
         }
@@ -120,10 +134,14 @@ class HonorTrackingController extends Controller
             'academic_level' => $honor->academicLevel?->name ?? 'Unknown',
             'department_id' => $user->department_id,
         ]);
-        
+
         $message = 'Honor approved successfully. Parent notifications have been sent.';
         if ($certificate) {
             $message .= ' Certificate has been generated with serial number: ' . $certificate->serial_number;
+            return back()->with('success', $message);
+        } elseif ($certificateError) {
+            $message .= ' However, certificate generation failed: ' . $certificateError;
+            return back()->with('warning', $message);
         }
         return back()->with('success', $message);
     }

@@ -25,8 +25,15 @@ class CertificateGenerationService
             // Get the appropriate certificate template
             $template = $this->getCertificateTemplate($academicLevel);
             if (!$template) {
-                Log::warning("No certificate template found for academic level: {$academicLevel->key}");
-                return null;
+                $message = "CRITICAL: No certificate template found for academic level: {$academicLevel->key}. Please run: php artisan db:seed --class=CertificateTemplateSeeder";
+                Log::error($message, [
+                    'academic_level_id' => $academicLevel->id,
+                    'academic_level_key' => $academicLevel->key,
+                    'student_id' => $student->id,
+                    'honor_result_id' => $honorResult->id,
+                    'school_year' => $honorResult->school_year,
+                ]);
+                throw new \Exception($message);
             }
 
             // Check if certificate already exists for this student, honor type, and school year

@@ -16,6 +16,10 @@ class DatabaseSeeder extends Seeder
             BasicStructureSeeder::class,
             CollegeGradingPeriodsSeeder::class,
             TrackStrandSeeder::class,
+            // Required for Honor System and Certificates
+            HonorTypesSeeder::class,
+            HonorCriteriaSeeder::class,
+            CertificateTemplateSeeder::class,  // CRITICAL: Required for certificate generation
             // Commented out - requires departments which don't exist with minimal seeding
             // AssignChairpersonToDepartmentSeeder::class,
             // Commented out - only keeping 9 users (one per role)
@@ -25,8 +29,6 @@ class DatabaseSeeder extends Seeder
             // ParentStudentSeeder::class,
             // StrandCourseDepartmentSeeder::class,
             // UpdateDepartmentsAcademicLevelSeeder::class,
-            // HonorTypesSeeder::class,
-            // HonorCriteriaSeeder::class,
             // HonorDemoSeeder::class,
             // HonorSampleDataSeeder::class,
             // CertificateTemplatesSeeder::class,

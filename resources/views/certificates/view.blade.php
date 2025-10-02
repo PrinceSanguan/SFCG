@@ -110,27 +110,11 @@
             font-size: 24px;
             margin-bottom: 10px;
         }
-        
-        .back-button {
-            display: inline-block;
-            background: #6c757d;
-            color: white;
-            padding: 10px 20px;
-            text-decoration: none;
-            border-radius: 6px;
-            margin-top: 20px;
-            transition: background-color 0.3s;
-        }
-        
-        .back-button:hover {
-            background: #5a6268;
-        }
-        
+
         @media print {
             .certificate-header,
             .certificate-info,
-            .no-download-notice,
-            .back-button {
+            .no-download-notice {
                 display: none;
             }
             
@@ -192,12 +176,8 @@
             <div class="no-download-notice">
                 <div class="icon">🔒</div>
                 <strong>View Only</strong><br>
-                This certificate is displayed for viewing purposes only. 
+                This certificate is displayed for viewing purposes only.
                 Download functionality is not available to maintain the integrity of the document.
-            </div>
-            
-            <div style="text-align: center;">
-                <a href="{{ url()->previous() }}" class="back-button">← Go Back</a>
             </div>
         </div>
     </div>
