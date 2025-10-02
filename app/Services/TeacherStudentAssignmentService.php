@@ -23,7 +23,7 @@ class TeacherStudentAssignmentService
         try {
             $currentSchoolYear = $this->getCurrentSchoolYear();
 
-            // Check if assignment already exists
+            // Check if assignment already exists for this adviser
             $existingAssignment = ClassAdviserAssignment::where([
                 'adviser_id' => $adviser->id,
                 'subject_id' => $subject->id,
@@ -36,6 +36,24 @@ class TeacherStudentAssignmentService
                     'subject_id' => $subject->id,
                 ]);
                 return $existingAssignment;
+            }
+
+            // Check if another adviser is already assigned to this subject
+            $otherAssignment = ClassAdviserAssignment::where('subject_id', $subject->id)
+                ->where('school_year', $currentSchoolYear)
+                ->where('is_active', true)
+                ->where('adviser_id', '!=', $adviser->id)
+                ->with('adviser')
+                ->first();
+
+            if ($otherAssignment) {
+                Log::warning('Cannot assign adviser - subject already assigned to another adviser', [
+                    'subject_id' => $subject->id,
+                    'subject_name' => $subject->name,
+                    'attempted_adviser' => $adviser->name,
+                    'current_adviser' => $otherAssignment->adviser->name,
+                ]);
+                throw new \Exception("This subject is already assigned to {$otherAssignment->adviser->name} for this section. Each subject can only have one teacher per section.");
             }
 
             // Create the adviser assignment
@@ -81,6 +99,11 @@ class TeacherStudentAssignmentService
 
             return $assignment;
         } catch (\Exception $e) {
+            // Re-throw validation errors so they can be displayed to the user
+            if (str_contains($e->getMessage(), 'already assigned to')) {
+                throw $e;
+            }
+
             Log::error('Failed to assign adviser to subject', [
                 'adviser_id' => $adviser->id,
                 'subject_id' => $subject->id,
@@ -99,7 +122,7 @@ class TeacherStudentAssignmentService
         try {
             $currentSchoolYear = $this->getCurrentSchoolYear();
 
-            // Check if assignment already exists
+            // Check if assignment already exists for this teacher
             $existingAssignment = TeacherSubjectAssignment::where([
                 'teacher_id' => $teacher->id,
                 'subject_id' => $subject->id,
@@ -112,6 +135,24 @@ class TeacherStudentAssignmentService
                     'subject_id' => $subject->id,
                 ]);
                 return $existingAssignment;
+            }
+
+            // Check if another teacher is already assigned to this subject
+            $otherAssignment = TeacherSubjectAssignment::where('subject_id', $subject->id)
+                ->where('school_year', $currentSchoolYear)
+                ->where('is_active', true)
+                ->where('teacher_id', '!=', $teacher->id)
+                ->with('teacher')
+                ->first();
+
+            if ($otherAssignment) {
+                Log::warning('Cannot assign teacher - subject already assigned to another teacher', [
+                    'subject_id' => $subject->id,
+                    'subject_name' => $subject->name,
+                    'attempted_teacher' => $teacher->name,
+                    'current_teacher' => $otherAssignment->teacher->name,
+                ]);
+                throw new \Exception("This subject is already assigned to {$otherAssignment->teacher->name} for this section. Each subject can only have one teacher per section.");
             }
 
             // Create the teacher assignment
@@ -160,6 +201,11 @@ class TeacherStudentAssignmentService
 
             return $assignment;
         } catch (\Exception $e) {
+            // Re-throw validation errors so they can be displayed to the user
+            if (str_contains($e->getMessage(), 'already assigned to')) {
+                throw $e;
+            }
+
             Log::error('Failed to assign teacher to subject', [
                 'teacher_id' => $teacher->id,
                 'subject_id' => $subject->id,
@@ -178,7 +224,7 @@ class TeacherStudentAssignmentService
         try {
             $currentSchoolYear = $this->getCurrentSchoolYear();
 
-            // Check if assignment already exists
+            // Check if assignment already exists for this instructor
             $existingAssignment = InstructorSubjectAssignment::where([
                 'instructor_id' => $instructor->id,
                 'subject_id' => $subject->id,
@@ -191,6 +237,24 @@ class TeacherStudentAssignmentService
                     'subject_id' => $subject->id,
                 ]);
                 return $existingAssignment;
+            }
+
+            // Check if another instructor is already assigned to this subject
+            $otherAssignment = InstructorSubjectAssignment::where('subject_id', $subject->id)
+                ->where('school_year', $currentSchoolYear)
+                ->where('is_active', true)
+                ->where('instructor_id', '!=', $instructor->id)
+                ->with('instructor')
+                ->first();
+
+            if ($otherAssignment) {
+                Log::warning('Cannot assign instructor - subject already assigned to another instructor', [
+                    'subject_id' => $subject->id,
+                    'subject_name' => $subject->name,
+                    'attempted_instructor' => $instructor->name,
+                    'current_instructor' => $otherAssignment->instructor->name,
+                ]);
+                throw new \Exception("This subject is already assigned to {$otherAssignment->instructor->name} for this section. Each subject can only have one instructor per section.");
             }
 
             // Create the instructor assignment

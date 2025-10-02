@@ -1859,13 +1859,17 @@ class AcademicController extends Controller
             'notes' => $request->notes,
         ];
 
-        $assignment = $teacherService->assignAdviserToSubject($adviser, $subject, $assignmentData);
+        try {
+            $assignment = $teacherService->assignAdviserToSubject($adviser, $subject, $assignmentData);
 
-        if (!$assignment) {
-            return back()->with('error', 'Failed to assign adviser to subject. Please try again.');
+            if (!$assignment) {
+                return back()->with('error', 'Failed to assign adviser to subject. Please try again.');
+            }
+
+            return back()->with('success', 'Class adviser assigned successfully! Students in this subject are now automatically linked to this adviser.');
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
         }
-
-        return back()->with('success', 'Class adviser assigned successfully! Students in this subject are now automatically linked to this adviser.');
     }
 
     public function updateClassAdviserAssignment(Request $request, ClassAdviserAssignment $assignment)
