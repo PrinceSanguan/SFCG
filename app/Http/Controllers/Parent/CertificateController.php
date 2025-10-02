@@ -17,18 +17,29 @@ class CertificateController extends Controller
     public function index()
     {
         $user = Auth::user();
-        
+
         // Get all children of the parent
         $children = ParentStudentRelationship::with(['student'])
             ->where('parent_id', $user->id)
             ->get()
             ->pluck('student');
 
-        // Get certificates for all children
+        // Get certificates for all children - only approved honors
         $certificates = Certificate::with(['template', 'academicLevel', 'student'])
             ->whereIn('student_id', $children->pluck('id'))
             ->orderByDesc('created_at')
-            ->get();
+            ->get()
+            ->filter(function ($certificate) {
+                // Verify each certificate has an approved honor
+                $honorResult = \App\Models\HonorResult::where([
+                    'student_id' => $certificate->student_id,
+                    'academic_level_id' => $certificate->academic_level_id,
+                    'school_year' => $certificate->school_year,
+                ])->where('is_approved', true)->first();
+
+                return $honorResult !== null;
+            })
+            ->values();
 
         return Inertia::render('Parent/Certificates/Index', [
             'user' => [

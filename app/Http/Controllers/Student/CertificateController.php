@@ -18,11 +18,23 @@ class CertificateController extends Controller
         $user = Auth::user();
         $schoolYear = request('school_year', '2024-2025');
 
+        // Only show certificates for approved honors
         $certificates = Certificate::with(['template', 'academicLevel'])
             ->where('student_id', $user->id)
             ->where('school_year', $schoolYear)
             ->orderByDesc('created_at')
             ->get()
+            ->filter(function ($certificate) {
+                // Verify each certificate has an approved honor
+                $honorResult = \App\Models\HonorResult::where([
+                    'student_id' => $certificate->student_id,
+                    'academic_level_id' => $certificate->academic_level_id,
+                    'school_year' => $certificate->school_year,
+                ])->where('is_approved', true)->first();
+
+                return $honorResult !== null;
+            })
+            ->values()
             ->map(function ($certificate) {
                 return [
                     'id' => $certificate->id,

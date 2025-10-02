@@ -38,22 +38,34 @@ class ParentCertificatesController extends Controller
             $studentId = $linkedStudents->first()->id;
         }
         
-        // Get certificates for selected student
+        // Get certificates for selected student - only approved honors
         $certificates = collect();
         $selectedStudent = null;
-        
+
         if ($studentId) {
             $selectedStudent = $linkedStudents->firstWhere('id', $studentId);
-            
+
             if ($selectedStudent) {
                 $certificates = Certificate::with([
                     'template',
-                    'student'
+                    'student',
+                    'academicLevel'
                 ])
                 ->where('student_id', $studentId)
                 ->where('school_year', $schoolYear)
                 ->orderBy('created_at', 'desc')
-                ->get();
+                ->get()
+                ->filter(function ($certificate) {
+                    // Verify each certificate has an approved honor
+                    $honorResult = \App\Models\HonorResult::where([
+                        'student_id' => $certificate->student_id,
+                        'academic_level_id' => $certificate->academic_level_id,
+                        'school_year' => $certificate->school_year,
+                    ])->where('is_approved', true)->first();
+
+                    return $honorResult !== null;
+                })
+                ->values();
             }
         }
         

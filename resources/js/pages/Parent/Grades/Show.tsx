@@ -8,8 +8,16 @@ import { Badge } from '@/components/ui/badge';
 interface GradeRow {
   id: number;
   grade?: number | null;
-  gradingPeriod?: { id?: number; name: string };
+  gradingPeriod?: { id?: number; name: string; code?: string; type?: string; sort_order?: number };
   academicLevel?: { name: string };
+}
+
+interface GradingPeriod {
+  id: number;
+  name: string;
+  code: string;
+  type: string;
+  sort_order: number;
 }
 
 interface Subject { id: number; name: string; code: string }
@@ -21,61 +29,58 @@ interface Props {
   student: Student;
   subject: Subject;
   grades: GradeRow[];
+  gradingPeriods?: GradingPeriod[];
 }
 
-export default function ParentGradesShow({ schoolYear, student, subject, grades }: Props) {
-  // Find all quarter grades for elementary students
-  const findQuarterGrades = () => {
-    const quarterGrades = {
-      Q1: grades.find(g =>
-        (g.gradingPeriod?.name?.includes('First Quarter') ||
-         g.gradingPeriod?.name?.includes('1st Grading') ||
-         g.gradingPeriod?.code === '1ST_GRADING' ||
-         g.gradingPeriod?.code === 'Q1') &&
-        g.grade !== null && g.grade !== undefined
-      ),
-      Q2: grades.find(g =>
-        (g.gradingPeriod?.name?.includes('Second Quarter') ||
-         g.gradingPeriod?.name?.includes('2nd Grading') ||
-         g.gradingPeriod?.code === '2ND_GRADING' ||
-         g.gradingPeriod?.code === 'Q2') &&
-        g.grade !== null && g.grade !== undefined
-      ),
-      Q3: grades.find(g =>
-        (g.gradingPeriod?.name?.includes('Third Quarter') ||
-         g.gradingPeriod?.name?.includes('3rd Grading') ||
-         g.gradingPeriod?.code === '3RD_GRADING' ||
-         g.gradingPeriod?.code === 'Q3') &&
-        g.grade !== null && g.grade !== undefined
-      ),
-      Q4: grades.find(g =>
-        (g.gradingPeriod?.name?.includes('Fourth Quarter') ||
-         g.gradingPeriod?.name?.includes('4th Grading') ||
-         g.gradingPeriod?.code === '4TH_GRADING' ||
-         g.gradingPeriod?.code === 'Q4') &&
-        g.grade !== null && g.grade !== undefined
-      ),
+export default function ParentGradesShow({ schoolYear, student, subject, grades, gradingPeriods = [] }: Props) {
+  // Map grades to their respective grading periods
+  const periodGrades = gradingPeriods.map(period => {
+    const grade = grades.find(g => g.gradingPeriod?.id === period.id);
+    return {
+      period,
+      grade: grade?.grade ?? null,
     };
-    return quarterGrades;
+  });
+
+  // For backward compatibility, also support finding quarters by name/code
+  const findQuarterGrade = (index: number) => {
+    if (periodGrades.length >= index) {
+      return periodGrades[index - 1]?.grade;
+    }
+
+    // Fallback to old logic if gradingPeriods not provided
+    const quarterNames = [
+      ['First Quarter', '1st Grading', '1ST_GRADING', 'Q1'],
+      ['Second Quarter', '2nd Grading', '2ND_GRADING', 'Q2'],
+      ['Third Quarter', '3rd Grading', '3RD_GRADING', 'Q3'],
+      ['Fourth Quarter', '4th Grading', '4TH_GRADING', 'Q4'],
+    ];
+
+    const found = grades.find(g => {
+      const names = quarterNames[index - 1];
+      return names.some(name =>
+        g.gradingPeriod?.name?.includes(name) || g.gradingPeriod?.code === name
+      ) && g.grade !== null && g.grade !== undefined;
+    });
+
+    return found?.grade ?? null;
   };
-  
-  const quarterGrades = findQuarterGrades();
-  const firstQuarter = quarterGrades.Q1?.grade ?? null;
-  const average = grades.length > 0 ?
-    (grades.map(g => (g.grade ?? 0)).reduce((a, b) => a + b, 0) / grades.filter(g => g.grade !== null && g.grade !== undefined).length || 0)
+
+  const validGrades = grades.filter(g => g.grade !== null && g.grade !== undefined);
+  const average = validGrades.length > 0 ?
+    (validGrades.map(g => g.grade!).reduce((a, b) => a + b, 0) / validGrades.length)
     : null;
   
-  // Determine grade status based on average grade (0-100 scale for elementary/junior high)
+  // Determine grade status based on average grade (performance descriptors)
   const getGradeStatus = (averageGrade: number) => {
-    if (averageGrade >= 95) return { text: 'With Highest Honors', isHonor: true, color: 'bg-green-100 text-green-800 border-green-200' };
-    if (averageGrade >= 90) return { text: 'With High Honors', isHonor: true, color: 'bg-blue-100 text-blue-800 border-blue-200' };
-    if (averageGrade >= 85) return { text: 'With Honors', isHonor: true, color: 'bg-purple-100 text-purple-800 border-purple-200' };
-    if (averageGrade >= 75) return { text: 'Passed', isHonor: false, color: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
-    return { text: 'Failed', isHonor: false, color: 'bg-red-100 text-red-800 border-red-200' };
+    if (averageGrade >= 90) return { text: 'Outstanding', color: 'bg-green-100 text-green-800 border-green-200' };
+    if (averageGrade >= 85) return { text: 'Very Satisfactory', color: 'bg-blue-100 text-blue-800 border-blue-200' };
+    if (averageGrade >= 80) return { text: 'Satisfactory', color: 'bg-purple-100 text-purple-800 border-purple-200' };
+    if (averageGrade >= 75) return { text: 'Fairly Satisfactory', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
+    return { text: 'Did Not Meet Expectations', color: 'bg-red-100 text-red-800 border-red-200' };
   };
-  
-  const gradeStatus = average !== null ? getGradeStatus(average) : { text: 'No Grade', isHonor: false, color: 'bg-gray-100 text-gray-800 border-gray-200' };
-  const isHonor = gradeStatus.isHonor;
+
+  const gradeStatus = average !== null ? getGradeStatus(average) : { text: 'No Grade', color: 'bg-gray-100 text-gray-800 border-gray-200' };
 
   return (
     <ParentLayout>
@@ -101,22 +106,44 @@ export default function ParentGradesShow({ schoolYear, student, subject, grades 
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-              <div className="rounded-lg border p-6 bg-blue-50">
-                <div className="text-3xl font-semibold text-center text-blue-700">{quarterGrades.Q1?.grade ?? '-'}</div>
-                <div className="text-sm text-center text-muted-foreground mt-1">First Quarter</div>
-              </div>
-              <div className="rounded-lg border p-6 bg-green-50">
-                <div className="text-3xl font-semibold text-center text-green-700">{quarterGrades.Q2?.grade ?? '-'}</div>
-                <div className="text-sm text-center text-muted-foreground mt-1">Second Quarter</div>
-              </div>
-              <div className="rounded-lg border p-6 bg-yellow-50">
-                <div className="text-3xl font-semibold text-center text-yellow-700">{quarterGrades.Q3?.grade ?? '-'}</div>
-                <div className="text-sm text-center text-muted-foreground mt-1">Third Quarter</div>
-              </div>
-              <div className="rounded-lg border p-6 bg-purple-50">
-                <div className="text-3xl font-semibold text-center text-purple-700">{quarterGrades.Q4?.grade ?? '-'}</div>
-                <div className="text-sm text-center text-muted-foreground mt-1">Fourth Quarter</div>
-              </div>
+              {periodGrades.length > 0 ? (
+                periodGrades.slice(0, 4).map((pg, index) => {
+                  const colors = [
+                    { bg: 'bg-blue-50', text: 'text-blue-700' },
+                    { bg: 'bg-green-50', text: 'text-green-700' },
+                    { bg: 'bg-yellow-50', text: 'text-yellow-700' },
+                    { bg: 'bg-purple-50', text: 'text-purple-700' },
+                  ];
+                  const color = colors[index] || colors[0];
+                  return (
+                    <div key={pg.period.id} className={`rounded-lg border p-6 ${color.bg}`}>
+                      <div className={`text-3xl font-semibold text-center ${color.text}`}>
+                        {pg.grade !== null ? pg.grade.toFixed(2) : '-'}
+                      </div>
+                      <div className="text-sm text-center text-muted-foreground mt-1">{pg.period.name}</div>
+                    </div>
+                  );
+                })
+              ) : (
+                <>
+                  <div className="rounded-lg border p-6 bg-blue-50">
+                    <div className="text-3xl font-semibold text-center text-blue-700">{findQuarterGrade(1) ?? '-'}</div>
+                    <div className="text-sm text-center text-muted-foreground mt-1">First Quarter</div>
+                  </div>
+                  <div className="rounded-lg border p-6 bg-green-50">
+                    <div className="text-3xl font-semibold text-center text-green-700">{findQuarterGrade(2) ?? '-'}</div>
+                    <div className="text-sm text-center text-muted-foreground mt-1">Second Quarter</div>
+                  </div>
+                  <div className="rounded-lg border p-6 bg-yellow-50">
+                    <div className="text-3xl font-semibold text-center text-yellow-700">{findQuarterGrade(3) ?? '-'}</div>
+                    <div className="text-sm text-center text-muted-foreground mt-1">Third Quarter</div>
+                  </div>
+                  <div className="rounded-lg border p-6 bg-purple-50">
+                    <div className="text-3xl font-semibold text-center text-purple-700">{findQuarterGrade(4) ?? '-'}</div>
+                    <div className="text-sm text-center text-muted-foreground mt-1">Fourth Quarter</div>
+                  </div>
+                </>
+              )}
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -168,16 +195,24 @@ export default function ParentGradesShow({ schoolYear, student, subject, grades 
                       <div className="flex items-center gap-2"><GraduationCap className="h-4 w-4 text-green-600" /> Jane Instructor</div>
                     </td>
                     <td className="py-4 px-4">
-                      <span className="inline-flex items-center justify-center text-sm px-3 py-1 rounded-full bg-blue-100 text-blue-700">{quarterGrades.Q1?.grade ?? '-'}</span>
+                      <span className="inline-flex items-center justify-center text-sm px-3 py-1 rounded-full bg-blue-100 text-blue-700">
+                        {periodGrades[0]?.grade !== null && periodGrades[0]?.grade !== undefined ? periodGrades[0].grade.toFixed(2) : findQuarterGrade(1) ?? '-'}
+                      </span>
                     </td>
                     <td className="py-4 px-4">
-                      <span className="inline-flex items-center justify-center text-sm px-3 py-1 rounded-full bg-green-100 text-green-700">{quarterGrades.Q2?.grade ?? '-'}</span>
+                      <span className="inline-flex items-center justify-center text-sm px-3 py-1 rounded-full bg-green-100 text-green-700">
+                        {periodGrades[1]?.grade !== null && periodGrades[1]?.grade !== undefined ? periodGrades[1].grade.toFixed(2) : findQuarterGrade(2) ?? '-'}
+                      </span>
                     </td>
                     <td className="py-4 px-4">
-                      <span className="inline-flex items-center justify-center text-sm px-3 py-1 rounded-full bg-yellow-100 text-yellow-700">{quarterGrades.Q3?.grade ?? '-'}</span>
+                      <span className="inline-flex items-center justify-center text-sm px-3 py-1 rounded-full bg-yellow-100 text-yellow-700">
+                        {periodGrades[2]?.grade !== null && periodGrades[2]?.grade !== undefined ? periodGrades[2].grade.toFixed(2) : findQuarterGrade(3) ?? '-'}
+                      </span>
                     </td>
                     <td className="py-4 px-4">
-                      <span className="inline-flex items-center justify-center text-sm px-3 py-1 rounded-full bg-purple-100 text-purple-700">{quarterGrades.Q4?.grade ?? '-'}</span>
+                      <span className="inline-flex items-center justify-center text-sm px-3 py-1 rounded-full bg-purple-100 text-purple-700">
+                        {periodGrades[3]?.grade !== null && periodGrades[3]?.grade !== undefined ? periodGrades[3].grade.toFixed(2) : findQuarterGrade(4) ?? '-'}
+                      </span>
                     </td>
                     <td className="py-4 px-4">
                       <span className="inline-flex items-center justify-center text-sm px-3 py-1 rounded-full bg-gray-100 text-gray-700">{average !== null ? average.toFixed(2) : '-'}</span>
