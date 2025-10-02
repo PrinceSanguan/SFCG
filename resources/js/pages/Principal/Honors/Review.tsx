@@ -37,8 +37,8 @@ interface HonorResult {
     rejected_at?: string;
     rejection_reason?: string;
     student: User;
-    honorType: HonorType;
-    academicLevel: AcademicLevel;
+    honor_type: HonorType;
+    academic_level: AcademicLevel;
 }
 
 interface ReviewHonorProps {
@@ -115,11 +115,11 @@ export default function ReviewHonor({ user, honor }: ReviewHonorProps) {
                         </div>
                         <div className="flex items-center justify-between">
                             <span className="text-sm font-medium">Honor Type</span>
-                            <Badge variant="outline">{honor.honorType.name}</Badge>
+                            <Badge variant="outline">{honor.honor_type.name}</Badge>
                         </div>
                         <div className="flex items-center justify-between">
                             <span className="text-sm font-medium">Academic Level</span>
-                            <span className="text-sm text-gray-600 dark:text-gray-400">{honor.academicLevel.name}</span>
+                            <span className="text-sm text-gray-600 dark:text-gray-400">{honor.academic_level.name}</span>
                         </div>
                         <div className="flex items-center justify-between">
                             <span className="text-sm font-medium">School Year</span>
