@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useForm } from '@inertiajs/react';
+import { useForm, router } from '@inertiajs/react';
 import { Header } from '@/components/admin/header';
 import { Sidebar } from '@/components/admin/sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle, Trophy, ArrowLeft, Plus } from 'lucide-react';
+import { CheckCircle, Trophy, ArrowLeft, Plus, Upload } from 'lucide-react';
+import { useToast } from '@/components/ui/toast';
 
 interface User {
     name: string;
@@ -140,9 +141,12 @@ export default function ElementaryHonors({ user, honorTypes, criteria, schoolYea
     const safeQualifiedStudents = qualifiedStudents || [];
     const safeHonorResults = honorResults || [];
     const safeCurrentSchoolYear = currentSchoolYear || '2024-2025';
-    
+
     // Force unique rendering by using cacheBuster
     const renderKey = cacheBuster || Date.now();
+
+    // Toast hook
+    const { addToast } = useToast();
 
     // Helper functions to get honor type info
     const getHonorTypeName = (criterion: HonorCriterion): string => {
@@ -940,9 +944,44 @@ export default function ElementaryHonors({ user, honorTypes, criteria, schoolYea
                                         {/* Qualified Students Section */}
                                         {safeQualifiedStudents.length > 0 && (
                                             <div>
-                                                <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
-                                                    Calculated Qualified Students ({safeQualifiedStudents.length})
-                                                </h3>
+                                                <div className="flex items-center justify-between mb-4">
+                                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                                                        Calculated Qualified Students ({safeQualifiedStudents.length})
+                                                    </h3>
+                                                    <Button
+                                                        onClick={() => {
+                                                            // Check if any qualified student already has an honor result
+                                                            const alreadySubmitted = safeQualifiedStudents.some((student: any) =>
+                                                                safeHonorResults.some((result: HonorResult) =>
+                                                                    result.student_id === student.student.id &&
+                                                                    result.school_year === safeCurrentSchoolYear
+                                                                )
+                                                            );
+
+                                                            if (alreadySubmitted) {
+                                                                addToast('Some students have already been submitted for approval.', 'warning');
+                                                                return;
+                                                            }
+
+                                                            if (confirm(`Submit ${safeQualifiedStudents.length} qualified student(s) for principal approval?`)) {
+                                                                router.post(route('admin.academic.honors.elementary.generate-results'), {
+                                                                    school_year: safeCurrentSchoolYear,
+                                                                }, {
+                                                                    onSuccess: () => {
+                                                                        addToast(`Successfully submitted ${safeQualifiedStudents.length} student(s) for approval!`, 'success');
+                                                                    },
+                                                                    onError: () => {
+                                                                        addToast('Failed to submit students for approval. Please try again.', 'error');
+                                                                    }
+                                                                });
+                                                            }
+                                                        }}
+                                                        className="flex items-center gap-2"
+                                                    >
+                                                        <Upload className="h-4 w-4" />
+                                                        Submit for Approval
+                                                    </Button>
+                                                </div>
                                                 <div key={`students-${renderKey}`} className="grid gap-4">
                                                     {safeQualifiedStudents.map((qualifiedStudent, index) => (
                                                 <div 
@@ -985,10 +1024,6 @@ export default function ElementaryHonors({ user, honorTypes, criteria, schoolYea
                                                                 <div className="bg-yellow-50 p-2 rounded">
                                                                     <span className="font-medium text-yellow-700">Min Grade:</span>
                                                                     <div className="text-lg font-bold">{qualifiedStudent.min_grade}</div>
-                                                                </div>
-                                                                <div className="bg-green-50 p-2 rounded">
-                                                                    <span className="font-medium text-green-700">Total Quarters:</span>
-                                                                    <div className="text-lg font-bold">{qualifiedStudent.total_quarters}</div>
                                                                 </div>
                                                                 <div className="bg-purple-50 p-2 rounded">
                                                                     <span className="font-medium text-purple-700">Honor:</span>
@@ -1121,42 +1156,65 @@ export default function ElementaryHonors({ user, honorTypes, criteria, schoolYea
                                 </CardHeader>
                                 <CardContent>
                                     {selectedStudent.grades_breakdown?.subjects && Object.keys(selectedStudent.grades_breakdown.subjects).length > 0 ? (
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full border-collapse border border-gray-300">
-                                                <thead>
-                                                    <tr className="bg-gray-100">
-                                                        <th className="border border-gray-300 p-3 text-left">Subject</th>
-                                                        <th className="border border-gray-300 p-3 text-center">Q1</th>
-                                                        <th className="border border-gray-300 p-3 text-center">Q2</th>
-                                                        <th className="border border-gray-300 p-3 text-center">Q3</th>
-                                                        <th className="border border-gray-300 p-3 text-center">Q4</th>
-                                                        <th className="border border-gray-300 p-3 text-center">Average</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {Object.entries(selectedStudent.grades_breakdown.subjects).map(([subjectName, subjectData]: [string, any]) => (
-                                                        <tr key={subjectName}>
-                                                            <td className="border border-gray-300 p-3 font-medium">{subjectName}</td>
-                                                            <td className="border border-gray-300 p-3 text-center">
-                                                                {subjectData.Q1 ? subjectData.Q1 : '—'}
-                                                            </td>
-                                                            <td className="border border-gray-300 p-3 text-center">
-                                                                {subjectData.Q2 ? subjectData.Q2 : '—'}
-                                                            </td>
-                                                            <td className="border border-gray-300 p-3 text-center">
-                                                                {subjectData.Q3 ? subjectData.Q3 : '—'}
-                                                            </td>
-                                                            <td className="border border-gray-300 p-3 text-center">
-                                                                {subjectData.Q4 ? subjectData.Q4 : '—'}
-                                                            </td>
-                                                            <td className="border border-gray-300 p-3 text-center font-bold text-blue-600">
-                                                                {subjectData.average ? subjectData.average.toFixed(2) : '—'}
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
+                                        (() => {
+                                            // Get all unique period codes from the subjects data
+                                            const firstSubject = Object.values(selectedStudent.grades_breakdown.subjects)[0] as any;
+                                            const rawPeriodCodes = Object.keys(firstSubject).filter(key =>
+                                                key !== 'average' && key !== 'subject_name' && key !== 'subject_code'
+                                            );
+
+                                            // Sort period codes in proper quarter order (Q1, Q2, Q3, Q4/F4)
+                                            const quarterOrder: Record<string, number> = {
+                                                'Q1': 1,
+                                                'Q2': 2,
+                                                'Q3': 3,
+                                                'Q4': 4,
+                                                'F4': 4,  // F4 is the same as Q4
+                                            };
+
+                                            const periodCodes = rawPeriodCodes.sort((a, b) => {
+                                                return (quarterOrder[a] || 999) - (quarterOrder[b] || 999);
+                                            });
+
+                                            // Map period codes to display labels (F4 -> Q4)
+                                            const getPeriodLabel = (code: string) => {
+                                                if (code === 'F4') return 'Q4';
+                                                return code;
+                                            };
+
+                                            return (
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full border-collapse border border-gray-300">
+                                                        <thead>
+                                                            <tr className="bg-gray-100">
+                                                                <th className="border border-gray-300 p-3 text-left">Subject</th>
+                                                                {periodCodes.map((code) => (
+                                                                    <th key={code} className="border border-gray-300 p-3 text-center">
+                                                                        {getPeriodLabel(code)}
+                                                                    </th>
+                                                                ))}
+                                                                <th className="border border-gray-300 p-3 text-center">Average</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {Object.entries(selectedStudent.grades_breakdown.subjects).map(([subjectName, subjectData]: [string, any]) => (
+                                                                <tr key={subjectName}>
+                                                                    <td className="border border-gray-300 p-3 font-medium">{subjectName}</td>
+                                                                    {periodCodes.map((code) => (
+                                                                        <td key={code} className="border border-gray-300 p-3 text-center">
+                                                                            {subjectData[code] ? subjectData[code] : '—'}
+                                                                        </td>
+                                                                    ))}
+                                                                    <td className="border border-gray-300 p-3 text-center font-bold text-blue-600">
+                                                                        {subjectData.average ? subjectData.average.toFixed(2) : '—'}
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            );
+                                        })()
                                     ) : (
                                         <div className="text-center py-4 text-gray-500">
                                             <p>No detailed grades breakdown available</p>
@@ -1171,17 +1229,21 @@ export default function ElementaryHonors({ user, honorTypes, criteria, schoolYea
                                     <CardTitle>Quarter Averages</CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    {selectedStudent.grades_breakdown?.quarters && selectedStudent.grades_breakdown.quarters.length > 0 ? (
+                                    {selectedStudent.grades_breakdown?.periods && selectedStudent.grades_breakdown.periods.length > 0 ? (
                                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                            {selectedStudent.grades_breakdown.quarters.map((quarter: any) => (
-                                                <div key={quarter.quarter_code} className="text-center p-4 bg-blue-50 rounded-lg">
-                                                    <div className="text-2xl font-bold text-blue-600">
-                                                        {quarter.grade ? quarter.grade.toFixed(2) : '—'}
+                                            {selectedStudent.grades_breakdown.periods.map((period: any) => {
+                                                // Normalize period code display (F4 -> Fourth Quarter)
+                                                const displayPeriod = period.period_code === 'F4' ? 'Fourth Quarter' : period.period;
+                                                return (
+                                                    <div key={period.period_code} className="text-center p-4 bg-blue-50 rounded-lg">
+                                                        <div className="text-2xl font-bold text-blue-600">
+                                                            {period.grade ? period.grade.toFixed(2) : '—'}
+                                                        </div>
+                                                        <div className="text-sm text-blue-600">{displayPeriod}</div>
+                                                        <div className="text-xs text-gray-500">{period.count} subjects</div>
                                                     </div>
-                                                    <div className="text-sm text-blue-600">{quarter.quarter}</div>
-                                                    <div className="text-xs text-gray-500">{quarter.count} subjects</div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     ) : (
                                         <div className="text-center py-4 text-gray-500">

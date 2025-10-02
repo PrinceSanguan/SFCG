@@ -32,8 +32,8 @@ interface HonorResult {
     is_pending_approval: boolean;
     created_at: string;
     student: User;
-    honorType: HonorType;
-    academicLevel: AcademicLevel;
+    honor_type: HonorType;
+    academic_level: AcademicLevel;
 }
 
 interface PendingHonorsProps {
@@ -54,9 +54,9 @@ export default function PendingHonors({ user, honors }: PendingHonorsProps) {
 
     const filteredHonors = honors.data.filter(honor => {
         const matchesSearch = (honor.student?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            (honor.honorType?.name || '').toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesType = !selectedType || selectedType === 'all' || honor.honorType?.id.toString() === selectedType;
-        const matchesLevel = !selectedLevel || selectedLevel === 'all' || honor.academicLevel?.id.toString() === selectedLevel;
+                            (honor.honor_type?.name || '').toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesType = !selectedType || selectedType === 'all' || honor.honor_type?.id.toString() === selectedType;
+        const matchesLevel = !selectedLevel || selectedLevel === 'all' || honor.academic_level?.id.toString() === selectedLevel;
 
         return matchesSearch && matchesType && matchesLevel;
     });
@@ -210,11 +210,11 @@ export default function PendingHonors({ user, honors }: PendingHonorsProps) {
                                             <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
                                                 {honor.gpa}
                                             </Badge>
-                                            <Badge variant="secondary">{honor.honorType?.name || 'Unknown Type'}</Badge>
+                                            <Badge variant="secondary">{honor.honor_type?.name || 'Unknown Type'}</Badge>
                                             <Badge variant="secondary">Pending</Badge>
                                         </div>
                                         <p className="text-sm text-gray-600 dark:text-gray-400">
-                                            {honor.academicLevel?.name || 'Unknown Level'} - {honor.school_year}
+                                            {honor.academic_level?.name || 'Unknown Level'} - {honor.school_year}
                                         </p>
                                         <p className="text-xs text-gray-500">
                                             Submitted: {new Date(honor.created_at).toLocaleDateString()}

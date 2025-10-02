@@ -37,8 +37,8 @@ interface HonorResult {
     rejected_at?: string;
     rejection_reason?: string;
     student: User;
-    honorType: HonorType;
-    academicLevel: AcademicLevel;
+    honor_type: HonorType;
+    academic_level: AcademicLevel;
     approvedBy?: User;
     rejectedBy?: User;
 }
@@ -98,9 +98,9 @@ export default function HonorsIndex({ user, honors, honorTypes, academicLevels, 
 
     const filteredHonors = honors.data.filter(honor => {
         const matchesSearch = (honor.student?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            (honor.honorType?.name || '').toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesType = !selectedType || selectedType === 'all' || honor.honorType?.id.toString() === selectedType;
-        const matchesLevel = !selectedLevel || selectedLevel === 'all' || honor.academicLevel?.id.toString() === selectedLevel;
+                            (honor.honor_type?.name || '').toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesType = !selectedType || selectedType === 'all' || honor.honor_type?.id.toString() === selectedType;
+        const matchesLevel = !selectedLevel || selectedLevel === 'all' || honor.academic_level?.id.toString() === selectedLevel;
         const matchesStatus = !statusFilter || statusFilter === 'all' ||
             (statusFilter === 'approved' && honor.is_approved) ||
             (statusFilter === 'pending' && honor.is_pending_approval && !honor.is_approved && !honor.is_rejected) ||
@@ -260,10 +260,10 @@ export default function HonorsIndex({ user, honors, honorTypes, academicLevels, 
                                         <div className="flex items-center gap-2">
                                             <h3 className="font-medium">{honor.student?.name || 'Unknown Student'}</h3>
                                             <Badge variant="outline">{honor.gpa}</Badge>
-                                            <Badge variant="secondary">{honor.honorType?.name || 'Unknown Type'}</Badge>
+                                            <Badge variant="secondary">{honor.honor_type?.name || 'Unknown Type'}</Badge>
                                         </div>
                                         <p className="text-sm text-gray-600 dark:text-gray-400">
-                                            {honor.academicLevel?.name || 'Unknown Level'} - {honor.school_year}
+                                            {honor.academic_level?.name || 'Unknown Level'} - {honor.school_year}
                                         </p>
                                         <p className="text-xs text-gray-500">
                                             Submitted: {new Date(honor.created_at).toLocaleDateString()}

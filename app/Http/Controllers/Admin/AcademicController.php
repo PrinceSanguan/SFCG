@@ -538,6 +538,34 @@ class AcademicController extends Controller
     }
 
     /**
+     * Generate honor results for all qualified elementary students
+     */
+    public function generateElementaryHonorResults(Request $request)
+    {
+        $validated = $request->validate([
+            'school_year' => 'required|string',
+        ]);
+
+        $elementaryLevel = \App\Models\AcademicLevel::where('key', 'elementary')->first();
+
+        if (!$elementaryLevel) {
+            return back()->with('error', 'Elementary level not found.');
+        }
+
+        $elementaryService = new \App\Services\ElementaryHonorCalculationService();
+        $result = $elementaryService->generateElementaryHonorResults(
+            $elementaryLevel->id,
+            $validated['school_year']
+        );
+
+        if ($result['success']) {
+            return back()->with('success', $result['message'] . ' Honor results have been submitted for principal approval.');
+        } else {
+            return back()->with('error', $result['message']);
+        }
+    }
+
+    /**
      * Get all qualified junior high school students for honor calculation
      */
     private function getQualifiedJuniorHighSchoolStudents(string $schoolYear, ?string $gradeLevel = null, ?string $sectionId = null): array

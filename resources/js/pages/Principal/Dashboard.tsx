@@ -27,10 +27,10 @@ interface HonorResult {
     id: number;
     gpa: number;
     student: User;
-    honorType: {
+    honor_type: {
         name: string;
     };
-    academicLevel: {
+    academic_level: {
         name: string;
     };
     created_at: string;
@@ -157,7 +157,7 @@ export default function PrincipalDashboard({
                                     <div className="flex-1">
                                         <p className="text-sm font-medium">{honor.student?.name || 'Unknown Student'}</p>
                                         <p className="text-xs text-muted-foreground">
-                                            {honor.honorType?.name || 'Unknown Type'} - {honor.academicLevel?.name || 'Unknown Level'}
+                                            {honor.honor_type?.name || 'Unknown Type'} - {honor.academic_level?.name || 'Unknown Level'}
                                         </p>
                                         <p className="text-xs text-muted-foreground">
                                             GPA: {honor.gpa}

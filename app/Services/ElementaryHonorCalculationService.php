@@ -36,12 +36,13 @@ class ElementaryHonorCalculationService
             ];
         }
 
-        // Get all quarter grading periods for elementary - use only Q1, Q2, Q3, Q4
+        // Get all quarter grading periods for elementary - use only Q1, Q2, Q3, Q4/F4
+        // Note: We don't filter by is_active to ensure all quarters are included in calculations
+        // Note: Fourth Quarter might be coded as 'Q4' or 'F4' depending on configuration
         $periods = GradingPeriod::where('academic_level_id', $academicLevelId)
             ->where('type', 'quarter')
             ->where('period_type', 'quarter')
-            ->whereIn('code', ['Q1', 'Q2', 'Q3', 'Q4'])
-            ->where('is_active', true)
+            ->whereIn('code', ['Q1', 'Q2', 'Q3', 'Q4', 'F4'])
             ->orderBy('sort_order')
             ->get();
 
@@ -52,10 +53,10 @@ class ElementaryHonorCalculationService
             ];
         }
 
-        // Group quarters into semesters (Q1, Q2 = First Semester; Q3, Q4 = Second Semester)
+        // Group quarters into semesters (Q1, Q2 = First Semester; Q3, Q4/F4 = Second Semester)
         $semesterGroups = [
             'first_semester' => $periods->whereIn('code', ['Q1', 'Q2'])->values(),
-            'second_semester' => $periods->whereIn('code', ['Q3', 'Q4'])->values(),
+            'second_semester' => $periods->whereIn('code', ['Q3', 'Q4', 'F4'])->values(),
         ];
 
         // Get all grades for the student across all quarters
