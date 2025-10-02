@@ -14,6 +14,12 @@ interface GradingPeriod {
   sort_order: number;
 }
 
+interface Teacher {
+  id: number;
+  name: string;
+  role: string;
+}
+
 interface Props {
   user: {
     id: number;
@@ -27,9 +33,10 @@ interface Props {
   };
   grades: Grade[];
   gradingPeriods: GradingPeriod[];
+  teacher?: Teacher | null;
 }
 
-export default function StudentSubjectGradesShow({ user, subject, grades, gradingPeriods }: Props) {
+export default function StudentSubjectGradesShow({ user, subject, grades, gradingPeriods, teacher }: Props) {
   // Calculate grade statistics
   const validGrades = grades.filter(g => g.grade !== null);
   const latestGrade = validGrades.length > 0 ? validGrades[validGrades.length - 1] : null;
@@ -172,7 +179,7 @@ export default function StudentSubjectGradesShow({ user, subject, grades, gradin
                   <TableCell className="px-4 py-3">
                     <div className="flex items-center space-x-2">
                       <GraduationCap className="h-4 w-4 text-green-500" />
-                      <span>{validGrades.length > 0 && validGrades[0].teacher_name ? validGrades[0].teacher_name : 'No Teacher Assigned'}</span>
+                      <span>{teacher ? teacher.name : 'No Teacher Assigned'}</span>
                     </div>
                   </TableCell>
                   {periodGrades.map((pg, index) => {

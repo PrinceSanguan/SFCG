@@ -172,6 +172,11 @@ class GradesController extends Controller
                     'sort_order' => $period->sort_order,
                 ];
             }),
+            'teacher' => $assignedTeacher ? [
+                'id' => $assignedTeacher->id,
+                'name' => $assignedTeacher->name,
+                'role' => $assignedTeacher->user_role,
+            ] : null,
         ]);
     }
 }
