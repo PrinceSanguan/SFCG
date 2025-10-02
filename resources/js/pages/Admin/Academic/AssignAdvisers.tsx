@@ -62,6 +62,7 @@ interface Section {
 interface ClassAdviserAssignment {
     id: number;
     adviser_id: number;
+    subject_id: number;
     academic_level_id: number;
     grade_level: string;
     section: string;
@@ -69,6 +70,7 @@ interface ClassAdviserAssignment {
     notes: string | null;
     is_active: boolean;
     adviser: User;
+    subject: Subject;
     academicLevel?: AcademicLevel;
 }
 
@@ -257,10 +259,11 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
         setEditAssignment(assignment);
         setAssignmentForm({
             adviser_id: assignment.adviser_id.toString(),
-            subject_id: '', // Will be filled from assignment data when we update the backend
+            subject_id: assignment.subject_id?.toString() || '',
             academic_level_id: assignment.academic_level_id.toString(),
             grade_level: assignment.grade_level,
-            section_id: '',
+            section_id: assignment.subject?.section_id?.toString() || '',
+            grading_period_ids: [],
             school_year: assignment.school_year,
             notes: assignment.notes || '',
             is_active: assignment.is_active,
@@ -607,6 +610,7 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
                                         <div className="flex items-center space-x-2">
                                             <School className="h-4 w-4 text-gray-500" />
                                             <span className="font-medium">{assignment.grade_level}</span>
+                                            <Badge variant="outline">{assignment.section}</Badge>
                                             <Badge variant="outline">
                                                 <span className="flex items-center space-x-1">
                                                     <span>{getLevelIcon(assignment.academicLevel?.key || '')}</span>
@@ -639,6 +643,13 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
                                             </Button>
                                         </div>
                                     </div>
+                                </div>
+                                <div className="flex items-center space-x-2 mt-2">
+                                    <span className="text-sm font-semibold text-gray-700">Subject:</span>
+                                    <span className="text-sm text-gray-600">{assignment.subject?.name || 'No Subject'}</span>
+                                    {assignment.subject?.code && (
+                                        <Badge variant="secondary" className="text-xs">{assignment.subject.code}</Badge>
+                                    )}
                                 </div>
                                 {assignment.notes && (
                                     <p className="text-sm text-gray-600 mt-2">{assignment.notes}</p>

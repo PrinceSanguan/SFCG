@@ -112,6 +112,13 @@ class GradesController extends Controller
         }
         $grades = $query->get();
 
+        // Get active grading periods for this subject's academic level
+        $gradingPeriods = \App\Models\GradingPeriod::where('academic_level_id', $subject->academic_level_id)
+            ->where('is_active', true)
+            ->whereNull('parent_id') // Only get root level periods (quarters/semesters, not subdivisions)
+            ->orderBy('sort_order')
+            ->get();
+
         // Get the teacher/adviser/instructor for this subject
         $teacherService = new \App\Services\TeacherStudentAssignmentService();
         $assignedTeacher = $teacherService->getTeacherForStudentSubject($user, $subject);
@@ -157,6 +164,14 @@ class GradesController extends Controller
             ],
             'schoolYear' => $schoolYear,
             'grades' => $transformedGrades,
+            'gradingPeriods' => $gradingPeriods->map(function($period) {
+                return [
+                    'id' => $period->id,
+                    'name' => $period->name,
+                    'code' => $period->code,
+                    'sort_order' => $period->sort_order,
+                ];
+            }),
         ]);
     }
 }

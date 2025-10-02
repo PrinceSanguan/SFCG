@@ -7,11 +7,30 @@ import { Button } from '@/components/ui/button';
 import { Link } from '@inertiajs/react';
 
 interface User { id: number; name: string; email: string; user_role: string }
-interface Assignment { id: number; academicLevel?: { name: string }; grade_level?: string; section?: string; school_year: string }
+interface Assignment { id: number; academicLevel?: { name: string }; grade_level?: string; section?: string; school_year: string; subject?: { id: number; name: string; code?: string } }
 interface StudentGrade { id: number; student?: { id?: number; name?: string }; subject?: { id?: number; name?: string }; academicLevel?: { id?: number; name?: string }; gradingPeriod?: { id?: number; name?: string }; grade?: number; school_year?: string; created_at?: string }
 interface Props { user: User; assignments: Assignment[]; recentGrades: StudentGrade[]; upcomingDeadlines?: any[]; stats: { sections: number; students: number; grades: number }; schoolYear: string }
 
 export default function AdviserDashboard({ user, assignments = [], recentGrades = [], upcomingDeadlines = [], stats, schoolYear }: Props) {
+  // Group assignments by unique section
+  const groupedSections = assignments.reduce((acc, assignment) => {
+    const key = `${assignment.grade_level}-${assignment.section}-${assignment.school_year}`;
+    if (!acc[key]) {
+      acc[key] = {
+        academicLevel: assignment.academicLevel,
+        grade_level: assignment.grade_level,
+        section: assignment.section,
+        school_year: assignment.school_year,
+        subjects: []
+      };
+    }
+    if (assignment.subject) {
+      acc[key].subjects.push(assignment.subject);
+    }
+    return acc;
+  }, {} as Record<string, { academicLevel?: { name: string }; grade_level?: string; section?: string; school_year: string; subjects: { id: number; name: string; code?: string }[] }>);
+
+  const uniqueSections = Object.values(groupedSections);
   return (
     <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
       <Sidebar user={user} />
@@ -37,14 +56,25 @@ export default function AdviserDashboard({ user, assignments = [], recentGrades 
               <CardHeader><CardTitle>My Sections</CardTitle></CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {assignments.length === 0 && (<p className="text-sm text-muted-foreground">No sections assigned yet.</p>)}
-                  {assignments.map((a) => (
-                    <div key={a.id} className="flex items-center justify-between border rounded-lg p-3">
-                      <div>
-                        <p className="text-sm font-medium">{a.academicLevel?.name ?? 'Level'} • {a.grade_level ?? '-'} {a.section ?? ''}</p>
-                        <p className="text-xs text-muted-foreground">{a.school_year}</p>
+                  {uniqueSections.length === 0 && (<p className="text-sm text-muted-foreground">No sections assigned yet.</p>)}
+                  {uniqueSections.map((section, index) => (
+                    <div key={index} className="border rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div>
+                          <p className="text-sm font-medium">{section.academicLevel?.name ?? 'Level'} • {section.grade_level ?? '-'} {section.section ?? ''}</p>
+                          <p className="text-xs text-muted-foreground">{section.school_year}</p>
+                        </div>
+                        <Badge variant="outline">Advisory</Badge>
                       </div>
-                      <Badge variant="outline">Advisory</Badge>
+                      {section.subjects.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {section.subjects.map((subject) => (
+                            <Badge key={subject.id} variant="secondary" className="text-xs">
+                              {subject.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

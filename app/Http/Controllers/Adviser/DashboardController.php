@@ -20,33 +20,33 @@ class DashboardController extends Controller
         $schoolYear = request('school_year', '2024-2025');
 
         // Get adviser's class assignments for current school year (Elementary and Junior High School only)
-        $assignments = ClassAdviserAssignment::with(['academicLevel', 'adviser'])
+        $assignments = ClassAdviserAssignment::with(['academicLevel', 'adviser', 'subject'])
             ->where('adviser_id', $user->id)
             ->where('school_year', $schoolYear)
             ->whereHas('academicLevel', function ($query) {
                 $query->whereIn('key', ['elementary', 'junior_highschool']);
             })
             ->orderBy('academic_level_id')
+            ->orderBy('subject_id')
             ->get();
 
         // Stats
-        $sectionsCount = $assignments->count();
+        // Count unique sections (grade_level + section + school_year)
+        $sectionsCount = $assignments->unique(function ($assignment) {
+            return $assignment->grade_level . '-' . $assignment->section . '-' . $assignment->school_year;
+        })->count();
 
-        // Calculate students count
-        // Get academic level IDs from assignments
-        $academicLevelIds = $assignments->pluck('academic_level_id')->unique();
+        // Calculate students count based on actual subject enrollments
+        // Get all subject IDs this adviser is assigned to
+        $subjectIds = $assignments->pluck('subject_id')->filter()->unique();
 
-        // Get all sections for these academic levels in current school year
-        $sectionIds = DB::table('sections')
-            ->whereIn('academic_level_id', $academicLevelIds)
+        // Count unique students enrolled in these subjects
+        $studentsCount = DB::table('student_subject_assignments')
+            ->whereIn('subject_id', $subjectIds)
             ->where('school_year', $schoolYear)
             ->where('is_active', true)
-            ->pluck('id');
-
-        // Count students in these sections
-        $studentsCount = User::where('user_role', 'student')
-            ->whereIn('section_id', $sectionIds)
-            ->count();
+            ->distinct('student_id')
+            ->count('student_id');
 
         // Only count grades for adviser's assigned subjects
         $subjectIds = $assignments->pluck('subject_id')->filter()->unique();

@@ -252,14 +252,23 @@ class TeacherStudentAssignmentService
         $currentSchoolYear = $this->getCurrentSchoolYear();
         $linkedCount = 0;
 
+        // Get the academic level key to match with user's year_level
+        $academicLevel = \App\Models\AcademicLevel::find($subject->academic_level_id);
+        if (!$academicLevel) {
+            Log::warning('Academic level not found for subject', [
+                'subject_id' => $subject->id,
+                'academic_level_id' => $subject->academic_level_id,
+            ]);
+            return 0;
+        }
+
         // Find all students in the same section and academic level
         $students = User::where('user_role', 'student')
-            ->where('is_active', true)
             ->when($subject->section_id, function($query) use ($subject) {
                 return $query->where('section_id', $subject->section_id);
             })
-            ->when($subject->academic_level_id, function($query) use ($subject) {
-                return $query->where('academic_level_id', $subject->academic_level_id);
+            ->when($academicLevel->key, function($query) use ($academicLevel) {
+                return $query->where('year_level', $academicLevel->key);
             })
             ->get();
 
@@ -291,11 +300,8 @@ class TeacherStudentAssignmentService
                 StudentSubjectAssignment::create([
                     'student_id' => $student->id,
                     'subject_id' => $subject->id,
-                    'academic_level_id' => $subject->academic_level_id,
-                    'section_id' => $subject->section_id,
                     'school_year' => $currentSchoolYear,
                     'is_active' => true,
-                    'enrolled_at' => now(),
                     'enrolled_by' => Auth::id() ?? 1,
                 ]);
 
@@ -612,11 +618,8 @@ class TeacherStudentAssignmentService
                 StudentSubjectAssignment::create([
                     'student_id' => $student->id,
                     'subject_id' => $subject->id,
-                    'academic_level_id' => $subject->academic_level_id,
-                    'section_id' => $subject->section_id,
                     'school_year' => $currentSchoolYear,
                     'is_active' => true,
-                    'enrolled_at' => now(),
                     'enrolled_by' => Auth::id() ?? 1,
                 ]);
 
@@ -647,5 +650,137 @@ class TeacherStudentAssignmentService
         ]);
 
         return $enrolledCount;
+    }
+
+    /**
+     * Sync a student with all subjects in their section.
+     * Called when a student is added to or changes section.
+     */
+    public function syncStudentSubjects(User $student): int
+    {
+        if ($student->user_role !== 'student') {
+            return 0;
+        }
+
+        if (!$student->section_id || !$student->year_level) {
+            Log::warning('Student missing section or year level', [
+                'student_id' => $student->id,
+                'section_id' => $student->section_id,
+                'year_level' => $student->year_level,
+            ]);
+            return 0;
+        }
+
+        $currentSchoolYear = $this->getCurrentSchoolYear();
+        $enrolledCount = 0;
+
+        // Get the academic level for this student
+        $academicLevel = \App\Models\AcademicLevel::where('key', $student->year_level)->first();
+        if (!$academicLevel) {
+            Log::warning('Academic level not found for student', [
+                'student_id' => $student->id,
+                'year_level' => $student->year_level,
+            ]);
+            return 0;
+        }
+
+        // Get all subjects for this section
+        $subjects = Subject::where('section_id', $student->section_id)
+            ->where('academic_level_id', $academicLevel->id)
+            ->where('is_active', true)
+            ->get();
+
+        foreach ($subjects as $subject) {
+            // Check if already enrolled
+            $existingAssignment = StudentSubjectAssignment::where([
+                'student_id' => $student->id,
+                'subject_id' => $subject->id,
+                'school_year' => $currentSchoolYear,
+            ])->first();
+
+            if ($existingAssignment) {
+                // Reactivate if inactive
+                if (!$existingAssignment->is_active) {
+                    $existingAssignment->update(['is_active' => true]);
+                    Log::info('Reactivated student subject assignment', [
+                        'student_id' => $student->id,
+                        'subject_id' => $subject->id,
+                    ]);
+                }
+                $enrolledCount++;
+                continue;
+            }
+
+            // Create new enrollment
+            try {
+                StudentSubjectAssignment::create([
+                    'student_id' => $student->id,
+                    'subject_id' => $subject->id,
+                    'school_year' => $currentSchoolYear,
+                    'is_active' => true,
+                    'enrolled_by' => Auth::id() ?? 1,
+                ]);
+
+                Log::info('Auto-enrolled student in subject based on section', [
+                    'student_id' => $student->id,
+                    'student_name' => $student->name,
+                    'subject_id' => $subject->id,
+                    'subject_name' => $subject->name,
+                    'section_id' => $student->section_id,
+                ]);
+
+                $enrolledCount++;
+            } catch (\Exception $e) {
+                Log::error('Failed to auto-enroll student in subject', [
+                    'student_id' => $student->id,
+                    'subject_id' => $subject->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        Log::info('Completed auto-enrollment for student in section subjects', [
+            'student_id' => $student->id,
+            'student_name' => $student->name,
+            'section_id' => $student->section_id,
+            'subjects_enrolled' => $enrolledCount,
+        ]);
+
+        return $enrolledCount;
+    }
+
+    /**
+     * Remove a student from all subjects when they leave a section.
+     */
+    public function unsyncStudentSubjects(User $student, $oldSectionId): int
+    {
+        $currentSchoolYear = $this->getCurrentSchoolYear();
+        $unenrolledCount = 0;
+
+        // Get all subjects for the old section
+        $subjects = Subject::where('section_id', $oldSectionId)
+            ->where('is_active', true)
+            ->get();
+
+        foreach ($subjects as $subject) {
+            $assignment = StudentSubjectAssignment::where([
+                'student_id' => $student->id,
+                'subject_id' => $subject->id,
+                'school_year' => $currentSchoolYear,
+            ])->first();
+
+            if ($assignment && $assignment->is_active) {
+                $assignment->update(['is_active' => false]);
+                $unenrolledCount++;
+
+                Log::info('Deactivated student subject assignment on section change', [
+                    'student_id' => $student->id,
+                    'subject_id' => $subject->id,
+                    'old_section_id' => $oldSectionId,
+                ]);
+            }
+        }
+
+        return $unenrolledCount;
     }
 }

@@ -7,6 +7,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ArrowLeft, BookOpen, GraduationCap, User } from 'lucide-react';
 import { Grade } from '@/types';
 
+interface GradingPeriod {
+  id: number;
+  name: string;
+  code: string;
+  sort_order: number;
+}
+
 interface Props {
   user: {
     id: number;
@@ -19,49 +26,32 @@ interface Props {
     code: string;
   };
   grades: Grade[];
+  gradingPeriods: GradingPeriod[];
 }
 
-export default function StudentSubjectGradesShow({ user, subject, grades }: Props) {
+export default function StudentSubjectGradesShow({ user, subject, grades, gradingPeriods }: Props) {
   // Calculate grade statistics
   const validGrades = grades.filter(g => g.grade !== null);
   const latestGrade = validGrades.length > 0 ? validGrades[validGrades.length - 1] : null;
 
-  // Find all quarter grades for elementary students
-  const quarterGrades = {
-    Q1: grades.find(g =>
-      (g.gradingPeriod?.code === 'Q1' ||
-       g.gradingPeriod?.code === '1ST_GRADING' ||
-       g.gradingPeriod?.name === '1st Grading' ||
-       g.gradingPeriod?.name === 'First Quarter') &&
-      g.grade !== null
-    ),
-    Q2: grades.find(g =>
-      (g.gradingPeriod?.code === 'Q2' ||
-       g.gradingPeriod?.code === '2ND_GRADING' ||
-       g.gradingPeriod?.name === '2nd Grading' ||
-       g.gradingPeriod?.name === 'Second Quarter') &&
-      g.grade !== null
-    ),
-    Q3: grades.find(g =>
-      (g.gradingPeriod?.code === 'Q3' ||
-       g.gradingPeriod?.code === '3RD_GRADING' ||
-       g.gradingPeriod?.name === '3rd Grading' ||
-       g.gradingPeriod?.name === 'Third Quarter') &&
-      g.grade !== null
-    ),
-    Q4: grades.find(g =>
-      (g.gradingPeriod?.code === 'Q4' ||
-       g.gradingPeriod?.code === '4TH_GRADING' ||
-       g.gradingPeriod?.name === '4th Grading' ||
-       g.gradingPeriod?.name === 'Fourth Quarter') &&
-      g.grade !== null
-    ),
-  };
+  // Map grades to their respective grading periods dynamically
+  const periodGrades = gradingPeriods.map(period => {
+    const grade = grades.find(g => g.gradingPeriod?.id === period.id && g.grade !== null);
+    return {
+      period,
+      grade: grade?.grade || null,
+    };
+  });
 
-  // For backward compatibility, also find First Quarter grade
-  const firstQuarterGrade = grades.find(g =>
-    g.gradingPeriod?.name === 'First Quarter' && g.grade !== null
-  );
+  // Define colors for each period (cycle through colors)
+  const periodColors = [
+    { bg: 'bg-blue-50', text: 'text-blue-600' },
+    { bg: 'bg-green-50', text: 'text-green-600' },
+    { bg: 'bg-yellow-50', text: 'text-yellow-600' },
+    { bg: 'bg-purple-50', text: 'text-purple-600' },
+    { bg: 'bg-pink-50', text: 'text-pink-600' },
+    { bg: 'bg-indigo-50', text: 'text-indigo-600' },
+  ];
 
   // Determine grade status based on average grade (performance descriptors)
   const getGradeStatus = (averageGrade: number) => {
@@ -106,31 +96,23 @@ export default function StudentSubjectGradesShow({ user, subject, grades }: Prop
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-              <div className="text-center p-4 bg-blue-50 rounded-lg">
-                <div className="text-2xl font-bold text-blue-600">
-                  {quarterGrades.Q1 ? quarterGrades.Q1.grade : '—'}
+            <div className={`grid grid-cols-1 ${gradingPeriods.length === 2 ? 'md:grid-cols-2' : gradingPeriods.length === 3 ? 'md:grid-cols-3' : 'md:grid-cols-2 lg:grid-cols-4'} gap-4 mb-4`}>
+              {periodGrades.map((pg, index) => {
+                const color = periodColors[index % periodColors.length];
+                return (
+                  <div key={pg.period.id} className={`text-center p-4 ${color.bg} rounded-lg`}>
+                    <div className={`text-2xl font-bold ${color.text}`}>
+                      {pg.grade !== null ? pg.grade : '—'}
+                    </div>
+                    <div className={`text-sm ${color.text}`}>{pg.period.name}</div>
+                  </div>
+                );
+              })}
+              {periodGrades.length === 0 && (
+                <div className="text-center p-4 bg-gray-50 rounded-lg col-span-full">
+                  <div className="text-sm text-gray-600">No grading periods available</div>
                 </div>
-                <div className="text-sm text-blue-600">First Quarter</div>
-              </div>
-              <div className="text-center p-4 bg-green-50 rounded-lg">
-                <div className="text-2xl font-bold text-green-600">
-                  {quarterGrades.Q2 ? quarterGrades.Q2.grade : '—'}
-                </div>
-                <div className="text-sm text-green-600">Second Quarter</div>
-              </div>
-              <div className="text-center p-4 bg-yellow-50 rounded-lg">
-                <div className="text-2xl font-bold text-yellow-600">
-                  {quarterGrades.Q3 ? quarterGrades.Q3.grade : '—'}
-                </div>
-                <div className="text-sm text-yellow-600">Third Quarter</div>
-              </div>
-              <div className="text-center p-4 bg-purple-50 rounded-lg">
-                <div className="text-2xl font-bold text-purple-600">
-                  {quarterGrades.Q4 ? quarterGrades.Q4.grade : '—'}
-                </div>
-                <div className="text-sm text-purple-600">Fourth Quarter</div>
-              </div>
+              )}
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -164,10 +146,11 @@ export default function StudentSubjectGradesShow({ user, subject, grades }: Prop
                   <TableHead className="bg-gray-900 text-white">Student ID</TableHead>
                   <TableHead className="bg-gray-900 text-white">Subject</TableHead>
                   <TableHead className="bg-gray-900 text-white">Faculty</TableHead>
-                  <TableHead className="bg-gray-900 text-white">Q1</TableHead>
-                  <TableHead className="bg-gray-900 text-white">Q2</TableHead>
-                  <TableHead className="bg-gray-900 text-white">Q3</TableHead>
-                  <TableHead className="bg-gray-900 text-white">Q4</TableHead>
+                  {periodGrades.map((pg) => (
+                    <TableHead key={pg.period.id} className="bg-gray-900 text-white">
+                      {pg.period.code || pg.period.name}
+                    </TableHead>
+                  ))}
                   <TableHead className="bg-gray-900 text-white">AVERAGE</TableHead>
                   <TableHead className="bg-gray-900 text-white">Grade Status</TableHead>
                 </TableRow>
@@ -192,42 +175,21 @@ export default function StudentSubjectGradesShow({ user, subject, grades }: Prop
                       <span>{validGrades.length > 0 && validGrades[0].teacher_name ? validGrades[0].teacher_name : 'No Teacher Assigned'}</span>
                     </div>
                   </TableCell>
-                  <TableCell className="px-4 py-3">
-                    {quarterGrades.Q1 ? (
-                      <Badge className="bg-blue-100 text-blue-800 border-blue-200">
-                        {quarterGrades.Q1.grade}
-                      </Badge>
-                    ) : (
-                      <span className="text-gray-400">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="px-4 py-3">
-                    {quarterGrades.Q2 ? (
-                      <Badge className="bg-green-100 text-green-800 border-green-200">
-                        {quarterGrades.Q2.grade}
-                      </Badge>
-                    ) : (
-                      <span className="text-gray-400">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="px-4 py-3">
-                    {quarterGrades.Q3 ? (
-                      <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">
-                        {quarterGrades.Q3.grade}
-                      </Badge>
-                    ) : (
-                      <span className="text-gray-400">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="px-4 py-3">
-                    {quarterGrades.Q4 ? (
-                      <Badge className="bg-purple-100 text-purple-800 border-purple-200">
-                        {quarterGrades.Q4.grade}
-                      </Badge>
-                    ) : (
-                      <span className="text-gray-400">—</span>
-                    )}
-                  </TableCell>
+                  {periodGrades.map((pg, index) => {
+                    const color = periodColors[index % periodColors.length];
+                    const badgeColor = color.bg.replace('50', '100') + ' ' + color.text.replace('600', '800') + ' border-' + color.text.replace('text-', '').replace('600', '200');
+                    return (
+                      <TableCell key={pg.period.id} className="px-4 py-3">
+                        {pg.grade !== null ? (
+                          <Badge className={badgeColor}>
+                            {pg.grade}
+                          </Badge>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </TableCell>
+                    );
+                  })}
                   <TableCell className="px-4 py-3">
                     {validGrades.length > 0 ? (
                       <Badge className="bg-gray-100 text-gray-800 border-gray-200">
