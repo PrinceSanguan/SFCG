@@ -33,6 +33,7 @@ interface GradingPeriod {
   type: string;
 }
 interface HonorType { id: number; name: string; }
+interface Section { id: number; name: string; academic_level_id: number; specific_year_level: string; }
 
 interface Props {
   user: User;
@@ -41,19 +42,22 @@ interface Props {
   currentSchoolYear: string;
   gradingPeriods: GradingPeriod[];
   honorTypes: HonorType[];
+  sections: Section[];
   stats: {
     total_students: number;
     total_certificates: number;
     total_honors: number;
     active_periods: number;
+    active_sections: number;
   };
 }
 
-export default function ReportsIndex({ user, academicLevels, schoolYears, currentSchoolYear, gradingPeriods, honorTypes, stats }: Props) {
+export default function ReportsIndex({ user, academicLevels, schoolYears, currentSchoolYear, gradingPeriods, honorTypes, sections, stats }: Props) {
   const [activeTab, setActiveTab] = useState('grade-reports');
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedSemester, setSelectedSemester] = useState<string>('');
   const [filteredGradingPeriods, setFilteredGradingPeriods] = useState<GradingPeriod[]>([]);
+  const [filteredSections, setFilteredSections] = useState<Section[]>([]);
 
   // Grade Report Form
   const { data: gradeData, setData: setGradeData, post: postGrade, processing: gradeProcessing } = useForm({
@@ -83,6 +87,15 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
     format: 'excel',
   });
 
+  // Class Section Report Form
+  const { data: sectionData, setData: setSectionData, post: postSection, processing: sectionProcessing } = useForm({
+    academic_level_id: '',
+    section_id: 'all',
+    school_year: currentSchoolYear || schoolYears[0] || '',
+    include_grades: false,
+    format: 'pdf',
+  });
+
   // Filter grading periods based on selected academic level and semester
   useEffect(() => {
     if (gradeData.academic_level_id && gradeData.academic_level_id !== 'all') {
@@ -103,6 +116,17 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
       setFilteredGradingPeriods([]);
     }
   }, [gradeData.academic_level_id, selectedSemester, gradingPeriods]);
+
+  // Filter sections based on selected academic level
+  useEffect(() => {
+    if (sectionData.academic_level_id) {
+      const levelId = parseInt(sectionData.academic_level_id);
+      const filtered = sections.filter(section => section.academic_level_id === levelId);
+      setFilteredSections(filtered);
+    } else {
+      setFilteredSections([]);
+    }
+  }, [sectionData.academic_level_id, sections]);
 
   const handleGradeReport = (e: React.FormEvent) => {
     e.preventDefault();
@@ -242,6 +266,51 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
     setTimeout(() => setIsGenerating(false), 2000);
   };
 
+  const handleClassSectionReport = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsGenerating(true);
+
+    // Create a temporary form for file download
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = route('admin.reports.class-section-report');
+
+    // Add CSRF token
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    if (csrfToken) {
+      const csrfInput = document.createElement('input');
+      csrfInput.type = 'hidden';
+      csrfInput.name = '_token';
+      csrfInput.value = csrfToken;
+      form.appendChild(csrfInput);
+    } else {
+      console.error('CSRF token not found');
+      setIsGenerating(false);
+      return;
+    }
+
+    // Add form data
+    Object.entries(sectionData).forEach(([key, value]) => {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = key;
+      // Handle boolean values properly for backend validation
+      if (typeof value === 'boolean') {
+        input.value = value ? '1' : '0';
+      } else {
+        input.value = value?.toString() || '';
+      }
+      form.appendChild(input);
+    });
+
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+
+    // Reset loading state after a delay
+    setTimeout(() => setIsGenerating(false), 2000);
+  };
+
   // Get semester options for College/SHS
   const getSemesterOptions = () => {
     if (gradeData.academic_level_id && gradeData.academic_level_id !== 'all') {
@@ -280,7 +349,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
             </div>
 
             {/* Quick Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <Card>
                 <CardContent className="flex items-center p-6">
                   <Users className="h-8 w-8 text-blue-600" />
@@ -317,13 +386,23 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                   </div>
                 </CardContent>
               </Card>
+              <Card>
+                <CardContent className="flex items-center p-6">
+                  <GraduationCap className="h-8 w-8 text-indigo-600" />
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Active Sections</p>
+                    <p className="text-2xl font-bold text-gray-900">{stats.active_sections}</p>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="grade-reports">Grade Reports</TabsTrigger>
                 <TabsTrigger value="honor-statistics">Honor Statistics</TabsTrigger>
                 <TabsTrigger value="archive-records">Archive Records</TabsTrigger>
+                <TabsTrigger value="class-section-reports">Class Section Reports</TabsTrigger>
               </TabsList>
 
               <TabsContent value="grade-reports" className="space-y-6">
@@ -371,7 +450,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                             >
                               <SelectTrigger><SelectValue placeholder="Select semester" /></SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="">All Semesters</SelectItem>
+                                <SelectItem value="all">All Semesters</SelectItem>
                                 {semesterOptions.map(semester => (
                                   <SelectItem key={semester.id} value={semester.id.toString()}>{semester.name}</SelectItem>
                                 ))}
@@ -682,6 +761,131 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                           </>
                         ) : (
                           'Create Academic Archive'
+                        )}
+                      </Button>
+                    </form>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="class-section-reports" className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Users className="h-5 w-5" />
+                      Generate Class Section Reports
+                    </CardTitle>
+                    <p className="text-sm text-gray-600">Generate comprehensive class section rosters and student lists by academic level.</p>
+                  </CardHeader>
+                  <CardContent>
+                    <form onSubmit={handleClassSectionReport} className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label>Academic Level *</Label>
+                          <Select
+                            value={sectionData.academic_level_id}
+                            onValueChange={(v) => {
+                              setSectionData('academic_level_id', v);
+                              setSectionData('section_id', 'all');
+                            }}
+                          >
+                            <SelectTrigger><SelectValue placeholder="Select level" /></SelectTrigger>
+                            <SelectContent>
+                              {academicLevels.map(level => (
+                                <SelectItem key={level.id} value={level.id.toString()}>{level.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-gray-500 mt-1">Academic level is required for class section reports</p>
+                        </div>
+                        <div>
+                          <Label>Section</Label>
+                          <Select
+                            value={sectionData.section_id}
+                            onValueChange={(v) => setSectionData('section_id', v)}
+                            disabled={!sectionData.academic_level_id}
+                          >
+                            <SelectTrigger><SelectValue placeholder={sectionData.academic_level_id ? "All sections" : "Select level first"} /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All Sections</SelectItem>
+                              {filteredSections.map(section => (
+                                <SelectItem key={section.id} value={section.id.toString()}>
+                                  {section.name} {section.specific_year_level ? `(${section.specific_year_level})` : ''}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-gray-500 mt-1">Leave empty to generate for all sections</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label>School Year *</Label>
+                          <Select value={sectionData.school_year} onValueChange={(v) => setSectionData('school_year', v)}>
+                            <SelectTrigger><SelectValue placeholder="Select year" /></SelectTrigger>
+                            <SelectContent>
+                              {schoolYears.map(year => (
+                                <SelectItem key={year} value={year}>{year}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label>Export Format</Label>
+                          <Select value={sectionData.format} onValueChange={(v) => setSectionData('format', v)}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pdf">
+                                <div className="flex items-center gap-2">
+                                  <FileText className="h-4 w-4" />
+                                  PDF Report
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="excel">
+                                <div className="flex items-center gap-2">
+                                  <FileSpreadsheet className="h-4 w-4" />
+                                  Excel Spreadsheet
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="csv">
+                                <div className="flex items-center gap-2">
+                                  <FileX className="h-4 w-4" />
+                                  CSV File
+                                </div>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="include_grades_section"
+                          checked={sectionData.include_grades}
+                          onCheckedChange={(checked) => setSectionData('include_grades', checked === true)}
+                        />
+                        <Label htmlFor="include_grades_section">Include student average grades in the report</Label>
+                      </div>
+
+                      <Button
+                        type="submit"
+                        disabled={sectionProcessing || !sectionData.academic_level_id || !sectionData.school_year || isGenerating}
+                        className="flex items-center gap-2"
+                      >
+                        {isGenerating ? (
+                          <>
+                            <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <Download className="h-4 w-4" />
+                            Generate Class Section Report
+                          </>
                         )}
                       </Button>
                     </form>

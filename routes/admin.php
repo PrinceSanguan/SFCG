@@ -540,6 +540,7 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/rep
     Route::post('/grade-report', [ReportsController::class, 'generateGradeReport'])->name('grade-report');
     Route::post('/honor-statistics', [ReportsController::class, 'generateHonorStatistics'])->name('honor-statistics');
     Route::post('/archive-records', [ReportsController::class, 'archiveAcademicRecords'])->name('archive-records');
+    Route::post('/class-section-report', [ReportsController::class, 'generateClassSectionReport'])->name('class-section-report');
 });
 
 // Notification and Transparency routes

@@ -40,6 +40,12 @@ class ReportsController extends Controller
         $schoolYears = $this->getSchoolYears();
         $gradingPeriods = GradingPeriod::with('academicLevel')->orderBy('sort_order')->get();
         $honorTypes = HonorType::all();
+        $sections = \App\Models\Section::with('academicLevel')
+            ->where('is_active', true)
+            ->orderBy('academic_level_id')
+            ->orderBy('specific_year_level')
+            ->orderBy('name')
+            ->get();
 
         // Get quick stats for dashboard
         $stats = [
@@ -47,6 +53,7 @@ class ReportsController extends Controller
             'total_certificates' => Certificate::count(),
             'total_honors' => HonorResult::count(),
             'active_periods' => GradingPeriod::where('is_active', true)->count(),
+            'active_sections' => $sections->count(),
         ];
 
         // Get the most recent school year from actual data
@@ -62,6 +69,7 @@ class ReportsController extends Controller
             'currentSchoolYear' => $currentSchoolYear,
             'gradingPeriods' => $gradingPeriods,
             'honorTypes' => $honorTypes,
+            'sections' => $sections,
             'stats' => $stats,
         ]);
     }
@@ -411,5 +419,114 @@ class ReportsController extends Controller
             $years[] = $from . '-' . $to;
         }
         return $years;
+    }
+
+    public function generateClassSectionReport(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'academic_level_id' => ['required', 'exists:academic_levels,id'],
+                'section_id' => ['nullable', 'string'],
+                'school_year' => ['required', 'string'],
+                'include_grades' => ['nullable', 'string', 'in:0,1'],
+                'format' => ['required', 'in:pdf,excel,csv'],
+            ]);
+
+            // Validate section_id if not 'all'
+            if (!empty($validated['section_id']) && $validated['section_id'] !== 'all') {
+                if (!\App\Models\Section::find($validated['section_id'])) {
+                    return back()->withErrors(['section_id' => 'Invalid section selected.']);
+                }
+            }
+
+            Log::info('Generating class section report', $validated);
+
+            // Get sections based on filters
+            $sectionsQuery = \App\Models\Section::with(['academicLevel', 'students', 'course', 'department', 'strand'])
+                ->where('academic_level_id', $validated['academic_level_id'])
+                ->where('school_year', $validated['school_year'])
+                ->withCount('students');
+
+            if (!empty($validated['section_id']) && $validated['section_id'] !== 'all') {
+                $sectionsQuery->where('id', $validated['section_id']);
+            }
+
+            $sections = $sectionsQuery->orderBy('specific_year_level')->orderBy('name')->get();
+
+            Log::info('Found ' . $sections->count() . ' sections');
+
+            if ($sections->count() === 0) {
+                return back()->withErrors(['general' => 'No sections found for the selected filters.']);
+            }
+
+            // Get student data with optional grades
+            $sectionsData = $sections->map(function ($section) use ($validated) {
+                $students = \App\Models\User::where('section_id', $section->id)
+                    ->where('user_role', 'student')
+                    ->orderBy('name')
+                    ->get();
+
+                $sectionInfo = [
+                    'section' => $section,
+                    'students' => $students,
+                    'enrollment_count' => $students->count(),
+                    'capacity_percentage' => $section->max_students > 0 ? ($students->count() / $section->max_students) * 100 : 0,
+                ];
+
+                // Include grades if requested
+                if (isset($validated['include_grades']) && $validated['include_grades'] === '1') {
+                    $sectionInfo['students'] = $students->map(function ($student) use ($validated) {
+                        $grades = StudentGrade::with(['subject', 'gradingPeriod'])
+                            ->where('student_id', $student->id)
+                            ->where('school_year', $validated['school_year'])
+                            ->get();
+
+                        $student->grades = $grades;
+                        $student->average_grade = $grades->avg('grade');
+                        return $student;
+                    });
+                }
+
+                return $sectionInfo;
+            });
+
+            $academicLevel = AcademicLevel::find($validated['academic_level_id']);
+            $filename = 'class_section_report_' . $academicLevel->key . '_' . $validated['school_year'] . '_' . now()->format('Y-m-d');
+
+            Log::info('Generating ' . $validated['format'] . ' format with filename: ' . $filename);
+
+            switch ($validated['format']) {
+                case 'pdf':
+                    return $this->generateClassSectionPDF($sectionsData, $academicLevel, $validated, $filename);
+                case 'excel':
+                    return Excel::download(new \App\Exports\ClassSectionReportExport($sectionsData, $academicLevel, $validated), $filename . '.xlsx');
+                case 'csv':
+                    return Excel::download(new \App\Exports\ClassSectionReportExport($sectionsData, $academicLevel, $validated), $filename . '.csv');
+                default:
+                    return back()->withErrors(['format' => 'Invalid format selected.']);
+            }
+        } catch (\Exception $e) {
+            Log::error('Class section report generation failed: ' . $e->getMessage());
+            return back()->withErrors(['general' => 'Failed to generate class section report. Please try again.']);
+        }
+    }
+
+    private function generateClassSectionPDF($sectionsData, $academicLevel, $filters, $filename)
+    {
+        try {
+            $pdf = PDF::loadView('reports.class-section', [
+                'sectionsData' => $sectionsData,
+                'academicLevel' => $academicLevel,
+                'schoolYear' => $filters['school_year'],
+                'includeGrades' => isset($filters['include_grades']) && $filters['include_grades'] === '1',
+                'generatedAt' => now()->format('F d, Y h:i A'),
+            ]);
+
+            $pdf->setPaper('a4', 'portrait');
+            return $pdf->download($filename . '.pdf');
+        } catch (\Exception $e) {
+            Log::error('PDF generation failed', ['error' => $e->getMessage()]);
+            throw $e;
+        }
     }
 }

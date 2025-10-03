@@ -161,28 +161,43 @@ class RegistrarController extends Controller
     public function reports(Request $request)
     {
         $user = $request->user();
-        
+
         // Get data for reports
         $academicLevels = AcademicLevel::orderBy('name')->get();
         $gradingPeriods = GradingPeriod::with('academicLevel')->orderBy('name')->get();
         $honorTypes = HonorType::orderBy('name')->get();
-        
+        $sections = \App\Models\Section::with('academicLevel')
+            ->where('is_active', true)
+            ->orderBy('academic_level_id')
+            ->orderBy('specific_year_level')
+            ->orderBy('name')
+            ->get();
+
         // Generate school years (current year and 5 years back)
         $currentYear = date('Y');
         $schoolYears = [];
         for ($i = 0; $i < 6; $i++) {
             $schoolYears[] = ($currentYear - $i) . '-' . ($currentYear - $i + 1);
         }
-        
+
+        // Get the most recent school year from actual data
+        $currentSchoolYear = \App\Models\StudentGrade::select('school_year')
+            ->distinct()
+            ->orderBy('school_year', 'DESC')
+            ->value('school_year') ?? $schoolYears[0];
+
         // Get statistics for reports
         $stats = $this->getReportsStats();
-        
+        $stats['active_sections'] = $sections->count();
+
         return Inertia::render('Registrar/Reports/Index', [
             'user' => $user,
             'academicLevels' => $academicLevels,
             'schoolYears' => $schoolYears,
+            'currentSchoolYear' => $currentSchoolYear,
             'gradingPeriods' => $gradingPeriods,
             'honorTypes' => $honorTypes,
+            'sections' => $sections,
             'stats' => $stats,
         ]);
     }

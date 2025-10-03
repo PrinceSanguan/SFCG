@@ -39,9 +39,10 @@ class HonorCriteriaSeeder extends Seeder
         // SHS gets three tiers (With Honors, With High Honors, With Highest Honors)
         
         if ($elementary && $withHonors) {
-            HonorCriterion::create([
+            HonorCriterion::updateOrCreate([
                 'academic_level_id' => $elementary->id,
                 'honor_type_id' => $withHonors->id,
+            ], [
                 'min_gpa' => 90,
                 'max_gpa' => null,
                 'min_grade' => null,
@@ -54,9 +55,10 @@ class HonorCriteriaSeeder extends Seeder
         }
 
         if ($juniorHigh && $withHonors) {
-            HonorCriterion::create([
+            HonorCriterion::updateOrCreate([
                 'academic_level_id' => $juniorHigh->id,
                 'honor_type_id' => $withHonors->id,
+            ], [
                 'min_gpa' => 90,
                 'max_gpa' => null,
                 'min_grade' => null,
