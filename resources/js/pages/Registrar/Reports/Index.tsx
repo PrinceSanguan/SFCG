@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useForm } from '@inertiajs/react';
+import { Link, useForm, usePage } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -58,6 +58,10 @@ interface Props {
 
 export default function RegistrarReportsIndex({ user, academicLevels, schoolYears, gradingPeriods, honorTypes, stats }: Props) {
     const [activeTab, setActiveTab] = useState('grade-reports');
+
+    // Get CSRF token from Inertia page props
+    const { props } = usePage();
+    const csrfToken = (props as any).csrf_token || document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '';
     const [isGenerating, setIsGenerating] = useState(false);
 
     // Grade Report Form
@@ -89,24 +93,37 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
 
     const handleGradeReport = (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (!csrfToken) {
+            console.error('CSRF token not found');
+            alert('Session expired. Please refresh the page and try again.');
+            return;
+        }
+
         setIsGenerating(true);
-        
+
+        // Create a hidden iframe for download
+        let iframe = document.getElementById('download-iframe') as HTMLIFrameElement;
+        if (!iframe) {
+            iframe = document.createElement('iframe');
+            iframe.id = 'download-iframe';
+            iframe.style.display = 'none';
+            document.body.appendChild(iframe);
+        }
+
         // Create a temporary form for file download
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = route('registrar.reports.grade-report');
-        form.target = '_blank';
-        
+        form.target = 'download-iframe';
+
         // Add CSRF token
-        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-        if (csrfToken) {
-            const csrfInput = document.createElement('input');
-            csrfInput.type = 'hidden';
-            csrfInput.name = '_token';
-            csrfInput.value = csrfToken;
-            form.appendChild(csrfInput);
-        }
-        
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = '_token';
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+
         // Add form data
         Object.entries(gradeData).forEach(([key, value]) => {
             const input = document.createElement('input');
@@ -115,35 +132,48 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
             input.value = value?.toString() || '';
             form.appendChild(input);
         });
-        
+
         document.body.appendChild(form);
         form.submit();
         document.body.removeChild(form);
-        
+
         // Reset loading state after a delay
         setTimeout(() => setIsGenerating(false), 2000);
     };
 
     const handleHonorStatistics = (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (!csrfToken) {
+            console.error('CSRF token not found');
+            alert('Session expired. Please refresh the page and try again.');
+            return;
+        }
+
         setIsGenerating(true);
-        
+
+        // Create a hidden iframe for download
+        let iframe = document.getElementById('download-iframe') as HTMLIFrameElement;
+        if (!iframe) {
+            iframe = document.createElement('iframe');
+            iframe.id = 'download-iframe';
+            iframe.style.display = 'none';
+            document.body.appendChild(iframe);
+        }
+
         // Create a temporary form for file download
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = route('registrar.reports.honor-statistics');
-        form.target = '_blank';
-        
+        form.target = 'download-iframe';
+
         // Add CSRF token
-        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-        if (csrfToken) {
-            const csrfInput = document.createElement('input');
-            csrfInput.type = 'hidden';
-            csrfInput.name = '_token';
-            csrfInput.value = csrfToken;
-            form.appendChild(csrfInput);
-        }
-        
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = '_token';
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+
         // Add form data
         Object.entries(honorData).forEach(([key, value]) => {
             const input = document.createElement('input');
@@ -152,35 +182,48 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
             input.value = value?.toString() || '';
             form.appendChild(input);
         });
-        
+
         document.body.appendChild(form);
         form.submit();
         document.body.removeChild(form);
-        
+
         // Reset loading state after a delay
         setTimeout(() => setIsGenerating(false), 2000);
     };
 
     const handleArchiveRecords = (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (!csrfToken) {
+            console.error('CSRF token not found');
+            alert('Session expired. Please refresh the page and try again.');
+            return;
+        }
+
         setIsGenerating(true);
-        
+
+        // Create a hidden iframe for download
+        let iframe = document.getElementById('download-iframe') as HTMLIFrameElement;
+        if (!iframe) {
+            iframe = document.createElement('iframe');
+            iframe.id = 'download-iframe';
+            iframe.style.display = 'none';
+            document.body.appendChild(iframe);
+        }
+
         // Create a temporary form for file download
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = route('registrar.reports.archive-records');
-        form.target = '_blank';
-        
+        form.target = 'download-iframe';
+
         // Add CSRF token
-        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-        if (csrfToken) {
-            const csrfInput = document.createElement('input');
-            csrfInput.type = 'hidden';
-            csrfInput.name = '_token';
-            csrfInput.value = csrfToken;
-            form.appendChild(csrfInput);
-        }
-        
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = '_token';
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+
         // Add form data
         Object.entries(archiveData).forEach(([key, value]) => {
             const input = document.createElement('input');
@@ -189,11 +232,11 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
             input.value = value?.toString() || '';
             form.appendChild(input);
         });
-        
+
         document.body.appendChild(form);
         form.submit();
         document.body.removeChild(form);
-        
+
         // Reset loading state after a delay
         setTimeout(() => setIsGenerating(false), 2000);
     };

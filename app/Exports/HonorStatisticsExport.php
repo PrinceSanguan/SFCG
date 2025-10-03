@@ -75,12 +75,12 @@ class HonorListSheet implements FromCollection, WithHeadings, WithMapping, WithT
     public function map($honor): array
     {
         return [
-            $honor->student->name,
-            $honor->student->student_number,
-            $honor->honorType->name,
-            $honor->academicLevel->name,
-            $honor->school_year,
-            $honor->gpa,
+            $honor->student ? $honor->student->name : 'N/A',
+            $honor->student ? $honor->student->student_number : 'N/A',
+            $honor->honorType ? $honor->honorType->name : 'N/A',
+            $honor->academicLevel ? $honor->academicLevel->name : 'N/A',
+            $honor->school_year ?? 'N/A',
+            $honor->gpa ?? 'N/A',
             $honor->is_overridden ? 'Yes' : 'No',
             $honor->override_reason ?? '',
         ];

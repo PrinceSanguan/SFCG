@@ -95,15 +95,15 @@ class AcademicGradesSheet implements FromCollection, WithHeadings, WithMapping, 
     public function map($grade): array
     {
         return [
-            $grade->student->name,
-            $grade->student->student_number,
-            $grade->subject->name,
-            $grade->academicLevel->name,
-            $grade->gradingPeriod->name,
-            $grade->school_year,
-            $grade->grade,
-            $grade->year_of_study,
-            $grade->created_at->format('Y-m-d H:i:s'),
+            $grade->student ? $grade->student->name : 'N/A',
+            $grade->student ? $grade->student->student_number : 'N/A',
+            $grade->subject ? $grade->subject->name : 'N/A',
+            $grade->academicLevel ? $grade->academicLevel->name : 'N/A',
+            $grade->gradingPeriod ? $grade->gradingPeriod->name : 'N/A',
+            $grade->school_year ?? 'N/A',
+            $grade->grade ?? 'N/A',
+            $grade->year_of_study ?? 'N/A',
+            $grade->created_at ? $grade->created_at->format('Y-m-d H:i:s') : 'N/A',
         ];
     }
 
@@ -145,15 +145,15 @@ class AcademicHonorsSheet implements FromCollection, WithHeadings, WithMapping, 
     public function map($honor): array
     {
         return [
-            $honor->student->name,
-            $honor->student->student_number,
-            $honor->honorType->name,
-            $honor->academicLevel->name,
-            $honor->school_year,
-            $honor->gpa,
+            $honor->student ? $honor->student->name : 'N/A',
+            $honor->student ? $honor->student->student_number : 'N/A',
+            $honor->honorType ? $honor->honorType->name : 'N/A',
+            $honor->academicLevel ? $honor->academicLevel->name : 'N/A',
+            $honor->school_year ?? 'N/A',
+            $honor->gpa ?? 'N/A',
             $honor->is_overridden ? 'Yes' : 'No',
             $honor->override_reason ?? '',
-            $honor->created_at->format('Y-m-d H:i:s'),
+            $honor->created_at ? $honor->created_at->format('Y-m-d H:i:s') : 'N/A',
         ];
     }
 
@@ -196,13 +196,13 @@ class AcademicCertificatesSheet implements FromCollection, WithHeadings, WithMap
     public function map($certificate): array
     {
         return [
-            $certificate->student->name,
-            $certificate->student->student_number,
-            $certificate->template->name,
-            $certificate->serial_number,
-            $certificate->academicLevel->name,
-            $certificate->school_year,
-            $certificate->status,
+            $certificate->student ? $certificate->student->name : 'N/A',
+            $certificate->student ? $certificate->student->student_number : 'N/A',
+            $certificate->template ? $certificate->template->name : 'N/A',
+            $certificate->serial_number ?? 'N/A',
+            $certificate->academicLevel ? $certificate->academicLevel->name : 'N/A',
+            $certificate->school_year ?? 'N/A',
+            $certificate->status ?? 'N/A',
             $certificate->generated_at ? $certificate->generated_at->format('Y-m-d H:i:s') : '',
             $certificate->downloaded_at ? $certificate->downloaded_at->format('Y-m-d H:i:s') : '',
             $certificate->printed_at ? $certificate->printed_at->format('Y-m-d H:i:s') : '',

@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useForm, Link } from '@inertiajs/react';
+import { useForm, Link, usePage } from '@inertiajs/react';
 import { 
   FileText, 
   Award, 
@@ -53,11 +53,15 @@ interface Props {
 }
 
 export default function ReportsIndex({ user, academicLevels, schoolYears, currentSchoolYear, gradingPeriods, honorTypes, sections, stats }: Props) {
-  const [activeTab, setActiveTab] = useState('grade-reports');
+  const [activeTab, setActiveTab] = useState('honor-statistics');
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedSemester, setSelectedSemester] = useState<string>('');
   const [filteredGradingPeriods, setFilteredGradingPeriods] = useState<GradingPeriod[]>([]);
   const [filteredSections, setFilteredSections] = useState<Section[]>([]);
+
+  // Get CSRF token from Inertia page props
+  const { props } = usePage();
+  const csrfToken = (props as any).csrf_token || document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '';
 
   // Grade Report Form
   const { data: gradeData, setData: setGradeData, post: postGrade, processing: gradeProcessing } = useForm({
@@ -130,27 +134,36 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
 
   const handleGradeReport = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!csrfToken) {
+      console.error('CSRF token not found');
+      alert('Session expired. Please refresh the page and try again.');
+      return;
+    }
+
     setIsGenerating(true);
+
+    // Create a hidden iframe for download
+    let iframe = document.getElementById('download-iframe') as HTMLIFrameElement;
+    if (!iframe) {
+      iframe = document.createElement('iframe');
+      iframe.id = 'download-iframe';
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
+    }
 
     // Create a temporary form for file download
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = route('admin.reports.grade-report');
-    // Remove target="_blank" to avoid session issues
+    form.target = 'download-iframe';
 
     // Add CSRF token
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-    if (csrfToken) {
-      const csrfInput = document.createElement('input');
-      csrfInput.type = 'hidden';
-      csrfInput.name = '_token';
-      csrfInput.value = csrfToken;
-      form.appendChild(csrfInput);
-    } else {
-      console.error('CSRF token not found');
-      setIsGenerating(false);
-      return;
-    }
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = '_token';
+    csrfInput.value = csrfToken;
+    form.appendChild(csrfInput);
 
     // Add form data
     Object.entries(gradeData).forEach(([key, value]) => {
@@ -176,27 +189,36 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
 
   const handleHonorStatistics = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!csrfToken) {
+      console.error('CSRF token not found');
+      alert('Session expired. Please refresh the page and try again.');
+      return;
+    }
+
     setIsGenerating(true);
+
+    // Create a hidden iframe for download
+    let iframe = document.getElementById('download-iframe') as HTMLIFrameElement;
+    if (!iframe) {
+      iframe = document.createElement('iframe');
+      iframe.id = 'download-iframe';
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
+    }
 
     // Create a temporary form for file download
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = route('admin.reports.honor-statistics');
-    // Remove target="_blank" to avoid session issues
+    form.target = 'download-iframe';
 
     // Add CSRF token
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-    if (csrfToken) {
-      const csrfInput = document.createElement('input');
-      csrfInput.type = 'hidden';
-      csrfInput.name = '_token';
-      csrfInput.value = csrfToken;
-      form.appendChild(csrfInput);
-    } else {
-      console.error('CSRF token not found');
-      setIsGenerating(false);
-      return;
-    }
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = '_token';
+    csrfInput.value = csrfToken;
+    form.appendChild(csrfInput);
 
     // Add form data
     Object.entries(honorData).forEach(([key, value]) => {
@@ -222,27 +244,36 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
 
   const handleArchiveRecords = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!csrfToken) {
+      console.error('CSRF token not found');
+      alert('Session expired. Please refresh the page and try again.');
+      return;
+    }
+
     setIsGenerating(true);
+
+    // Create a hidden iframe for download
+    let iframe = document.getElementById('download-iframe') as HTMLIFrameElement;
+    if (!iframe) {
+      iframe = document.createElement('iframe');
+      iframe.id = 'download-iframe';
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
+    }
 
     // Create a temporary form for file download
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = route('admin.reports.archive-records');
-    // Remove target="_blank" to avoid session issues
+    form.target = 'download-iframe';
 
     // Add CSRF token
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-    if (csrfToken) {
-      const csrfInput = document.createElement('input');
-      csrfInput.type = 'hidden';
-      csrfInput.name = '_token';
-      csrfInput.value = csrfToken;
-      form.appendChild(csrfInput);
-    } else {
-      console.error('CSRF token not found');
-      setIsGenerating(false);
-      return;
-    }
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = '_token';
+    csrfInput.value = csrfToken;
+    form.appendChild(csrfInput);
 
     // Add form data
     Object.entries(archiveData).forEach(([key, value]) => {
@@ -268,26 +299,36 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
 
   const handleClassSectionReport = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!csrfToken) {
+      console.error('CSRF token not found');
+      alert('Session expired. Please refresh the page and try again.');
+      return;
+    }
+
     setIsGenerating(true);
+
+    // Create a hidden iframe for download
+    let iframe = document.getElementById('download-iframe') as HTMLIFrameElement;
+    if (!iframe) {
+      iframe = document.createElement('iframe');
+      iframe.id = 'download-iframe';
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
+    }
 
     // Create a temporary form for file download
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = route('admin.reports.class-section-report');
+    form.target = 'download-iframe';
 
     // Add CSRF token
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-    if (csrfToken) {
-      const csrfInput = document.createElement('input');
-      csrfInput.type = 'hidden';
-      csrfInput.name = '_token';
-      csrfInput.value = csrfToken;
-      form.appendChild(csrfInput);
-    } else {
-      console.error('CSRF token not found');
-      setIsGenerating(false);
-      return;
-    }
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = '_token';
+    csrfInput.value = csrfToken;
+    form.appendChild(csrfInput);
 
     // Add form data
     Object.entries(sectionData).forEach(([key, value]) => {
@@ -398,156 +439,11 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="grade-reports">Grade Reports</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="honor-statistics">Honor Statistics</TabsTrigger>
                 <TabsTrigger value="archive-records">Archive Records</TabsTrigger>
                 <TabsTrigger value="class-section-reports">Class Section Reports</TabsTrigger>
               </TabsList>
-
-              <TabsContent value="grade-reports" className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <BarChart3 className="h-5 w-5" />
-                      Generate Grade Reports
-                    </CardTitle>
-                    <p className="text-sm text-gray-600">Generate comprehensive grade reports with optional statistics and analysis.</p>
-                  </CardHeader>
-                  <CardContent>
-                    <form onSubmit={handleGradeReport} className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label>Academic Level</Label>
-                          <Select
-                            value={gradeData.academic_level_id}
-                            onValueChange={(v) => {
-                              setGradeData('academic_level_id', v);
-                              setGradeData('semester_id', '');
-                              setGradeData('grading_period_id', 'all');
-                              setSelectedSemester('');
-                            }}
-                          >
-                            <SelectTrigger><SelectValue placeholder="All levels" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All Levels</SelectItem>
-                              {academicLevels.map(level => (
-                                <SelectItem key={level.id} value={level.id.toString()}>{level.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        {semesterOptions.length > 0 && (
-                          <div>
-                            <Label>Semester</Label>
-                            <Select
-                              value={selectedSemester}
-                              onValueChange={(v) => {
-                                setSelectedSemester(v);
-                                setGradeData('semester_id', v);
-                                setGradeData('grading_period_id', 'all');
-                              }}
-                            >
-                              <SelectTrigger><SelectValue placeholder="Select semester" /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="all">All Semesters</SelectItem>
-                                {semesterOptions.map(semester => (
-                                  <SelectItem key={semester.id} value={semester.id.toString()}>{semester.name}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label>Grading Period</Label>
-                          <Select
-                            value={gradeData.grading_period_id}
-                            onValueChange={(v) => setGradeData('grading_period_id', v)}
-                            disabled={gradeData.academic_level_id === 'all'}
-                          >
-                            <SelectTrigger><SelectValue placeholder="All periods" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All Periods</SelectItem>
-                              {filteredGradingPeriods.filter(p => p.parent_id !== null).map(period => (
-                                <SelectItem key={period.id} value={period.id.toString()}>{period.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label>School Year</Label>
-                          <Select value={gradeData.school_year} onValueChange={(v) => setGradeData('school_year', v)}>
-                            <SelectTrigger><SelectValue placeholder="Select year" /></SelectTrigger>
-                            <SelectContent>
-                              {schoolYears.map(year => (
-                                <SelectItem key={year} value={year}>{year}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label>Export Format</Label>
-                          <Select value={gradeData.format} onValueChange={(v) => setGradeData('format', v)}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="pdf">
-                                <div className="flex items-center gap-2">
-                                  <FileText className="h-4 w-4" />
-                                  PDF Report
-                                </div>
-                              </SelectItem>
-                              <SelectItem value="excel">
-                                <div className="flex items-center gap-2">
-                                  <FileSpreadsheet className="h-4 w-4" />
-                                  Excel Spreadsheet
-                                </div>
-                              </SelectItem>
-                              <SelectItem value="csv">
-                                <div className="flex items-center gap-2">
-                                  <FileX className="h-4 w-4" />
-                                  CSV File
-                                </div>
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id="include_statistics"
-                          checked={gradeData.include_statistics}
-                          onCheckedChange={(checked) => setGradeData('include_statistics', checked === true)}
-                        />
-                        <Label htmlFor="include_statistics">Include statistical analysis and grade distribution</Label>
-                      </div>
-
-                      <Button type="submit" disabled={gradeProcessing || isGenerating} className="flex items-center gap-2">
-                        {isGenerating ? (
-                          <>
-                            <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Generating...
-                          </>
-                        ) : (
-                          <>
-                            <Download className="h-4 w-4" />
-                            Generate Grade Report
-                          </>
-                        )}
-                      </Button>
-                    </form>
-                  </CardContent>
-                </Card>
-              </TabsContent>
 
               <TabsContent value="honor-statistics" className="space-y-6">
                 <Card>

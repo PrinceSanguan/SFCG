@@ -77,14 +77,14 @@ class GradeReportSheet implements FromCollection, WithHeadings, WithMapping, Wit
     public function map($grade): array
     {
         return [
-            $grade->student->name,
-            $grade->student->student_number,
-            $grade->subject->name,
-            $grade->academicLevel->name,
-            $grade->gradingPeriod->name,
-            $grade->school_year,
-            $grade->grade,
-            $grade->year_of_study,
+            $grade->student ? $grade->student->name : 'N/A',
+            $grade->student ? $grade->student->student_number : 'N/A',
+            $grade->subject ? $grade->subject->name : 'N/A',
+            $grade->academicLevel ? $grade->academicLevel->name : 'N/A',
+            $grade->gradingPeriod ? $grade->gradingPeriod->name : 'N/A',
+            $grade->school_year ?? 'N/A',
+            $grade->grade ?? 'N/A',
+            $grade->year_of_study ?? 'N/A',
         ];
     }
 
