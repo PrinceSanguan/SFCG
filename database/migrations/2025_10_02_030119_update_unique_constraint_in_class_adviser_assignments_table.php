@@ -8,6 +8,29 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
+     * Check if an index exists (works for both MySQL and PostgreSQL)
+     */
+    private function indexExists(string $table, string $indexName): bool
+    {
+        $driver = DB::connection()->getDriverName();
+
+        if ($driver === 'pgsql') {
+            $result = DB::select(
+                "SELECT 1 FROM pg_indexes WHERE tablename = ? AND indexname = ?",
+                [$table, $indexName]
+            );
+        } else {
+            // MySQL
+            $result = DB::select(
+                "SHOW INDEX FROM {$table} WHERE Key_name = ?",
+                [$indexName]
+            );
+        }
+
+        return !empty($result);
+    }
+
+    /**
      * Run the migrations.
      */
     public function up(): void
@@ -15,33 +38,28 @@ return new class extends Migration
         // Step 1: Create separate indexes for foreign keys if they don't exist
         // This ensures foreign keys don't rely on the unique constraint we're about to drop
         Schema::table('class_adviser_assignments', function (Blueprint $table) {
-            $adviserIndexExists = DB::select("SHOW INDEX FROM class_adviser_assignments WHERE Key_name = 'class_adviser_assignments_adviser_id_index'");
-            if (empty($adviserIndexExists)) {
+            if (!$this->indexExists('class_adviser_assignments', 'class_adviser_assignments_adviser_id_index')) {
                 $table->index('adviser_id');
             }
 
-            $academicLevelIndexExists = DB::select("SHOW INDEX FROM class_adviser_assignments WHERE Key_name = 'class_adviser_assignments_academic_level_id_index'");
-            if (empty($academicLevelIndexExists)) {
+            if (!$this->indexExists('class_adviser_assignments', 'class_adviser_assignments_academic_level_id_index')) {
                 $table->index('academic_level_id');
             }
         });
 
         // Step 2: Now safely drop the old unique constraint and add the new one
         Schema::table('class_adviser_assignments', function (Blueprint $table) {
-            // Check if the old unique constraint exists before dropping it
-            $indexExists = DB::select("SHOW INDEX FROM class_adviser_assignments WHERE Key_name = 'unique_class_adviser_assignment'");
-
-            if (!empty($indexExists)) {
-                // Drop the old unique constraint that prevents multiple subjects per adviser/section
-                $table->dropUnique('unique_class_adviser_assignment');
+            // Drop the old unique constraint if it exists
+            try {
+                if ($this->indexExists('class_adviser_assignments', 'unique_class_adviser_assignment')) {
+                    $table->dropUnique('unique_class_adviser_assignment');
+                }
+            } catch (\Exception $e) {
+                // Index might not exist, continue
             }
 
-            // Check if new constraint doesn't already exist
-            $newIndexExists = DB::select("SHOW INDEX FROM class_adviser_assignments WHERE Key_name = 'unique_adviser_subject_section'");
-
-            if (empty($newIndexExists)) {
-                // Add new unique constraint that includes subject_id
-                // This allows multiple subjects to be assigned to the same adviser/section/year
+            // Add new unique constraint if it doesn't exist
+            if (!$this->indexExists('class_adviser_assignments', 'unique_adviser_subject_section')) {
                 $table->unique(
                     ['adviser_id', 'subject_id', 'academic_level_id', 'grade_level', 'section', 'school_year'],
                     'unique_adviser_subject_section'
@@ -57,19 +75,17 @@ return new class extends Migration
     {
         // Step 1: Drop the new unique constraint and restore the old one
         Schema::table('class_adviser_assignments', function (Blueprint $table) {
-            // Check if the new constraint exists before dropping it
-            $newIndexExists = DB::select("SHOW INDEX FROM class_adviser_assignments WHERE Key_name = 'unique_adviser_subject_section'");
-
-            if (!empty($newIndexExists)) {
-                // Drop the new constraint
-                $table->dropUnique('unique_adviser_subject_section');
+            // Drop the new constraint if it exists
+            try {
+                if ($this->indexExists('class_adviser_assignments', 'unique_adviser_subject_section')) {
+                    $table->dropUnique('unique_adviser_subject_section');
+                }
+            } catch (\Exception $e) {
+                // Index might not exist, continue
             }
 
-            // Check if old constraint doesn't already exist
-            $indexExists = DB::select("SHOW INDEX FROM class_adviser_assignments WHERE Key_name = 'unique_class_adviser_assignment'");
-
-            if (empty($indexExists)) {
-                // Restore the old constraint (which will also serve as index for foreign keys)
+            // Restore the old constraint if it doesn't exist
+            if (!$this->indexExists('class_adviser_assignments', 'unique_class_adviser_assignment')) {
                 $table->unique(
                     ['adviser_id', 'academic_level_id', 'grade_level', 'section', 'school_year'],
                     'unique_class_adviser_assignment'
@@ -77,19 +93,23 @@ return new class extends Migration
             }
         });
 
-        // Step 2: Drop the separate indexes we created (only if they exist and old unique constraint is back)
+        // Step 2: Drop the separate indexes we created
         Schema::table('class_adviser_assignments', function (Blueprint $table) {
-            $oldUniqueExists = DB::select("SHOW INDEX FROM class_adviser_assignments WHERE Key_name = 'unique_class_adviser_assignment'");
-
-            if (!empty($oldUniqueExists)) {
-                $adviserIndexExists = DB::select("SHOW INDEX FROM class_adviser_assignments WHERE Key_name = 'class_adviser_assignments_adviser_id_index'");
-                if (!empty($adviserIndexExists)) {
-                    $table->dropIndex('class_adviser_assignments_adviser_id_index');
+            if ($this->indexExists('class_adviser_assignments', 'unique_class_adviser_assignment')) {
+                try {
+                    if ($this->indexExists('class_adviser_assignments', 'class_adviser_assignments_adviser_id_index')) {
+                        $table->dropIndex('class_adviser_assignments_adviser_id_index');
+                    }
+                } catch (\Exception $e) {
+                    // Index might not exist, continue
                 }
 
-                $academicLevelIndexExists = DB::select("SHOW INDEX FROM class_adviser_assignments WHERE Key_name = 'class_adviser_assignments_academic_level_id_index'");
-                if (!empty($academicLevelIndexExists)) {
-                    $table->dropIndex('class_adviser_assignments_academic_level_id_index');
+                try {
+                    if ($this->indexExists('class_adviser_assignments', 'class_adviser_assignments_academic_level_id_index')) {
+                        $table->dropIndex('class_adviser_assignments_academic_level_id_index');
+                    }
+                } catch (\Exception $e) {
+                    // Index might not exist, continue
                 }
             }
         });

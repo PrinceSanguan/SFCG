@@ -129,13 +129,27 @@ class CertificateController extends Controller
      */
     private function renderCertificateHtml(Certificate $certificate): string
     {
-        $html = $certificate->template->content_html;
-        $payload = $certificate->payload ?? [];
+        $template = $certificate->template;
+        $student = $certificate->student;
+        $academicLevel = $certificate->academicLevel;
 
-        // Replace placeholders with actual data
-        foreach ($payload as $key => $value) {
-            $placeholder = '{{' . $key . '}}';
-            $html = str_replace($placeholder, $value, $html);
+        // Replace standard template placeholders
+        $replacements = [
+            '{{student_name}}' => $student->name,
+            '{{student_number}}' => $student->student_number ?? '',
+            '{{school_year}}' => $certificate->school_year,
+            '{{academic_level}}' => $academicLevel->name ?? '',
+            '{{date_now}}' => now()->format('F d, Y'),
+        ];
+
+        $html = strtr($template->content_html, $replacements);
+
+        // Replace custom payload placeholders
+        $payload = $certificate->payload ?? [];
+        if (is_array($payload)) {
+            foreach ($payload as $key => $value) {
+                $html = str_replace('{{' . $key . '}}', (string) $value, $html);
+            }
         }
 
         return $html;

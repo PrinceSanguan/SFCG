@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useForm } from '@inertiajs/react';
+import { useForm, router } from '@inertiajs/react';
 import { Header } from '@/components/admin/header';
 import { Sidebar } from '@/components/admin/sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle, Trophy, ArrowLeft, Plus } from 'lucide-react';
+import { useToast } from '@/components/ui/toast';
+import { CheckCircle, Trophy, ArrowLeft, Plus, Upload } from 'lucide-react';
 
 interface User {
     name: string;
@@ -142,7 +143,12 @@ export default function JuniorHighSchoolHonors({ user, honorTypes, criteria, sch
     // Fallback for undefined props
     const safeQualifiedStudents = qualifiedStudents || [];
     const safeHonorResults = honorResults || [];
+    const safeCurrentSchoolYear = currentSchoolYear || '2024-2025';
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
+    // Toast hook
+    const { addToast } = useToast();
+
     const [editingCriterion, setEditingCriterion] = useState<HonorCriterion | null>(null);
     const [editForm, setEditForm] = useState({
         min_gpa: '',
@@ -812,9 +818,58 @@ export default function JuniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                         {/* Qualified Students Section */}
                                         {safeQualifiedStudents.length > 0 && (
                                             <div>
-                                                <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
-                                                    Calculated Qualified Students ({safeQualifiedStudents.length})
-                                                </h3>
+                                                <div className="flex items-center justify-between mb-4">
+                                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                                                        Calculated Qualified Students ({safeQualifiedStudents.length})
+                                                    </h3>
+                                                    <Button
+                                                        onClick={() => {
+                                                            console.log('[JHS Submit] Starting submission process...');
+                                                            console.log('[JHS Submit] Qualified students count:', safeQualifiedStudents.length);
+                                                            console.log('[JHS Submit] Current school year:', safeCurrentSchoolYear);
+                                                            console.log('[JHS Submit] Honor results count:', safeHonorResults.length);
+
+                                                            // Check if any qualified student already has an honor result
+                                                            const alreadySubmitted = safeQualifiedStudents.some((student: any) =>
+                                                                safeHonorResults.some((result: HonorResult) =>
+                                                                    result.student_id === student.student.id &&
+                                                                    result.school_year === safeCurrentSchoolYear
+                                                                )
+                                                            );
+
+                                                            console.log('[JHS Submit] Already submitted check:', alreadySubmitted);
+
+                                                            if (alreadySubmitted) {
+                                                                console.log('[JHS Submit] Blocking submission - students already submitted');
+                                                                addToast('Some students have already been submitted for approval.', 'warning');
+                                                                return;
+                                                            }
+
+                                                            if (confirm(`Submit ${safeQualifiedStudents.length} qualified student(s) for principal approval?`)) {
+                                                                const submitData = { school_year: safeCurrentSchoolYear };
+                                                                console.log('[JHS Submit] User confirmed. Sending data:', submitData);
+
+                                                                router.post(route('admin.academic.honors.junior-high-school.generate-results'), submitData, {
+                                                                    onSuccess: (response) => {
+                                                                        console.log('[JHS Submit] Success response:', response);
+                                                                        addToast(`Successfully submitted ${safeQualifiedStudents.length} student(s) for approval!`, 'success');
+                                                                    },
+                                                                    onError: (errors) => {
+                                                                        console.error('[JHS Submit] Error response:', errors);
+                                                                        const errorMessage = errors?.message || 'Failed to submit students for approval. Please try again.';
+                                                                        addToast(errorMessage, 'error');
+                                                                    }
+                                                                });
+                                                            } else {
+                                                                console.log('[JHS Submit] User cancelled submission');
+                                                            }
+                                                        }}
+                                                        className="flex items-center gap-2"
+                                                    >
+                                                        <Upload className="h-4 w-4" />
+                                                        Submit for Approval
+                                                    </Button>
+                                                </div>
                                                 <div className="grid gap-4">
                                                     {safeQualifiedStudents.map((qualifiedStudent, index) => (
                                                 <div 

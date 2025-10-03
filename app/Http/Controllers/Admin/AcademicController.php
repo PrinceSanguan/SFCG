@@ -565,6 +565,31 @@ class AcademicController extends Controller
         }
     }
 
+    public function generateJuniorHighSchoolHonorResults(Request $request)
+    {
+        $validated = $request->validate([
+            'school_year' => 'required|string',
+        ]);
+
+        $juniorHighSchoolLevel = \App\Models\AcademicLevel::where('key', 'junior_highschool')->first();
+
+        if (!$juniorHighSchoolLevel) {
+            return back()->with('error', 'Junior High School level not found.');
+        }
+
+        $juniorHighSchoolService = new \App\Services\JuniorHighSchoolHonorCalculationService();
+        $result = $juniorHighSchoolService->generateJuniorHighSchoolHonorResults(
+            $juniorHighSchoolLevel->id,
+            $validated['school_year']
+        );
+
+        if ($result['success']) {
+            return back()->with('success', $result['message'] . ' Honor results have been submitted for principal approval.');
+        } else {
+            return back()->with('error', $result['message']);
+        }
+    }
+
     /**
      * Get all qualified junior high school students for honor calculation
      */
