@@ -70,14 +70,16 @@ class HonorCriteriaSeeder extends Seeder
             ]);
         }
 
+        // Senior High School uses 1.0-5.0 grading scale (1.0 is highest, 3.0 is passing)
+        // So we use max_gpa instead of min_gpa (lower is better)
         if ($seniorHigh) {
             if ($withHonors) {
                 HonorCriterion::updateOrCreate([
                     'academic_level_id' => $seniorHigh->id,
                     'honor_type_id' => $withHonors->id,
                 ], [
-                    'min_gpa' => 90,
-                    'max_gpa' => null,
+                    'min_gpa' => null,
+                    'max_gpa' => 3.0,  // GPA must be 3.0 or lower (better)
                     'min_grade' => null,
                     'min_grade_all' => null,
                     'min_year' => null,
@@ -91,10 +93,10 @@ class HonorCriteriaSeeder extends Seeder
                     'academic_level_id' => $seniorHigh->id,
                     'honor_type_id' => $withHighHonors->id,
                 ], [
-                    'min_gpa' => 95,
-                    'max_gpa' => null,
-                    'min_grade' => 90,
-                    'min_grade_all' => 90,
+                    'min_gpa' => null,
+                    'max_gpa' => 2.0,  // GPA must be 2.0 or lower (better)
+                    'min_grade' => null,
+                    'min_grade_all' => 2.5,  // No grade higher than 2.5 (all grades must be 2.5 or lower)
                     'min_year' => null,
                     'max_year' => null,
                     'require_consistent_honor' => false,
@@ -106,10 +108,10 @@ class HonorCriteriaSeeder extends Seeder
                     'academic_level_id' => $seniorHigh->id,
                     'honor_type_id' => $withHighestHonors->id,
                 ], [
-                    'min_gpa' => 98,
-                    'max_gpa' => 100,
-                    'min_grade' => 93,
-                    'min_grade_all' => 93,
+                    'min_gpa' => null,
+                    'max_gpa' => 1.5,  // GPA must be 1.5 or lower (best)
+                    'min_grade' => null,
+                    'min_grade_all' => 2.0,  // No grade higher than 2.0 (all grades must be 2.0 or lower)
                     'min_year' => null,
                     'max_year' => null,
                     'require_consistent_honor' => false,

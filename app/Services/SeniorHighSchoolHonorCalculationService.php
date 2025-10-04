@@ -65,15 +65,15 @@ class SeniorHighSchoolHonorCalculationService
             ];
         }
 
-        // Map semester groups
+        // Map semester groups using actual SHS period codes
         $semesterGroups = [
             'first_semester' => [
                 'label' => 'First Semester',
-                'codes' => ['Q1' => 'First Quarter', 'Q2' => 'Second Quarter'],
+                'codes' => ['m1' => 'Midterm', 'Pre-final' => 'Pre-Final'],
             ],
             'second_semester' => [
                 'label' => 'Second Semester',
-                'codes' => ['Q3' => 'Third Quarter', 'Q4' => 'Fourth Quarter'],
+                'codes' => ['m2' => 'Midterm', 'pre-final2' => 'Pre-Final'],
             ],
         ];
 
@@ -132,12 +132,16 @@ class SeniorHighSchoolHonorCalculationService
         $averageGrade = $totalWeightedGrade / $totalWeight;
         $averageGrade = round($averageGrade, 2);
 
-        // Get minimum grade across all periods for criteria checking
-        $minGrade = !empty($allGrades) ? min($allGrades) : 0;
+        // Get minimum and maximum grade across all periods for criteria checking
+        // In 1.0-5.0 scale: 1.0 is best, 5.0 is worst
+        // So we need both min (best) and max (worst) grades
+        $minGrade = !empty($allGrades) ? min($allGrades) : 0;  // Best grade (lowest number)
+        $maxGrade = !empty($allGrades) ? max($allGrades) : 0;  // Worst grade (highest number)
 
         \Log::info('SHS Honor: Calculated averages', [
             'average_grade' => $averageGrade,
-            'min_grade' => $minGrade,
+            'min_grade (best)' => $minGrade,
+            'max_grade (worst)' => $maxGrade,
             'total_grades' => count($allGrades)
         ]);
 
@@ -163,26 +167,58 @@ class SeniorHighSchoolHonorCalculationService
             $qualifies = true;
             $reason = '';
 
-            // Check GPA requirements
+            \Log::info('SHS Honor: Evaluating criterion', [
+                'honor_type' => $criterion->honorType->name ?? 'Unknown',
+                'min_gpa' => $criterion->min_gpa,
+                'max_gpa' => $criterion->max_gpa,
+                'min_grade' => $criterion->min_grade,
+                'min_grade_all' => $criterion->min_grade_all,
+                'require_consistent_honor' => $criterion->require_consistent_honor,
+                'student_average_grade' => $averageGrade,
+                'student_min_grade (best)' => $minGrade,
+                'student_max_grade (worst)' => $maxGrade
+            ]);
+
+            // SHS uses 1.0-5.0 scale where 1.0 is highest (best) and 5.0 is lowest (worst)
+            // So "lower is better" - we check if GPA is <= max_gpa and grades are <= max allowed
+
+            // Check GPA requirements (lower is better in 1.0-5.0 scale)
             if ($criterion->min_gpa && $averageGrade < $criterion->min_gpa) {
                 $qualifies = false;
                 $reason .= "GPA {$averageGrade} below minimum {$criterion->min_gpa}. ";
+                \Log::info('SHS Honor: Failed min_gpa check', [
+                    'student_gpa' => $averageGrade,
+                    'required_min' => $criterion->min_gpa
+                ]);
             }
 
             if ($criterion->max_gpa && $averageGrade > $criterion->max_gpa) {
                 $qualifies = false;
-                $reason .= "GPA {$averageGrade} above maximum {$criterion->max_gpa}. ";
+                $reason .= "GPA {$averageGrade} exceeds maximum allowed {$criterion->max_gpa} (lower is better). ";
+                \Log::info('SHS Honor: Failed max_gpa check', [
+                    'student_gpa' => $averageGrade,
+                    'required_max' => $criterion->max_gpa
+                ]);
             }
 
-            // Check minimum grade requirements
-            if ($criterion->min_grade && $minGrade < $criterion->min_grade) {
+            // Check minimum grade requirements (for 1.0-5.0 scale, this means "worst allowed grade")
+            // min_grade_all means "no grade should be worse (higher) than this value"
+            if ($criterion->min_grade_all && $maxGrade > $criterion->min_grade_all) {
                 $qualifies = false;
-                $reason .= "Minimum grade {$minGrade} below required {$criterion->min_grade}. ";
+                $reason .= "Has grade {$maxGrade} which exceeds allowed maximum {$criterion->min_grade_all} (lower is better). ";
+                \Log::info('SHS Honor: Failed min_grade_all check', [
+                    'student_worst_grade' => $maxGrade,
+                    'allowed_max' => $criterion->min_grade_all
+                ]);
             }
 
-            if ($criterion->min_grade_all && $minGrade < $criterion->min_grade_all) {
+            if ($criterion->min_grade && $maxGrade > $criterion->min_grade) {
                 $qualifies = false;
-                $reason .= "Minimum grade {$minGrade} below required {$criterion->min_grade_all} for all subjects. ";
+                $reason .= "Has grade {$maxGrade} which exceeds allowed {$criterion->min_grade}. ";
+                \Log::info('SHS Honor: Failed min_grade check', [
+                    'student_worst_grade' => $maxGrade,
+                    'allowed_max' => $criterion->min_grade
+                ]);
             }
 
             // Check if student has consistent honor performance (if required)
@@ -191,20 +227,23 @@ class SeniorHighSchoolHonorCalculationService
                 if (!$consistentHonor) {
                     $qualifies = false;
                     $reason .= "Student does not have consistent honor performance. ";
+                    \Log::info('SHS Honor: Failed consistent honor check');
                 }
             }
 
             if ($qualifies) {
-                \Log::info('SHS Honor: Student qualifies for honor', [
+                \Log::info('SHS Honor: ✅ Student QUALIFIES for honor', [
                     'honor_type' => $criterion->honorType->name ?? 'Unknown',
                     'average_grade' => $averageGrade,
-                    'min_grade' => $minGrade
+                    'min_grade (best)' => $minGrade,
+                    'max_grade (worst)' => $maxGrade
                 ]);
                 $qualifications[] = [
                     'honor_type' => $criterion->honorType,
                     'criterion' => $criterion,
                     'gpa' => $averageGrade,
                     'min_grade' => $minGrade,
+                    'max_grade' => $maxGrade,
                     'semester_periods' => $periods->pluck('name', 'code')->toArray(),
                     'quarter_averages' => $periods->map(function($period) use ($grades) {
                         $periodGrades = $grades->where('grading_period_id', $period->id);
@@ -212,7 +251,7 @@ class SeniorHighSchoolHonorCalculationService
                     })->filter()->values()->toArray()
                 ];
             } else {
-                \Log::info('SHS Honor: Student does not qualify for honor', [
+                \Log::info('SHS Honor: ❌ Student does NOT qualify for honor', [
                     'honor_type' => $criterion->honorType->name ?? 'Unknown',
                     'reason' => $reason
                 ]);
@@ -230,6 +269,7 @@ class SeniorHighSchoolHonorCalculationService
             'qualifications' => $qualifications,
             'average_grade' => $averageGrade,
             'min_grade' => $minGrade,
+            'max_grade' => $maxGrade,
             'quarter_averages' => $quarterAverages,
             'semester_periods' => $periods->pluck('name', 'code')->toArray(),
             'total_subjects' => $grades->groupBy('subject_id')->count(),
@@ -252,18 +292,24 @@ class SeniorHighSchoolHonorCalculationService
     }
 
     /**
-     * Check if student has consistent honor performance across all semester periods
+     * Check if student has consistent honor performance across all grading periods
+     * For SHS with 1.0-5.0 scale: maintaining at least 3.0 GPA (or better) in each period
      */
     private function checkConsistentHonorPerformance(int $studentId, int $academicLevelId, string $schoolYear): bool
     {
-        $semesterPeriods = GradingPeriod::where('academic_level_id', $academicLevelId)
-            ->where('type', 'semester')
+        $periods = GradingPeriod::where('academic_level_id', $academicLevelId)
             ->where('is_active', true)
-            ->where('is_calculated', false) // Exclude calculated periods
+            ->where('is_calculated', false)
+            ->whereIn('period_type', ['quarter', 'midterm', 'prefinal'])
             ->orderBy('sort_order')
             ->get();
 
-        foreach ($semesterPeriods as $period) {
+        \Log::info('SHS Honor: Checking consistent honor performance', [
+            'student_id' => $studentId,
+            'periods_count' => $periods->count()
+        ]);
+
+        foreach ($periods as $period) {
             $periodGrades = StudentGrade::where('student_id', $studentId)
                 ->where('academic_level_id', $academicLevelId)
                 ->where('school_year', $schoolYear)
@@ -272,13 +318,29 @@ class SeniorHighSchoolHonorCalculationService
 
             if ($periodGrades->isNotEmpty()) {
                 $periodAverage = $periodGrades->avg('grade');
-                // Consider consistent honor as maintaining at least 90 GPA in each period
-                if ($periodAverage < 90) {
+                \Log::info('SHS Honor: Period performance check', [
+                    'student_id' => $studentId,
+                    'period' => $period->name,
+                    'average' => $periodAverage,
+                    'required_max' => 3.0
+                ]);
+
+                // For 1.0-5.0 scale where lower is better: maintaining 3.0 or better (<=3.0) in each period
+                if ($periodAverage > 3.0) {
+                    \Log::info('SHS Honor: Student failed consistent honor check', [
+                        'student_id' => $studentId,
+                        'period' => $period->name,
+                        'average' => $periodAverage,
+                        'required' => '≤ 3.0'
+                    ]);
                     return false;
                 }
             }
         }
 
+        \Log::info('SHS Honor: Student passed consistent honor check', [
+            'student_id' => $studentId
+        ]);
         return true;
     }
 
@@ -308,7 +370,21 @@ class SeniorHighSchoolHonorCalculationService
 
             foreach ($periods as $period) {
                 $gradeRow = $subjectGrades->where('grading_period_id', $period->id)->first();
-                $entry['periods'][$period->code] = $gradeRow ? $gradeRow->grade : null;
+                $gradeValue = $gradeRow ? $gradeRow->grade : null;
+
+                // Store with actual period code
+                $entry['periods'][$period->code] = $gradeValue;
+
+                // Also map to frontend-expected codes for compatibility
+                if ($period->code === 'm1') {
+                    $entry['periods']['SHS_S1_MT'] = $gradeValue; // First Semester Midterm
+                } elseif ($period->code === 'Pre-final') {
+                    $entry['periods']['SHS_S1_PF'] = $gradeValue; // First Semester Pre-Final
+                } elseif ($period->code === 'm2') {
+                    $entry['periods']['SHS_S2_MT'] = $gradeValue; // Second Semester Midterm
+                } elseif ($period->code === 'pre-final2') {
+                    $entry['periods']['SHS_S2_PF'] = $gradeValue; // Second Semester Pre-Final
+                }
             }
 
             $periodGrades = collect($entry['periods'])->filter()->values();
@@ -427,11 +503,13 @@ class SeniorHighSchoolHonorCalculationService
             if ($qualification['qualified']) {
                 $totalQualified++;
 
-                // Store honor results in database
-                foreach ($qualification['qualifications'] as $qual) {
+                // Store ONLY the highest honor (last in qualifications array) in database
+                $highestHonor = end($qualification['qualifications']);
+
+                if ($highestHonor) {
                     $honorResult = HonorResult::updateOrCreate([
                         'student_id' => $student->id,
-                        'honor_type_id' => $qual['honor_type']->id,
+                        'honor_type_id' => $highestHonor['honor_type']->id,
                         'academic_level_id' => $academicLevelId,
                         'school_year' => $schoolYear,
                     ], [
@@ -442,13 +520,14 @@ class SeniorHighSchoolHonorCalculationService
                         'is_rejected' => false,
                     ]);
 
-                    \Log::info('SHS Honor Generation: Created/Updated honor result', [
+                    \Log::info('SHS Honor Generation: Created/Updated HIGHEST honor result only', [
                         'student_id' => $student->id,
                         'student_name' => $student->name,
-                        'honor_type' => $qual['honor_type']->name,
+                        'honor_type' => $highestHonor['honor_type']->name,
                         'gpa' => $qualification['average_grade'],
                         'is_pending_approval' => true,
-                        'honor_result_id' => $honorResult->id
+                        'honor_result_id' => $honorResult->id,
+                        'total_qualified_honors' => count($qualification['qualifications'])
                     ]);
                 }
 

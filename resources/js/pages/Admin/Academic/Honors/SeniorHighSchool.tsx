@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle, Trophy, ArrowLeft, Plus, Upload } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { CheckCircle, Trophy, ArrowLeft, Plus, Upload, X } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
 
 interface User {
@@ -61,13 +62,35 @@ interface QualifiedStudent {
             criterion: HonorCriterion;
             gpa: number;
             min_grade: number;
+            max_grade?: number;
             quarter_averages: number[];
         }>;
         average_grade: number;
         min_grade: number;
+        max_grade?: number;
         quarter_averages: number[];
         total_subjects: number;
         reason: string;
+        grades_breakdown?: {
+            periods?: Array<{
+                period: string;
+                period_code: string;
+                grade: number;
+                count: number;
+            }>;
+            subjects?: {
+                [subjectName: string]: {
+                    [periodCode: string]: number | null;
+                    average: number;
+                };
+            };
+            semester_summaries?: {
+                [semesterKey: string]: {
+                    label: string;
+                    average: number | null;
+                };
+            };
+        };
     };
 }
 
@@ -128,6 +151,8 @@ export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, sch
         require_consistent_honor: false,
     });
     const [showAddForm, setShowAddForm] = useState(false);
+    const [selectedStudent, setSelectedStudent] = useState<QualifiedStudent | null>(null);
+    const [showDetailsModal, setShowDetailsModal] = useState(false);
     const { addToast } = useToast();
 
     const { data, setData, post, processing, errors, reset } = useForm({
@@ -844,28 +869,8 @@ export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                                                 variant="outline"
                                                                 size="sm"
                                                                 onClick={() => {
-                                                                    // Show detailed breakdown in alert
-                                                                    const student = qualifiedStudent.student;
-                                                                    const result = qualifiedStudent.result;
-                                                                    const honorName = result?.qualifications?.[0]?.honor_type?.name || deriveHonorFromAverage(result?.average_grade) || 'N/A';
-
-                                                                    const details = `
-Student: ${student.name} (${student.student_number})
-Grade Level: ${student.specific_year_level?.replace('grade_', 'Grade ') || 'N/A'}
-Section: ${student.section?.name || 'N/A'}
-
-Honor: ${honorName}
-Average Grade: ${result?.average_grade?.toFixed(2) || 'N/A'}
-Minimum Grade: ${result?.min_grade?.toFixed(2) || 'N/A'}
-Total Quarters: ${result?.quarter_averages?.length || 0}
-
-Quarter Averages:
-${result?.quarter_averages?.map((avg: number, idx: number) => `Q${idx + 1}: ${avg.toFixed(2)}`).join('\n') || 'No data'}
-
-Reason: ${result?.reason || 'N/A'}
-                                                                    `.trim();
-
-                                                                    alert(details);
+                                                                    setSelectedStudent(qualifiedStudent);
+                                                                    setShowDetailsModal(true);
                                                                 }}
                                                             >
                                                                 View Details
@@ -882,6 +887,262 @@ Reason: ${result?.reason || 'N/A'}
                     </div>
                 </main>
             </div>
+
+            {/* Student Details Modal */}
+            <Dialog open={showDetailsModal} onOpenChange={setShowDetailsModal}>
+                <DialogContent className="max-w-[95vw] w-[95vw] max-h-[95vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Trophy className="h-5 w-5 text-purple-600" />
+                            Student Honor Details
+                        </DialogTitle>
+                        <DialogDescription>
+                            Detailed grade breakdown and honor calculation
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {selectedStudent && (
+                        <div className="space-y-6">
+                            {/* Student Information */}
+                            <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg border border-blue-200">
+                                <h3 className="font-semibold text-lg mb-3 text-gray-900">Student Information</h3>
+                                <div className="grid grid-cols-2 gap-3 text-sm">
+                                    <div>
+                                        <span className="text-gray-600">Name:</span>
+                                        <p className="font-semibold text-gray-900">{selectedStudent.student.name}</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-600">Student Number:</span>
+                                        <p className="font-semibold text-gray-900">{selectedStudent.student.student_number}</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-600">Grade Level:</span>
+                                        <p className="font-semibold text-gray-900">
+                                            {gradeLevels?.[selectedStudent.student.specific_year_level || ''] || selectedStudent.student.specific_year_level?.replace('grade_', 'Grade ') || 'N/A'}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-600">Section:</span>
+                                        <p className="font-semibold text-gray-900">{selectedStudent.student.section?.name || 'N/A'}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Honor Achievement */}
+                            <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-4 rounded-lg border border-purple-200">
+                                <h3 className="font-semibold text-lg mb-3 text-gray-900 flex items-center gap-2">
+                                    <Trophy className="h-5 w-5 text-purple-600" />
+                                    Honor Achievement
+                                </h3>
+                                <div className="space-y-2">
+                                    {selectedStudent.result?.qualifications?.length > 0 ? (
+                                        // Show only the highest honor (last in the qualifications array)
+                                        (() => {
+                                            const highestHonor = selectedStudent.result.qualifications[selectedStudent.result.qualifications.length - 1];
+                                            return (
+                                                <div className="flex items-center gap-2">
+                                                    <CheckCircle className="h-5 w-5 text-green-600" />
+                                                    <Badge className="bg-purple-600 text-white text-base py-1 px-3">
+                                                        {highestHonor.honor_type?.name || 'Unknown Honor'}
+                                                    </Badge>
+                                                </div>
+                                            );
+                                        })()
+                                    ) : (
+                                        <p className="text-gray-600">
+                                            {deriveHonorFromAverage(selectedStudent.result?.average_grade) || 'No honor qualification found'}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Grade Summary */}
+                            <div className="bg-white p-4 rounded-lg border border-gray-200">
+                                <h3 className="font-semibold text-lg mb-3 text-gray-900">Grade Summary</h3>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                    <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                                        <span className="text-sm text-blue-700 font-medium">Average Grade</span>
+                                        <p className="text-2xl font-bold text-blue-900">
+                                            {selectedStudent.result?.average_grade?.toFixed(2) || 'N/A'}
+                                        </p>
+                                        <p className="text-xs text-blue-600 mt-1">1.0 is highest</p>
+                                    </div>
+                                    <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+                                        <span className="text-sm text-green-700 font-medium">Best Grade</span>
+                                        <p className="text-2xl font-bold text-green-900">
+                                            {selectedStudent.result?.min_grade?.toFixed(2) || 'N/A'}
+                                        </p>
+                                        <p className="text-xs text-green-600 mt-1">Lowest number</p>
+                                    </div>
+                                    <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                                        <span className="text-sm text-yellow-700 font-medium">Worst Grade</span>
+                                        <p className="text-2xl font-bold text-yellow-900">
+                                            {selectedStudent.result?.max_grade?.toFixed(2) || 'N/A'}
+                                        </p>
+                                        <p className="text-xs text-yellow-600 mt-1">Highest number</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Semester Tables */}
+                            {selectedStudent.result?.grades_breakdown?.subjects && Object.keys(selectedStudent.result.grades_breakdown.subjects).length > 0 && (
+                                <div className="space-y-6">
+                                    <h3 className="font-semibold text-xl mb-4 text-gray-900">Grade Breakdown by Semester</h3>
+
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                        {/* First Semester Table */}
+                                        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                                            <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-4">
+                                                <h4 className="font-bold text-lg text-white flex items-center gap-2">
+                                                    <Trophy className="h-5 w-5" />
+                                                    First Semester
+                                                </h4>
+                                                {selectedStudent.result.grades_breakdown.semester_summaries?.first_semester && (
+                                                    <p className="text-blue-100 text-sm mt-1">
+                                                        Average: <span className="font-bold text-white">
+                                                            {selectedStudent.result.grades_breakdown.semester_summaries.first_semester.average?.toFixed(2) || 'N/A'}
+                                                        </span>
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-sm">
+                                                    <thead className="bg-gray-50 border-b border-gray-200">
+                                                        <tr>
+                                                            <th className="text-left p-3 font-semibold text-gray-700">Subject</th>
+                                                            <th className="text-center p-3 font-semibold text-gray-700">Midterm</th>
+                                                            <th className="text-center p-3 font-semibold text-gray-700">Pre-Final</th>
+                                                            <th className="text-center p-3 font-semibold text-gray-700 bg-blue-50">Average</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {Object.entries(selectedStudent.result.grades_breakdown.subjects).map(([subjectName, grades]: [string, any], idx) => {
+                                                            // Get first semester grades - check multiple possible keys
+                                                            const midterm = grades['SHS_S1_MT'] || grades['m1'] || grades['Q1'] || null;
+                                                            const prefinal = grades['SHS_S1_PF'] || grades['Pre-final'] || grades['Q2'] || null;
+
+                                                            // Only show if there are first semester grades
+                                                            if (midterm === null && prefinal === null) return null;
+
+                                                            return (
+                                                                <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                                                    <td className="p-3 font-medium text-gray-900">{subjectName}</td>
+                                                                    <td className="p-3 text-center text-gray-700">
+                                                                        {midterm !== null ? midterm.toFixed(2) : '-'}
+                                                                    </td>
+                                                                    <td className="p-3 text-center text-gray-700">
+                                                                        {prefinal !== null ? prefinal.toFixed(2) : '-'}
+                                                                    </td>
+                                                                    <td className="p-3 text-center font-bold text-blue-900 bg-blue-50">
+                                                                        {midterm !== null && prefinal !== null
+                                                                            ? ((midterm + prefinal) / 2).toFixed(2)
+                                                                            : midterm !== null ? midterm.toFixed(2)
+                                                                            : prefinal !== null ? prefinal.toFixed(2)
+                                                                            : '-'
+                                                                        }
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+
+                                        {/* Second Semester Table */}
+                                        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                                            <div className="bg-gradient-to-r from-purple-500 to-purple-600 p-4">
+                                                <h4 className="font-bold text-lg text-white flex items-center gap-2">
+                                                    <Trophy className="h-5 w-5" />
+                                                    Second Semester
+                                                </h4>
+                                                {selectedStudent.result.grades_breakdown.semester_summaries?.second_semester && (
+                                                    <p className="text-purple-100 text-sm mt-1">
+                                                        Average: <span className="font-bold text-white">
+                                                            {selectedStudent.result.grades_breakdown.semester_summaries.second_semester.average?.toFixed(2) || 'N/A'}
+                                                        </span>
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-sm">
+                                                    <thead className="bg-gray-50 border-b border-gray-200">
+                                                        <tr>
+                                                            <th className="text-left p-3 font-semibold text-gray-700">Subject</th>
+                                                            <th className="text-center p-3 font-semibold text-gray-700">Midterm</th>
+                                                            <th className="text-center p-3 font-semibold text-gray-700">Pre-Final</th>
+                                                            <th className="text-center p-3 font-semibold text-gray-700 bg-purple-50">Average</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {Object.entries(selectedStudent.result.grades_breakdown.subjects).map(([subjectName, grades]: [string, any], idx) => {
+                                                            // Get second semester grades - check multiple possible keys
+                                                            const midterm = grades['SHS_S2_MT'] || grades['m2'] || grades['Q3'] || null;
+                                                            const prefinal = grades['SHS_S2_PF'] || grades['pre-final2'] || grades['Q4'] || null;
+
+                                                            // Only show if there are second semester grades
+                                                            if (midterm === null && prefinal === null) return null;
+
+                                                            return (
+                                                                <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                                                    <td className="p-3 font-medium text-gray-900">{subjectName}</td>
+                                                                    <td className="p-3 text-center text-gray-700">
+                                                                        {midterm !== null ? midterm.toFixed(2) : '-'}
+                                                                    </td>
+                                                                    <td className="p-3 text-center text-gray-700">
+                                                                        {prefinal !== null ? prefinal.toFixed(2) : '-'}
+                                                                    </td>
+                                                                    <td className="p-3 text-center font-bold text-purple-900 bg-purple-50">
+                                                                        {midterm !== null && prefinal !== null
+                                                                            ? ((midterm + prefinal) / 2).toFixed(2)
+                                                                            : midterm !== null ? midterm.toFixed(2)
+                                                                            : prefinal !== null ? prefinal.toFixed(2)
+                                                                            : '-'
+                                                                        }
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Overall Summary */}
+                                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-lg border-2 border-green-300">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <h4 className="font-bold text-lg text-green-900">Overall Academic Performance</h4>
+                                                <p className="text-sm text-green-700 mt-1">Combined average across all semesters</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-4xl font-bold text-green-900">
+                                                    {selectedStudent.result?.average_grade?.toFixed(2) || 'N/A'}
+                                                </p>
+                                                <p className="text-sm text-green-600 mt-1">Final GPA (1.0 is highest)</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Qualification Reason */}
+                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                <h3 className="font-semibold text-sm text-gray-700 mb-2">Qualification Status</h3>
+                                <p className="text-sm text-gray-900">{selectedStudent.result?.reason || 'N/A'}</p>
+                            </div>
+
+                            {/* Close Button */}
+                            <div className="flex justify-end">
+                                <Button onClick={() => setShowDetailsModal(false)} variant="outline">
+                                    Close
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

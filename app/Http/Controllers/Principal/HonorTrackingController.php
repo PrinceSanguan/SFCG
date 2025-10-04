@@ -213,16 +213,35 @@ class HonorTrackingController extends Controller
     }
     
     /**
-     * Send honor notification emails to all parents of the student
+     * Send honor notification emails to the student and all parents of the student
      */
     private function sendParentNotifications($honor, $certificate = null)
     {
         try {
+            // Send email directly to the student
+            if ($honor->student && $honor->student->email) {
+                Mail::to($honor->student->email)->send(
+                    new StudentHonorQualificationEmail(
+                        $honor->student,
+                        $honor->student, // Student as recipient
+                        $honor
+                    )
+                );
+
+                Log::info('Student honor notification sent by principal', [
+                    'student_id' => $honor->student_id,
+                    'student_email' => $honor->student->email,
+                    'honor_id' => $honor->id,
+                    'honor_type' => $honor->honorType?->name ?? 'Unknown',
+                    'approved_by' => 'principal',
+                ]);
+            }
+
             // Get all parents for this student
             $parentRelationships = ParentStudentRelationship::with('parent')
                 ->where('student_id', $honor->student_id)
                 ->get();
-            
+
             foreach ($parentRelationships as $relationship) {
                 if ($relationship->parent && $relationship->parent->email) {
                     // Use the new comprehensive honor qualification email
@@ -233,7 +252,7 @@ class HonorTrackingController extends Controller
                             $honor
                         )
                     );
-                    
+
                     Log::info('Parent honor notification sent by principal', [
                         'parent_id' => $relationship->parent->id,
                         'parent_email' => $relationship->parent->email,
@@ -244,7 +263,7 @@ class HonorTrackingController extends Controller
                 }
             }
         } catch (\Exception $e) {
-            Log::error('Failed to send parent honor notifications by principal', [
+            Log::error('Failed to send honor notifications by principal', [
                 'honor_id' => $honor->id,
                 'student_id' => $honor->student_id,
                 'error' => $e->getMessage(),

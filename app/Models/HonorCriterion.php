@@ -28,8 +28,8 @@ class HonorCriterion extends Model
     protected $casts = [
         'min_gpa' => 'float',
         'max_gpa' => 'float',
-        'min_grade' => 'integer',
-        'min_grade_all' => 'integer',
+        'min_grade' => 'float',  // Changed to float to support SHS 1.0-5.0 grading scale
+        'min_grade_all' => 'float',  // Changed to float to support SHS 1.0-5.0 grading scale
         'min_year' => 'integer',
         'max_year' => 'integer',
         'require_consistent_honor' => 'boolean',

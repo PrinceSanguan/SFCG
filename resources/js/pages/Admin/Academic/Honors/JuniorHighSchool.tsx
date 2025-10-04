@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/toast';
 import { CheckCircle, Trophy, ArrowLeft, Plus, Upload } from 'lucide-react';
 
@@ -148,6 +149,10 @@ export default function JuniorHighSchoolHonors({ user, honorTypes, criteria, sch
 
     // Toast hook
     const { addToast } = useToast();
+
+    // Modal state for View Details
+    const [selectedStudent, setSelectedStudent] = useState<QualifiedStudent | null>(null);
+    const [showDetailsModal, setShowDetailsModal] = useState(false);
 
     const [editingCriterion, setEditingCriterion] = useState<HonorCriterion | null>(null);
     const [editForm, setEditForm] = useState({
@@ -931,7 +936,14 @@ export default function JuniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                                             </div>
                                                         </div>
                                                         <div className="ml-4">
-                                                            <Button variant="outline" size="sm">
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => {
+                                                                    setSelectedStudent(qualifiedStudent);
+                                                                    setShowDetailsModal(true);
+                                                                }}
+                                                            >
                                                                 View Details
                                                             </Button>
                                                         </div>
@@ -948,6 +960,148 @@ export default function JuniorHighSchoolHonors({ user, honorTypes, criteria, sch
                     </div>
                 </main>
             </div>
+
+            {/* Student Details Modal */}
+            <Dialog open={showDetailsModal} onOpenChange={setShowDetailsModal}>
+                <DialogContent className="max-w-[95vw] w-[95vw] max-h-[95vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Trophy className="h-5 w-5 text-purple-600" />
+                            Student Honor Details - Junior High School
+                        </DialogTitle>
+                        <DialogDescription>
+                            Detailed grade breakdown and honor calculation
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {selectedStudent && (
+                        <div className="space-y-6">
+                            {/* Student Information */}
+                            <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg border border-blue-200">
+                                <h3 className="font-semibold text-lg mb-3 text-gray-900">Student Information</h3>
+                                <div className="grid grid-cols-2 gap-3 text-sm">
+                                    <div>
+                                        <span className="text-gray-600">Name:</span>
+                                        <p className="font-semibold text-gray-900">{selectedStudent.student.name}</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-600">Student Number:</span>
+                                        <p className="font-semibold text-gray-900">{selectedStudent.student.student_number}</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-600">Grade Level:</span>
+                                        <p className="font-semibold text-gray-900">
+                                            {gradeLevels?.[selectedStudent.student.specific_year_level || ''] || selectedStudent.student.specific_year_level?.replace('grade_', 'Grade ') || 'N/A'}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-600">Section:</span>
+                                        <p className="font-semibold text-gray-900">{selectedStudent.student.section?.name || 'N/A'}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Honor Achievement */}
+                            <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-4 rounded-lg border border-purple-200">
+                                <h3 className="font-semibold text-lg mb-3 text-gray-900 flex items-center gap-2">
+                                    <Trophy className="h-5 w-5 text-purple-600" />
+                                    Honor Achievement
+                                </h3>
+                                <div className="space-y-2">
+                                    {selectedStudent.result?.qualifications?.length > 0 ? (
+                                        // Show only the highest honor (last in the qualifications array)
+                                        (() => {
+                                            const highestHonor = selectedStudent.result.qualifications[selectedStudent.result.qualifications.length - 1];
+                                            return (
+                                                <div className="flex items-center gap-2">
+                                                    <CheckCircle className="h-5 w-5 text-green-600" />
+                                                    <Badge className="bg-purple-600 text-white text-base py-1 px-3">
+                                                        {highestHonor.honor_type?.name || 'Unknown Honor'}
+                                                    </Badge>
+                                                </div>
+                                            );
+                                        })()
+                                    ) : (
+                                        <p className="text-gray-600">No honor qualification found</p>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Grade Summary */}
+                            <div className="bg-white p-4 rounded-lg border border-gray-200">
+                                <h3 className="font-semibold text-lg mb-3 text-gray-900">Grade Summary</h3>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                    <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                                        <span className="text-sm text-blue-700 font-medium">Average Grade</span>
+                                        <p className="text-2xl font-bold text-blue-900">
+                                            {selectedStudent.result?.average_grade?.toFixed(2) || 'N/A'}
+                                        </p>
+                                        <p className="text-xs text-blue-600 mt-1">Overall GPA</p>
+                                    </div>
+                                    <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+                                        <span className="text-sm text-green-700 font-medium">Minimum Grade</span>
+                                        <p className="text-2xl font-bold text-green-900">
+                                            {selectedStudent.result?.min_grade?.toFixed(2) || 'N/A'}
+                                        </p>
+                                        <p className="text-xs text-green-600 mt-1">Lowest subject grade</p>
+                                    </div>
+                                    <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
+                                        <span className="text-sm text-purple-700 font-medium">Total Quarters</span>
+                                        <p className="text-2xl font-bold text-purple-900">
+                                            {selectedStudent.result?.quarter_averages?.length || 0}
+                                        </p>
+                                        <p className="text-xs text-purple-600 mt-1">Grading periods</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Quarter Averages */}
+                            {selectedStudent.result?.quarter_averages && selectedStudent.result.quarter_averages.length > 0 && (
+                                <div className="bg-white p-4 rounded-lg border border-gray-200">
+                                    <h3 className="font-semibold text-lg mb-3 text-gray-900">Quarter Averages</h3>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                        {selectedStudent.result.quarter_averages.map((avg: number, idx: number) => (
+                                            <div key={idx} className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-lg text-center border border-blue-200">
+                                                <span className="text-sm text-blue-700 font-medium">Quarter {idx + 1}</span>
+                                                <p className="text-3xl font-bold text-blue-900 mt-1">{avg.toFixed(2)}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Overall Performance */}
+                            <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-lg border-2 border-green-300">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h4 className="font-bold text-lg text-green-900">Overall Academic Performance</h4>
+                                        <p className="text-sm text-green-700 mt-1">Final average across all quarters</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-4xl font-bold text-green-900">
+                                            {selectedStudent.result?.average_grade?.toFixed(2) || 'N/A'}
+                                        </p>
+                                        <p className="text-sm text-green-600 mt-1">Final GPA</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Qualification Reason */}
+                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                <h3 className="font-semibold text-sm text-gray-700 mb-2">Qualification Status</h3>
+                                <p className="text-sm text-gray-900">{selectedStudent.result?.reason || 'N/A'}</p>
+                            </div>
+
+                            {/* Close Button */}
+                            <div className="flex justify-end">
+                                <Button onClick={() => setShowDetailsModal(false)} variant="outline">
+                                    Close
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

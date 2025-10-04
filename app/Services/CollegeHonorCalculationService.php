@@ -396,11 +396,13 @@ class CollegeHonorCalculationService
             if ($qualification['qualified']) {
                 $totalQualified++;
 
-                // Store honor results in database
-                foreach ($qualification['qualifications'] as $qual) {
+                // Store ONLY the highest honor (last in qualifications array) in database
+                $highestHonor = end($qualification['qualifications']);
+
+                if ($highestHonor) {
                     HonorResult::updateOrCreate([
                         'student_id' => $student->id,
-                        'honor_type_id' => $qual['honor_type']->id,
+                        'honor_type_id' => $highestHonor['honor_type']->id,
                         'academic_level_id' => $academicLevelId,
                         'school_year' => $schoolYear,
                     ], [

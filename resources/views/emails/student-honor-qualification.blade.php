@@ -197,7 +197,7 @@
             <p>If you have any questions or need assistance, please contact our Academic Office:</p>
             <ul style="text-align: left; margin: 10px 0;">
                 <li><strong>Phone:</strong> (044) 123-4567</li>
-                <li><strong>Email:</strong> academic@{{ strtolower(str_replace(' ', '', $schoolName)) }}.edu.ph</li>
+                <li><strong>Email:</strong> {{ 'academic@' . strtolower(str_replace(' ', '', $schoolName)) . '.edu.ph' }}</li>
                 <li><strong>Office Hours:</strong> Monday - Friday, 8:00 AM - 5:00 PM</li>
             </ul>
         </div>
