@@ -112,12 +112,24 @@ class GradesController extends Controller
         }
         $grades = $query->get();
 
-        // Get active grading periods for this subject's academic level
+        // Get active grading periods for this subject's academic level (including children)
         $gradingPeriods = \App\Models\GradingPeriod::where('academic_level_id', $subject->academic_level_id)
             ->where('is_active', true)
-            ->whereNull('parent_id') // Only get root level periods (quarters/semesters, not subdivisions)
             ->orderBy('sort_order')
-            ->get();
+            ->get()
+            ->map(function($period) {
+                return [
+                    'id' => $period->id,
+                    'name' => $period->name,
+                    'code' => $period->code,
+                    'type' => $period->type,
+                    'period_type' => $period->period_type,
+                    'parent_id' => $period->parent_id,
+                    'academic_level_id' => $period->academic_level_id,
+                    'sort_order' => $period->sort_order,
+                    'is_active' => $period->is_active,
+                ];
+            });
 
         // Get the teacher/adviser/instructor for this subject
         $teacherService = new \App\Services\TeacherStudentAssignmentService();
@@ -146,6 +158,9 @@ class GradesController extends Controller
                     'id' => $grade->gradingPeriod->id,
                     'name' => $grade->gradingPeriod->name,
                     'code' => $grade->gradingPeriod->code,
+                    'type' => $grade->gradingPeriod->type,
+                    'period_type' => $grade->gradingPeriod->period_type,
+                    'parent_id' => $grade->gradingPeriod->parent_id,
                     'academic_level_id' => $grade->gradingPeriod->academic_level_id,
                     'start_date' => $grade->gradingPeriod->start_date,
                     'end_date' => $grade->gradingPeriod->end_date,
@@ -161,17 +176,11 @@ class GradesController extends Controller
                 'id' => $subject->id,
                 'name' => $subject->name,
                 'code' => $subject->code,
+                'academic_level_id' => $subject->academic_level_id,
             ],
             'schoolYear' => $schoolYear,
             'grades' => $transformedGrades,
-            'gradingPeriods' => $gradingPeriods->map(function($period) {
-                return [
-                    'id' => $period->id,
-                    'name' => $period->name,
-                    'code' => $period->code,
-                    'sort_order' => $period->sort_order,
-                ];
-            }),
+            'gradingPeriods' => $gradingPeriods, // Already mapped above, no need to map again
             'teacher' => $assignedTeacher ? [
                 'id' => $assignedTeacher->id,
                 'name' => $assignedTeacher->name,

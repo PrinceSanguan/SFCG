@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useForm } from '@inertiajs/react';
+import { useForm, router } from '@inertiajs/react';
 import { Header } from '@/components/admin/header';
 import { Sidebar } from '@/components/admin/sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle, Trophy, ArrowLeft, Plus } from 'lucide-react';
+import { CheckCircle, Trophy, ArrowLeft, Plus, Upload } from 'lucide-react';
+import { useToast } from '@/components/ui/toast';
 
 interface User {
     name: string;
@@ -87,6 +88,13 @@ interface Strand {
     code?: string;
 }
 
+interface HonorResult {
+    id: number;
+    student_id: number;
+    honor_type_id: number;
+    school_year: string;
+}
+
 interface Filters {
     grade_level?: string;
     section_id?: string;
@@ -99,6 +107,7 @@ interface Props {
     criteria: HonorCriterion[];
     schoolYears: string[];
     qualifiedStudents?: QualifiedStudent[];
+    honorResults?: HonorResult[];
     currentSchoolYear?: string;
     gradeLevels?: GradeLevel;
     sections?: Section[];
@@ -106,7 +115,7 @@ interface Props {
     filters?: Filters;
 }
 
-export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, schoolYears, qualifiedStudents = [], currentSchoolYear = '2024-2025', gradeLevels = {}, sections = [], strands = [], filters }: Props) {
+export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, schoolYears, qualifiedStudents = [], honorResults = [], currentSchoolYear = '2024-2025', gradeLevels = {}, sections = [], strands = [], filters }: Props) {
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const [editingCriterion, setEditingCriterion] = useState<HonorCriterion | null>(null);
     const [editForm, setEditForm] = useState({
@@ -119,6 +128,7 @@ export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, sch
         require_consistent_honor: false,
     });
     const [showAddForm, setShowAddForm] = useState(false);
+    const { addToast } = useToast();
 
     const { data, setData, post, processing, errors, reset } = useForm({
         academic_level_id: '3', // Senior High School level ID
@@ -708,6 +718,44 @@ export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                     </div>
                                 ) : (
                                     <div className="space-y-4">
+                                        <div className="flex items-center justify-between pb-4 border-b">
+                                            <h3 className="text-lg font-semibold text-gray-900">
+                                                Ready to submit {qualifiedStudents.length} student{qualifiedStudents.length !== 1 ? 's' : ''} for approval
+                                            </h3>
+                                            <Button
+                                                onClick={() => {
+                                                    // Check if any qualified student already has an honor result
+                                                    const alreadySubmitted = qualifiedStudents.some((student: any) =>
+                                                        honorResults.some((result: HonorResult) =>
+                                                            result.student_id === student.student.id &&
+                                                            result.school_year === currentSchoolYear
+                                                        )
+                                                    );
+
+                                                    if (alreadySubmitted) {
+                                                        addToast('Some students have already been submitted for approval.', 'warning');
+                                                        return;
+                                                    }
+
+                                                    if (confirm(`Submit ${qualifiedStudents.length} qualified student(s) for principal approval?`)) {
+                                                        router.post(route('admin.academic.honors.senior-high-school.generate-results'), {
+                                                            school_year: currentSchoolYear,
+                                                        }, {
+                                                            onSuccess: () => {
+                                                                addToast(`Successfully submitted ${qualifiedStudents.length} student(s) for approval!`, 'success');
+                                                            },
+                                                            onError: () => {
+                                                                addToast('Failed to submit students for approval. Please try again.', 'error');
+                                                            }
+                                                        });
+                                                    }
+                                                }}
+                                                className="flex items-center gap-2"
+                                            >
+                                                <Upload className="h-4 w-4" />
+                                                Submit for Approval
+                                            </Button>
+                                        </div>
                                         <div className="grid gap-4">
                                             {qualifiedStudents.map((qualifiedStudent, index) => (
                                                 <div 
@@ -753,26 +801,73 @@ export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                                                 <div className="bg-purple-50 p-2 rounded">
                                                                     <span className="font-medium text-purple-700">Honor:</span>
                                                                     <div className="font-bold">
-                                                                        {qualifiedStudent.result?.qualifications?.length ? (
-                                                                            <Badge className="bg-purple-100 text-purple-800 border-purple-200">
-                                                                                {qualifiedStudent.result?.qualifications?.[0]?.honor_type?.name ?? 'N/A'}
-                                                                            </Badge>
-                                                                        ) : (
-                                                                            (() => {
-                                                                                const derived = deriveHonorFromAverage(qualifiedStudent.result?.average_grade);
-                                                                                return derived ? (
-                                                                                    <Badge className="bg-purple-100 text-purple-800 border-purple-200">{derived}</Badge>
-                                                                                ) : (
-                                                                                    <span className="text-gray-500">N/A</span>
+                                                                        {(() => {
+                                                                            // First try to get from qualifications
+                                                                            if (qualifiedStudent.result?.qualifications?.length > 0) {
+                                                                                const honorName = qualifiedStudent.result.qualifications[0]?.honor_type?.name;
+                                                                                if (honorName) {
+                                                                                    return (
+                                                                                        <Badge className="bg-purple-100 text-purple-800 border-purple-200">
+                                                                                            {honorName}
+                                                                                        </Badge>
+                                                                                    );
+                                                                                }
+                                                                            }
+
+                                                                            // Fallback to deriving from average
+                                                                            const derived = deriveHonorFromAverage(qualifiedStudent.result?.average_grade);
+                                                                            if (derived) {
+                                                                                return (
+                                                                                    <Badge className="bg-purple-100 text-purple-800 border-purple-200">
+                                                                                        {derived}
+                                                                                    </Badge>
                                                                                 );
-                                                                            })()
-                                                                        )}
+                                                                            }
+
+                                                                            // If still no honor, show computing message if student is qualified
+                                                                            if (qualifiedStudent.result?.qualified) {
+                                                                                return (
+                                                                                    <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">
+                                                                                        Computing...
+                                                                                    </Badge>
+                                                                                );
+                                                                            }
+
+                                                                            return <span className="text-gray-500">N/A</span>;
+                                                                        })()}
                                                                     </div>
                                                                 </div>
                                                             </div>
                                                         </div>
                                                         <div className="ml-4">
-                                                            <Button variant="outline" size="sm">
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => {
+                                                                    // Show detailed breakdown in alert
+                                                                    const student = qualifiedStudent.student;
+                                                                    const result = qualifiedStudent.result;
+                                                                    const honorName = result?.qualifications?.[0]?.honor_type?.name || deriveHonorFromAverage(result?.average_grade) || 'N/A';
+
+                                                                    const details = `
+Student: ${student.name} (${student.student_number})
+Grade Level: ${student.specific_year_level?.replace('grade_', 'Grade ') || 'N/A'}
+Section: ${student.section?.name || 'N/A'}
+
+Honor: ${honorName}
+Average Grade: ${result?.average_grade?.toFixed(2) || 'N/A'}
+Minimum Grade: ${result?.min_grade?.toFixed(2) || 'N/A'}
+Total Quarters: ${result?.quarter_averages?.length || 0}
+
+Quarter Averages:
+${result?.quarter_averages?.map((avg: number, idx: number) => `Q${idx + 1}: ${avg.toFixed(2)}`).join('\n') || 'No data'}
+
+Reason: ${result?.reason || 'N/A'}
+                                                                    `.trim();
+
+                                                                    alert(details);
+                                                                }}
+                                                            >
                                                                 View Details
                                                             </Button>
                                                         </div>

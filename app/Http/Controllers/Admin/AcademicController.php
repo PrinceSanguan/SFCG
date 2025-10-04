@@ -591,6 +591,62 @@ class AcademicController extends Controller
     }
 
     /**
+     * Generate honor results for all qualified senior high school students
+     */
+    public function generateSeniorHighSchoolHonorResults(Request $request)
+    {
+        $validated = $request->validate([
+            'school_year' => 'required|string',
+        ]);
+
+        $seniorHighSchoolLevel = \App\Models\AcademicLevel::where('key', 'senior_highschool')->first();
+
+        if (!$seniorHighSchoolLevel) {
+            return back()->with('error', 'Senior High School level not found.');
+        }
+
+        $seniorHighSchoolService = new \App\Services\SeniorHighSchoolHonorCalculationService();
+        $result = $seniorHighSchoolService->generateSeniorHighSchoolHonorResults(
+            $seniorHighSchoolLevel->id,
+            $validated['school_year']
+        );
+
+        if ($result['success']) {
+            return back()->with('success', $result['message'] . ' Honor results have been submitted for principal approval.');
+        } else {
+            return back()->with('error', $result['message']);
+        }
+    }
+
+    /**
+     * Generate honor results for all qualified college students
+     */
+    public function generateCollegeHonorResults(Request $request)
+    {
+        $validated = $request->validate([
+            'school_year' => 'required|string',
+        ]);
+
+        $collegeLevel = \App\Models\AcademicLevel::where('key', 'college')->first();
+
+        if (!$collegeLevel) {
+            return back()->with('error', 'College level not found.');
+        }
+
+        $collegeService = new \App\Services\CollegeHonorCalculationService();
+        $result = $collegeService->generateCollegeHonorResults(
+            $collegeLevel->id,
+            $validated['school_year']
+        );
+
+        if ($result['success']) {
+            return back()->with('success', $result['message'] . ' Honor results have been submitted for chairperson approval.');
+        } else {
+            return back()->with('error', $result['message']);
+        }
+    }
+
+    /**
      * Get all qualified junior high school students for honor calculation
      */
     private function getQualifiedJuniorHighSchoolStudents(string $schoolYear, ?string $gradeLevel = null, ?string $sectionId = null): array
@@ -732,8 +788,9 @@ class AcademicController extends Controller
     {
         $seniorHighSchoolService = new \App\Services\SeniorHighSchoolHonorCalculationService();
         $seniorHighSchoolLevel = \App\Models\AcademicLevel::where('key', 'senior_highschool')->first();
-        
+
         if (!$seniorHighSchoolLevel) {
+            Log::warning('SHS Honor Calculation: Senior High School level not found');
             return [];
         }
 
@@ -759,6 +816,8 @@ class AcademicController extends Controller
 
         $students = $studentsQuery->orderBy('name')->get();
 
+        Log::info('SHS Honor Calculation: Processing ' . $students->count() . ' students for school year ' . $schoolYear);
+
         $qualifiedStudents = [];
 
         foreach ($students as $student) {
@@ -768,12 +827,24 @@ class AcademicController extends Controller
                 $schoolYear
             );
 
-            // Include all students with computed results to surface data even if not yet qualified
-            $qualifiedStudents[] = [
-                'student' => $student,
-                'result' => $result
-            ];
+            Log::info('SHS Honor Calculation: Student ' . $student->name . ' - Qualified: ' . ($result['qualified'] ? 'Yes' : 'No'), [
+                'student_id' => $student->id,
+                'average_grade' => $result['average_grade'] ?? 'N/A',
+                'min_grade' => $result['min_grade'] ?? 'N/A',
+                'qualifications_count' => count($result['qualifications'] ?? []),
+                'reason' => $result['reason'] ?? 'N/A'
+            ]);
+
+            // Only include actually qualified students
+            if ($result['qualified']) {
+                $qualifiedStudents[] = [
+                    'student' => $student,
+                    'result' => $result
+                ];
+            }
         }
+
+        Log::info('SHS Honor Calculation: Found ' . count($qualifiedStudents) . ' qualified students');
 
         return $qualifiedStudents;
     }
@@ -1606,6 +1677,52 @@ class AcademicController extends Controller
             return back()->with('error', 'Selected user is not a teacher.');
         }
 
+        // Check if this subject is already assigned to any teacher, adviser, or instructor
+        $existingTeacherAssignment = TeacherSubjectAssignment::where('subject_id', $request->subject_id)
+            ->where('academic_level_id', $request->academic_level_id)
+            ->where('school_year', $request->school_year)
+            ->where('grading_period_id', $request->grading_period_id)
+            ->when($request->grade_level, fn($q) => $q->where('grade_level', $request->grade_level))
+            ->when($request->track_id, fn($q) => $q->where('track_id', $request->track_id))
+            ->when($request->strand_id, fn($q) => $q->where('strand_id', $request->strand_id))
+            ->when($request->department_id, fn($q) => $q->where('department_id', $request->department_id))
+            ->when($request->course_id, fn($q) => $q->where('course_id', $request->course_id))
+            ->with('teacher')
+            ->first();
+
+        if ($existingTeacherAssignment) {
+            $teacherName = $existingTeacherAssignment->teacher ? $existingTeacherAssignment->teacher->name : 'a teacher';
+            return back()->with('error', 'This subject is already assigned to ' . $teacherName . ' (Teacher) for the selected criteria.');
+        }
+
+        // Check adviser assignments
+        $existingAdviserAssignment = \App\Models\ClassAdviserAssignment::where('subject_id', $request->subject_id)
+            ->where('academic_level_id', $request->academic_level_id)
+            ->where('school_year', $request->school_year)
+            ->when($request->grade_level, fn($q) => $q->where('grade_level', $request->grade_level))
+            ->with('adviser')
+            ->first();
+
+        if ($existingAdviserAssignment) {
+            $adviserName = $existingAdviserAssignment->adviser ? $existingAdviserAssignment->adviser->name : 'an adviser';
+            return back()->with('error', 'This subject is already assigned to ' . $adviserName . ' (Adviser) for the selected criteria.');
+        }
+
+        // Check instructor assignments
+        $existingInstructorAssignment = \App\Models\InstructorSubjectAssignment::where('subject_id', $request->subject_id)
+            ->where('academic_level_id', $request->academic_level_id)
+            ->where('school_year', $request->school_year)
+            ->when($request->grading_period_id, fn($q) => $q->where('grading_period_id', $request->grading_period_id))
+            ->when($request->department_id, fn($q) => $q->where('department_id', $request->department_id))
+            ->when($request->course_id, fn($q) => $q->where('course_id', $request->course_id))
+            ->with('instructor')
+            ->first();
+
+        if ($existingInstructorAssignment) {
+            $instructorName = $existingInstructorAssignment->instructor ? $existingInstructorAssignment->instructor->name : 'an instructor';
+            return back()->with('error', 'This subject is already assigned to ' . $instructorName . ' (Instructor) for the selected criteria.');
+        }
+
         $assignment = TeacherSubjectAssignment::create([
             'teacher_id' => $request->teacher_id,
             'subject_id' => $request->subject_id,
@@ -1620,6 +1737,18 @@ class AcademicController extends Controller
             'assigned_by' => Auth::id(),
             'notes' => $request->notes,
         ]);
+
+        // Auto-enroll students in the subject for all academic levels
+        $subject = Subject::find($request->subject_id);
+        if ($subject) {
+            $this->autoEnrollStudentsInSubject($subject, $request->school_year, [
+                'grade_level' => $request->grade_level,
+                'strand_id' => $request->strand_id,
+                'track_id' => $request->track_id,
+                'department_id' => $request->department_id,
+                'course_id' => $request->course_id,
+            ]);
+        }
 
         // Log activity
         ActivityLog::create([
@@ -1713,8 +1842,49 @@ class AcademicController extends Controller
             return back()->with('error', 'Selected user is not an instructor.');
         }
 
-        // Check for existing assignment to provide better error message
-        $existingAssignment = InstructorCourseAssignment::where([
+        // Check if this subject is already assigned to any instructor, teacher, or adviser
+        $existingInstructorAssignment = \App\Models\InstructorSubjectAssignment::where('subject_id', $request->subject_id)
+            ->where('academic_level_id', $request->academic_level_id)
+            ->where('school_year', $request->school_year)
+            ->when($request->grading_period_id, fn($q) => $q->where('grading_period_id', $request->grading_period_id))
+            ->when($request->department_id, fn($q) => $q->where('department_id', $request->department_id))
+            ->when($request->course_id, fn($q) => $q->where('course_id', $request->course_id))
+            ->with('instructor')
+            ->first();
+
+        if ($existingInstructorAssignment) {
+            $instructorName = $existingInstructorAssignment->instructor ? $existingInstructorAssignment->instructor->name : 'an instructor';
+            return back()->with('error', 'This subject is already assigned to ' . $instructorName . ' (Instructor) for the selected criteria.');
+        }
+
+        // Check teacher assignments
+        $existingTeacherAssignment = TeacherSubjectAssignment::where('subject_id', $request->subject_id)
+            ->where('academic_level_id', $request->academic_level_id)
+            ->where('school_year', $request->school_year)
+            ->when($request->department_id, fn($q) => $q->where('department_id', $request->department_id))
+            ->when($request->course_id, fn($q) => $q->where('course_id', $request->course_id))
+            ->with('teacher')
+            ->first();
+
+        if ($existingTeacherAssignment) {
+            $teacherName = $existingTeacherAssignment->teacher ? $existingTeacherAssignment->teacher->name : 'a teacher';
+            return back()->with('error', 'This subject is already assigned to ' . $teacherName . ' (Teacher) for the selected criteria.');
+        }
+
+        // Check adviser assignments
+        $existingAdviserAssignment = \App\Models\ClassAdviserAssignment::where('subject_id', $request->subject_id)
+            ->where('academic_level_id', $request->academic_level_id)
+            ->where('school_year', $request->school_year)
+            ->with('adviser')
+            ->first();
+
+        if ($existingAdviserAssignment) {
+            $adviserName = $existingAdviserAssignment->adviser ? $existingAdviserAssignment->adviser->name : 'an adviser';
+            return back()->with('error', 'This subject is already assigned to ' . $adviserName . ' (Adviser) for the selected criteria.');
+        }
+
+        // Check for existing course assignment to provide better error message
+        $existingCourseAssignment = InstructorCourseAssignment::where([
             'instructor_id' => $request->instructor_id,
             'course_id' => $request->course_id,
             'academic_level_id' => $request->academic_level_id,
@@ -1722,7 +1892,7 @@ class AcademicController extends Controller
             'school_year' => $request->school_year,
         ])->first();
 
-        if ($existingAssignment) {
+        if ($existingCourseAssignment) {
             return back()->with('error', 'This instructor is already assigned to this course for the specified period and school year. Please check existing assignments or modify the current one.');
         }
 
@@ -1764,6 +1934,13 @@ class AcademicController extends Controller
                 'assigned_by' => Auth::id(),
                 'is_active' => true,
                 'notes' => $request->notes,
+            ]);
+
+            // Auto-enroll students in this subject
+            $this->autoEnrollStudentsInSubject($subject, $request->school_year, [
+                'grade_level' => $request->year_level,
+                'department_id' => $request->department_id,
+                'course_id' => $request->course_id,
             ]);
         }
 
@@ -1901,6 +2078,44 @@ class AcademicController extends Controller
         $subject = Subject::find($request->subject_id);
         if (!$subject) {
             return back()->with('error', 'Subject not found.');
+        }
+
+        // Check if this subject is already assigned to any adviser, teacher, or instructor
+        $existingAdviserAssignment = \App\Models\ClassAdviserAssignment::where('subject_id', $request->subject_id)
+            ->where('academic_level_id', $request->academic_level_id)
+            ->where('school_year', $request->school_year)
+            ->when($request->grade_level, fn($q) => $q->where('grade_level', $request->grade_level))
+            ->with('adviser')
+            ->first();
+
+        if ($existingAdviserAssignment) {
+            $adviserName = $existingAdviserAssignment->adviser ? $existingAdviserAssignment->adviser->name : 'an adviser';
+            return back()->with('error', 'This subject is already assigned to ' . $adviserName . ' (Adviser) for the selected criteria.');
+        }
+
+        // Check teacher assignments
+        $existingTeacherAssignment = TeacherSubjectAssignment::where('subject_id', $request->subject_id)
+            ->where('academic_level_id', $request->academic_level_id)
+            ->where('school_year', $request->school_year)
+            ->when($request->grade_level, fn($q) => $q->where('grade_level', $request->grade_level))
+            ->with('teacher')
+            ->first();
+
+        if ($existingTeacherAssignment) {
+            $teacherName = $existingTeacherAssignment->teacher ? $existingTeacherAssignment->teacher->name : 'a teacher';
+            return back()->with('error', 'This subject is already assigned to ' . $teacherName . ' (Teacher) for the selected criteria.');
+        }
+
+        // Check instructor assignments
+        $existingInstructorAssignment = \App\Models\InstructorSubjectAssignment::where('subject_id', $request->subject_id)
+            ->where('academic_level_id', $request->academic_level_id)
+            ->where('school_year', $request->school_year)
+            ->with('instructor')
+            ->first();
+
+        if ($existingInstructorAssignment) {
+            $instructorName = $existingInstructorAssignment->instructor ? $existingInstructorAssignment->instructor->name : 'an instructor';
+            return back()->with('error', 'This subject is already assigned to ' . $instructorName . ' (Instructor) for the selected criteria.');
         }
 
         // Use the new TeacherStudentAssignmentService for automatic assignment
@@ -2055,6 +2270,204 @@ class AcademicController extends Controller
         ]);
 
         return back()->with('success', 'Class adviser assignment removed successfully!');
+    }
+
+    /**
+     * Sync students for all existing teacher assignments (for SHS only to not affect Elementary/JHS)
+     */
+    public function syncExistingTeacherAssignments(Request $request)
+    {
+        $schoolYear = $request->input('school_year', '2024-2025');
+
+        // Get all SHS teacher assignments (academic_level_id = 3)
+        $assignments = TeacherSubjectAssignment::where('school_year', $schoolYear)
+            ->where('academic_level_id', 3) // Only SHS
+            ->with('subject')
+            ->get();
+
+        $totalEnrolled = 0;
+        $processedAssignments = 0;
+
+        foreach ($assignments as $assignment) {
+            if (!$assignment->subject) {
+                continue;
+            }
+
+            $enrolled = $this->autoEnrollStudentsInSubject($assignment->subject, $schoolYear, [
+                'grade_level' => $assignment->grade_level,
+                'strand_id' => $assignment->strand_id,
+                'track_id' => $assignment->track_id,
+                'department_id' => $assignment->department_id,
+                'course_id' => $assignment->course_id,
+            ]);
+
+            $totalEnrolled += $enrolled;
+            $processedAssignments++;
+        }
+
+        Log::info('Completed sync of existing teacher assignments', [
+            'school_year' => $schoolYear,
+            'processed_assignments' => $processedAssignments,
+            'total_students_enrolled' => $totalEnrolled,
+        ]);
+
+        return back()->with('success', "Synced {$processedAssignments} teacher assignments. Enrolled {$totalEnrolled} students.");
+    }
+
+    /**
+     * Auto-enroll students in a subject based on section, grade level, and strand
+     */
+    private function autoEnrollStudentsInSubject(Subject $subject, string $schoolYear, array $criteria = []): int
+    {
+        $enrolledCount = 0;
+
+        try {
+            Log::info('=== Starting Auto-Enrollment ===', [
+                'subject_id' => $subject->id,
+                'subject_name' => $subject->name,
+                'subject_code' => $subject->code,
+                'subject_section_id' => $subject->section_id,
+                'subject_academic_level_id' => $subject->academic_level_id,
+                'subject_strand_id' => $subject->strand_id,
+                'school_year' => $schoolYear,
+                'criteria' => $criteria,
+            ]);
+
+            // Get academic level to match with student's year_level
+            $academicLevel = \App\Models\AcademicLevel::find($subject->academic_level_id);
+            if (!$academicLevel) {
+                Log::warning('Academic level not found for subject', [
+                    'subject_id' => $subject->id,
+                    'academic_level_id' => $subject->academic_level_id,
+                ]);
+                return 0;
+            }
+
+            Log::info('Academic level found', [
+                'academic_level_id' => $academicLevel->id,
+                'academic_level_key' => $academicLevel->key,
+                'academic_level_name' => $academicLevel->name,
+            ]);
+
+            // Build query to find matching students
+            $studentsQuery = User::where('user_role', 'student')
+                ->where('year_level', $academicLevel->key);
+
+            Log::info('Base student query built', [
+                'year_level' => $academicLevel->key,
+            ]);
+
+            // Filter by section if subject has a section
+            if ($subject->section_id) {
+                $studentsQuery->where('section_id', $subject->section_id);
+                Log::info('Applied section filter', ['section_id' => $subject->section_id]);
+            }
+
+            // Filter by grade level (specific_year_level for all levels)
+            if (isset($criteria['grade_level']) && $criteria['grade_level']) {
+                $studentsQuery->where('specific_year_level', $criteria['grade_level']);
+                Log::info('Applied grade_level filter', ['grade_level' => $criteria['grade_level']]);
+            }
+
+            // Filter by strand for SHS
+            if (isset($criteria['strand_id']) && $criteria['strand_id']) {
+                $studentsQuery->where('strand_id', $criteria['strand_id']);
+                Log::info('Applied strand filter', ['strand_id' => $criteria['strand_id']]);
+            }
+
+            // Filter by track for SHS
+            if (isset($criteria['track_id']) && $criteria['track_id']) {
+                $studentsQuery->where('track_id', $criteria['track_id']);
+                Log::info('Applied track filter', ['track_id' => $criteria['track_id']]);
+            }
+
+            // Filter by department for College
+            if (isset($criteria['department_id']) && $criteria['department_id']) {
+                $studentsQuery->where('department_id', $criteria['department_id']);
+                Log::info('Applied department filter', ['department_id' => $criteria['department_id']]);
+            }
+
+            // Filter by course for College
+            if (isset($criteria['course_id']) && $criteria['course_id']) {
+                $studentsQuery->where('course_id', $criteria['course_id']);
+                Log::info('Applied course filter', ['course_id' => $criteria['course_id']]);
+            }
+
+            // Log the SQL query
+            Log::info('Student query SQL', [
+                'sql' => $studentsQuery->toSql(),
+                'bindings' => $studentsQuery->getBindings(),
+            ]);
+
+            $students = $studentsQuery->get();
+
+            Log::info('Students found', [
+                'count' => $students->count(),
+                'student_ids' => $students->pluck('id')->toArray(),
+                'student_names' => $students->pluck('name')->toArray(),
+            ]);
+
+            foreach ($students as $student) {
+                // Check if student is already enrolled in this subject
+                $existingAssignment = \App\Models\StudentSubjectAssignment::where([
+                    'student_id' => $student->id,
+                    'subject_id' => $subject->id,
+                    'school_year' => $schoolYear,
+                ])->first();
+
+                if ($existingAssignment) {
+                    // Update existing assignment to active
+                    if (!$existingAssignment->is_active) {
+                        $existingAssignment->update(['is_active' => true]);
+                        Log::info('Reactivated student subject assignment', [
+                            'student_id' => $student->id,
+                            'student_name' => $student->name,
+                            'subject_id' => $subject->id,
+                            'subject_name' => $subject->name,
+                        ]);
+                    }
+                    $enrolledCount++;
+                    continue;
+                }
+
+                // Create new student subject assignment
+                \App\Models\StudentSubjectAssignment::create([
+                    'student_id' => $student->id,
+                    'subject_id' => $subject->id,
+                    'school_year' => $schoolYear,
+                    'is_active' => true,
+                    'enrolled_by' => Auth::id(),
+                ]);
+
+                Log::info('Auto-enrolled student in subject when teacher assigned', [
+                    'student_id' => $student->id,
+                    'student_name' => $student->name,
+                    'subject_id' => $subject->id,
+                    'subject_name' => $subject->name,
+                    'section_id' => $subject->section_id,
+                    'section_name' => $subject->section ? $subject->section->name : null,
+                    'grade_level' => $criteria['grade_level'] ?? null,
+                    'strand_id' => $criteria['strand_id'] ?? null,
+                ]);
+
+                $enrolledCount++;
+            }
+
+            Log::info('Completed auto-enrollment for subject', [
+                'subject_id' => $subject->id,
+                'subject_name' => $subject->name,
+                'students_enrolled' => $enrolledCount,
+            ]);
+
+            return $enrolledCount;
+        } catch (\Exception $e) {
+            Log::error('Failed to auto-enroll students in subject', [
+                'subject_id' => $subject->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return 0;
+        }
     }
 }
 

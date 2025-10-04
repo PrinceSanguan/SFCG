@@ -361,4 +361,70 @@ class CollegeHonorCalculationService
 
         return $qualifiedStudents;
     }
+
+    /**
+     * Generate honor results for all college students
+     */
+    public function generateCollegeHonorResults(int $academicLevelId, string $schoolYear): array
+    {
+        $academicLevel = AcademicLevel::find($academicLevelId);
+
+        if (!$academicLevel || $academicLevel->key !== 'college') {
+            return [
+                'success' => false,
+                'message' => 'Invalid academic level or not college level'
+            ];
+        }
+
+        $students = User::where('user_role', 'student')
+            ->where('year_level', 'college')
+            ->get();
+
+        $results = [];
+        $totalProcessed = 0;
+        $totalQualified = 0;
+
+        foreach ($students as $student) {
+            $qualification = $this->calculateCollegeHonorQualification(
+                $student->id,
+                $academicLevelId,
+                $schoolYear
+            );
+
+            $totalProcessed++;
+
+            if ($qualification['qualified']) {
+                $totalQualified++;
+
+                // Store honor results in database
+                foreach ($qualification['qualifications'] as $qual) {
+                    HonorResult::updateOrCreate([
+                        'student_id' => $student->id,
+                        'honor_type_id' => $qual['honor_type']->id,
+                        'academic_level_id' => $academicLevelId,
+                        'school_year' => $schoolYear,
+                    ], [
+                        'gpa' => $qualification['average_grade'],
+                        'is_overridden' => false,
+                        'is_pending_approval' => true,
+                        'is_approved' => false,
+                        'is_rejected' => false,
+                    ]);
+                }
+
+                $results[] = [
+                    'student' => $student,
+                    'qualification' => $qualification
+                ];
+            }
+        }
+
+        return [
+            'success' => true,
+            'message' => "Processed {$totalProcessed} students, {$totalQualified} qualified for honors",
+            'total_processed' => $totalProcessed,
+            'total_qualified' => $totalQualified,
+            'results' => $results
+        ];
+    }
 }

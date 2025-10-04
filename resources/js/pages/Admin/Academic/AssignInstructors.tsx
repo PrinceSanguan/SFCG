@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import { Header } from '@/components/admin/header';
 import { Sidebar } from '@/components/admin/sidebar';
 import { Card, CardContent } from '@/components/ui/card';
@@ -102,6 +102,18 @@ interface Props {
 
 export default function AssignInstructors({ user, assignments, instructors, departments, courses, subjects, gradingPeriods, academicLevels, yearLevels }: Props) {
     const { addToast } = useToast();
+    const { props } = usePage<any>();
+
+    // Handle flash messages
+    useEffect(() => {
+        if (props.flash?.success) {
+            addToast(props.flash.success, 'success');
+        }
+        if (props.flash?.error) {
+            addToast(props.flash.error, 'error');
+        }
+    }, [props.flash]);
+
     const [assignmentForm, setAssignmentForm] = useState({
         instructor_id: '',
         year_level: '',
@@ -213,12 +225,10 @@ export default function AssignInstructors({ user, assignments, instructors, depa
             academic_level_id: collegeLevel?.id,
         }, {
             onSuccess: () => {
-                addToast('Instructor assigned successfully!', 'success');
                 setAssignmentModal(false);
                 resetForm();
             },
             onError: (errors) => {
-                addToast('Failed to assign instructor. Please try again.', 'error');
                 console.error(errors);
             },
         });
@@ -227,17 +237,15 @@ export default function AssignInstructors({ user, assignments, instructors, depa
     const updateAssignment = (e: React.FormEvent) => {
         e.preventDefault();
         if (!editAssignment) return;
-        
+
         router.put(`/admin/academic/assign-instructors/${editAssignment.id}`, {
             ...assignmentForm,
             academic_level_id: collegeLevel?.id,
         }, {
             onSuccess: () => {
-                addToast('Instructor assignment updated successfully!', 'success');
                 setEditModal(false);
             },
             onError: (errors) => {
-                addToast('Failed to update instructor assignment. Please try again.', 'error');
                 console.error(errors);
             },
         });
@@ -247,10 +255,9 @@ export default function AssignInstructors({ user, assignments, instructors, depa
         if (confirm('Are you sure you want to delete this assignment?')) {
             router.delete(`/admin/academic/assign-instructors/${id}`, {
                 onSuccess: () => {
-                    addToast('Instructor assignment removed successfully!', 'success');
+                    // Flash message will be handled by useEffect
                 },
                 onError: (errors) => {
-                    addToast('Failed to remove instructor assignment. Please try again.', 'error');
                     console.error(errors);
                 },
             });

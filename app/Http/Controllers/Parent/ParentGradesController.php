@@ -123,13 +123,18 @@ class ParentGradesController extends Controller
         $gradingPeriods = \App\Models\GradingPeriod::where('academic_level_id', $firstGrade->academic_level_id)
             ->where('is_active', true)
             ->orderBy('sort_order')
-            ->get(['id', 'name', 'code', 'type', 'sort_order']);
+            ->get(['id', 'name', 'code', 'type', 'period_type', 'parent_id', 'sort_order']);
 
         return Inertia::render('Parent/Grades/Show', [
             'user' => $user,
             'schoolYear' => $schoolYear,
             'student' => $student,
-            'subject' => $subject,
+            'subject' => [
+                'id' => $subject->id,
+                'name' => $subject->name,
+                'code' => $subject->code,
+                'academic_level_id' => $firstGrade->academic_level_id,
+            ],
             'grades' => $grades,
             'gradingPeriods' => $gradingPeriods,
         ]);

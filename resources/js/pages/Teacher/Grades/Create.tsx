@@ -67,6 +67,10 @@ interface GradingPeriod {
     id: number;
     name: string;
     code: string;
+    type: string;
+    period_type: string;
+    semester_number: number | null;
+    parent_id: number | null;
     start_date: string;
     end_date: string;
     sort_order: number;
@@ -89,45 +93,6 @@ interface CreateProps {
 }
 
 export default function Create({ user, academicLevels, gradingPeriods, assignedSubjects, selectedStudent }: CreateProps) {
-    // Get the academic levels that the teacher is actually assigned to teach
-    const teacherAcademicLevels = assignedSubjects.map(subject => subject.academicLevel);
-    
-    // Get grading periods that are relevant to the teacher's assigned subjects
-    const teacherGradingPeriods = gradingPeriods.filter(period => 
-        teacherAcademicLevels.some(level => level.id === period.academic_level_id)
-    );
-    
-    // Create quarter options based on what the teacher actually has access to
-    const getQuarterOptions = () => {
-        const availableQuarters = new Set<number>();
-        
-        // Check which quarters are available for the teacher's academic levels
-        teacherGradingPeriods.forEach(period => {
-            if (period.code.includes('Q1')) availableQuarters.add(1);
-            if (period.code.includes('Q2')) availableQuarters.add(2);
-            if (period.code.includes('Q3')) availableQuarters.add(3);
-            if (period.code.includes('Q4')) availableQuarters.add(4);
-        });
-        
-        // Convert to array and sort
-        return Array.from(availableQuarters)
-            .sort()
-            .map((quarter: number) => ({
-                id: quarter,
-                name: `${quarter}${quarter === 1 ? 'st' : quarter === 2 ? 'nd' : quarter === 3 ? 'rd' : 'th'} Quarter`,
-                value: quarter.toString()
-            }));
-    };
-    
-    const quarterOptions = getQuarterOptions();
-    
-    // Debug logging to see what's available
-    console.log('Teacher Create component data:', {
-        teacherAcademicLevels: teacherAcademicLevels.map(level => ({ id: level.id, name: level.name, key: level.key })),
-        teacherGradingPeriods: teacherGradingPeriods.map(period => ({ id: period.id, name: period.name, code: period.code, academic_level_id: period.academic_level_id })),
-        availableQuarters: quarterOptions.map(q => q.name)
-    });
-    
     const { data, setData, post, processing, errors } = useForm({
         student_id: '',
         subject_id: '',
@@ -226,34 +191,13 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        
-        // Map quarter values back to grading period IDs
-        const formData = { ...data };
-        if (data.grading_period_id && data.grading_period_id !== '0') {
-            // Find the grading period that matches the selected quarter and academic level
-            const currentLevel = academicLevels.find(l => l.id.toString() === data.academic_level_id);
-            if (currentLevel) {
-                // Use the filtered grading periods that are relevant to the teacher
-                const matchingPeriod = teacherGradingPeriods.find(period => 
-                    period.academic_level_id === currentLevel.id && 
-                    period.code.includes(`Q${data.grading_period_id}`)
-                );
-                if (matchingPeriod) {
-                    formData.grading_period_id = matchingPeriod.id.toString();
-                }
-            }
-        }
-        
-        // Debug logging
-        console.log('Form submitted with data:', formData);
-        console.log('Has pre-selected student:', hasPreSelectedStudent);
-        
+
         post(route('teacher.grades.store'), {
             onSuccess: () => {
-                console.log('Grade created successfully');
+                // Grade created successfully
             },
             onError: (errors) => {
-                console.log('Grade creation failed:', errors);
+                // Grade creation failed
             },
         });
     };
@@ -372,33 +316,52 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                                         <SelectItem value="0">No Period</SelectItem>
                                                         {gradingPeriods && gradingPeriods.length > 0 ? (
                                                             <>
-                                                                {/* First Semester */}
-                                                                <SelectGroup>
-                                                                    <SelectLabel>First Semester</SelectLabel>
-                                                                    {gradingPeriods
-                                                                        .filter(period => period.code.startsWith('SHS_S1_') && !period.code.includes('_FA'))
-                                                                        .sort((a, b) => a.sort_order - b.sort_order)
-                                                                        .map((period) => (
-                                                                            <SelectItem key={period.id} value={period.id.toString()}>
-                                                                                {period.name}
-                                                                            </SelectItem>
-                                                                        ))
-                                                                    }
-                                                                </SelectGroup>
+                                                                {(() => {
+                                                                    // Filter grading periods for the current academic level
+                                                                    const currentAcademicLevelId = parseInt(data.academic_level_id);
+                                                                    const allRelevantPeriods = gradingPeriods.filter(
+                                                                        period => period.academic_level_id === currentAcademicLevelId
+                                                                    );
 
-                                                                {/* Second Semester */}
-                                                                <SelectGroup>
-                                                                    <SelectLabel>Second Semester</SelectLabel>
-                                                                    {gradingPeriods
-                                                                        .filter(period => period.code.startsWith('SHS_S2_') && !period.code.includes('_FA'))
-                                                                        .sort((a, b) => a.sort_order - b.sort_order)
-                                                                        .map((period) => (
-                                                                            <SelectItem key={period.id} value={period.id.toString()}>
-                                                                                {period.name}
+                                                                    // Separate parent semesters and child periods
+                                                                    const parentSemesters = allRelevantPeriods.filter(p => p.parent_id === null && p.type === 'semester');
+                                                                    const childPeriods = allRelevantPeriods.filter(p => p.parent_id !== null && p.period_type !== 'final');
+
+                                                                    if (parentSemesters.length === 0 && childPeriods.length === 0) {
+                                                                        return (
+                                                                            <SelectItem value="none" disabled>
+                                                                                No grading periods available for this academic level
                                                                             </SelectItem>
-                                                                        ))
+                                                                        );
                                                                     }
-                                                                </SelectGroup>
+
+                                                                    // Group child periods by parent
+                                                                    const groupedPeriods = parentSemesters
+                                                                        .sort((a, b) => a.sort_order - b.sort_order)
+                                                                        .map(parent => ({
+                                                                            parent,
+                                                                            children: childPeriods
+                                                                                .filter(child => child.parent_id === parent.id)
+                                                                                .sort((a, b) => a.sort_order - b.sort_order)
+                                                                        }));
+
+                                                                    return (
+                                                                        <>
+                                                                            {groupedPeriods.map(({ parent, children }) => (
+                                                                                children.length > 0 && (
+                                                                                    <SelectGroup key={parent.id}>
+                                                                                        <SelectLabel>{parent.name}</SelectLabel>
+                                                                                        {children.map((period) => (
+                                                                                            <SelectItem key={period.id} value={period.id.toString()}>
+                                                                                                {period.name}
+                                                                                            </SelectItem>
+                                                                                        ))}
+                                                                                    </SelectGroup>
+                                                                                )
+                                                                            ))}
+                                                                        </>
+                                                                    );
+                                                                })()}
                                                             </>
                                                         ) : (
                                                             <SelectItem value="none" disabled>
@@ -411,10 +374,7 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                                     <p className="text-sm text-red-500 mt-1">{errors.grading_period_id}</p>
                                                 )}
                                                 <p className="text-sm text-muted-foreground mt-1">
-                                                    {quarterOptions.length > 0 
-                                                        ? 'Select which grading period this grade belongs to'
-                                                        : 'No grading periods are configured for your assigned subjects'
-                                                    }
+                                                    Select which grading period this grade belongs to
                                                 </p>
                                             </div>
                                         </div>
@@ -507,11 +467,60 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="0">No Period</SelectItem>
-                                                    {quarterOptions.map((quarter) => (
-                                                        <SelectItem key={quarter.id} value={quarter.value}>
-                                                            {quarter.name}
-                                                        </SelectItem>
-                                                    ))}
+                                                    {gradingPeriods && gradingPeriods.length > 0 ? (
+                                                        <>
+                                                            {(() => {
+                                                                // Filter grading periods for the current academic level
+                                                                const currentAcademicLevelId = parseInt(data.academic_level_id);
+                                                                if (!currentAcademicLevelId) {
+                                                                    return null;
+                                                                }
+
+                                                                const allRelevantPeriods = gradingPeriods.filter(
+                                                                    period => period.academic_level_id === currentAcademicLevelId
+                                                                );
+
+                                                                // Separate parent semesters and child periods
+                                                                const parentSemesters = allRelevantPeriods.filter(p => p.parent_id === null && p.type === 'semester');
+                                                                const childPeriods = allRelevantPeriods.filter(p => p.parent_id !== null && p.period_type !== 'final');
+
+                                                                if (parentSemesters.length === 0 && childPeriods.length === 0) {
+                                                                    return (
+                                                                        <SelectItem value="none" disabled>
+                                                                            No grading periods available for this academic level
+                                                                        </SelectItem>
+                                                                    );
+                                                                }
+
+                                                                // Group child periods by parent
+                                                                const groupedPeriods = parentSemesters
+                                                                    .sort((a, b) => a.sort_order - b.sort_order)
+                                                                    .map(parent => ({
+                                                                        parent,
+                                                                        children: childPeriods
+                                                                            .filter(child => child.parent_id === parent.id)
+                                                                            .sort((a, b) => a.sort_order - b.sort_order)
+                                                                    }));
+
+                                                                return (
+                                                                    <>
+                                                                        {groupedPeriods.map(({ parent, children }) => (
+                                                                            children.length > 0 && (
+                                                                                <SelectGroup key={parent.id}>
+                                                                                    <SelectLabel>{parent.name}</SelectLabel>
+                                                                                    {children.map((period) => (
+                                                                                        <SelectItem key={period.id} value={period.id.toString()}>
+                                                                                            {period.name}
+                                                                                        </SelectItem>
+                                                                                    ))}
+                                                                                </SelectGroup>
+                                                                            )
+                                                                        ))}
+                                                                    </>
+                                                                );
+                                                            })()}
+                                                        </>
+                                                    ) : null}
                                                 </SelectContent>
                                             </Select>
                                         </div>

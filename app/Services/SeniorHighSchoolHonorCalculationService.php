@@ -19,9 +19,16 @@ class SeniorHighSchoolHonorCalculationService
      */
     public function calculateSeniorHighSchoolHonorQualification(int $studentId, int $academicLevelId, string $schoolYear): array
     {
+        \Log::info("=== SHS Honor Calculation START ===", [
+            'student_id' => $studentId,
+            'academic_level_id' => $academicLevelId,
+            'school_year' => $schoolYear
+        ]);
+
         $academicLevel = AcademicLevel::find($academicLevelId);
-        
+
         if (!$academicLevel || $academicLevel->key !== 'senior_highschool') {
+            \Log::warning('SHS Honor: Invalid academic level', ['academic_level_id' => $academicLevelId]);
             return [
                 'qualified' => false,
                 'reason' => 'Invalid academic level or not senior high school level'
@@ -30,6 +37,7 @@ class SeniorHighSchoolHonorCalculationService
 
         $student = User::find($studentId);
         if (!$student || $student->user_role !== 'student') {
+            \Log::warning('SHS Honor: Student not found or invalid role', ['student_id' => $studentId]);
             return [
                 'qualified' => false,
                 'reason' => 'Student not found'
@@ -44,7 +52,13 @@ class SeniorHighSchoolHonorCalculationService
             ->orderBy('sort_order')
             ->get();
 
+        \Log::info('SHS Honor: Found grading periods', [
+            'count' => $periods->count(),
+            'periods' => $periods->pluck('name', 'id')->toArray()
+        ]);
+
         if ($periods->isEmpty()) {
+            \Log::warning('SHS Honor: No grading periods found');
             return [
                 'qualified' => false,
                 'reason' => 'No grading periods found for senior high school level'
@@ -70,7 +84,17 @@ class SeniorHighSchoolHonorCalculationService
             ->whereIn('grading_period_id', $periods->pluck('id'))
             ->get();
 
+        \Log::info('SHS Honor: Found grades', [
+            'count' => $grades->count(),
+            'grades' => $grades->map(fn($g) => [
+                'subject_id' => $g->subject_id,
+                'period_id' => $g->grading_period_id,
+                'grade' => $g->grade
+            ])->toArray()
+        ]);
+
         if ($grades->isEmpty()) {
+            \Log::warning('SHS Honor: No grades found for student');
             return [
                 'qualified' => false,
                 'reason' => 'No grades found for the student in the specified school year'
@@ -98,22 +122,40 @@ class SeniorHighSchoolHonorCalculationService
         }
         
         if ($totalWeight == 0) {
+            \Log::warning('SHS Honor: No semester averages could be calculated');
             return [
                 'qualified' => false,
                 'reason' => 'No semester averages could be calculated'
             ];
         }
-        
+
         $averageGrade = $totalWeightedGrade / $totalWeight;
         $averageGrade = round($averageGrade, 2);
-        
+
         // Get minimum grade across all periods for criteria checking
         $minGrade = !empty($allGrades) ? min($allGrades) : 0;
+
+        \Log::info('SHS Honor: Calculated averages', [
+            'average_grade' => $averageGrade,
+            'min_grade' => $minGrade,
+            'total_grades' => count($allGrades)
+        ]);
 
         // Get all honor criteria for senior high school level
         $criteria = HonorCriterion::where('academic_level_id', $academicLevelId)
             ->with('honorType')
             ->get();
+
+        \Log::info('SHS Honor: Found criteria', [
+            'count' => $criteria->count(),
+            'criteria' => $criteria->map(fn($c) => [
+                'honor_type' => $c->honorType->name ?? 'Unknown',
+                'min_gpa' => $c->min_gpa,
+                'max_gpa' => $c->max_gpa,
+                'min_grade' => $c->min_grade,
+                'min_grade_all' => $c->min_grade_all
+            ])->toArray()
+        ]);
 
         $qualifications = [];
 
@@ -153,21 +195,42 @@ class SeniorHighSchoolHonorCalculationService
             }
 
             if ($qualifies) {
+                \Log::info('SHS Honor: Student qualifies for honor', [
+                    'honor_type' => $criterion->honorType->name ?? 'Unknown',
+                    'average_grade' => $averageGrade,
+                    'min_grade' => $minGrade
+                ]);
                 $qualifications[] = [
                     'honor_type' => $criterion->honorType,
                     'criterion' => $criterion,
                     'gpa' => $averageGrade,
                     'min_grade' => $minGrade,
-                    'semester_periods' => $periods->pluck('name', 'code')->toArray()
+                    'semester_periods' => $periods->pluck('name', 'code')->toArray(),
+                    'quarter_averages' => $periods->map(function($period) use ($grades) {
+                        $periodGrades = $grades->where('grading_period_id', $period->id);
+                        return $periodGrades->isNotEmpty() ? round($periodGrades->avg('grade'), 2) : null;
+                    })->filter()->values()->toArray()
                 ];
+            } else {
+                \Log::info('SHS Honor: Student does not qualify for honor', [
+                    'honor_type' => $criterion->honorType->name ?? 'Unknown',
+                    'reason' => $reason
+                ]);
             }
         }
 
-        return [
+        // Calculate quarter averages for display
+        $quarterAverages = $periods->map(function($period) use ($grades) {
+            $periodGrades = $grades->where('grading_period_id', $period->id);
+            return $periodGrades->isNotEmpty() ? round($periodGrades->avg('grade'), 2) : null;
+        })->filter()->values()->toArray();
+
+        $result = [
             'qualified' => !empty($qualifications),
             'qualifications' => $qualifications,
             'average_grade' => $averageGrade,
             'min_grade' => $minGrade,
+            'quarter_averages' => $quarterAverages,
             'semester_periods' => $periods->pluck('name', 'code')->toArray(),
             'total_subjects' => $grades->groupBy('subject_id')->count(),
             'grades_breakdown' => $this->getGradesBreakdown($grades, $periods, $semesterGroups),
@@ -177,6 +240,15 @@ class SeniorHighSchoolHonorCalculationService
             ],
             'reason' => empty($qualifications) ? 'No honor criteria met' : 'Qualified for honors'
         ];
+
+        \Log::info("=== SHS Honor Calculation END ===", [
+            'qualified' => $result['qualified'],
+            'qualifications_count' => count($qualifications),
+            'average_grade' => $averageGrade,
+            'reason' => $result['reason']
+        ]);
+
+        return $result;
     }
 
     /**
@@ -311,5 +383,94 @@ class SeniorHighSchoolHonorCalculationService
         }
 
         return $qualifiedStudents;
+    }
+
+    /**
+     * Generate honor results for all senior high school students
+     */
+    public function generateSeniorHighSchoolHonorResults(int $academicLevelId, string $schoolYear): array
+    {
+        \Log::info('=== GENERATE SHS HONOR RESULTS START ===', [
+            'academic_level_id' => $academicLevelId,
+            'school_year' => $schoolYear
+        ]);
+
+        $academicLevel = AcademicLevel::find($academicLevelId);
+
+        if (!$academicLevel || $academicLevel->key !== 'senior_highschool') {
+            \Log::warning('SHS Honor Generation: Invalid academic level');
+            return [
+                'success' => false,
+                'message' => 'Invalid academic level or not senior high school level'
+            ];
+        }
+
+        $students = User::where('user_role', 'student')
+            ->where('year_level', 'senior_highschool')
+            ->get();
+
+        \Log::info('SHS Honor Generation: Processing students', ['count' => $students->count()]);
+
+        $results = [];
+        $totalProcessed = 0;
+        $totalQualified = 0;
+
+        foreach ($students as $student) {
+            $qualification = $this->calculateSeniorHighSchoolHonorQualification(
+                $student->id,
+                $academicLevelId,
+                $schoolYear
+            );
+
+            $totalProcessed++;
+
+            if ($qualification['qualified']) {
+                $totalQualified++;
+
+                // Store honor results in database
+                foreach ($qualification['qualifications'] as $qual) {
+                    $honorResult = HonorResult::updateOrCreate([
+                        'student_id' => $student->id,
+                        'honor_type_id' => $qual['honor_type']->id,
+                        'academic_level_id' => $academicLevelId,
+                        'school_year' => $schoolYear,
+                    ], [
+                        'gpa' => $qualification['average_grade'],
+                        'is_overridden' => false,
+                        'is_pending_approval' => true,
+                        'is_approved' => false,
+                        'is_rejected' => false,
+                    ]);
+
+                    \Log::info('SHS Honor Generation: Created/Updated honor result', [
+                        'student_id' => $student->id,
+                        'student_name' => $student->name,
+                        'honor_type' => $qual['honor_type']->name,
+                        'gpa' => $qualification['average_grade'],
+                        'is_pending_approval' => true,
+                        'honor_result_id' => $honorResult->id
+                    ]);
+                }
+
+                $results[] = [
+                    'student' => $student,
+                    'qualification' => $qualification
+                ];
+            }
+        }
+
+        \Log::info('=== GENERATE SHS HONOR RESULTS END ===', [
+            'total_processed' => $totalProcessed,
+            'total_qualified' => $totalQualified,
+            'message' => "Processed {$totalProcessed} students, {$totalQualified} qualified for honors"
+        ]);
+
+        return [
+            'success' => true,
+            'message' => "Processed {$totalProcessed} students, {$totalQualified} qualified for honors",
+            'total_processed' => $totalProcessed,
+            'total_qualified' => $totalQualified,
+            'results' => $results
+        ];
     }
 }

@@ -200,56 +200,53 @@ export default function GradesIndex({ user, grades, assignedSubjects }: IndexPro
             return average;
         }
 
-        // For SHS/College: Calculate semester averages
-        console.log('Semester based - Looking for grading periods');
+        // For SHS/College: Calculate semester averages using parent_id
+        console.log('Semester based - Grouping by parent_id');
         studentGrades.forEach(g => {
-            console.log('Grade:', g.grade, 'Period code:', g.gradingPeriod?.code, 'Period name:', g.gradingPeriod?.name);
-            console.log('FULL gradingPeriod object:', g.gradingPeriod);
-            console.log('FULL grade object:', g);
+            console.log('Grade:', g.grade, 'Period parent_id:', g.gradingPeriod?.parent_id, 'Period name:', g.gradingPeriod?.name);
         });
 
-        const s1Midterm = studentGrades.find(g =>
-            g.gradingPeriod?.code?.toUpperCase().includes('S1_MT')
-        );
-        const s1PreFinal = studentGrades.find(g =>
-            g.gradingPeriod?.code?.toUpperCase().includes('S1_PF')
-        );
-        const s2Midterm = studentGrades.find(g =>
-            g.gradingPeriod?.code?.toUpperCase().includes('S2_MT')
-        );
-        const s2PreFinal = studentGrades.find(g =>
-            g.gradingPeriod?.code?.toUpperCase().includes('S2_PF')
-        );
+        // Get unique parent IDs (semesters)
+        const parentIds = [...new Set(
+            studentGrades
+                .map(g => g.gradingPeriod?.parent_id)
+                .filter(id => id !== null && id !== undefined)
+        )];
 
-        console.log('Found periods - S1_MT:', s1Midterm?.grade, 'S1_PF:', s1PreFinal?.grade, 'S2_MT:', s2Midterm?.grade, 'S2_PF:', s2PreFinal?.grade);
+        console.log('Found parent IDs (semesters):', parentIds);
 
-        let semester1Avg = null;
-        if (s1Midterm?.grade && s1PreFinal?.grade) {
-            semester1Avg = (parseFloat(s1Midterm.grade.toString()) + parseFloat(s1PreFinal.grade.toString())) / 2;
-            console.log('Semester 1 Average:', semester1Avg);
+        if (parentIds.length === 0) {
+            // Fallback: if no parent_id structure, just calculate simple average
+            console.log('No parent_id structure found, using simple average');
+            const validGrades = studentGrades.filter(g => g.grade !== null && g.grade !== undefined);
+            if (validGrades.length === 0) return 0;
+            return validGrades.reduce((sum, g) => sum + g.grade, 0) / validGrades.length;
         }
 
-        let semester2Avg = null;
-        if (s2Midterm?.grade && s2PreFinal?.grade) {
-            semester2Avg = (parseFloat(s2Midterm.grade.toString()) + parseFloat(s2PreFinal.grade.toString())) / 2;
-            console.log('Semester 2 Average:', semester2Avg);
-        }
+        // Calculate average for each semester
+        const semesterAverages = parentIds.map(parentId => {
+            const semesterGrades = studentGrades.filter(g =>
+                g.gradingPeriod?.parent_id === parentId &&
+                g.grade !== null &&
+                g.grade !== undefined
+            );
 
-        // Calculate overall average
-        let finalAverage = 0;
-        if (semester1Avg !== null && semester2Avg !== null) {
-            finalAverage = (semester1Avg + semester2Avg) / 2;
-            console.log('Both semesters - Final Average:', finalAverage);
-        } else if (semester1Avg !== null) {
-            finalAverage = semester1Avg;
-            console.log('Semester 1 only - Final Average:', finalAverage);
-        } else if (semester2Avg !== null) {
-            finalAverage = semester2Avg;
-            console.log('Semester 2 only - Final Average:', finalAverage);
-        } else {
+            if (semesterGrades.length === 0) return null;
+
+            const avg = semesterGrades.reduce((sum, g) => sum + g.grade, 0) / semesterGrades.length;
+            console.log(`Semester (parent ${parentId}) average:`, avg, 'from', semesterGrades.length, 'grades');
+            return avg;
+        }).filter((avg): avg is number => avg !== null);
+
+        console.log('Semester averages:', semesterAverages);
+
+        // Calculate final average from semester averages
+        if (semesterAverages.length === 0) {
             console.log('No complete semester grades - returning 0');
+            return 0;
         }
 
+        const finalAverage = semesterAverages.reduce((sum, avg) => sum + avg, 0) / semesterAverages.length;
         console.log('=== calculateOverallAverage returning:', finalAverage, '===');
         return finalAverage;
     };
@@ -356,9 +353,13 @@ export default function GradesIndex({ user, grades, assignedSubjects }: IndexPro
         gradingPeriod?: { name: string };
         schoolYear: string;
     }) => {
-        const subjectAssignment = assignedSubjects.find(subject =>
-            subject.enrolled_students.some(enrollment => enrollment.student.id === student.id)
-        );
+        // Use the currently selected subject instead of finding any subject with the student
+        if (!selectedSubject) {
+            console.error('No subject selected');
+            return;
+        }
+
+        const subjectAssignment = assignedSubjects.find(s => s.subject.id.toString() === selectedSubject);
 
         if (subjectAssignment) {
             window.location.href = route('teacher.grades.create') +
@@ -411,12 +412,25 @@ export default function GradesIndex({ user, grades, assignedSubjects }: IndexPro
                                 </div>
                             </div>
                             <div className="flex gap-2">
-                                <Link href={route('teacher.grades.create')} className={!selectedSubject ? 'pointer-events-none' : ''}>
-                                    <Button className="flex items-center gap-2" disabled={!selectedSubject}>
-                                        <Plus className="h-4 w-4" />
-                                        Input Grade
-                                    </Button>
-                                </Link>
+                                <Button
+                                    className="flex items-center gap-2"
+                                    disabled={!selectedSubject}
+                                    onClick={() => {
+                                        if (selectedSubject) {
+                                            const subjectAssignment = assignedSubjects.find(s => s.subject.id.toString() === selectedSubject);
+                                            if (subjectAssignment) {
+                                                window.location.href = route('teacher.grades.create') +
+                                                    `?subject_id=${subjectAssignment.subject.id}` +
+                                                    `&academic_level_id=${subjectAssignment.academicLevel.id}` +
+                                                    `&academic_level_key=${subjectAssignment.academicLevel.key}` +
+                                                    `&school_year=${subjectAssignment.school_year}`;
+                                            }
+                                        }
+                                    }}
+                                >
+                                    <Plus className="h-4 w-4" />
+                                    Input Grade
+                                </Button>
                                 <Link href={route('teacher.grades.upload')}>
                                     <Button variant="outline" className="flex items-center gap-2">
                                         <Upload className="h-4 w-4" />

@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
 import { Sidebar } from '@/components/teacher/sidebar';
 import { Header } from '@/components/teacher/header';
 
@@ -13,6 +13,10 @@ interface GradingPeriod {
     id: number;
     name: string;
     code: string;
+    type: string;
+    period_type: string;
+    semester_number: number | null;
+    parent_id: number | null;
     start_date: string;
     end_date: string;
     sort_order: number;
@@ -202,14 +206,56 @@ export default function Edit({ user, grade, gradingPeriods }: EditProps) {
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="0">No Period</SelectItem>
-                                                    {gradingPeriods && gradingPeriods.length > 0 ? gradingPeriods
-                                                        .filter(period => period.academic_level_id === (grade.academic_level_id || 0))
-                                                        .map((period) => (
-                                                            <SelectItem key={period.id} value={period.id.toString()}>
-                                                                {period.name}
-                                                            </SelectItem>
-                                                        ))
-                                                    : (
+                                                    {gradingPeriods && gradingPeriods.length > 0 ? (
+                                                        <>
+                                                            {(() => {
+                                                                // Filter grading periods for the current academic level
+                                                                const currentAcademicLevelId = grade.academic_level_id || 0;
+                                                                const allRelevantPeriods = gradingPeriods.filter(
+                                                                    period => period.academic_level_id === currentAcademicLevelId
+                                                                );
+
+                                                                // Separate parent semesters and child periods
+                                                                const parentSemesters = allRelevantPeriods.filter(p => p.parent_id === null && p.type === 'semester');
+                                                                const childPeriods = allRelevantPeriods.filter(p => p.parent_id !== null && p.period_type !== 'final');
+
+                                                                if (parentSemesters.length === 0 && childPeriods.length === 0) {
+                                                                    return (
+                                                                        <SelectItem value="none" disabled>
+                                                                            No grading periods available for this academic level
+                                                                        </SelectItem>
+                                                                    );
+                                                                }
+
+                                                                // Group child periods by parent
+                                                                const groupedPeriods = parentSemesters
+                                                                    .sort((a, b) => a.sort_order - b.sort_order)
+                                                                    .map(parent => ({
+                                                                        parent,
+                                                                        children: childPeriods
+                                                                            .filter(child => child.parent_id === parent.id)
+                                                                            .sort((a, b) => a.sort_order - b.sort_order)
+                                                                    }));
+
+                                                                return (
+                                                                    <>
+                                                                        {groupedPeriods.map(({ parent, children }) => (
+                                                                            children.length > 0 && (
+                                                                                <SelectGroup key={parent.id}>
+                                                                                    <SelectLabel>{parent.name}</SelectLabel>
+                                                                                    {children.map((period) => (
+                                                                                        <SelectItem key={period.id} value={period.id.toString()}>
+                                                                                            {period.name}
+                                                                                        </SelectItem>
+                                                                                    ))}
+                                                                                </SelectGroup>
+                                                                            )
+                                                                        ))}
+                                                                    </>
+                                                                );
+                                                            })()}
+                                                        </>
+                                                    ) : (
                                                         <SelectItem value="0" disabled>No grading periods available</SelectItem>
                                                     )}
                                                 </SelectContent>

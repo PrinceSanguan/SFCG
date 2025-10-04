@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import { Header } from '@/components/admin/header';
 import { Sidebar } from '@/components/admin/sidebar';
 import { Card, CardContent } from '@/components/ui/card';
@@ -86,7 +86,18 @@ interface Props {
 
 export default function AssignAdvisers({ user, assignments, advisers, subjects, academicLevels, sections, gradingPeriods }: Props) {
     const { addToast } = useToast();
-    
+    const { props } = usePage<any>();
+
+    // Handle flash messages
+    useEffect(() => {
+        if (props.flash?.success) {
+            addToast(props.flash.success, 'success');
+        }
+        if (props.flash?.error) {
+            addToast(props.flash.error, 'error');
+        }
+    }, [props.flash]);
+
     const [assignmentForm, setAssignmentForm] = useState({
         adviser_id: '',
         subject_id: '',
@@ -214,12 +225,10 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
         e.preventDefault();
         router.post('/admin/academic/assign-advisers', assignmentForm, {
             onSuccess: () => {
-                addToast('Adviser assigned successfully!', 'success');
                 setAssignmentModal(false);
                 resetForm();
             },
             onError: (errors) => {
-                addToast('Failed to assign adviser. Please try again.', 'error');
                 console.error(errors);
             },
         });
@@ -228,14 +237,12 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
     const updateAssignment = (e: React.FormEvent) => {
         e.preventDefault();
         if (!editAssignment) return;
-        
+
         router.put(`/admin/academic/assign-advisers/${editAssignment.id}`, assignmentForm, {
             onSuccess: () => {
-                addToast('Adviser assignment updated successfully!', 'success');
                 setEditModal(false);
             },
             onError: (errors) => {
-                addToast('Failed to update adviser assignment. Please try again.', 'error');
                 console.error(errors);
             },
         });
@@ -245,10 +252,9 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
         if (confirm('Are you sure you want to delete this assignment?')) {
             router.delete(`/admin/academic/assign-advisers/${id}`, {
                 onSuccess: () => {
-                    addToast('Adviser assignment removed successfully!', 'success');
+                    // Flash message will be handled by useEffect
                 },
                 onError: (errors) => {
-                    addToast('Failed to remove adviser assignment. Please try again.', 'error');
                     console.error(errors);
                 },
             });

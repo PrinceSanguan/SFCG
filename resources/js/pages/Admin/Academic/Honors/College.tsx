@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useForm } from '@inertiajs/react';
+import { useForm, router } from '@inertiajs/react';
 import { Header } from '@/components/admin/header';
 import { Sidebar } from '@/components/admin/sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle, Trophy, ArrowLeft, Plus } from 'lucide-react';
+import { CheckCircle, Trophy, ArrowLeft, Plus, Upload } from 'lucide-react';
+import { useToast } from '@/components/ui/toast';
 
 interface User {
     name: string;
@@ -111,6 +112,13 @@ interface Section {
     specific_year_level: string;
 }
 
+interface HonorResult {
+    id: number;
+    student_id: number;
+    honor_type_id: number;
+    school_year: string;
+}
+
 interface Filters {
     grade_level?: string;
     department_id?: string;
@@ -124,6 +132,7 @@ interface Props {
     criteria: HonorCriterion[];
     schoolYears: string[];
     qualifiedStudents?: QualifiedStudent[];
+    honorResults?: HonorResult[];
     currentSchoolYear?: string;
     gradeLevels?: GradeLevel;
     departments?: Department[];
@@ -132,7 +141,7 @@ interface Props {
     filters?: Filters;
 }
 
-export default function CollegeHonors({ user, honorTypes, criteria, schoolYears, qualifiedStudents = [], currentSchoolYear = '2024-2025', gradeLevels = {}, departments = [], courses = [], sections = [], filters }: Props) {
+export default function CollegeHonors({ user, honorTypes, criteria, schoolYears, qualifiedStudents = [], honorResults = [], currentSchoolYear = '2024-2025', gradeLevels = {}, departments = [], courses = [], sections = [], filters }: Props) {
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const [selectedStudent, setSelectedStudent] = useState<QualifiedStudent | null>(null);
     const [showStudentDetails, setShowStudentDetails] = useState(false);
@@ -147,6 +156,7 @@ export default function CollegeHonors({ user, honorTypes, criteria, schoolYears,
         require_consistent_honor: false,
     });
     const [showAddForm, setShowAddForm] = useState(false);
+    const { addToast } = useToast();
 
     const { data, setData, post, processing, errors, reset } = useForm({
         academic_level_id: '4', // College level ID
@@ -752,6 +762,44 @@ export default function CollegeHonors({ user, honorTypes, criteria, schoolYears,
                                     </div>
                                 ) : (
                                     <div className="space-y-4">
+                                        <div className="flex items-center justify-between pb-4 border-b">
+                                            <h3 className="text-lg font-semibold text-gray-900">
+                                                Ready to submit {qualifiedStudents.length} student{qualifiedStudents.length !== 1 ? 's' : ''} for approval
+                                            </h3>
+                                            <Button
+                                                onClick={() => {
+                                                    // Check if any qualified student already has an honor result
+                                                    const alreadySubmitted = qualifiedStudents.some((student: any) =>
+                                                        honorResults.some((result: HonorResult) =>
+                                                            result.student_id === student.student.id &&
+                                                            result.school_year === currentSchoolYear
+                                                        )
+                                                    );
+
+                                                    if (alreadySubmitted) {
+                                                        addToast('Some students have already been submitted for approval.', 'warning');
+                                                        return;
+                                                    }
+
+                                                    if (confirm(`Submit ${qualifiedStudents.length} qualified student(s) for chairperson approval?`)) {
+                                                        router.post(route('admin.academic.honors.college.generate-results'), {
+                                                            school_year: currentSchoolYear,
+                                                        }, {
+                                                            onSuccess: () => {
+                                                                addToast(`Successfully submitted ${qualifiedStudents.length} student(s) for approval!`, 'success');
+                                                            },
+                                                            onError: () => {
+                                                                addToast('Failed to submit students for approval. Please try again.', 'error');
+                                                            }
+                                                        });
+                                                    }
+                                                }}
+                                                className="flex items-center gap-2"
+                                            >
+                                                <Upload className="h-4 w-4" />
+                                                Submit for Approval
+                                            </Button>
+                                        </div>
                                         <div className="grid gap-4">
                                             {qualifiedStudents.map((qualifiedStudent, index) => (
                                                 <div 

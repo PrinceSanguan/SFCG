@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import { Header } from '@/components/admin/header';
 import { Sidebar } from '@/components/admin/sidebar';
 import { Card, CardContent } from '@/components/ui/card';
@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ArrowLeft, Plus, Edit, Trash2, GraduationCap, Calendar, User, BookOpen } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
 
@@ -121,10 +121,21 @@ interface Course {
 
 export default function AssignTeachers({ user, assignments, teachers, subjects, gradingPeriods, academicLevels, strands, tracks = [], departments = [], courses = [] }: Props) {
     const { addToast } = useToast();
-    
+    const { props } = usePage<any>();
+
+    // Handle flash messages
+    useEffect(() => {
+        if (props.flash?.success) {
+            addToast(props.flash.success, 'success');
+        }
+        if (props.flash?.error) {
+            addToast(props.flash.error, 'error');
+        }
+    }, [props.flash]);
+
     // Find Senior High School level ID
     const shsLevel = academicLevels.find(level => level.key === 'senior_highschool');
-    
+
     const [assignmentForm, setAssignmentForm] = useState({
         teacher_id: '',
         subject_id: '',
@@ -205,8 +216,13 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
             if (assignmentForm.semester_ids.length > 0) {
                 const semesterIds = assignmentForm.semester_ids.map(id => parseInt(id));
                 // Get periods that belong to selected semesters (children of selected semesters)
+                // Exclude "Average" or "final" type periods for SHS
                 filtered = filtered.filter(period =>
-                    period.parent_id && semesterIds.includes(period.parent_id)
+                    period.parent_id &&
+                    semesterIds.includes(period.parent_id) &&
+                    !period.name.toLowerCase().includes('average') &&
+                    period.type !== 'final_average' &&
+                    period.type !== 'final'
                 );
             }
 
@@ -240,12 +256,10 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
             },
             {
                 onSuccess: () => {
-                    addToast('Teacher assigned successfully!', 'success');
                     setAssignmentModal(false);
                     resetForm();
                 },
                 onError: (errors) => {
-                    addToast('Failed to assign teacher. Please try again.', 'error');
                     console.error(errors);
                 },
                 preserveScroll: true,
@@ -256,7 +270,7 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
     const updateAssignment = (e: React.FormEvent) => {
         e.preventDefault();
         if (!editAssignment) return;
-        
+
         router.put(
             `/admin/academic/assign-teachers/${editAssignment.id}`,
             {
@@ -265,11 +279,9 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
             },
             {
                 onSuccess: () => {
-                    addToast('Teacher assignment updated successfully!', 'success');
                     setEditModal(false);
                 },
                 onError: (errors) => {
-                    addToast('Failed to update teacher assignment. Please try again.', 'error');
                     console.error(errors);
                 },
                 preserveScroll: true,
@@ -281,10 +293,9 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
         if (confirm('Are you sure you want to delete this assignment?')) {
             router.delete(`/admin/academic/assign-teachers/${id}`, {
                 onSuccess: () => {
-                    addToast('Teacher assignment removed successfully!', 'success');
+                    // Flash message will be handled by useEffect
                 },
                 onError: (errors) => {
-                    addToast('Failed to remove teacher assignment. Please try again.', 'error');
                     console.error(errors);
                 },
             });
@@ -407,6 +418,7 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                     <DialogContent className="w-[95vw] max-w-[800px] max-h-[90vh] overflow-y-auto">
                         <DialogHeader>
                             <DialogTitle>Assign Teacher to Subject</DialogTitle>
+                            <DialogDescription>Select a teacher and subject to create a new assignment.</DialogDescription>
                         </DialogHeader>
                         <form onSubmit={submitAssignment} className="space-y-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -911,6 +923,7 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                 <DialogContent className="w-[95vw] max-w-[800px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Edit Teacher Assignment</DialogTitle>
+                        <DialogDescription>Update the teacher assignment details.</DialogDescription>
                     </DialogHeader>
                     <form onSubmit={updateAssignment} className="space-y-4">
                         <div>

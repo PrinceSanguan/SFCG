@@ -96,6 +96,9 @@ class GradeManagementController extends Controller
                         'id' => $grade->gradingPeriod->id,
                         'name' => $grade->gradingPeriod->name,
                         'code' => $grade->gradingPeriod->code,
+                        'parent_id' => $grade->gradingPeriod->parent_id,
+                        'type' => $grade->gradingPeriod->type,
+                        'period_type' => $grade->gradingPeriod->period_type,
                     ] : null,
                     'grade' => $grade->grade,
                     'school_year' => $grade->school_year,
@@ -167,11 +170,28 @@ class GradeManagementController extends Controller
                 ];
             });
 
-            // Get academic levels
+            // Get academic levels that the teacher is assigned to
+            $teacherAcademicLevelIds = $assignedSubjects->pluck('academicLevel.id')->unique()->toArray();
             $academicLevels = \App\Models\AcademicLevel::where('is_active', true)->get();
-            
-            // Get grading periods
-            $gradingPeriods = \App\Models\GradingPeriod::where('is_active', true)->get();
+
+            // Get grading periods only for the teacher's assigned academic levels
+            $gradingPeriods = \App\Models\GradingPeriod::where('is_active', true)
+                ->whereIn('academic_level_id', $teacherAcademicLevelIds)
+                ->orderBy('sort_order')
+                ->get([
+                    'id',
+                    'name',
+                    'code',
+                    'type',
+                    'period_type',
+                    'semester_number',
+                    'parent_id',
+                    'academic_level_id',
+                    'start_date',
+                    'end_date',
+                    'sort_order',
+                    'is_active'
+                ]);
             
             // Check for selected student from query parameters
             $selectedStudent = null;
@@ -388,6 +408,9 @@ class GradeManagementController extends Controller
                             'id' => $grade->gradingPeriod->id,
                             'name' => $grade->gradingPeriod->name,
                             'code' => $grade->gradingPeriod->code,
+                            'parent_id' => $grade->gradingPeriod->parent_id,
+                            'type' => $grade->gradingPeriod->type,
+                            'period_type' => $grade->gradingPeriod->period_type,
                         ] : null,
                         'academicLevel' => $grade->academicLevel ? [
                             'id' => $grade->academicLevel->id,
@@ -403,7 +426,19 @@ class GradeManagementController extends Controller
             $gradingPeriods = GradingPeriod::where('is_active', true)
                 ->where('academic_level_id', $academicLevel->id)
                 ->orderBy('sort_order')
-                ->get();
+                ->get()
+                ->map(function($period) {
+                    return [
+                        'id' => $period->id,
+                        'name' => $period->name,
+                        'code' => $period->code,
+                        'type' => $period->type,
+                        'period_type' => $period->period_type,
+                        'parent_id' => $period->parent_id,
+                        'sort_order' => $period->sort_order,
+                        'is_active' => $period->is_active,
+                    ];
+                });
 
             // Log the grading periods for debugging
             Log::info('Grading periods for teacher showStudent', [
@@ -411,7 +446,13 @@ class GradeManagementController extends Controller
                 'academic_level' => $academicLevel->name,
                 'grading_periods_count' => $gradingPeriods->count(),
                 'grading_periods' => $gradingPeriods->map(function($p) {
-                    return ['id' => $p->id, 'name' => $p->name, 'code' => $p->code];
+                    return [
+                        'id' => $p['id'],
+                        'name' => $p['name'],
+                        'code' => $p['code'],
+                        'parent_id' => $p['parent_id'],
+                        'type' => $p['type']
+                    ];
                 })
             ]);
 
@@ -468,7 +509,22 @@ class GradeManagementController extends Controller
             
             // Get academic levels and grading periods for the form
             $academicLevels = AcademicLevel::where('is_active', true)->get();
-            $gradingPeriods = GradingPeriod::where('is_active', true)->get();
+            $gradingPeriods = GradingPeriod::where('is_active', true)
+                ->orderBy('sort_order')
+                ->get([
+                    'id',
+                    'name',
+                    'code',
+                    'type',
+                    'period_type',
+                    'semester_number',
+                    'parent_id',
+                    'academic_level_id',
+                    'start_date',
+                    'end_date',
+                    'sort_order',
+                    'is_active'
+                ]);
             
             return Inertia::render('Teacher/Grades/Edit', [
                 'user' => $user,
@@ -814,8 +870,18 @@ class GradeManagementController extends Controller
         try {
             $gradingPeriods = GradingPeriod::where('is_active', true)
                 ->orderBy('sort_order')
-                ->get(['id', 'name', 'code', 'academic_level_id']);
-            
+                ->get([
+                    'id',
+                    'name',
+                    'code',
+                    'type',
+                    'period_type',
+                    'semester_number',
+                    'parent_id',
+                    'academic_level_id',
+                    'sort_order'
+                ]);
+
             return response()->json($gradingPeriods);
             
         } catch (\Exception $e) {

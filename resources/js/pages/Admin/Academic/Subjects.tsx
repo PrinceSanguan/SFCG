@@ -39,6 +39,8 @@ interface Subject {
     grade_levels?: string[];
     grading_period_id?: number;
     grading_period_ids?: number[];
+    semester_id?: number;
+    semester_ids?: number[];
     course_id?: number;
     units: number;
     hours_per_week: number;
@@ -85,6 +87,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
         grade_levels: [] as string[],
         selected_grade_level: '',
         grading_period_ids: [] as string[],
+        semester_ids: [] as string[],
         department_id: '',
         course_id: '',
         semester_id: '',
@@ -118,6 +121,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
             grade_levels: [],
             selected_grade_level: '',
             grading_period_ids: [],
+            semester_ids: [],
             department_id: '',
             course_id: '',
             semester_id: '',
@@ -158,6 +162,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
             grade_levels: [],
             selected_grade_level: '',
             grading_period_ids: [],
+            semester_ids: [],
             department_id: '',
             course_id: '',
             semester_id: '',
@@ -194,15 +199,19 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
     const getSemestersByLevel = (levelId: number) => gradingPeriods.filter(gp => gp.academic_level_id === levelId && (gp.parent_id == null) && ((gp.type === 'semester') || /semester/i.test(gp.name)));
     const getPeriodsBySemester = (semesterId?: string) => {
         if (!semesterId) return [];
-        
+
         // Get the semester to find its academic level
         const semester = gradingPeriods.find(gp => gp.id.toString() === semesterId);
         if (!semester) return [];
-        
+
         // Filter periods by parent_id and same academic level as the semester
-        return gradingPeriods.filter(gp => 
-            gp.parent_id?.toString() === semesterId && 
-            gp.academic_level_id === semester.academic_level_id
+        // Exclude "Average" or "final" type periods
+        return gradingPeriods.filter(gp =>
+            gp.parent_id?.toString() === semesterId &&
+            gp.academic_level_id === semester.academic_level_id &&
+            !gp.name.toLowerCase().includes('average') &&
+            gp.type !== 'final_average' &&
+            gp.type !== 'final'
         );
     };
 
@@ -826,79 +835,201 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                     const selectedLevel = academicLevels.find(level => level.id.toString() === subjectForm.academic_level_id);
                                                     const isShs = selectedLevel?.key === 'senior_highschool';
                                                     const isCollege = selectedLevel?.key === 'college';
-                                                    
+
                                                     if (isShs) {
+                                                        const availableSemesters = subjectForm.academic_level_id ? getSemestersByLevel(parseInt(subjectForm.academic_level_id)) : [];
+
                                                         return (
-                                                    <div>
-                                                                <Label htmlFor="subject-period">Grading Period</Label>
-                                                                <Select value={subjectForm.grading_period_id} onValueChange={(value) => setSubjectForm({ ...subjectForm, grading_period_id: value })}>
-                                                            <SelectTrigger>
-                                                                <SelectValue placeholder="Select period (optional)" />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                        {subjectForm.academic_level_id && gradingPeriods
-                                                                            .filter(p => p.academic_level_id === parseInt(subjectForm.academic_level_id))
-                                                                            .filter(p => p.parent_id != null) // only child periods under semesters
-                                                                            .map((gp) => (
-                                                                                <SelectItem key={gp.id} value={gp.id.toString()}>{gp.name}</SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                                <div>
+                                                                    <Label>Semesters</Label>
+                                                                    <div className="space-y-2 p-3 border rounded-md">
+                                                                        {availableSemesters.length === 0 ? (
+                                                                            <p className="text-sm text-gray-500">No semesters available</p>
+                                                                        ) : (
+                                                                            availableSemesters.map((sem) => (
+                                                                                <div key={sem.id} className="flex items-center space-x-2">
+                                                                                    <input
+                                                                                        type="checkbox"
+                                                                                        id={`sem-${sem.id}`}
+                                                                                        checked={subjectForm.semester_ids.includes(sem.id.toString())}
+                                                                                        onChange={(e) => {
+                                                                                            const semId = sem.id.toString();
+                                                                                            if (e.target.checked) {
+                                                                                                setSubjectForm({
+                                                                                                    ...subjectForm,
+                                                                                                    semester_ids: [...subjectForm.semester_ids, semId]
+                                                                                                });
+                                                                                            } else {
+                                                                                                setSubjectForm({
+                                                                                                    ...subjectForm,
+                                                                                                    semester_ids: subjectForm.semester_ids.filter(id => id !== semId),
+                                                                                                    grading_period_ids: subjectForm.grading_period_ids.filter(gpId => {
+                                                                                                        const gp = gradingPeriods.find(p => p.id.toString() === gpId);
+                                                                                                        return gp?.parent_id?.toString() !== semId;
+                                                                                                    })
+                                                                                                });
+                                                                                            }
+                                                                                        }}
+                                                                                        className="rounded border-gray-300"
+                                                                                    />
+                                                                                    <Label htmlFor={`sem-${sem.id}`} className="text-sm font-normal cursor-pointer">
+                                                                                        {sem.name}
+                                                                                    </Label>
+                                                                                </div>
+                                                                            ))
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                                <div>
+                                                                    <Label>Grading Periods</Label>
+                                                                    <div className="space-y-2 p-3 border rounded-md max-h-48 overflow-y-auto">
+                                                                        {subjectForm.semester_ids.length === 0 ? (
+                                                                            <p className="text-sm text-gray-500">Select a semester first</p>
+                                                                        ) : (
+                                                                            subjectForm.semester_ids.map((semId) => {
+                                                                                const semester = gradingPeriods.find(gp => gp.id.toString() === semId);
+                                                                                const periods = getPeriodsBySemester(semId);
+
+                                                                                if (!semester || periods.length === 0) return null;
+
+                                                                                return (
+                                                                                    <div key={semId} className="space-y-2">
+                                                                                        <div className="text-sm font-semibold text-blue-600 border-l-4 border-blue-600 pl-2">
+                                                                                            {semester.name} Periods:
+                                                                                        </div>
+                                                                                        {periods.map((gp) => (
+                                                                                            <div key={gp.id} className="flex items-center space-x-2 ml-6">
+                                                                                                <input
+                                                                                                    type="checkbox"
+                                                                                                    id={`shs-gp-${gp.id}`}
+                                                                                                    checked={subjectForm.grading_period_ids.includes(gp.id.toString())}
+                                                                                                    onChange={(e) => {
+                                                                                                        const periodId = gp.id.toString();
+                                                                                                        if (e.target.checked) {
+                                                                                                            setSubjectForm({
+                                                                                                                ...subjectForm,
+                                                                                                                grading_period_ids: [...subjectForm.grading_period_ids, periodId]
+                                                                                                            });
+                                                                                                        } else {
+                                                                                                            setSubjectForm({
+                                                                                                                ...subjectForm,
+                                                                                                                grading_period_ids: subjectForm.grading_period_ids.filter(id => id !== periodId)
+                                                                                                            });
+                                                                                                        }
+                                                                                                    }}
+                                                                                                    className="rounded border-gray-300"
+                                                                                                />
+                                                                                                <Label htmlFor={`shs-gp-${gp.id}`} className="text-sm font-normal cursor-pointer">
+                                                                                                    {gp.name}
+                                                                                                </Label>
+                                                                                            </div>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                );
+                                                                            })
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
                                                         );
                                                     }
                                                     
                                                     if (isCollege) {
+                                                        const availableSemesters = subjectForm.academic_level_id ? getSemestersByLevel(parseInt(subjectForm.academic_level_id)) : [];
+
                                                         return (
                                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    <div>
-                                                        <Label htmlFor="subject-semester">Semester</Label>
-                                                        <Select value={subjectForm.semester_id} onValueChange={(v) => setSubjectForm({ ...subjectForm, semester_id: v, grading_period_id: '' })}>
-                                                            <SelectTrigger>
-                                                                <SelectValue placeholder="Select semester (optional)" />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                {subjectForm.academic_level_id && getSemestersByLevel(parseInt(subjectForm.academic_level_id)).map((sem) => (
-                                                                    <SelectItem key={sem.id} value={sem.id.toString()}>
-                                                                        {sem.name}
-                                                                    </SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
-                                                    <div>
-                                                        <Label htmlFor="subject-period">Period</Label>
-                                                        <Select value={subjectForm.grading_period_id} onValueChange={(value) => setSubjectForm({ ...subjectForm, grading_period_id: value })} disabled={!subjectForm.semester_id}>
-                                                            <SelectTrigger>
-                                                                <SelectValue placeholder="Select period (optional)" />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                {(() => {
-                                                                    const periods = getPeriodsBySemester(subjectForm.semester_id);
-                                                                    if (periods.length === 0) return null;
-                                                                    
-                                                                    // Get the semester info
-                                                                    const semester = gradingPeriods.find(gp => gp.id.toString() === subjectForm.semester_id);
-                                                                    if (!semester) return null;
-                                                                    
-                                                                    return (
-                                                                        <>
-                                                                            {/* Semester Header */}
-                                                                            <div className="px-2 py-1.5 text-sm font-semibold text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-800 border-b">
-                                                                                📅 {semester.name}
-                                                                            </div>
-                                                                            {/* Periods under this semester */}
-                                                                            {periods.map((gp) => (
-                                                                                <SelectItem key={gp.id} value={gp.id.toString()} className="pl-6">
-                                                                                    {gp.name}
-                                                                                </SelectItem>
-                                                                            ))}
-                                                                        </>
-                                                                    );
-                                                                })()}
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
+                                                                <div>
+                                                                    <Label>Semesters</Label>
+                                                                    <div className="space-y-2 p-3 border rounded-md">
+                                                                        {availableSemesters.length === 0 ? (
+                                                                            <p className="text-sm text-gray-500">No semesters available</p>
+                                                                        ) : (
+                                                                            availableSemesters.map((sem) => (
+                                                                                <div key={sem.id} className="flex items-center space-x-2">
+                                                                                    <input
+                                                                                        type="checkbox"
+                                                                                        id={`college-sem-${sem.id}`}
+                                                                                        checked={subjectForm.semester_ids.includes(sem.id.toString())}
+                                                                                        onChange={(e) => {
+                                                                                            const semId = sem.id.toString();
+                                                                                            if (e.target.checked) {
+                                                                                                setSubjectForm({
+                                                                                                    ...subjectForm,
+                                                                                                    semester_ids: [...subjectForm.semester_ids, semId]
+                                                                                                });
+                                                                                            } else {
+                                                                                                setSubjectForm({
+                                                                                                    ...subjectForm,
+                                                                                                    semester_ids: subjectForm.semester_ids.filter(id => id !== semId),
+                                                                                                    grading_period_ids: subjectForm.grading_period_ids.filter(gpId => {
+                                                                                                        const gp = gradingPeriods.find(p => p.id.toString() === gpId);
+                                                                                                        return gp?.parent_id?.toString() !== semId;
+                                                                                                    })
+                                                                                                });
+                                                                                            }
+                                                                                        }}
+                                                                                        className="rounded border-gray-300"
+                                                                                    />
+                                                                                    <Label htmlFor={`college-sem-${sem.id}`} className="text-sm font-normal cursor-pointer">
+                                                                                        {sem.name}
+                                                                                    </Label>
+                                                                                </div>
+                                                                            ))
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                                <div>
+                                                                    <Label>Grading Periods</Label>
+                                                                    <div className="space-y-2 p-3 border rounded-md max-h-48 overflow-y-auto">
+                                                                        {subjectForm.semester_ids.length === 0 ? (
+                                                                            <p className="text-sm text-gray-500">Select a semester first</p>
+                                                                        ) : (
+                                                                            subjectForm.semester_ids.map((semId) => {
+                                                                                const semester = gradingPeriods.find(gp => gp.id.toString() === semId);
+                                                                                const periods = getPeriodsBySemester(semId);
+
+                                                                                if (!semester || periods.length === 0) return null;
+
+                                                                                return (
+                                                                                    <div key={semId} className="space-y-2">
+                                                                                        <div className="text-sm font-semibold text-blue-600 border-l-4 border-blue-600 pl-2">
+                                                                                            {semester.name} Periods:
+                                                                                        </div>
+                                                                                        {periods.map((gp) => (
+                                                                                            <div key={gp.id} className="flex items-center space-x-2 ml-6">
+                                                                                                <input
+                                                                                                    type="checkbox"
+                                                                                                    id={`college-gp-${gp.id}`}
+                                                                                                    checked={subjectForm.grading_period_ids.includes(gp.id.toString())}
+                                                                                                    onChange={(e) => {
+                                                                                                        const periodId = gp.id.toString();
+                                                                                                        if (e.target.checked) {
+                                                                                                            setSubjectForm({
+                                                                                                                ...subjectForm,
+                                                                                                                grading_period_ids: [...subjectForm.grading_period_ids, periodId]
+                                                                                                            });
+                                                                                                        } else {
+                                                                                                            setSubjectForm({
+                                                                                                                ...subjectForm,
+                                                                                                                grading_period_ids: subjectForm.grading_period_ids.filter(id => id !== periodId)
+                                                                                                            });
+                                                                                                        }
+                                                                                                    }}
+                                                                                                    className="rounded border-gray-300"
+                                                                                                />
+                                                                                                <Label htmlFor={`college-gp-${gp.id}`} className="text-sm font-normal cursor-pointer">
+                                                                                                    {gp.name}
+                                                                                                </Label>
+                                                                                            </div>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                );
+                                                                            })
+                                                                        )}
+                                                                    </div>
+                                                                </div>
                                                             </div>
                                                         );
                                                     }
@@ -1687,95 +1818,204 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                 const selectedLevel = academicLevels.find(level => level.id === editSubject.academic_level_id);
                                 const isShs = selectedLevel?.key === 'senior_highschool';
                                 const isCollege = selectedLevel?.key === 'college';
-                                
+
                                 if (isShs) {
+                                    const availableSemesters = editSubject.academic_level_id ? getSemestersByLevel(editSubject.academic_level_id) : [];
+                                    const currentSemesterIds = editSubject.semester_ids || [];
+                                    const currentGradingPeriodIds = editSubject.grading_period_ids || [];
+
                                     return (
-                                <div>
-                                            <Label htmlFor="edit-subject-period">Grading Period</Label>
-                                            <Select value={editSubject.grading_period_id?.toString() || ''} onValueChange={(value) => setEditSubject({ ...editSubject, grading_period_id: Number(value) })}>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select period (optional)" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {(() => {
-                                                        if (!editSubject.academic_level_id) return null;
-                                                        
-                                                        const shsPeriods = gradingPeriods
-                                                            .filter(p => p.academic_level_id === editSubject.academic_level_id)
-                                                            .filter(p => p.parent_id != null); // only child periods under semesters
-                                                        
-                                                        if (shsPeriods.length === 0) return null;
-                                                        
-                                                        // Group periods by their parent semester
-                                                        const periodsBySemester: Record<string, typeof shsPeriods> = {};
-                                                        shsPeriods.forEach(period => {
-                                                            const parentId = period.parent_id?.toString();
-                                                            if (parentId) {
-                                                                if (!periodsBySemester[parentId]) {
-                                                                    periodsBySemester[parentId] = [];
-                                                                }
-                                                                periodsBySemester[parentId].push(period);
-                                                            }
-                                                        });
-                                                        
-                                                        return Object.entries(periodsBySemester).map(([parentId, periods]) => {
-                                                            const semester = gradingPeriods.find(gp => gp.id.toString() === parentId);
-                                                            if (!semester) return null;
-                                                            
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <Label>Semesters</Label>
+                                                <div className="space-y-2 p-3 border rounded-md">
+                                                    {availableSemesters.length === 0 ? (
+                                                        <p className="text-sm text-gray-500">No semesters available</p>
+                                                    ) : (
+                                                        availableSemesters.map((sem) => (
+                                                            <div key={sem.id} className="flex items-center space-x-2">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    id={`edit-sem-${sem.id}`}
+                                                                    checked={currentSemesterIds.includes(sem.id)}
+                                                                    onChange={(e) => {
+                                                                        const semId = sem.id;
+                                                                        if (e.target.checked) {
+                                                                            setEditSubject({
+                                                                                ...editSubject,
+                                                                                semester_ids: [...currentSemesterIds, semId]
+                                                                            });
+                                                                        } else {
+                                                                            setEditSubject({
+                                                                                ...editSubject,
+                                                                                semester_ids: currentSemesterIds.filter(id => id !== semId),
+                                                                                grading_period_ids: currentGradingPeriodIds.filter(gpId => {
+                                                                                    const gp = gradingPeriods.find(p => p.id === gpId);
+                                                                                    return gp?.parent_id !== semId;
+                                                                                })
+                                                                            });
+                                                                        }
+                                                                    }}
+                                                                    className="rounded border-gray-300"
+                                                                />
+                                                                <Label htmlFor={`edit-sem-${sem.id}`} className="text-sm font-normal cursor-pointer">
+                                                                    {sem.name}
+                                                                </Label>
+                                                            </div>
+                                                        ))
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <Label>Grading Periods</Label>
+                                                <div className="space-y-2 p-3 border rounded-md max-h-48 overflow-y-auto">
+                                                    {currentSemesterIds.length === 0 ? (
+                                                        <p className="text-sm text-gray-500">Select a semester first</p>
+                                                    ) : (
+                                                        currentSemesterIds.map((semId) => {
+                                                            const semester = gradingPeriods.find(gp => gp.id === semId);
+                                                            const periods = getPeriodsBySemester(semId.toString());
+
+                                                            if (!semester || periods.length === 0) return null;
+
                                                             return (
-                                                                <div key={parentId}>
-                                                                    {/* Semester Header */}
-                                                                    <div className="px-2 py-1.5 text-sm font-semibold text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-800 border-b">
-                                                                        📅 {semester.name}
+                                                                <div key={semId} className="space-y-2">
+                                                                    <div className="text-sm font-semibold text-blue-600 border-l-4 border-blue-600 pl-2">
+                                                                        {semester.name} Periods:
                                                                     </div>
-                                                                    {/* Periods under this semester */}
                                                                     {periods.map((gp) => (
-                                                                        <SelectItem key={gp.id} value={gp.id.toString()} className="pl-6">
-                                                                            {gp.name}
-                                                                        </SelectItem>
+                                                                        <div key={gp.id} className="flex items-center space-x-2 ml-6">
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                id={`edit-shs-gp-${gp.id}`}
+                                                                                checked={currentGradingPeriodIds.includes(gp.id)}
+                                                                                onChange={(e) => {
+                                                                                    const periodId = gp.id;
+                                                                                    if (e.target.checked) {
+                                                                                        setEditSubject({
+                                                                                            ...editSubject,
+                                                                                            grading_period_ids: [...currentGradingPeriodIds, periodId]
+                                                                                        });
+                                                                                    } else {
+                                                                                        setEditSubject({
+                                                                                            ...editSubject,
+                                                                                            grading_period_ids: currentGradingPeriodIds.filter(id => id !== periodId)
+                                                                                        });
+                                                                                    }
+                                                                                }}
+                                                                                className="rounded border-gray-300"
+                                                                            />
+                                                                            <Label htmlFor={`edit-shs-gp-${gp.id}`} className="text-sm font-normal cursor-pointer">
+                                                                                {gp.name}
+                                                                            </Label>
+                                                                        </div>
                                                                     ))}
                                                                 </div>
                                                             );
-                                                        });
-                                                    })()}
-                                                </SelectContent>
-                                            </Select>
+                                                        })
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
                                     );
                                 }
                                 
                                 if (isCollege) {
+                                    const availableSemesters = editSubject.academic_level_id ? getSemestersByLevel(editSubject.academic_level_id) : [];
+                                    const currentSemesterIds = editSubject.semester_ids || [];
+                                    const currentGradingPeriodIds = editSubject.grading_period_ids || [];
+
                                     return (
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
-                                                <Label htmlFor="edit-subject-semester">Semester</Label>
-                                                <Select value={editSubject.semester_id?.toString() || ''} onValueChange={(v) => setEditSubject({ ...editSubject, semester_id: Number(v), grading_period_id: undefined })}>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Select semester (optional)" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {editSubject.academic_level_id && getSemestersByLevel(editSubject.academic_level_id).map((sem) => (
-                                                            <SelectItem key={sem.id} value={sem.id.toString()}>
-                                                                {sem.name}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
+                                                <Label>Semesters</Label>
+                                                <div className="space-y-2 p-3 border rounded-md">
+                                                    {availableSemesters.length === 0 ? (
+                                                        <p className="text-sm text-gray-500">No semesters available</p>
+                                                    ) : (
+                                                        availableSemesters.map((sem) => (
+                                                            <div key={sem.id} className="flex items-center space-x-2">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    id={`edit-college-sem-${sem.id}`}
+                                                                    checked={currentSemesterIds.includes(sem.id)}
+                                                                    onChange={(e) => {
+                                                                        const semId = sem.id;
+                                                                        if (e.target.checked) {
+                                                                            setEditSubject({
+                                                                                ...editSubject,
+                                                                                semester_ids: [...currentSemesterIds, semId]
+                                                                            });
+                                                                        } else {
+                                                                            setEditSubject({
+                                                                                ...editSubject,
+                                                                                semester_ids: currentSemesterIds.filter(id => id !== semId),
+                                                                                grading_period_ids: currentGradingPeriodIds.filter(gpId => {
+                                                                                    const gp = gradingPeriods.find(p => p.id === gpId);
+                                                                                    return gp?.parent_id !== semId;
+                                                                                })
+                                                                            });
+                                                                        }
+                                                                    }}
+                                                                    className="rounded border-gray-300"
+                                                                />
+                                                                <Label htmlFor={`edit-college-sem-${sem.id}`} className="text-sm font-normal cursor-pointer">
+                                                                    {sem.name}
+                                                                </Label>
+                                                            </div>
+                                                        ))
+                                                    )}
+                                                </div>
                                             </div>
                                             <div>
-                                                <Label htmlFor="edit-subject-period">Period</Label>
-                                                <Select value={editSubject.grading_period_id?.toString() || ''} onValueChange={(value) => setEditSubject({ ...editSubject, grading_period_id: Number(value) })} disabled={!editSubject.semester_id}>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Select period (optional)" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {getPeriodsBySemester(editSubject.semester_id?.toString()).map((gp) => (
-                                                            <SelectItem key={gp.id} value={gp.id.toString()}>
-                                                                {gp.name}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
+                                                <Label>Grading Periods</Label>
+                                                <div className="space-y-2 p-3 border rounded-md max-h-48 overflow-y-auto">
+                                                    {currentSemesterIds.length === 0 ? (
+                                                        <p className="text-sm text-gray-500">Select a semester first</p>
+                                                    ) : (
+                                                        currentSemesterIds.map((semId) => {
+                                                            const semester = gradingPeriods.find(gp => gp.id === semId);
+                                                            const periods = getPeriodsBySemester(semId.toString());
+
+                                                            if (!semester || periods.length === 0) return null;
+
+                                                            return (
+                                                                <div key={semId} className="space-y-2">
+                                                                    <div className="text-sm font-semibold text-blue-600 border-l-4 border-blue-600 pl-2">
+                                                                        {semester.name} Periods:
+                                                                    </div>
+                                                                    {periods.map((gp) => (
+                                                                        <div key={gp.id} className="flex items-center space-x-2 ml-6">
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                id={`edit-college-gp-${gp.id}`}
+                                                                                checked={currentGradingPeriodIds.includes(gp.id)}
+                                                                                onChange={(e) => {
+                                                                                    const periodId = gp.id;
+                                                                                    if (e.target.checked) {
+                                                                                        setEditSubject({
+                                                                                            ...editSubject,
+                                                                                            grading_period_ids: [...currentGradingPeriodIds, periodId]
+                                                                                        });
+                                                                                    } else {
+                                                                                        setEditSubject({
+                                                                                            ...editSubject,
+                                                                                            grading_period_ids: currentGradingPeriodIds.filter(id => id !== periodId)
+                                                                                        });
+                                                                                    }
+                                                                                }}
+                                                                                className="rounded border-gray-300"
+                                                                            />
+                                                                            <Label htmlFor={`edit-college-gp-${gp.id}`} className="text-sm font-normal cursor-pointer">
+                                                                                {gp.name}
+                                                                            </Label>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            );
+                                                        })
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     );

@@ -286,7 +286,9 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/aca
     Route::get('/honors/junior-high-school', [AcademicController::class, 'juniorHighSchoolHonors'])->name('honors.junior-high-school');
     Route::post('/honors/junior-high-school/generate-results', [AcademicController::class, 'generateJuniorHighSchoolHonorResults'])->name('honors.junior-high-school.generate-results');
     Route::get('/honors/senior-high-school', [AcademicController::class, 'seniorHighSchoolHonors'])->name('honors.senior-high-school');
+    Route::post('/honors/senior-high-school/generate-results', [AcademicController::class, 'generateSeniorHighSchoolHonorResults'])->name('honors.senior-high-school.generate-results');
     Route::get('/honors/college', [AcademicController::class, 'collegeHonors'])->name('honors.college');
+    Route::post('/honors/college/generate-results', [AcademicController::class, 'generateCollegeHonorResults'])->name('honors.college.generate-results');
     Route::post('/honors/criteria', [AcademicController::class, 'saveHonorCriteria'])->name('honors.criteria.save');
     Route::put('/honors/criteria/{criterion}', [AcademicController::class, 'updateHonorCriterion'])->name('honors.criteria.update');
     Route::delete('/honors/criteria/{criterion}', [AcademicController::class, 'destroyHonorCriterion'])->name('honors.criteria.destroy');
@@ -483,7 +485,8 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/aca
     Route::post('/assign-teachers', [AcademicController::class, 'storeTeacherAssignment'])->name('assign-teachers.store');
     Route::put('/assign-teachers/{assignment}', [AcademicController::class, 'updateTeacherAssignment'])->name('assign-teachers.update');
     Route::delete('/assign-teachers/{assignment}', [AcademicController::class, 'destroyTeacherAssignment'])->name('assign-teachers.destroy');
-    
+    Route::post('/assign-teachers/sync-existing', [AcademicController::class, 'syncExistingTeacherAssignments'])->name('assign-teachers.sync-existing');
+
     Route::get('/assign-advisers', [AcademicController::class, 'assignAdvisers'])->name('assign-advisers');
     Route::post('/assign-advisers', [AcademicController::class, 'storeClassAdviserAssignment'])->name('assign-advisers.store');
     Route::put('/assign-advisers/{assignment}', [AcademicController::class, 'updateClassAdviserAssignment'])->name('assign-advisers.update');
