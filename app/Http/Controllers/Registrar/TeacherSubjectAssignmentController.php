@@ -162,6 +162,9 @@ class TeacherSubjectAssignmentController extends Controller
             'notes' => $request->notes,
         ]);
 
+        // Auto-enroll students when assignment is updated
+        $this->autoEnrollStudents($assignment->fresh());
+
         ActivityLog::create([
             'user_id' => Auth::id(),
             'target_user_id' => $request->teacher_id,
@@ -205,6 +208,11 @@ class TeacherSubjectAssignmentController extends Controller
         $assignment->update(['is_active' => !$assignment->is_active]);
         $status = $assignment->is_active ? 'activated' : 'deactivated';
 
+        // Auto-enroll students when assignment is activated
+        if ($assignment->is_active) {
+            $this->autoEnrollStudents($assignment);
+        }
+
         ActivityLog::create([
             'user_id' => Auth::id(),
             'target_user_id' => $assignment->teacher_id,
@@ -232,33 +240,99 @@ class TeacherSubjectAssignmentController extends Controller
 
     private function autoEnrollStudents(TeacherSubjectAssignment $assignment)
     {
-        $students = User::where('user_role', 'student')
-            ->where('academic_level_id', $assignment->academic_level_id)
-            ->get();
-
         $enrolledCount = 0;
-        foreach ($students as $student) {
-            $existing = \App\Models\StudentSubjectAssignment::where([
-                'student_id' => $student->id,
-                'subject_id' => $assignment->subject_id,
-                'school_year' => $assignment->school_year,
-            ])->first();
 
-            if (!$existing) {
+        try {
+            // Get subject and academic level
+            $subject = Subject::with('section')->find($assignment->subject_id);
+            $academicLevel = AcademicLevel::find($assignment->academic_level_id);
+
+            if (!$subject || !$academicLevel) {
+                Log::warning('Subject or academic level not found for auto-enrollment', [
+                    'assignment_id' => $assignment->id,
+                    'subject_id' => $assignment->subject_id,
+                    'academic_level_id' => $assignment->academic_level_id,
+                ]);
+                return 0;
+            }
+
+            // Build student query
+            $studentsQuery = User::where('user_role', 'student')
+                ->where('year_level', $academicLevel->key);
+
+            // Filter by section if subject has a section
+            if ($subject->section_id) {
+                $studentsQuery->where('section_id', $subject->section_id);
+            }
+
+            // Filter by grade level
+            if ($assignment->grade_level) {
+                $studentsQuery->where('specific_year_level', $assignment->grade_level);
+            }
+
+            // Filter by strand for SHS
+            if ($assignment->strand_id) {
+                $studentsQuery->where('strand_id', $assignment->strand_id);
+            }
+
+            // Filter by department for College
+            if ($assignment->department_id) {
+                $studentsQuery->where('department_id', $assignment->department_id);
+            }
+
+            // Filter by course for College
+            if ($assignment->course_id) {
+                $studentsQuery->where('course_id', $assignment->course_id);
+            }
+
+            $students = $studentsQuery->get();
+
+            Log::info('Auto-enrolling students for teacher assignment', [
+                'assignment_id' => $assignment->id,
+                'subject_name' => $subject->name,
+                'students_found' => $students->count(),
+            ]);
+
+            foreach ($students as $student) {
+                $existing = \App\Models\StudentSubjectAssignment::where([
+                    'student_id' => $student->id,
+                    'subject_id' => $assignment->subject_id,
+                    'school_year' => $assignment->school_year,
+                ])->first();
+
+                if ($existing) {
+                    // Reactivate if inactive
+                    if (!$existing->is_active) {
+                        $existing->update(['is_active' => true]);
+                    }
+                    $enrolledCount++;
+                    continue;
+                }
+
+                // Create new enrollment
                 \App\Models\StudentSubjectAssignment::create([
                     'student_id' => $student->id,
                     'subject_id' => $assignment->subject_id,
                     'school_year' => $assignment->school_year,
-                    'semester' => '1st Semester',
                     'is_active' => true,
                     'enrolled_by' => Auth::id(),
-                    'notes' => 'Auto-enrolled when teacher was assigned',
                 ]);
                 $enrolledCount++;
             }
-        }
 
-        return $enrolledCount;
+            Log::info('Auto-enrollment completed', [
+                'assignment_id' => $assignment->id,
+                'students_enrolled' => $enrolledCount,
+            ]);
+
+            return $enrolledCount;
+        } catch (\Exception $e) {
+            Log::error('Failed to auto-enroll students for teacher assignment', [
+                'assignment_id' => $assignment->id,
+                'error' => $e->getMessage(),
+            ]);
+            return 0;
+        }
     }
 
     public function showStudents(TeacherSubjectAssignment $assignment)

@@ -115,21 +115,28 @@ class User extends Authenticatable
 
         static::updated(function (User $user) {
             if ($user->user_role === 'student') {
-                // Check if section or academic level has changed
+                // Check if section, year_level, or specific_year_level has changed
                 $sectionChanged = $user->isDirty('section_id');
-                $academicLevelChanged = $user->isDirty('academic_level_id');
+                $yearLevelChanged = $user->isDirty('year_level');
+                $specificYearLevelChanged = $user->isDirty('specific_year_level');
+                $strandChanged = $user->isDirty('strand_id');
+                $courseChanged = $user->isDirty('course_id');
 
-                if ($sectionChanged || $academicLevelChanged) {
+                if ($sectionChanged || $yearLevelChanged || $specificYearLevelChanged || $strandChanged || $courseChanged) {
                     try {
-                        $teacherService = new \App\Services\TeacherStudentAssignmentService();
-                        $enrolledCount = $teacherService->autoEnrollStudentInSectionSubjects($user);
+                        // Use the StudentSubjectAssignmentService for more comprehensive enrollment
+                        $studentService = new \App\Services\StudentSubjectAssignmentService();
+                        $assignedSubjects = $studentService->enrollStudentInAllApplicableSubjects($user);
 
                         \Log::info('Student re-enrolled in subjects after section/level change', [
                             'student_id' => $user->id,
                             'student_name' => $user->name,
                             'section_id' => $user->section_id,
-                            'academic_level_id' => $user->academic_level_id,
-                            'enrolled_subjects_count' => $enrolledCount,
+                            'year_level' => $user->year_level,
+                            'specific_year_level' => $user->specific_year_level,
+                            'strand_id' => $user->strand_id,
+                            'course_id' => $user->course_id,
+                            'enrolled_subjects_count' => count($assignedSubjects),
                         ]);
                     } catch (\Exception $e) {
                         \Log::error('Failed to re-enroll student in subjects after update', [

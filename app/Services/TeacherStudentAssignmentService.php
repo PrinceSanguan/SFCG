@@ -640,19 +640,29 @@ class TeacherStudentAssignmentService
         $currentSchoolYear = $this->getCurrentSchoolYear();
         $enrolledCount = 0;
 
-        if (!$student->section_id || !$student->academic_level_id) {
-            Log::warning('Cannot auto-enroll student - missing section or academic level', [
+        if (!$student->section_id || !$student->year_level) {
+            Log::warning('Cannot auto-enroll student - missing section or year level', [
                 'student_id' => $student->id,
                 'student_name' => $student->name,
                 'section_id' => $student->section_id,
-                'academic_level_id' => $student->academic_level_id,
+                'year_level' => $student->year_level,
+            ]);
+            return 0;
+        }
+
+        // Get academic level ID from year_level
+        $academicLevel = \App\Models\AcademicLevel::where('key', $student->year_level)->first();
+        if (!$academicLevel) {
+            Log::warning('Academic level not found for student year level', [
+                'student_id' => $student->id,
+                'year_level' => $student->year_level,
             ]);
             return 0;
         }
 
         // Find all subjects for this section and academic level
         $subjects = Subject::where('section_id', $student->section_id)
-            ->where('academic_level_id', $student->academic_level_id)
+            ->where('academic_level_id', $academicLevel->id)
             ->where('is_active', true)
             ->get();
 

@@ -1801,6 +1801,18 @@ class AcademicController extends Controller
             'notes' => $request->notes,
         ]);
 
+        // Auto-enroll students in the subject when assignment is updated
+        $subject = Subject::find($request->subject_id);
+        if ($subject) {
+            $this->autoEnrollStudentsInSubject($subject, $request->school_year, [
+                'grade_level' => $request->grade_level,
+                'strand_id' => $request->strand_id,
+                'track_id' => $request->track_id ?? null,
+                'department_id' => $request->department_id ?? null,
+                'course_id' => $request->course_id ?? null,
+            ]);
+        }
+
         // Log activity
         ActivityLog::create([
             'user_id' => Auth::id(),
@@ -2375,11 +2387,8 @@ class AcademicController extends Controller
                 Log::info('Applied strand filter', ['strand_id' => $criteria['strand_id']]);
             }
 
-            // Filter by track for SHS
-            if (isset($criteria['track_id']) && $criteria['track_id']) {
-                $studentsQuery->where('track_id', $criteria['track_id']);
-                Log::info('Applied track filter', ['track_id' => $criteria['track_id']]);
-            }
+            // Note: track_id is on subjects/assignments/sections, not students
+            // Students only have strand_id, so we don't filter by track_id here
 
             // Filter by department for College
             if (isset($criteria['department_id']) && $criteria['department_id']) {
