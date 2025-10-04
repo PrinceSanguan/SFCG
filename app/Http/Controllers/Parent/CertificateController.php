@@ -151,6 +151,11 @@ class CertificateController extends Controller
         $html = $certificate->template->content_html;
         $payload = $certificate->payload ?? [];
 
+        // Add default date_now if not in payload
+        if (!isset($payload['date_now'])) {
+            $payload['date_now'] = now()->format('F d, Y');
+        }
+
         // Replace placeholders with actual data
         foreach ($payload as $key => $value) {
             $placeholder = '{{' . $key . '}}';
