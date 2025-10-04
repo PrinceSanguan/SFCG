@@ -69,13 +69,13 @@ interface HonorResult {
   gpa: number;
   status?: string;
   school_year: string;
-  honorType: {
+  honorType?: {
     id: number;
     name: string;
     key: string;
     scope: string;
   };
-  academicLevel: {
+  academicLevel?: {
     id: number;
     name: string;
     key: string;
@@ -131,6 +131,23 @@ export default function StudentProfile({ user, assignedSubjects, subjectGrades, 
     if (grade.grading_period_id) return `Period #${grade.grading_period_id}`;
     return 'N/A';
   };
+
+  const getGradeColor = (grade: number, yearLevel: string): string => {
+    if (yearLevel === 'senior_highschool') {
+      // SHS uses 1.0-5.0 scale where lower is better
+      if (grade <= 1.5) return 'text-green-600';
+      if (grade <= 2.0) return 'text-yellow-600';
+      if (grade <= 3.0) return 'text-orange-600';
+      return 'text-red-600';
+    } else {
+      // Elementary, JHS, College use 0-100 scale where higher is better
+      if (grade >= 90) return 'text-green-600';
+      if (grade >= 80) return 'text-yellow-600';
+      if (grade >= 70) return 'text-orange-600';
+      return 'text-red-600';
+    }
+  };
+
   const DEBUG = false;
   const isQuarterPeriod = (grade: StudentGrade): boolean => {
     const type = grade.gradingPeriod?.sort_order !== undefined
@@ -403,8 +420,8 @@ export default function StudentProfile({ user, assignedSubjects, subjectGrades, 
                         <Award className="h-5 w-5 text-yellow-600" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-lg">{honor.honorType.name}</h3>
-                        <p className="text-sm text-muted-foreground">{honor.academicLevel.name}</p>
+                        <h3 className="font-semibold text-lg">{honor.honorType?.name || 'Honor Type'}</h3>
+                        <p className="text-sm text-muted-foreground">{honor.academicLevel?.name || 'Academic Level'}</p>
                       </div>
                     </div>
                     <div className="text-right">
@@ -434,30 +451,56 @@ export default function StudentProfile({ user, assignedSubjects, subjectGrades, 
                   const quarterGrades = (subjectGrades[assignment.subject.id] || []).filter(isQuarterPeriod);
                   const byCode = new Map<string, StudentGrade>();
                   quarterGrades.forEach(g => {
-                    const c = (g.gradingPeriod?.code || g.grading_period?.code || '').toUpperCase();
+                    const originalCode = g.gradingPeriod?.code || g.grading_period?.code || '';
+                    const c = originalCode.toUpperCase();
                     const name = (g.gradingPeriod?.name || g.grading_period?.name || '').toLowerCase();
 
-                    // Map database codes to Q1-Q4 format
-                    if (c === '1ST_GRADING' || name.includes('1st grading') || name.includes('first quarter')) {
+                    // Map database codes to standardized format
+                    // For Elementary/JHS: Q1, Q2, Q3, Q4
+                    if (c === 'Q1' || c === '1ST_GRADING' || name.includes('1st grading') || name.includes('first quarter')) {
                       byCode.set('Q1', g);
-                    } else if (c === '2ND_GRADING' || name.includes('2nd grading') || name.includes('second quarter')) {
+                    } else if (c === 'Q2' || c === '2ND_GRADING' || name.includes('2nd grading') || name.includes('second quarter')) {
                       byCode.set('Q2', g);
-                    } else if (c === '3RD_GRADING' || name.includes('3rd grading') || name.includes('third quarter')) {
+                    } else if (c === 'Q3' || c === '3RD_GRADING' || name.includes('3rd grading') || name.includes('third quarter')) {
                       byCode.set('Q3', g);
-                    } else if (c === '4TH_GRADING' || name.includes('4th grading') || name.includes('fourth quarter')) {
+                    } else if (c === 'Q4' || c === 'F4' || c === '4TH_GRADING' || name.includes('4th grading') || name.includes('fourth quarter')) {
                       byCode.set('Q4', g);
                     }
 
+                    // For SHS: Map m1, Pre-final, m2, pre-final2 to display codes
+                    if (c === 'M1' || originalCode === 'm1') {
+                      byCode.set('SHS_S1_MT', g); // First Semester Midterm
+                    } else if (c === 'PRE-FINAL' || originalCode === 'Pre-final') {
+                      byCode.set('SHS_S1_PF', g); // First Semester Pre-Final
+                    } else if (c === 'M2' || originalCode === 'm2') {
+                      byCode.set('SHS_S2_MT', g); // Second Semester Midterm
+                    } else if (c === 'PRE-FINAL2' || originalCode === 'pre-final2') {
+                      byCode.set('SHS_S2_PF', g); // Second Semester Pre-Final
+                    }
+
                     // Also preserve original codes for backward compatibility
+                    if (originalCode) byCode.set(originalCode, g);
                     if (c) byCode.set(c, g);
                   });
                   const isSeniorHigh = (user.year_level === 'senior_highschool') || false;
                   const isElementary = (user.year_level === 'elementary') || false;
                   const isJuniorHigh = (user.year_level === 'junior_highschool') || false;
-                  
-                  // Use Q1-Q4 for Elementary, Junior High, and Senior High (all use quarter-based periods)
-                  const firstSemCodes = (isSeniorHigh || isJuniorHigh || isElementary) ? ['Q1', 'Q2'] : ['P1', 'Q1'];
-                  const secondSemCodes = (isSeniorHigh || isJuniorHigh || isElementary) ? ['Q3', 'Q4'] : ['S2-MT', 'S2-PF'];
+
+                  // Define semester codes based on academic level
+                  let firstSemCodes: string[];
+                  let secondSemCodes: string[];
+
+                  if (isSeniorHigh) {
+                    firstSemCodes = ['SHS_S1_MT', 'SHS_S1_PF']; // Midterm, Pre-Final
+                    secondSemCodes = ['SHS_S2_MT', 'SHS_S2_PF']; // Midterm, Pre-Final
+                  } else if (isElementary || isJuniorHigh) {
+                    firstSemCodes = ['Q1', 'Q2'];
+                    secondSemCodes = ['Q3', 'Q4'];
+                  } else {
+                    // College
+                    firstSemCodes = ['P1', 'Q1'];
+                    secondSemCodes = ['S2-MT', 'S2-PF'];
+                  }
                   // Ensure order-only rendering; maps used directly in JSX below
                   if (DEBUG) {
                     console.log('Student Profile → subject grades', {
@@ -533,7 +576,7 @@ export default function StudentProfile({ user, assignedSubjects, subjectGrades, 
                                     <div>
                                       <span className="text-sm font-medium">{grade ? getPeriodLabel(grade) : quarterNames[code] || code}</span>
                                       <div className="flex items-center gap-2">
-                                        <span className={`text-lg font-bold ${grade && grade.grade >= 90 ? 'text-green-600' : grade && grade.grade >= 80 ? 'text-yellow-600' : grade && grade.grade >= 70 ? 'text-orange-600' : 'text-red-600'}`}>{grade ? grade.grade : '—'}</span>
+                                        <span className={`text-lg font-bold ${grade ? getGradeColor(grade.grade, user.year_level || '') : 'text-gray-400'}`}>{grade ? grade.grade : '—'}</span>
                                       </div>
                                     </div>
                                   </div>
@@ -552,10 +595,10 @@ export default function StudentProfile({ user, assignedSubjects, subjectGrades, 
                                       <div key={`fs-${code}-${grade?.id ?? 'empty'}`} className="flex items-center justify-between p-2 bg-white dark:bg-gray-700 rounded border">
                                         <div>
                                           <span className="text-sm font-medium">{grade ? getPeriodLabel(grade) : (
-                                            isSeniorHigh ? (code === 'Q1' ? 'First Quarter' : 'Second Quarter') : (code === 'P1' ? 'pre final' : 'First Quarter')
+                                            isSeniorHigh ? (code === 'SHS_S1_MT' ? 'Midterm' : 'Pre-Final') : (code === 'P1' ? 'pre final' : 'First Quarter')
                                           )}</span>
                                           <div className="flex items-center gap-2">
-                                            <span className={`text-lg font-bold ${grade && grade.grade >= 90 ? 'text-green-600' : grade && grade.grade >= 80 ? 'text-yellow-600' : grade && grade.grade >= 70 ? 'text-orange-600' : 'text-red-600'}`}>{grade ? grade.grade : '—'}</span>
+                                            <span className={`text-lg font-bold ${grade ? getGradeColor(grade.grade, user.year_level || '') : 'text-gray-400'}`}>{grade ? grade.grade : '—'}</span>
                                           </div>
                                         </div>
                                       </div>
@@ -572,10 +615,10 @@ export default function StudentProfile({ user, assignedSubjects, subjectGrades, 
                                       <div key={`ss-${code}-${grade?.id ?? 'empty'}`} className="flex items-center justify-between p-2 bg-white dark:bg-gray-700 rounded border">
                                         <div>
                                           <span className="text-sm font-medium">{grade ? getPeriodLabel(grade) : (
-                                            isSeniorHigh ? (code === 'Q3' ? 'Third Quarter' : 'Fourth Quarter') : (code === 'S2-MT' ? 'Midterm' : 'Pre-Final')
+                                            isSeniorHigh ? (code === 'SHS_S2_MT' ? 'Midterm' : 'Pre-Final') : (code === 'S2-MT' ? 'Midterm' : 'Pre-Final')
                                           )}</span>
                                           <div className="flex items-center gap-2">
-                                            <span className={`text-lg font-bold ${grade && grade.grade >= 90 ? 'text-green-600' : grade && grade.grade >= 80 ? 'text-yellow-600' : grade && grade.grade >= 70 ? 'text-orange-600' : 'text-red-600'}`}>{grade ? grade.grade : '—'}</span>
+                                            <span className={`text-lg font-bold ${grade ? getGradeColor(grade.grade, user.year_level || '') : 'text-gray-400'}`}>{grade ? grade.grade : '—'}</span>
                                           </div>
                                         </div>
                                       </div>
