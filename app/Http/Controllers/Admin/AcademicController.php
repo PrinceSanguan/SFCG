@@ -100,19 +100,21 @@ class AcademicController extends Controller
         $collegeLevel = AcademicLevel::where('key', 'college')->first();
         
         $assignments = InstructorCourseAssignment::with([
-            'instructor', 
-            'course.department', 
-            'academicLevel', 
+            'instructor',
+            'course.department',
+            'section',
+            'academicLevel',
             'gradingPeriod',
             'subject'
         ])->where('academic_level_id', $collegeLevel->id)
           ->orderBy('school_year', 'desc')->get();
-        
+
         $instructors = User::where('user_role', 'instructor')->orderBy('name')->get();
         $departments = Department::where('academic_level_id', $collegeLevel->id)->orderBy('name')->get();
         $courses = Course::whereHas('department', function($query) use ($collegeLevel) {
             $query->where('academic_level_id', $collegeLevel->id);
         })->orderBy('name')->get();
+        $sections = \App\Models\Section::with('course')->where('is_active', true)->get();
         $subjects = Subject::where('academic_level_id', $collegeLevel->id)->orderBy('name')->get();
         $academicLevels = AcademicLevel::orderBy('sort_order')->get();
         $gradingPeriods = GradingPeriod::where('academic_level_id', $collegeLevel->id)->orderBy('sort_order')->get();
@@ -126,6 +128,7 @@ class AcademicController extends Controller
             'instructors' => $instructors,
             'departments' => $departments,
             'courses' => $courses,
+            'sections' => $sections,
             'subjects' => $subjects,
             'academicLevels' => $academicLevels,
             'gradingPeriods' => $gradingPeriods,
@@ -955,7 +958,23 @@ class AcademicController extends Controller
         $criteria = HonorCriterion::with(['honorType', 'academicLevel'])
             ->where('academic_level_id', 4) // College level ID
             ->get();
-        
+
+        // Debug logging
+        Log::info('=== COLLEGE HONORS DEBUG ===');
+        Log::info('Total Criteria:', ['count' => $criteria->count()]);
+        foreach ($criteria as $criterion) {
+            Log::info('Criterion Details:', [
+                'id' => $criterion->id,
+                'honor_type_id' => $criterion->honor_type_id,
+                'honorType_loaded' => $criterion->relationLoaded('honorType'),
+                'honorType_exists' => $criterion->honorType ? 'Yes' : 'No',
+                'honorType_name' => $criterion->honorType ? $criterion->honorType->name : 'NULL',
+                'honorType_key' => $criterion->honorType ? $criterion->honorType->key : 'NULL',
+                'max_gpa' => $criterion->max_gpa,
+            ]);
+        }
+        Log::info('Criteria to be sent to frontend:', ['data' => $criteria->toArray()]);
+
         $currentYear = date('Y');
         $schoolYears = [
             ($currentYear - 1) . '-' . $currentYear,
@@ -1422,7 +1441,57 @@ class AcademicController extends Controller
             ],
         ]);
 
-        return back()->with('success', 'Subject created successfully!');
+        // Auto-enroll students in the new subject if section is specified
+        $enrolledCount = 0;
+        if ($subject->section_id) {
+            Log::info('Auto-enrolling students in new subject', [
+                'subject_id' => $subject->id,
+                'subject_name' => $subject->name,
+                'section_id' => $subject->section_id,
+            ]);
+
+            try {
+                $studentService = new \App\Services\StudentSubjectAssignmentService();
+                $students = User::where('user_role', 'student')
+                    ->where('section_id', $subject->section_id)
+                    ->where('is_active', true)
+                    ->get();
+
+                Log::info('Found students for auto-enrollment', [
+                    'subject_id' => $subject->id,
+                    'section_id' => $subject->section_id,
+                    'student_count' => $students->count(),
+                ]);
+
+                foreach ($students as $student) {
+                    // Use the service to enroll the student
+                    $enrollments = $studentService->enrollStudentInSectionSubjects($student);
+                    if (count($enrollments) > 0) {
+                        $enrolledCount++;
+                    }
+                }
+
+                Log::info('Auto-enrollment completed', [
+                    'subject_id' => $subject->id,
+                    'subject_name' => $subject->name,
+                    'section_id' => $subject->section_id,
+                    'enrolled_count' => $enrolledCount,
+                ]);
+            } catch (\Exception $e) {
+                Log::error('Failed to auto-enroll students in new subject', [
+                    'subject_id' => $subject->id,
+                    'section_id' => $subject->section_id,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+            }
+        }
+
+        $successMessage = $enrolledCount > 0
+            ? "Subject created successfully! Automatically enrolled {$enrolledCount} student(s)."
+            : 'Subject created successfully!';
+
+        return back()->with('success', $successMessage);
     }
 
     public function updateSubject(Request $request, Subject $subject)
@@ -1487,7 +1556,57 @@ class AcademicController extends Controller
             ],
         ]);
 
-        return back()->with('success', 'Subject updated successfully!');
+        // Re-evaluate student enrollments if section is specified
+        $enrolledCount = 0;
+        if ($subject->section_id) {
+            Log::info('Re-evaluating student enrollments after subject update', [
+                'subject_id' => $subject->id,
+                'subject_name' => $subject->name,
+                'section_id' => $subject->section_id,
+            ]);
+
+            try {
+                $studentService = new \App\Services\StudentSubjectAssignmentService();
+                $students = User::where('user_role', 'student')
+                    ->where('section_id', $subject->section_id)
+                    ->where('is_active', true)
+                    ->get();
+
+                Log::info('Found students for enrollment check', [
+                    'subject_id' => $subject->id,
+                    'section_id' => $subject->section_id,
+                    'student_count' => $students->count(),
+                ]);
+
+                foreach ($students as $student) {
+                    // Use the service to enroll the student if not already enrolled
+                    $enrollments = $studentService->enrollStudentInSectionSubjects($student);
+                    if (count($enrollments) > 0) {
+                        $enrolledCount++;
+                    }
+                }
+
+                Log::info('Re-enrollment check completed', [
+                    'subject_id' => $subject->id,
+                    'subject_name' => $subject->name,
+                    'section_id' => $subject->section_id,
+                    'newly_enrolled_count' => $enrolledCount,
+                ]);
+            } catch (\Exception $e) {
+                Log::error('Failed to re-evaluate student enrollments', [
+                    'subject_id' => $subject->id,
+                    'section_id' => $subject->section_id,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+            }
+        }
+
+        $successMessage = $enrolledCount > 0
+            ? "Subject updated successfully! Automatically enrolled {$enrolledCount} additional student(s)."
+            : 'Subject updated successfully!';
+
+        return back()->with('success', $successMessage);
     }
 
     public function destroySubject(Subject $subject)
@@ -1837,6 +1956,7 @@ class AcademicController extends Controller
             'year_level' => 'required|string|in:first_year,second_year,third_year,fourth_year',
             'department_id' => 'required|exists:departments,id',
             'course_id' => 'required|exists:courses,id',
+            'section_id' => 'nullable|exists:sections,id',
             'subject_id' => 'required|exists:subjects,id',
             'academic_level_id' => 'required|exists:academic_levels,id',
             'grading_period_id' => 'nullable|exists:grading_periods,id',
@@ -1854,18 +1974,33 @@ class AcademicController extends Controller
             return back()->with('error', 'Selected user is not an instructor.');
         }
 
-        // Check if this subject is already assigned to any instructor, teacher, or adviser
+        Log::info('Starting instructor assignment creation', [
+            'instructor_id' => $request->instructor_id,
+            'year_level' => $request->year_level,
+            'department_id' => $request->department_id,
+            'course_id' => $request->course_id,
+            'section_id' => $request->section_id,
+            'subject_id' => $request->subject_id,
+            'academic_level_id' => $request->academic_level_id,
+            'grading_period_id' => $request->grading_period_id,
+            'school_year' => $request->school_year,
+        ]);
+
+        // Check if this subject is already assigned to any instructor via InstructorSubjectAssignment
         $existingInstructorAssignment = \App\Models\InstructorSubjectAssignment::where('subject_id', $request->subject_id)
             ->where('academic_level_id', $request->academic_level_id)
             ->where('school_year', $request->school_year)
             ->when($request->grading_period_id, fn($q) => $q->where('grading_period_id', $request->grading_period_id))
-            ->when($request->department_id, fn($q) => $q->where('department_id', $request->department_id))
-            ->when($request->course_id, fn($q) => $q->where('course_id', $request->course_id))
+            ->when($request->section_id, fn($q) => $q->where('section_id', $request->section_id))
             ->with('instructor')
             ->first();
 
         if ($existingInstructorAssignment) {
             $instructorName = $existingInstructorAssignment->instructor ? $existingInstructorAssignment->instructor->name : 'an instructor';
+            Log::warning('Subject already assigned via InstructorSubjectAssignment', [
+                'existing_assignment_id' => $existingInstructorAssignment->id,
+                'existing_instructor' => $instructorName,
+            ]);
             return back()->with('error', 'This subject is already assigned to ' . $instructorName . ' (Instructor) for the selected criteria.');
         }
 
@@ -1895,31 +2030,50 @@ class AcademicController extends Controller
             return back()->with('error', 'This subject is already assigned to ' . $adviserName . ' (Adviser) for the selected criteria.');
         }
 
-        // Check for existing course assignment to provide better error message
+        // Check for existing course assignment with the same subject to prevent duplicates
+        // Allow multiple subjects for the same course
         $existingCourseAssignment = InstructorCourseAssignment::where([
             'instructor_id' => $request->instructor_id,
             'course_id' => $request->course_id,
             'academic_level_id' => $request->academic_level_id,
             'grading_period_id' => $request->grading_period_id,
             'school_year' => $request->school_year,
+            'subject_id' => $request->subject_id,
         ])->first();
 
         if ($existingCourseAssignment) {
-            return back()->with('error', 'This instructor is already assigned to this course for the specified period and school year. Please check existing assignments or modify the current one.');
+            return back()->with('error', 'This instructor is already assigned to this specific subject for the specified period and school year. Please check existing assignments or modify the current one.');
         }
 
-        $assignment = InstructorCourseAssignment::create([
-            'instructor_id' => $request->instructor_id,
-            'year_level' => $request->year_level,
-            'department_id' => $request->department_id,
-            'course_id' => $request->course_id,
-            'subject_id' => $request->subject_id,
-            'academic_level_id' => $request->academic_level_id,
-            'grading_period_id' => $request->grading_period_id,
-            'school_year' => $request->school_year,
-            'assigned_by' => Auth::id(),
-            'notes' => $request->notes,
-        ]);
+        try {
+            $assignment = InstructorCourseAssignment::create([
+                'instructor_id' => $request->instructor_id,
+                'year_level' => $request->year_level,
+                'department_id' => $request->department_id,
+                'course_id' => $request->course_id,
+                'section_id' => $request->section_id,
+                'subject_id' => $request->subject_id,
+                'academic_level_id' => $request->academic_level_id,
+                'grading_period_id' => $request->grading_period_id,
+                'school_year' => $request->school_year,
+                'assigned_by' => Auth::id(),
+                'notes' => $request->notes,
+            ]);
+
+            Log::info('InstructorCourseAssignment created successfully', [
+                'assignment_id' => $assignment->id,
+                'instructor_id' => $assignment->instructor_id,
+                'course_id' => $assignment->course_id,
+                'section_id' => $assignment->section_id,
+                'subject_id' => $assignment->subject_id,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to create InstructorCourseAssignment', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return back()->with('error', 'Failed to create instructor assignment: ' . $e->getMessage());
+        }
 
         // Sync subject-level assignments
         $subjectsQuery = Subject::query()
@@ -1934,19 +2088,35 @@ class AcademicController extends Controller
             'instructor_id' => $request->instructor_id,
             'subjects_count' => $subjects->count(),
             'school_year' => $request->school_year,
+            'section_id' => $request->section_id,
         ]);
         foreach ($subjects as $subject) {
-            InstructorSubjectAssignment::updateOrCreate([
-                'instructor_id' => $request->instructor_id,
-                'subject_id' => $subject->id,
-                'academic_level_id' => $request->academic_level_id,
-                'school_year' => $request->school_year,
-            ], [
-                'grading_period_id' => $request->grading_period_id,
-                'assigned_by' => Auth::id(),
-                'is_active' => true,
-                'notes' => $request->notes,
-            ]);
+            try {
+                $subjectAssignment = InstructorSubjectAssignment::updateOrCreate([
+                    'instructor_id' => $request->instructor_id,
+                    'subject_id' => $subject->id,
+                    'section_id' => $request->section_id,
+                    'academic_level_id' => $request->academic_level_id,
+                    'school_year' => $request->school_year,
+                ], [
+                    'grading_period_id' => $request->grading_period_id,
+                    'assigned_by' => Auth::id(),
+                    'is_active' => true,
+                    'notes' => $request->notes,
+                ]);
+
+                Log::info('InstructorSubjectAssignment synced', [
+                    'subject_assignment_id' => $subjectAssignment->id,
+                    'instructor_id' => $request->instructor_id,
+                    'subject_id' => $subject->id,
+                    'section_id' => $request->section_id,
+                ]);
+            } catch (\Exception $e) {
+                Log::error('Failed to sync InstructorSubjectAssignment', [
+                    'subject_id' => $subject->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
 
             // Auto-enroll students in this subject
             $this->autoEnrollStudentsInSubject($subject, $request->school_year, [
@@ -1967,7 +2137,18 @@ class AcademicController extends Controller
                 'instructor' => $instructor->name,
                 'course' => $assignment->course->name,
                 'school_year' => $request->school_year,
+                'section_id' => $request->section_id,
             ],
+        ]);
+
+        Log::info('Instructor assignment completed successfully', [
+            'assignment_id' => $assignment->id,
+            'instructor_id' => $request->instructor_id,
+            'instructor_name' => $instructor->name,
+            'course_id' => $request->course_id,
+            'section_id' => $request->section_id,
+            'subject_id' => $request->subject_id,
+            'school_year' => $request->school_year,
         ]);
 
         return back()->with('success', 'Instructor assigned to course successfully!');
@@ -1977,9 +2158,12 @@ class AcademicController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'instructor_id' => 'required|exists:users,id',
+            'year_level' => 'required|string|in:first_year,second_year,third_year,fourth_year',
+            'department_id' => 'required|exists:departments,id',
             'course_id' => 'required|exists:courses,id',
+            'section_id' => 'nullable|exists:sections,id',
+            'subject_id' => 'required|exists:subjects,id',
             'academic_level_id' => 'required|exists:academic_levels,id',
-            'year_level' => 'nullable|string|in:first_year,second_year,third_year,fourth_year',
             'grading_period_id' => 'nullable|exists:grading_periods,id',
             'school_year' => 'required|string',
             'notes' => 'nullable|string',
@@ -1995,24 +2179,29 @@ class AcademicController extends Controller
             return back()->with('error', 'Selected user is not an instructor.');
         }
 
-        // Check for existing assignment (excluding current one) to provide better error message
+        // Check for existing assignment with the same subject (excluding current one)
+        // Allow multiple subjects for the same course
         $existingAssignment = InstructorCourseAssignment::where([
             'instructor_id' => $request->instructor_id,
             'course_id' => $request->course_id,
             'academic_level_id' => $request->academic_level_id,
             'grading_period_id' => $request->grading_period_id,
             'school_year' => $request->school_year,
+            'subject_id' => $request->subject_id,
         ])->where('id', '!=', $assignment->id)->first();
 
         if ($existingAssignment) {
-            return back()->with('error', 'This instructor is already assigned to this course for the specified period and school year. Please check existing assignments or modify the current one.');
+            return back()->with('error', 'This instructor is already assigned to this specific subject for the specified period and school year. Please check existing assignments or modify the current one.');
         }
 
         $assignment->update([
             'instructor_id' => $request->instructor_id,
-            'course_id' => $request->course_id,
-            'academic_level_id' => $request->academic_level_id,
             'year_level' => $request->year_level,
+            'department_id' => $request->department_id,
+            'course_id' => $request->course_id,
+            'section_id' => $request->section_id,
+            'subject_id' => $request->subject_id,
+            'academic_level_id' => $request->academic_level_id,
             'grading_period_id' => $request->grading_period_id,
             'school_year' => $request->school_year,
             'notes' => $request->notes,
@@ -2042,6 +2231,13 @@ class AcademicController extends Controller
                 'assigned_by' => Auth::id(),
                 'is_active' => true,
                 'notes' => $request->notes,
+            ]);
+
+            // Auto-enroll students in this subject when assignment is updated
+            $this->autoEnrollStudentsInSubject($subject, $request->school_year, [
+                'grade_level' => $request->year_level,
+                'department_id' => $request->department_id,
+                'course_id' => $request->course_id,
             ]);
         }
 

@@ -56,11 +56,11 @@ class CollegeHonorCalculationService
         $semesterGroups = [
             'first_semester' => [
                 'label' => 'First Semester',
-                'codes' => ['p1' => 'Pre-Final', 'Q1' => 'First Quarter', 'F1' => 'Final'],
+                'codes' => ['COL_S1_MT' => 'Midterm', 'COL_S1_PF' => 'Pre-Final', 'COL_S1_FA' => 'Final'],
             ],
             'second_semester' => [
                 'label' => 'Second Semester',
-                'codes' => ['S2-MT' => 'Midterm', 'S2-PF' => 'Pre-Final', 'S2-F' => 'Final'],
+                'codes' => ['COL_S2_MT' => 'Midterm', 'COL_S2_PF' => 'Pre-Final', 'COL_S2_FA' => 'Final'],
             ],
         ];
 
@@ -112,13 +112,18 @@ class CollegeHonorCalculationService
         
         $averageGrade = $totalWeightedGrade / $totalWeight;
         $averageGrade = round($averageGrade, 2);
-        
-        // Get minimum grade across all periods for criteria checking
-        $minGrade = !empty($allGrades) ? min($allGrades) : 0;
 
-        // Get all honor criteria for college level
+        // For college: 1.0 = highest/best, 5.0 = lowest/worst
+        // Get the WORST grade (highest number) for criteria checking
+        $worstGrade = !empty($allGrades) ? max($allGrades) : 0;
+        // Get the BEST grade (lowest number) for display
+        $bestGrade = !empty($allGrades) ? min($allGrades) : 0;
+
+        // Get all honor criteria for college level, ordered by strictness
+        // Order by max_gpa ASC so strictest (lowest max_gpa = highest honor) comes first
         $criteria = HonorCriterion::where('academic_level_id', $academicLevelId)
             ->with('honorType')
+            ->orderBy('max_gpa', 'asc')
             ->get();
 
         $qualifications = [];
@@ -139,14 +144,16 @@ class CollegeHonorCalculationService
             }
 
             // Check minimum grade requirements
-            if ($criterion->min_grade && $minGrade < $criterion->min_grade) {
+            // For college: lower number = better grade (1.0 is best, 5.0 is worst)
+            if ($criterion->min_grade && $bestGrade > $criterion->min_grade) {
                 $qualifies = false;
-                $reason .= "Minimum grade {$minGrade} below required {$criterion->min_grade}. ";
+                $reason .= "Best grade {$bestGrade} exceeds required {$criterion->min_grade}. ";
             }
 
-            if ($criterion->min_grade_all && $minGrade < $criterion->min_grade_all) {
+            // min_grade_all: ALL grades must be at or below this threshold (lower/better)
+            if ($criterion->min_grade_all && $worstGrade > $criterion->min_grade_all) {
                 $qualifies = false;
-                $reason .= "Minimum grade {$minGrade} below required {$criterion->min_grade_all} for all subjects. ";
+                $reason .= "Worst grade {$worstGrade} exceeds maximum allowed {$criterion->min_grade_all} for all subjects. ";
             }
 
             // Check year requirements (for college-specific honors like Dean's List)
@@ -172,20 +179,26 @@ class CollegeHonorCalculationService
                     'honor_type' => $criterion->honorType,
                     'criterion' => $criterion,
                     'gpa' => $averageGrade,
-                    'min_grade' => $minGrade,
+                    'min_grade' => $bestGrade,  // Best grade (lowest number)
+                    'max_grade' => $worstGrade,  // Worst grade (highest number)
                     'semester_periods' => $periods->pluck('name', 'code')->toArray()
                 ];
             }
         }
 
+        // Calculate total quarters (periods with grades)
+        $periodsWithGrades = $grades->pluck('grading_period_id')->unique()->count();
+
         return [
             'qualified' => !empty($qualifications),
             'qualifications' => $qualifications,
             'average_grade' => $averageGrade,
-            'min_grade' => $minGrade,
+            'min_grade' => $bestGrade,   // Best grade (lowest number, best performance)
+            'max_grade' => $worstGrade,  // Worst grade (highest number, worst performance)
             // Return a flat map of period code to label for UI reference
             'semester_periods' => $periods->pluck('name', 'code')->toArray(),
             'total_subjects' => $grades->groupBy('subject_id')->count(),
+            'total_quarters' => $periodsWithGrades,
             'grades_breakdown' => $this->getGradesBreakdown($grades, $periods, $semesterGroups),
             'semester_groups' => [
                 'first_semester' => $semesterGroups['first_semester'],
@@ -396,8 +409,8 @@ class CollegeHonorCalculationService
             if ($qualification['qualified']) {
                 $totalQualified++;
 
-                // Store ONLY the highest honor (last in qualifications array) in database
-                $highestHonor = end($qualification['qualifications']);
+                // Store ONLY the highest honor (first in qualifications array due to ordering by max_gpa ASC)
+                $highestHonor = $qualification['qualifications'][0] ?? null;
 
                 if ($highestHonor) {
                     HonorResult::updateOrCreate([

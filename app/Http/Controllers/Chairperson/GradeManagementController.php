@@ -16,21 +16,46 @@ class GradeManagementController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
+        $departmentId = $user->department_id;
         $academicLevelId = $request->get('academic_level_id');
-        
-        // Get all academic levels for the filter dropdown
+
+        // Get College academic level
+        $collegeLevel = AcademicLevel::where('key', 'college')->first();
+
+        // Get all academic levels for the filter dropdown (but chairperson should only see college)
         $academicLevels = AcademicLevel::where('is_active', true)
+            ->where('key', 'college')
             ->orderBy('sort_order')
             ->get();
-        
-        // Show ALL grades for chairperson (not filtered by department)
-        $gradesQuery = StudentGrade::query();
-        
-        // Add academic level filter if provided
-        if ($academicLevelId) {
-            $gradesQuery->where('academic_level_id', $academicLevelId);
+
+        // If chairperson has no department assigned, return empty results
+        if (!$departmentId || !$collegeLevel) {
+            return Inertia::render('Chairperson/Grades/Index', [
+                'user' => $user,
+                'grades' => [
+                    'data' => [],
+                    'current_page' => 1,
+                    'last_page' => 1,
+                    'per_page' => 20,
+                    'total' => 0,
+                ],
+                'stats' => [
+                    'total' => 0,
+                    'approved' => 0,
+                    'submitted' => 0,
+                ],
+                'academicLevels' => $academicLevels,
+                'selectedAcademicLevel' => $academicLevelId,
+            ]);
         }
-        
+
+        // Filter grades by College level and chairperson's department only
+        $gradesQuery = StudentGrade::query()
+            ->where('academic_level_id', $collegeLevel->id)
+            ->whereHas('subject.course', function ($query) use ($departmentId) {
+                $query->where('department_id', $departmentId);
+            });
+
         $grades = $gradesQuery->with(['student', 'subject.course.department', 'academicLevel'])
             ->select('student_id', 'subject_id', 'academic_level_id', 'school_year')
             ->selectRaw('MAX(id) as id') // Get the latest grade ID
@@ -44,15 +69,15 @@ class GradeManagementController extends Controller
             ->groupBy('student_id', 'subject_id', 'academic_level_id', 'school_year')
             ->orderByRaw('MAX(created_at) DESC')
             ->paginate(20);
-        
-        // Calculate stats for all grades (not department-filtered)
-        $statsQuery = function($additionalConditions = []) use ($academicLevelId) {
-            $query = StudentGrade::query();
-            
-            if ($academicLevelId) {
-                $query->where('academic_level_id', $academicLevelId);
-            }
-            
+
+        // Calculate stats filtered by College level and department
+        $statsQuery = function($additionalConditions = []) use ($collegeLevel, $departmentId) {
+            $query = StudentGrade::query()
+                ->where('academic_level_id', $collegeLevel->id)
+                ->whereHas('subject.course', function ($q) use ($departmentId) {
+                    $q->where('department_id', $departmentId);
+                });
+
             foreach ($additionalConditions as $condition) {
                 if (is_array($condition)) {
                     $query->where($condition[0], $condition[1], $condition[2]);
@@ -60,21 +85,19 @@ class GradeManagementController extends Controller
                     $query->where($condition, true);
                 }
             }
-            
+
             return $query->select('student_id', 'subject_id', 'academic_level_id', 'school_year')
                 ->groupBy('student_id', 'subject_id', 'academic_level_id', 'school_year')
                 ->get()
                 ->count();
         };
-        
+
         $stats = [
             'total' => $statsQuery([]),
             'approved' => $statsQuery(['is_approved']),
             'submitted' => $statsQuery(['is_submitted_for_validation']),
         ];
-        
 
-        
         return Inertia::render('Chairperson/Grades/Index', [
             'user' => $user,
             'grades' => $grades,
@@ -87,25 +110,55 @@ class GradeManagementController extends Controller
     public function allGrades(Request $request)
     {
         $user = Auth::user();
+        $departmentId = $user->department_id;
         $academicLevelId = $request->get('academic_level_id');
-        
-        // Get all academic levels for the filter dropdown
+
+        // Get College academic level
+        $collegeLevel = AcademicLevel::where('key', 'college')->first();
+
+        // Get all academic levels for the filter dropdown (but chairperson should only see college)
         $academicLevels = AcademicLevel::where('is_active', true)
+            ->where('key', 'college')
             ->orderBy('sort_order')
             ->get();
-        
-        // Show all grades (not filtered by pending status or department)
-        $gradesQuery = StudentGrade::query();
-        
-        // Add academic level filter if provided
-        if ($academicLevelId) {
-            $gradesQuery->where('academic_level_id', $academicLevelId);
+
+        // If chairperson has no department assigned, return empty results
+        if (!$departmentId || !$collegeLevel) {
+            return Inertia::render('Chairperson/Grades/All', [
+                'user' => $user,
+                'grades' => [
+                    'data' => [],
+                    'current_page' => 1,
+                    'last_page' => 1,
+                    'per_page' => 20,
+                    'total' => 0,
+                ],
+                'academicLevels' => $academicLevels,
+                'selectedAcademicLevel' => $academicLevelId,
+            ]);
         }
-        
-        $grades = $gradesQuery->with(['student', 'subject.course.department', 'academicLevel', 'gradingPeriod'])
-            ->latest('created_at')
+
+        // Filter grades by College level and chairperson's department only
+        $gradesQuery = StudentGrade::query()
+            ->where('academic_level_id', $collegeLevel->id)
+            ->whereHas('subject.course', function ($query) use ($departmentId) {
+                $query->where('department_id', $departmentId);
+            });
+
+        $grades = $gradesQuery->with(['student', 'subject.course.department', 'academicLevel'])
+            ->select('student_id', 'subject_id', 'academic_level_id', 'school_year')
+            ->selectRaw('MAX(id) as id') // Get the latest grade ID
+            ->selectRaw('MAX(grade) as grade')
+            ->selectRaw('MAX(CASE WHEN is_approved = true THEN 1 ELSE 0 END) as is_approved')
+            ->selectRaw('MAX(CASE WHEN is_submitted_for_validation = true THEN 1 ELSE 0 END) as is_submitted_for_validation')
+            ->selectRaw('MAX(CASE WHEN is_returned = true THEN 1 ELSE 0 END) as is_returned')
+            ->selectRaw('MAX(submitted_at) as submitted_at')
+            ->selectRaw('MAX(approved_at) as approved_at')
+            ->selectRaw('MAX(returned_at) as returned_at')
+            ->groupBy('student_id', 'subject_id', 'academic_level_id', 'school_year')
+            ->orderByRaw('MAX(created_at) DESC')
             ->paginate(20);
-        
+
         return Inertia::render('Chairperson/Grades/All', [
             'user' => $user,
             'grades' => $grades,

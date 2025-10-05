@@ -15,6 +15,7 @@ class InstructorCourseAssignment extends Model
         'year_level',
         'department_id',
         'course_id',
+        'section_id',
         'subject_id',
         'academic_level_id',
         'grading_period_id',
@@ -43,6 +44,11 @@ class InstructorCourseAssignment extends Model
     public function course(): BelongsTo
     {
         return $this->belongsTo(Course::class);
+    }
+
+    public function section(): BelongsTo
+    {
+        return $this->belongsTo(Section::class);
     }
 
     public function subject(): BelongsTo

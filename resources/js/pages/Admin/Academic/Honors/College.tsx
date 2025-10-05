@@ -37,7 +37,8 @@ interface HonorCriterion {
     min_year: number | null;
     max_year: number | null;
     require_consistent_honor: boolean;
-    honorType: HonorType;
+    honor_type: HonorType;  // Changed from honorType to honor_type (snake_case)
+    honorType?: HonorType;  // Keep as optional for backwards compatibility
 }
 
 interface QualifiedStudent {
@@ -70,12 +71,15 @@ interface QualifiedStudent {
             criterion: HonorCriterion;
             gpa: number;
             min_grade: number;
+            max_grade?: number;
             quarter_averages: number[];
         }>;
         average_grade: number;
-        min_grade: number;
+        min_grade: number;  // Best grade (lowest number, best performance in 1.0-5.0 scale)
+        max_grade?: number;  // Worst grade (highest number, worst performance in 1.0-5.0 scale)
         quarter_averages: number[];
         total_subjects: number;
+        total_quarters?: number;  // Number of grading periods with grades
         reason: string;
         // Added optional fields returned by the service for UI breakdowns
         semester_periods?: Record<string, string>;
@@ -142,6 +146,16 @@ interface Props {
 }
 
 export default function CollegeHonors({ user, honorTypes, criteria, schoolYears, qualifiedStudents = [], honorResults = [], currentSchoolYear = '2024-2025', gradeLevels = {}, departments = [], courses = [], sections = [], filters }: Props) {
+    // Debug logging
+    console.log('=== COLLEGE HONORS FRONTEND DEBUG ===');
+    console.log('Criteria received:', criteria);
+    console.log('First criterion:', criteria[0]);
+    if (criteria[0]) {
+        console.log('First criterion keys:', Object.keys(criteria[0]));
+        console.log('honorType property:', criteria[0].honorType);
+        console.log('honor_type property (snake_case):', (criteria[0] as any).honor_type);
+    }
+
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const [selectedStudent, setSelectedStudent] = useState<QualifiedStudent | null>(null);
     const [showStudentDetails, setShowStudentDetails] = useState(false);
@@ -425,8 +439,8 @@ export default function CollegeHonors({ user, honorTypes, criteria, schoolYears,
                                                     // Edit Form
                                                     <div className="space-y-4">
                                                         <div className="flex items-center justify-between mb-3">
-                                                            <h4 className="font-medium text-lg">{criterion.honorType?.name || 'Unknown Honor Type'}</h4>
-                                                            <Badge variant="secondary">{criterion.honorType?.scope || 'Unknown'}</Badge>
+                                                            <h4 className="font-medium text-lg">{(criterion.honor_type || criterion.honorType)?.name || 'Unknown Honor Type'}</h4>
+                                                            <Badge variant="secondary">{(criterion.honor_type || criterion.honorType)?.scope || 'Unknown'}</Badge>
                                                         </div>
                                                         
                                                         <div className="grid grid-cols-2 gap-4">
@@ -518,28 +532,51 @@ export default function CollegeHonors({ user, honorTypes, criteria, schoolYears,
                                                     // Display Mode
                                                     <>
                                                         <div className="flex items-center justify-between mb-3">
-                                                            <h4 className="font-medium text-lg">{criterion.honorType?.name || 'Unknown Honor Type'}</h4>
-                                                            <Badge variant="secondary">{criterion.honorType?.scope || 'Unknown'}</Badge>
+                                                            <h4 className="font-medium text-lg">{(criterion.honor_type || criterion.honorType)?.name || 'Unknown Honor Type'}</h4>
+                                                            <Badge variant="secondary">{(criterion.honor_type || criterion.honorType)?.scope || 'Unknown'}</Badge>
                                                         </div>
+
+                                                        {/* Warning for invalid scale values */}
+                                                        {((criterion.min_gpa && (criterion.min_gpa < 1 || criterion.min_gpa > 5)) ||
+                                                          (criterion.max_gpa && (criterion.max_gpa < 1 || criterion.max_gpa > 5)) ||
+                                                          (criterion.min_grade && (criterion.min_grade < 1 || criterion.min_grade > 5)) ||
+                                                          (criterion.min_grade_all && (criterion.min_grade_all < 1 || criterion.min_grade_all > 5))) && (
+                                                            <Alert className="mb-3 border-orange-500 bg-orange-50">
+                                                                <AlertDescription className="text-orange-700">
+                                                                    ⚠️ Warning: College uses 1.0-5.0 grading scale (1=Highest, 5=Lowest). Values outside this range may be incorrect.
+                                                                </AlertDescription>
+                                                            </Alert>
+                                                        )}
+
+                                                        <div className="mb-3 p-2 bg-blue-50 rounded-lg border border-blue-200">
+                                                            <p className="text-xs text-blue-700 font-medium">
+                                                                📘 College Grading Scale: 1.0 = Highest | 5.0 = Lowest | Lower values = Better performance
+                                                            </p>
+                                                        </div>
+
                                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                                                             {criterion.min_gpa && (
-                                                                <div className="bg-blue-50 p-2 rounded">
+                                                                <div className={`${criterion.min_gpa < 1 || criterion.min_gpa > 5 ? 'bg-orange-50 border-orange-200' : 'bg-blue-50'} p-2 rounded border`}>
                                                                     <span className="font-medium text-blue-700">Min GPA:</span> {criterion.min_gpa}
+                                                                    {criterion.min_gpa < 1 || criterion.min_gpa > 5 ? ' ⚠️' : ''}
                                                                 </div>
                                                             )}
                                                             {criterion.max_gpa && (
-                                                                <div className="bg-green-50 p-2 rounded">
+                                                                <div className={`${criterion.max_gpa < 1 || criterion.max_gpa > 5 ? 'bg-orange-50 border-orange-200' : 'bg-green-50'} p-2 rounded border`}>
                                                                     <span className="font-medium text-green-700">Max GPA:</span> {criterion.max_gpa}
+                                                                    {criterion.max_gpa < 1 || criterion.max_gpa > 5 ? ' ⚠️' : ''}
                                                                 </div>
                                                             )}
                                                             {criterion.min_grade && (
-                                                                <div className="bg-yellow-50 p-2 rounded">
-                                                                    <span className="font-medium text-yellow-700">Min Grade:</span> {criterion.min_grade}
+                                                                <div className={`${criterion.min_grade < 1 || criterion.min_grade > 5 ? 'bg-orange-50 border-orange-200' : 'bg-yellow-50'} p-2 rounded border`}>
+                                                                    <span className="font-medium text-yellow-700">Min Grade (any):</span> {criterion.min_grade}
+                                                                    {criterion.min_grade < 1 || criterion.min_grade > 5 ? ' ⚠️' : ''}
                                                                 </div>
                                                             )}
                                                             {criterion.min_grade_all && (
-                                                                <div className="bg-purple-50 p-2 rounded">
-                                                                    <span className="font-medium text-purple-700">Min Grade (All):</span> {criterion.min_grade_all}
+                                                                <div className={`${criterion.min_grade_all < 1 || criterion.min_grade_all > 5 ? 'bg-orange-50 border-orange-200' : 'bg-purple-50'} p-2 rounded border`}>
+                                                                    <span className="font-medium text-purple-700">Min Grade (all):</span> {criterion.min_grade_all}
+                                                                    {criterion.min_grade_all < 1 || criterion.min_grade_all > 5 ? ' ⚠️' : ''}
                                                                 </div>
                                                             )}
                                                             {criterion.min_year && criterion.max_year && (
@@ -851,7 +888,7 @@ export default function CollegeHonors({ user, honorTypes, criteria, schoolYears,
                                                                 </div>
                                                                 <div className="bg-green-50 p-2 rounded">
                                                                     <span className="font-medium text-green-700">Total Quarters:</span>
-                                                                    <div className="text-lg font-bold">{qualifiedStudent.result.quarter_averages?.length ?? 0}</div>
+                                                                    <div className="text-lg font-bold">{qualifiedStudent.result.total_quarters ?? 0}</div>
                                                                 </div>
                                                                 <div className="bg-purple-50 p-2 rounded">
                                                                     <span className="font-medium text-purple-700">Honor:</span>
@@ -931,7 +968,7 @@ export default function CollegeHonors({ user, honorTypes, criteria, schoolYears,
                                                     </div>
                                                     <div className="bg-green-50 p-4 rounded-lg">
                                                         <div className="text-sm font-medium text-green-700">Total Quarters</div>
-                                                        <div className="text-2xl font-bold text-green-900">{selectedStudent.result.quarter_averages?.length ?? 0}</div>
+                                                        <div className="text-2xl font-bold text-green-900">{selectedStudent.result.total_quarters ?? 0}</div>
                                                     </div>
                                                 </div>
                                                 <div className="mt-4">
@@ -949,85 +986,86 @@ export default function CollegeHonors({ user, honorTypes, criteria, schoolYears,
                                             </CardContent>
                                         </Card>
 
-                                        {/* Period Averages */}
-                                        {selectedStudent.result.grades_breakdown?.periods && selectedStudent.result.grades_breakdown.periods.length > 0 && (
+                                        {/* First Semester Grades Table */}
+                                        {selectedStudent.result.grades_breakdown?.subjects && Object.keys(selectedStudent.result.grades_breakdown.subjects).length > 0 && (
                                             <Card>
                                                 <CardHeader>
-                                                    <CardTitle>Semester Averages</CardTitle>
+                                                    <CardTitle>First Semester Grades</CardTitle>
+                                                    {selectedStudent.result.grades_breakdown?.semester_summaries?.first_semester && (
+                                                        <div className="text-2xl font-bold text-green-700 mt-2">
+                                                            Semester Average: {selectedStudent.result.grades_breakdown.semester_summaries.first_semester.average ?? '—'}
+                                                        </div>
+                                                    )}
                                                 </CardHeader>
                                                 <CardContent>
-                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                        {selectedStudent.result.grades_breakdown.periods.map((p) => (
-                                                            <div key={p.period_code} className="text-center p-4 bg-green-50 rounded-lg">
-                                                                <div className="text-2xl font-bold text-green-700">{p.grade ? p.grade.toFixed(2) : '—'}</div>
-                                                                <div className="text-sm text-green-700">{p.period}</div>
-                                                                <div className="text-xs text-gray-500">{p.count} subjects</div>
-                                                            </div>
-                                                        ))}
+                                                    <div className="overflow-x-auto">
+                                                        <table className="w-full border-collapse border border-gray-300">
+                                                            <thead>
+                                                                <tr className="bg-gray-100">
+                                                                    <th className="border border-gray-300 p-3 text-left">Subject</th>
+                                                                    <th className="border border-gray-300 p-3 text-center">Midterm</th>
+                                                                    <th className="border border-gray-300 p-3 text-center">Pre-Final</th>
+                                                                    <th className="border border-gray-300 p-3 text-center">Average</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {Object.entries(selectedStudent.result.grades_breakdown.subjects).map(([subjectName, subjectData]) => {
+                                                                    const fMt = subjectData?.['COL_S1_MT'] ?? '—';
+                                                                    const fPf = subjectData?.['COL_S1_PF'] ?? '—';
+                                                                    const firstSemValues = [subjectData?.['COL_S1_MT'], subjectData?.['COL_S1_PF']].filter((v) => typeof v === 'number') as number[];
+                                                                    const firstAvg = firstSemValues.length ? (firstSemValues.reduce((a: number,b: number)=>a+b,0)/firstSemValues.length).toFixed(2) : '—';
+
+                                                                    return (
+                                                                        <tr key={subjectName}>
+                                                                            <td className="border border-gray-300 p-3 font-medium">{subjectName}</td>
+                                                                            <td className="border border-gray-300 p-3 text-center">{fMt}</td>
+                                                                            <td className="border border-gray-300 p-3 text-center">{fPf}</td>
+                                                                            <td className="border border-gray-300 p-3 text-center font-bold text-blue-600">{firstAvg}</td>
+                                                                        </tr>
+                                                                    );
+                                                                })}
+                                                            </tbody>
+                                                        </table>
                                                     </div>
                                                 </CardContent>
                                             </Card>
                                         )}
 
-                                        {/* Subject Grades Table */}
+                                        {/* Second Semester Grades Table */}
                                         {selectedStudent.result.grades_breakdown?.subjects && Object.keys(selectedStudent.result.grades_breakdown.subjects).length > 0 && (
                                             <Card>
                                                 <CardHeader>
-                                                    <CardTitle>Subject Grades Breakdown</CardTitle>
-                                                </CardHeader>
-                                                <CardContent>
-                                                    {selectedStudent.result.grades_breakdown?.semester_summaries && (
-                                                        <div className="mb-4 flex flex-wrap gap-2">
-                                                            {(['first_semester','second_semester'] as const).map((key) => {
-                                                                const s = selectedStudent.result.grades_breakdown?.semester_summaries?.[key];
-                                                                return (
-                                                                    <Badge key={`summary-${key}`} variant="secondary" className="text-sm">
-                                                                        {s?.label}: {s?.average ?? '—'}
-                                                                    </Badge>
-                                                                )
-                                                            })}
+                                                    <CardTitle>Second Semester Grades</CardTitle>
+                                                    {selectedStudent.result.grades_breakdown?.semester_summaries?.second_semester && (
+                                                        <div className="text-2xl font-bold text-green-700 mt-2">
+                                                            Semester Average: {selectedStudent.result.grades_breakdown.semester_summaries.second_semester.average ?? '—'}
                                                         </div>
                                                     )}
+                                                </CardHeader>
+                                                <CardContent>
                                                     <div className="overflow-x-auto">
                                                         <table className="w-full border-collapse border border-gray-300">
                                                             <thead>
                                                                 <tr className="bg-gray-100">
-                                                                    <th className="border border-gray-300 p-3 text-left" rowSpan={2}>Subject</th>
-                                                                    <th className="border border-gray-300 p-3 text-center" colSpan={2}>First Semester</th>
-                                                                    <th className="border border-gray-300 p-3 text-center" rowSpan={2}>1st Sem Avg</th>
-                                                                    <th className="border border-gray-300 p-3 text-center" colSpan={2}>Second Semester</th>
-                                                                    <th className="border border-gray-300 p-3 text-center" rowSpan={2}>2nd Sem Avg</th>
-                                                                    <th className="border border-gray-300 p-3 text-center" rowSpan={2}>Overall Avg</th>
-                                                                </tr>
-                                                                <tr className="bg-gray-50">
-                                                                    <th className="border border-gray-300 p-2 text-center">Pre-Final</th>
-                                                                    <th className="border border-gray-300 p-2 text-center">First Quarter</th>
-                                                                    <th className="border border-gray-300 p-2 text-center">Midterm</th>
-                                                                    <th className="border border-gray-300 p-2 text-center">Pre-Final</th>
+                                                                    <th className="border border-gray-300 p-3 text-left">Subject</th>
+                                                                    <th className="border border-gray-300 p-3 text-center">Midterm</th>
+                                                                    <th className="border border-gray-300 p-3 text-center">Pre-Final</th>
+                                                                    <th className="border border-gray-300 p-3 text-center">Average</th>
                                                                 </tr>
                                                             </thead>
                                                             <tbody>
                                                                 {Object.entries(selectedStudent.result.grades_breakdown.subjects).map(([subjectName, subjectData]) => {
-                                                                    const fPre = subjectData?.['p1'] ?? '—';
-                                                                    const fQ1 = subjectData?.['Q1'] ?? '—';
-                                                                    const sMt = subjectData?.['S2-MT'] ?? '—';
-                                                                    const sPf = subjectData?.['S2-PF'] ?? '—';
-
-                                                                    const firstSemValues = [subjectData?.['p1'], subjectData?.['Q1']].filter((v) => typeof v === 'number') as number[];
-                                                                    const secondSemValues = [subjectData?.['S2-MT'], subjectData?.['S2-PF']].filter((v) => typeof v === 'number') as number[];
-                                                                    const firstAvg = firstSemValues.length ? (firstSemValues.reduce((a: number,b: number)=>a+b,0)/firstSemValues.length).toFixed(2) : '—';
+                                                                    const sMt = subjectData?.['COL_S2_MT'] ?? '—';
+                                                                    const sPf = subjectData?.['COL_S2_PF'] ?? '—';
+                                                                    const secondSemValues = [subjectData?.['COL_S2_MT'], subjectData?.['COL_S2_PF']].filter((v) => typeof v === 'number') as number[];
                                                                     const secondAvg = secondSemValues.length ? (secondSemValues.reduce((a: number,b: number)=>a+b,0)/secondSemValues.length).toFixed(2) : '—';
 
                                                                     return (
                                                                         <tr key={subjectName}>
                                                                             <td className="border border-gray-300 p-3 font-medium">{subjectName}</td>
-                                                                            <td className="border border-gray-300 p-3 text-center">{fPre}</td>
-                                                                            <td className="border border-gray-300 p-3 text-center">{fQ1}</td>
-                                                                            <td className="border border-gray-300 p-3 text-center font-semibold">{firstAvg}</td>
                                                                             <td className="border border-gray-300 p-3 text-center">{sMt}</td>
                                                                             <td className="border border-gray-300 p-3 text-center">{sPf}</td>
-                                                                            <td className="border border-gray-300 p-3 text-center font-semibold">{secondAvg}</td>
-                                                                            <td className="border border-gray-300 p-3 text-center font-bold text-blue-600">{subjectData?.average ?? '—'}</td>
+                                                                            <td className="border border-gray-300 p-3 text-center font-bold text-blue-600">{secondAvg}</td>
                                                                         </tr>
                                                                     );
                                                                 })}

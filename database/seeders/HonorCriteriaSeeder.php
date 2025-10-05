@@ -29,11 +29,17 @@ class HonorCriteriaSeeder extends Seeder
         $elementary = AcademicLevel::where('key', 'elementary')->first();
         $juniorHigh = AcademicLevel::where('key', 'junior_highschool')->first();
         $seniorHigh = AcademicLevel::where('key', 'senior_highschool')->first();
+        $college = AcademicLevel::where('key', 'college')->first();
 
         // Get honor types (created/ensured above)
         $withHonors = HonorType::where('key', 'with_honors')->first();
         $withHighHonors = HonorType::where('key', 'with_high_honors')->first();
         $withHighestHonors = HonorType::where('key', 'with_highest_honors')->first();
+
+        // Get college-specific honor types (Latin honors)
+        $cumLaude = HonorType::where('key', 'cum_laude')->first();
+        $magnaCumLaude = HonorType::where('key', 'magna_cum_laude')->first();
+        $summaCumLaude = HonorType::where('key', 'summa_cum_laude')->first();
 
         // Create criteria for Elementary, Junior High School, and Senior High School
         // SHS gets three tiers (With Honors, With High Honors, With Highest Honors)
@@ -115,6 +121,57 @@ class HonorCriteriaSeeder extends Seeder
                     'min_year' => null,
                     'max_year' => null,
                     'require_consistent_honor' => false,
+                    'additional_rules' => null,
+                ]);
+            }
+        }
+
+        // College uses 1.0-5.0 grading scale (1.0 is highest, 3.0 is passing)
+        // College uses Latin honors: Cum Laude, Magna Cum Laude, Summa Cum Laude
+        // We use max_gpa instead of min_gpa (lower is better)
+        if ($college) {
+            if ($cumLaude) {
+                HonorCriterion::updateOrCreate([
+                    'academic_level_id' => $college->id,
+                    'honor_type_id' => $cumLaude->id,
+                ], [
+                    'min_gpa' => null,
+                    'max_gpa' => 2.0,  // GPA must be 2.0 or lower (Good standing)
+                    'min_grade' => null,
+                    'min_grade_all' => null,
+                    'min_year' => null,
+                    'max_year' => null,
+                    'require_consistent_honor' => false,
+                    'additional_rules' => null,
+                ]);
+            }
+            if ($magnaCumLaude) {
+                HonorCriterion::updateOrCreate([
+                    'academic_level_id' => $college->id,
+                    'honor_type_id' => $magnaCumLaude->id,
+                ], [
+                    'min_gpa' => null,
+                    'max_gpa' => 1.75,  // GPA must be 1.75 or lower (Very Good)
+                    'min_grade' => null,
+                    'min_grade_all' => 2.0,  // No grade higher than 2.0 (all grades must be 2.0 or lower)
+                    'min_year' => 2,  // Must be 2nd year or above
+                    'max_year' => 3,  // Up to 3rd year
+                    'require_consistent_honor' => true,  // Must have consistent honor standing
+                    'additional_rules' => null,
+                ]);
+            }
+            if ($summaCumLaude) {
+                HonorCriterion::updateOrCreate([
+                    'academic_level_id' => $college->id,
+                    'honor_type_id' => $summaCumLaude->id,
+                ], [
+                    'min_gpa' => null,
+                    'max_gpa' => 1.5,  // GPA must be 1.5 or lower (Excellent)
+                    'min_grade' => null,
+                    'min_grade_all' => 1.75,  // No grade higher than 1.75 (all grades must be 1.75 or lower)
+                    'min_year' => 1,  // From 1st year
+                    'max_year' => 4,  // All 4 years
+                    'require_consistent_honor' => true,  // Must have consistent honor standing
                     'additional_rules' => null,
                 ]);
             }

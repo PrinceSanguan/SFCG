@@ -51,11 +51,20 @@ class DashboardController extends Controller
                 ->where('subject_id', $assignment->subject_id)
                 ->where('school_year', $schoolYear)
                 ->where('is_active', true)
-                ->get();
-            
+                ->get()
+                ->map(function ($enrollment) {
+                    return [
+                        'id' => $enrollment->id,
+                        'student' => $enrollment->student,
+                        'school_year' => $enrollment->school_year,
+                        'semester' => $enrollment->semester,
+                        'is_active' => $enrollment->is_active,
+                    ];
+                });
+
             // Debug logging
             Log::info('Subject ' . $assignment->subject->name . ' has ' . $enrolledStudents->count() . ' students');
-            
+
             return [
                 'id' => $assignment->id,
                 'subject' => $assignment->subject,
@@ -199,8 +208,17 @@ class DashboardController extends Controller
                 ->where('subject_id', $assignment->subject_id)
                 ->where('school_year', $assignment->school_year)
                 ->where('is_active', true)
-                ->get();
-            
+                ->get()
+                ->map(function ($enrollment) {
+                    return [
+                        'id' => $enrollment->id,
+                        'student' => $enrollment->student,
+                        'school_year' => $enrollment->school_year,
+                        'semester' => $enrollment->semester,
+                        'is_active' => $enrollment->is_active,
+                    ];
+                });
+
             return [
                 'id' => $assignment->id,
                 'subject' => $assignment->subject,

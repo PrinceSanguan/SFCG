@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\InstructorSubjectAssignment;
 use App\Models\User;
 use App\Models\Subject;
+use App\Models\Section;
 use App\Models\AcademicLevel;
 use App\Models\GradingPeriod;
 use App\Models\ActivityLog;
@@ -22,6 +23,7 @@ class InstructorSubjectAssignmentController extends Controller
         $assignments = InstructorSubjectAssignment::with([
             'instructor',
             'subject.course',
+            'section',
             'academicLevel',
             'gradingPeriod',
             'assignedBy'
@@ -29,6 +31,7 @@ class InstructorSubjectAssignmentController extends Controller
 
         $instructors = User::where('user_role', 'instructor')->get();
         $subjects = Subject::with(['course', 'academicLevel'])->get();
+        $sections = Section::with('course')->where('is_active', true)->get();
         $academicLevels = AcademicLevel::all();
         $gradingPeriods = GradingPeriod::all();
 
@@ -37,6 +40,7 @@ class InstructorSubjectAssignmentController extends Controller
             'assignments' => $assignments,
             'instructors' => $instructors,
             'subjects' => $subjects,
+            'sections' => $sections,
             'academicLevels' => $academicLevels,
             'gradingPeriods' => $gradingPeriods,
         ]);
@@ -50,6 +54,7 @@ class InstructorSubjectAssignmentController extends Controller
         $validator = Validator::make($request->all(), [
             'instructor_id' => 'required|exists:users,id',
             'subject_id' => 'required|exists:subjects,id',
+            'section_id' => 'required|exists:sections,id',
             'academic_level_id' => 'required|exists:academic_levels,id',
             'grading_period_id' => 'nullable|exists:grading_periods,id',
             'school_year' => 'required|string',
@@ -73,6 +78,7 @@ class InstructorSubjectAssignmentController extends Controller
         $existingAssignment = InstructorSubjectAssignment::where([
             'instructor_id' => $request->instructor_id,
             'subject_id' => $request->subject_id,
+            'section_id' => $request->section_id,
             'academic_level_id' => $request->academic_level_id,
             'school_year' => $request->school_year,
         ])
@@ -87,12 +93,13 @@ class InstructorSubjectAssignmentController extends Controller
 
         if ($existingAssignment) {
             Log::info('Assignment already exists:', ['existing_id' => $existingAssignment->id]);
-            return back()->with('error', 'This instructor is already assigned to this subject for the specified period and school year.');
+            return back()->with('error', 'This instructor is already assigned to this subject for the specified section, period and school year.');
         }
 
         Log::info('Creating new assignment with data:', [
             'instructor_id' => $request->instructor_id,
             'subject_id' => $request->subject_id,
+            'section_id' => $request->section_id,
             'academic_level_id' => $request->academic_level_id,
             'grading_period_id' => $request->grading_period_id,
             'school_year' => $request->school_year,
@@ -103,6 +110,7 @@ class InstructorSubjectAssignmentController extends Controller
         $assignment = InstructorSubjectAssignment::create([
             'instructor_id' => $request->instructor_id,
             'subject_id' => $request->subject_id,
+            'section_id' => $request->section_id,
             'academic_level_id' => $request->academic_level_id,
             'grading_period_id' => $request->grading_period_id ?: null,
             'school_year' => $request->school_year,
@@ -140,6 +148,7 @@ class InstructorSubjectAssignmentController extends Controller
         $validator = Validator::make($request->all(), [
             'instructor_id' => 'required|exists:users,id',
             'subject_id' => 'required|exists:subjects,id',
+            'section_id' => 'required|exists:sections,id',
             'academic_level_id' => 'required|exists:academic_levels,id',
             'grading_period_id' => 'nullable|exists:grading_periods,id',
             'school_year' => 'required|string',
@@ -160,18 +169,20 @@ class InstructorSubjectAssignmentController extends Controller
         $existingAssignment = InstructorSubjectAssignment::where([
             'instructor_id' => $request->instructor_id,
             'subject_id' => $request->subject_id,
+            'section_id' => $request->section_id,
             'academic_level_id' => $request->academic_level_id,
             'grading_period_id' => $request->grading_period_id,
             'school_year' => $request->school_year,
         ])->where('id', '!=', $assignment->id)->first();
 
         if ($existingAssignment) {
-            return back()->with('error', 'This instructor is already assigned to this subject for the specified period and school year.');
+            return back()->with('error', 'This instructor is already assigned to this subject for the specified section, period and school year.');
         }
 
         $assignment->update([
             'instructor_id' => $request->instructor_id,
             'subject_id' => $request->subject_id,
+            'section_id' => $request->section_id,
             'academic_level_id' => $request->academic_level_id,
             'grading_period_id' => $request->grading_period_id,
             'school_year' => $request->school_year,
@@ -255,6 +266,20 @@ class InstructorSubjectAssignmentController extends Controller
             ->get(['id', 'name', 'code']);
 
         return response()->json($subjects);
+    }
+
+    /**
+     * Get sections by course for AJAX requests.
+     */
+    public function getSectionsByCourse(Request $request)
+    {
+        $courseId = $request->course_id;
+
+        $sections = Section::where('course_id', $courseId)
+            ->where('is_active', true)
+            ->get(['id', 'name', 'code']);
+
+        return response()->json($sections);
     }
 
     /**

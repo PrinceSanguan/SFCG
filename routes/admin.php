@@ -475,7 +475,8 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/aca
     Route::post('/assign-instructors-subjects', [InstructorSubjectAssignmentController::class, 'store'])->name('assign-instructors-subjects.store');
     Route::put('/assign-instructors-subjects/{assignment}', [InstructorSubjectAssignmentController::class, 'update'])->name('assign-instructors-subjects.update');
     Route::delete('/assign-instructors-subjects/{assignment}', [InstructorSubjectAssignmentController::class, 'destroy'])->name('assign-instructors-subjects.destroy');
-    
+    Route::get('/assign-instructors-subjects/sections-by-course', [InstructorSubjectAssignmentController::class, 'getSectionsByCourse'])->name('assign-instructors-subjects.sections-by-course');
+
     // Manage students in instructor assignments
     Route::get('/assign-instructors-subjects/{assignment}/students', [InstructorSubjectAssignmentController::class, 'showStudents'])->name('assign-instructors-subjects.students');
     Route::post('/assign-instructors-subjects/{assignment}/enroll-student', [InstructorSubjectAssignmentController::class, 'enrollStudent'])->name('assign-instructors-subjects.enroll-student');

@@ -133,14 +133,14 @@ export default function StudentProfile({ user, assignedSubjects, subjectGrades, 
   };
 
   const getGradeColor = (grade: number, yearLevel: string): string => {
-    if (yearLevel === 'senior_highschool') {
-      // SHS uses 1.0-5.0 scale where lower is better
+    if (yearLevel === 'senior_highschool' || yearLevel === 'college') {
+      // SHS and College use 1.0-5.0 scale where lower is better
       if (grade <= 1.5) return 'text-green-600';
       if (grade <= 2.0) return 'text-yellow-600';
       if (grade <= 3.0) return 'text-orange-600';
       return 'text-red-600';
     } else {
-      // Elementary, JHS, College use 0-100 scale where higher is better
+      // Elementary and JHS use 0-100 scale where higher is better
       if (grade >= 90) return 'text-green-600';
       if (grade >= 80) return 'text-yellow-600';
       if (grade >= 70) return 'text-orange-600';
@@ -478,11 +478,30 @@ export default function StudentProfile({ user, assignedSubjects, subjectGrades, 
                       byCode.set('SHS_S2_PF', g); // Second Semester Pre-Final
                     }
 
+                    // For College: Map grading period codes to standardized format
+                    // First Semester
+                    if (c.includes('COL_S1') || c.includes('COLLEGE_S1') || name.includes('first semester')) {
+                      if (c.includes('MT') || c.includes('MIDTERM') || name.includes('midterm')) {
+                        byCode.set('COL_S1_MT', g); // First Semester Midterm
+                      } else if (c.includes('PF') || c.includes('PREFINAL') || c.includes('PRE-FINAL') || name.includes('pre-final') || name.includes('prefinal')) {
+                        byCode.set('COL_S1_PF', g); // First Semester Pre-Final
+                      }
+                    }
+                    // Second Semester
+                    if (c.includes('COL_S2') || c.includes('COLLEGE_S2') || c.includes('S2') || name.includes('second semester')) {
+                      if (c.includes('MT') || c.includes('MIDTERM') || name.includes('midterm')) {
+                        byCode.set('COL_S2_MT', g); // Second Semester Midterm
+                      } else if (c.includes('PF') || c.includes('PREFINAL') || c.includes('PRE-FINAL') || name.includes('pre-final') || name.includes('prefinal')) {
+                        byCode.set('COL_S2_PF', g); // Second Semester Pre-Final
+                      }
+                    }
+
                     // Also preserve original codes for backward compatibility
                     if (originalCode) byCode.set(originalCode, g);
                     if (c) byCode.set(c, g);
                   });
                   const isSeniorHigh = (user.year_level === 'senior_highschool') || false;
+                  const isCollege = (user.year_level === 'college') || false;
                   const isElementary = (user.year_level === 'elementary') || false;
                   const isJuniorHigh = (user.year_level === 'junior_highschool') || false;
 
@@ -493,13 +512,17 @@ export default function StudentProfile({ user, assignedSubjects, subjectGrades, 
                   if (isSeniorHigh) {
                     firstSemCodes = ['SHS_S1_MT', 'SHS_S1_PF']; // Midterm, Pre-Final
                     secondSemCodes = ['SHS_S2_MT', 'SHS_S2_PF']; // Midterm, Pre-Final
+                  } else if (isCollege) {
+                    // College uses same structure as SHS: Midterm and Pre-Final per semester
+                    firstSemCodes = ['COL_S1_MT', 'COL_S1_PF']; // Midterm, Pre-Final
+                    secondSemCodes = ['COL_S2_MT', 'COL_S2_PF']; // Midterm, Pre-Final
                   } else if (isElementary || isJuniorHigh) {
                     firstSemCodes = ['Q1', 'Q2'];
                     secondSemCodes = ['Q3', 'Q4'];
                   } else {
-                    // College
-                    firstSemCodes = ['P1', 'Q1'];
-                    secondSemCodes = ['S2-MT', 'S2-PF'];
+                    // Default fallback
+                    firstSemCodes = [];
+                    secondSemCodes = [];
                   }
                   // Ensure order-only rendering; maps used directly in JSX below
                   if (DEBUG) {
@@ -595,7 +618,9 @@ export default function StudentProfile({ user, assignedSubjects, subjectGrades, 
                                       <div key={`fs-${code}-${grade?.id ?? 'empty'}`} className="flex items-center justify-between p-2 bg-white dark:bg-gray-700 rounded border">
                                         <div>
                                           <span className="text-sm font-medium">{grade ? getPeriodLabel(grade) : (
-                                            isSeniorHigh ? (code === 'SHS_S1_MT' ? 'Midterm' : 'Pre-Final') : (code === 'P1' ? 'pre final' : 'First Quarter')
+                                            isSeniorHigh ? (code === 'SHS_S1_MT' ? 'Midterm' : 'Pre-Final') :
+                                            isCollege ? (code === 'COL_S1_MT' ? 'Midterm' : 'Pre-Final') :
+                                            'Period'
                                           )}</span>
                                           <div className="flex items-center gap-2">
                                             <span className={`text-lg font-bold ${grade ? getGradeColor(grade.grade, user.year_level || '') : 'text-gray-400'}`}>{grade ? grade.grade : '—'}</span>
@@ -615,7 +640,9 @@ export default function StudentProfile({ user, assignedSubjects, subjectGrades, 
                                       <div key={`ss-${code}-${grade?.id ?? 'empty'}`} className="flex items-center justify-between p-2 bg-white dark:bg-gray-700 rounded border">
                                         <div>
                                           <span className="text-sm font-medium">{grade ? getPeriodLabel(grade) : (
-                                            isSeniorHigh ? (code === 'SHS_S2_MT' ? 'Midterm' : 'Pre-Final') : (code === 'S2-MT' ? 'Midterm' : 'Pre-Final')
+                                            isSeniorHigh ? (code === 'SHS_S2_MT' ? 'Midterm' : 'Pre-Final') :
+                                            isCollege ? (code === 'COL_S2_MT' ? 'Midterm' : 'Pre-Final') :
+                                            'Period'
                                           )}</span>
                                           <div className="flex items-center gap-2">
                                             <span className={`text-lg font-bold ${grade ? getGradeColor(grade.grade, user.year_level || '') : 'text-gray-400'}`}>{grade ? grade.grade : '—'}</span>

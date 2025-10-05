@@ -138,7 +138,7 @@ export default function InstructorDashboard({
                         </div>
 
                         {/* Summary Cards */}
-                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                        <div className="grid gap-4 md:grid-cols-3">
                             <Card>
                                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                     <CardTitle className="text-sm font-medium">Assigned Subjects</CardTitle>
@@ -174,19 +174,6 @@ export default function InstructorDashboard({
                                     <div className="text-2xl font-bold">{stats.grades_entered}</div>
                                     <p className="text-xs text-muted-foreground">
                                         Total grades recorded
-                                    </p>
-                                </CardContent>
-                            </Card>
-
-                            <Card>
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                    <CardTitle className="text-sm font-medium">Pending Validation</CardTitle>
-                                    <Clock className="h-4 w-4 text-muted-foreground" />
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="text-2xl font-bold">{stats.pending_validations}</div>
-                                    <p className="text-xs text-muted-foreground">
-                                        Awaiting approval
                                     </p>
                                 </CardContent>
                             </Card>
@@ -239,9 +226,11 @@ export default function InstructorDashboard({
                                                                             <span className="text-xs font-medium">{enrollment.student.name}</span>
                                                                         </div>
                                                                         <div className="flex items-center space-x-2">
-                                                                            <Badge variant="outline" className="text-xs">
-                                                                                {enrollment.semester || 'No Semester'}
-                                                                            </Badge>
+                                                                            {enrollment.semester && (
+                                                                                <Badge variant="outline" className="text-xs capitalize">
+                                                                                    {enrollment.semester}
+                                                                                </Badge>
+                                                                            )}
                                                                             <Badge variant={enrollment.is_active ? "default" : "secondary"} className="text-xs">
                                                                                 {enrollment.is_active ? "Active" : "Inactive"}
                                                                             </Badge>

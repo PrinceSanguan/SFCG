@@ -20,33 +20,58 @@ class HonorTrackingController extends Controller
     public function index()
     {
         $user = Auth::user();
-        
-        // Chairperson can only handle College honors
-        $honors = HonorResult::with(['student.section', 'honorType', 'academicLevel'])
+
+        // Chairperson must be assigned to a department
+        if (!$user->department_id) {
+            abort(403, 'You must be assigned to a department to access honors.');
+        }
+
+        // Chairperson can only handle College honors from their department
+        $honors = HonorResult::with(['student.section', 'student.course', 'honorType', 'academicLevel'])
             ->whereHas('academicLevel', function($query) {
                 $query->where('key', 'college');
             })
+            ->whereHas('student', function($query) use ($user) {
+                $query->whereHas('course', function($q) use ($user) {
+                    $q->where('department_id', $user->department_id);
+                });
+            })
             ->latest('created_at')
             ->paginate(20);
-        
+
         $stats = [
             'pending' => HonorResult::where('is_pending_approval', true)
                 ->whereHas('academicLevel', function($query) {
                     $query->where('key', 'college');
+                })
+                ->whereHas('student', function($query) use ($user) {
+                    $query->whereHas('course', function($q) use ($user) {
+                        $q->where('department_id', $user->department_id);
+                    });
                 })
                 ->count(),
             'approved' => HonorResult::where('is_approved', true)
                 ->whereHas('academicLevel', function($query) {
                     $query->where('key', 'college');
                 })
+                ->whereHas('student', function($query) use ($user) {
+                    $query->whereHas('course', function($q) use ($user) {
+                        $q->where('department_id', $user->department_id);
+                    });
+                })
                 ->count(),
             'rejected' => HonorResult::where('is_rejected', true)
                 ->whereHas('academicLevel', function($query) {
                     $query->where('key', 'college');
                 })
+                ->whereHas('student', function($query) use ($user) {
+                    $query->whereHas('course', function($q) use ($user) {
+                        $q->where('department_id', $user->department_id);
+                    });
+                })
                 ->count(),
         ];
-        
+
         return Inertia::render('Chairperson/Honors/Index', [
             'user' => $user,
             'honors' => $honors,
@@ -57,16 +82,26 @@ class HonorTrackingController extends Controller
     public function pendingHonors()
     {
         $user = Auth::user();
-        
-        // Chairperson can only handle College honors
+
+        // Chairperson must be assigned to a department
+        if (!$user->department_id) {
+            abort(403, 'You must be assigned to a department to access honors.');
+        }
+
+        // Chairperson can only handle College honors from their department
         $honors = HonorResult::where('is_pending_approval', true)
             ->whereHas('academicLevel', function($query) {
                 $query->where('key', 'college');
             })
-            ->with(['student', 'honorType', 'academicLevel'])
+            ->whereHas('student', function($query) use ($user) {
+                $query->whereHas('course', function($q) use ($user) {
+                    $q->where('department_id', $user->department_id);
+                });
+            })
+            ->with(['student', 'student.course', 'honorType', 'academicLevel'])
             ->latest('created_at')
             ->paginate(20);
-        
+
         return Inertia::render('Chairperson/Honors/Pending', [
             'user' => $user,
             'honors' => $honors,
@@ -229,19 +264,25 @@ class HonorTrackingController extends Controller
     public function reviewHonor($honorId)
     {
         $user = Auth::user();
-        $honor = HonorResult::with(['student', 'honorType', 'academicLevel'])
+
+        // Chairperson must be assigned to a department
+        if (!$user->department_id) {
+            abort(403, 'You must be assigned to a department to access honors.');
+        }
+
+        $honor = HonorResult::with(['student', 'student.course', 'honorType', 'academicLevel'])
             ->findOrFail($honorId);
-        
+
         // Verify that chairperson can only review College honors
         if (!$honor->academicLevel || $honor->academicLevel->key !== 'college') {
             abort(403, 'Chairperson can only review College honors.');
         }
-        
+
         // Verify department relationship for college students
         if (!$honor->student || !$honor->student->course || $user->department_id !== $honor->student->course->department_id) {
             abort(403, 'You can only review honors from your department.');
         }
-        
+
         return Inertia::render('Chairperson/Honors/Review', [
             'user' => $user,
             'honor' => $honor,
@@ -251,43 +292,79 @@ class HonorTrackingController extends Controller
     // API methods
     public function getPendingHonors()
     {
-        // Chairperson can only handle College honors
+        $user = Auth::user();
+
+        // Chairperson must be assigned to a department
+        if (!$user->department_id) {
+            return response()->json(['error' => 'You must be assigned to a department to access honors.'], 403);
+        }
+
+        // Chairperson can only handle College honors from their department
         $honors = HonorResult::where('is_pending_approval', true)
             ->whereHas('academicLevel', function($query) {
                 $query->where('key', 'college');
             })
-            ->with(['student', 'honorType', 'academicLevel'])
+            ->whereHas('student', function($query) use ($user) {
+                $query->whereHas('course', function($q) use ($user) {
+                    $q->where('department_id', $user->department_id);
+                });
+            })
+            ->with(['student', 'student.course', 'honorType', 'academicLevel'])
             ->latest('created_at')
             ->get();
-        
+
         return response()->json($honors);
     }
-    
+
     public function getApprovedHonors()
     {
-        // Chairperson can only handle College honors
+        $user = Auth::user();
+
+        // Chairperson must be assigned to a department
+        if (!$user->department_id) {
+            return response()->json(['error' => 'You must be assigned to a department to access honors.'], 403);
+        }
+
+        // Chairperson can only handle College honors from their department
         $honors = HonorResult::where('is_approved', true)
             ->whereHas('academicLevel', function($query) {
                 $query->where('key', 'college');
             })
-            ->with(['student', 'honorType', 'academicLevel'])
+            ->whereHas('student', function($query) use ($user) {
+                $query->whereHas('course', function($q) use ($user) {
+                    $q->where('department_id', $user->department_id);
+                });
+            })
+            ->with(['student', 'student.course', 'honorType', 'academicLevel'])
             ->latest('approved_at')
             ->get();
-        
+
         return response()->json($honors);
     }
-    
+
     public function getRejectedHonors()
     {
-        // Chairperson can only handle College honors
+        $user = Auth::user();
+
+        // Chairperson must be assigned to a department
+        if (!$user->department_id) {
+            return response()->json(['error' => 'You must be assigned to a department to access honors.'], 403);
+        }
+
+        // Chairperson can only handle College honors from their department
         $honors = HonorResult::where('is_rejected', true)
             ->whereHas('academicLevel', function($query) {
                 $query->where('key', 'college');
             })
-            ->with(['student', 'honorType', 'academicLevel'])
+            ->whereHas('student', function($query) use ($user) {
+                $query->whereHas('course', function($q) use ($user) {
+                    $q->where('department_id', $user->department_id);
+                });
+            })
+            ->with(['student', 'student.course', 'honorType', 'academicLevel'])
             ->latest('rejected_at')
             ->get();
-        
+
         return response()->json($honors);
     }
 }

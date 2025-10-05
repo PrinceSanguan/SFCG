@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\User;
 use App\Models\Subject;
 use App\Models\StudentSubjectAssignment;
+use App\Models\InstructorSubjectAssignment;
 use App\Models\ActivityLog;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -225,6 +226,7 @@ class StudentSubjectAssignmentService
 
     /**
      * Automatically enroll student in subjects based on their section assignment.
+     * Gets subjects from InstructorSubjectAssignment for the student's section.
      */
     public function enrollStudentInSectionSubjects(User $student): array
     {
@@ -241,10 +243,14 @@ class StudentSubjectAssignmentService
             return $this->assignSubjectsToStudent($student);
         }
 
-        // Get all subjects assigned to this section
-        $sectionSubjects = Subject::where('section_id', $student->section_id)
+        // Get all subjects assigned to instructors for this section
+        $instructorAssignments = InstructorSubjectAssignment::where('section_id', $student->section_id)
+            ->where('school_year', $currentSchoolYear)
             ->where('is_active', true)
+            ->with('subject')
             ->get();
+
+        $sectionSubjects = $instructorAssignments->pluck('subject')->filter();
 
         // Also get subjects based on academic level, grade, course, etc.
         $academicLevelId = $this->getAcademicLevelId($student->year_level);

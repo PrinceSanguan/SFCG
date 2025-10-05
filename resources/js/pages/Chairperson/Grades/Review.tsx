@@ -3,11 +3,9 @@ import { Sidebar } from '@/components/chairperson/sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Link, useForm } from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
 import { ArrowLeft, CheckCircle, XCircle, Eye, Clock } from 'lucide-react';
-import { useState } from 'react';
 
 interface User {
     id: number;
@@ -67,24 +65,6 @@ export default function GradeReview({ user, grade }: GradeReviewProps) {
         return <div>Loading...</div>;
     }
 
-    const [showReturnForm, setShowReturnForm] = useState(false);
-
-    const { data, setData, post, processing, errors } = useForm({
-        return_reason: '',
-    });
-
-    const handleApprove = () => {
-        post(route('chairperson.grades.approve', grade.id));
-    };
-
-    const handleReturn = () => {
-        if (data.return_reason.trim()) {
-            post(route('chairperson.grades.return', grade.id));
-            setShowReturnForm(false);
-            setData('return_reason', '');
-        }
-    };
-
     const getStatusBadge = () => {
         if (grade.is_returned) {
             return <Badge variant="destructive">Returned</Badge>;
@@ -133,7 +113,7 @@ export default function GradeReview({ user, grade }: GradeReviewProps) {
                                     Grade Review
                                 </h1>
                                 <p className="text-gray-500 dark:text-gray-400">
-                                    Review grade details and make approval decisions
+                                    View grade details and status
                                 </p>
                             </div>
                         </div>
@@ -295,75 +275,9 @@ export default function GradeReview({ user, grade }: GradeReviewProps) {
                             </Card>
                         )}
 
-                        {/* Action Buttons */}
-                        {grade.is_submitted_for_validation && !grade.is_approved && !grade.is_returned && (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Actions</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="flex gap-4">
-                                        <Button
-                                            onClick={handleApprove}
-                                            disabled={processing}
-                                            className="bg-green-600 hover:bg-green-700"
-                                        >
-                                            <CheckCircle className="mr-2 h-4 w-4" />
-                                            {processing ? 'Approving...' : 'Approve Grade'}
-                                        </Button>
-                                        <Button
-                                            variant="destructive"
-                                            onClick={() => setShowReturnForm(true)}
-                                            disabled={processing}
-                                        >
-                                            <XCircle className="mr-2 h-4 w-4" />
-                                            Return for Correction
-                                        </Button>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
                     </div>
                 </main>
             </div>
-
-            {/* Return Grade Modal */}
-            {showReturnForm && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
-                        <h3 className="text-lg font-semibold mb-4">Return Grade for Correction</h3>
-                        <div className="mb-4">
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                                Returning grade for <strong>{grade.student?.name || 'N/A'}</strong> in <strong>{grade.subject?.name || 'N/A'}</strong>
-                            </p>
-                            <Label htmlFor="return_reason">Reason for Return</Label>
-                            <Textarea
-                                id="return_reason"
-                                value={data.return_reason}
-                                onChange={(e) => setData('return_reason', e.target.value)}
-                                placeholder="Please provide a reason for returning this grade..."
-                                className="mt-2"
-                                rows={4}
-                            />
-                            {errors.return_reason && (
-                                <p className="text-sm text-red-500 mt-1">{errors.return_reason}</p>
-                            )}
-                        </div>
-                        <div className="flex gap-2 justify-end">
-                            <Button variant="outline" onClick={() => setShowReturnForm(false)}>
-                                Cancel
-                            </Button>
-                            <Button
-                                variant="destructive"
-                                onClick={handleReturn}
-                                disabled={processing || !data.return_reason.trim()}
-                            >
-                                {processing ? 'Returning...' : 'Return Grade'}
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

@@ -233,7 +233,7 @@ export default function PendingHonors({ user, honors }: PendingHonorsProps) {
                         <h3 className="text-lg font-semibold mb-4">Reject Honor</h3>
                         <div className="mb-4">
                             <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                                Rejecting honor for <strong>{selectedHonor.student?.name}</strong> - <strong>{selectedHonor.honorType?.name}</strong>
+                                Rejecting honor for <strong>{selectedHonor.student?.name}</strong> - <strong>{selectedHonor.honor_type?.name || 'N/A'}</strong>
                             </p>
                             <Label htmlFor="rejection_reason">Reason for Rejection</Label>
                             <Textarea

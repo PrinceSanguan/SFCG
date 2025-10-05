@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Link, useForm } from '@inertiajs/react';
@@ -17,17 +18,25 @@ interface User {
     user_role: string;
 }
 
+interface Department {
+    id: number;
+    name: string;
+    code?: string;
+}
+
 interface CreateProps {
     user: User;
     currentRole: string;
+    departments?: Department[];
     errors?: Record<string, string>;
 }
 
-export default function CreateChairperson({ user, currentRole, errors }: CreateProps) {
+export default function CreateChairperson({ user, currentRole, departments, errors }: CreateProps) {
     const { data, setData, post, processing } = useForm({
         name: '',
         email: '',
         user_role: currentRole, // Auto-set the role based on current page
+        department_id: '',
         password: '',
         password_confirmation: '',
     });
@@ -104,6 +113,35 @@ export default function CreateChairperson({ user, currentRole, errors }: CreateP
                                                 </Alert>
                                             )}
                                         </div>
+                                    </div>
+
+                                    {/* Department Selection */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="department_id">Department *</Label>
+                                        <Select
+                                            value={data.department_id}
+                                            onValueChange={(value) => setData('department_id', value)}
+                                            required
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select department" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {departments?.map((dept) => (
+                                                    <SelectItem key={dept.id} value={dept.id.toString()}>
+                                                        {dept.name} {dept.code ? `(${dept.code})` : ''}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        {errors?.department_id && (
+                                            <Alert variant="destructive">
+                                                <AlertDescription>{errors.department_id}</AlertDescription>
+                                            </Alert>
+                                        )}
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                                            Chairperson will only be able to approve honors for students in this department.
+                                        </p>
                                     </div>
 
                                     {/* Password Information */}

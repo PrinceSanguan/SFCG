@@ -57,10 +57,18 @@ interface GradingPeriod {
     name: string;
 }
 
+interface Section {
+    id: number;
+    name: string;
+    code: string;
+    course_id: number;
+}
+
 interface InstructorSubjectAssignment {
     id: number;
     instructor_id: number;
     subject_id: number;
+    section_id: number;
     academic_level_id: number;
     grading_period_id: number | null;
     school_year: string;
@@ -68,6 +76,7 @@ interface InstructorSubjectAssignment {
     is_active: boolean;
     instructor: User;
     subject: Subject;
+    section: Section;
     academicLevel: AcademicLevel;
     gradingPeriod: GradingPeriod | null;
     assignedBy: User;
@@ -79,26 +88,30 @@ interface Props {
     assignments: InstructorSubjectAssignment[];
     instructors: User[];
     subjects: Subject[];
+    sections: Section[];
     academicLevels: AcademicLevel[];
     gradingPeriods: GradingPeriod[];
 }
 
-export default function AssignInstructorsSubjects({ 
-    user, 
-    assignments, 
-    instructors, 
-    subjects, 
-    academicLevels, 
-    gradingPeriods 
+export default function AssignInstructorsSubjects({
+    user,
+    assignments,
+    instructors,
+    subjects,
+    sections,
+    academicLevels,
+    gradingPeriods
 }: Props) {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedAcademicLevel, setSelectedAcademicLevel] = useState<string>('');
     const [filteredSubjects, setFilteredSubjects] = useState<Subject[]>([]);
+    const [filteredSections, setFilteredSections] = useState<Section[]>([]);
     const [showAssignmentModal, setShowAssignmentModal] = useState(false);
     const [editingAssignment, setEditingAssignment] = useState<InstructorSubjectAssignment | null>(null);
     const [formData, setFormData] = useState({
         instructor_id: '',
         subject_id: '',
+        section_id: '',
         academic_level_id: '',
         grading_period_id: '',
         school_year: '2024-2025',
@@ -109,7 +122,7 @@ export default function AssignInstructorsSubjects({
     // Filter subjects based on selected academic level
     useEffect(() => {
         if (selectedAcademicLevel) {
-            const filtered = subjects.filter(subject => 
+            const filtered = subjects.filter(subject =>
                 subject.academic_level_id.toString() === selectedAcademicLevel
             );
             setFilteredSubjects(filtered);
@@ -117,6 +130,23 @@ export default function AssignInstructorsSubjects({
             setFilteredSubjects([]);
         }
     }, [selectedAcademicLevel, subjects]);
+
+    // Filter sections based on selected subject's course
+    useEffect(() => {
+        if (formData.subject_id) {
+            const selectedSubject = subjects.find(s => s.id.toString() === formData.subject_id);
+            if (selectedSubject && selectedSubject.course_id) {
+                const filtered = sections.filter(section =>
+                    section.course_id === selectedSubject.course_id
+                );
+                setFilteredSections(filtered);
+            } else {
+                setFilteredSections([]);
+            }
+        } else {
+            setFilteredSections([]);
+        }
+    }, [formData.subject_id, subjects, sections]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -144,6 +174,7 @@ export default function AssignInstructorsSubjects({
         setFormData({
             instructor_id: assignment.instructor_id.toString(),
             subject_id: assignment.subject_id.toString(),
+            section_id: assignment.section_id.toString(),
             academic_level_id: assignment.academic_level_id.toString(),
             grading_period_id: assignment.grading_period_id?.toString() || '',
             school_year: assignment.school_year,
@@ -164,6 +195,7 @@ export default function AssignInstructorsSubjects({
         setFormData({
             instructor_id: '',
             subject_id: '',
+            section_id: '',
             academic_level_id: '',
             grading_period_id: '',
             school_year: '2024-2025',
@@ -171,6 +203,7 @@ export default function AssignInstructorsSubjects({
             auto_enroll_students: true,
         });
         setSelectedAcademicLevel('');
+        setFilteredSections([]);
         setEditingAssignment(null);
     };
 
@@ -214,7 +247,7 @@ export default function AssignInstructorsSubjects({
                                             Instructor Subject Assignments
                                         </h3>
                                         <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                                            Manage instructor assignments by subject. Select the academic level first, then choose the subject. The course information will be automatically displayed since subjects already belong to courses.
+                                            Manage instructor assignments by subject and section. Select the academic level, choose the subject, then select the section. When an instructor is assigned to a section's subject, all students enrolled in that section will automatically be assigned to that instructor.
                                         </p>
                                     </div>
                                 </div>
@@ -270,6 +303,9 @@ export default function AssignInstructorsSubjects({
                                                                 {assignment.subject.course && (
                                                                     <> • {assignment.subject.course.name}</>
                                                                 )}
+                                                                {assignment.section && (
+                                                                    <> • Section {assignment.section.name}</>
+                                                                )}
                                                             </p>
                                                             <div className="flex items-center gap-2 mt-1">
                                                                 <Badge variant="outline" className="text-xs">
@@ -278,6 +314,11 @@ export default function AssignInstructorsSubjects({
                                                                 {assignment.subject.course && (
                                                                     <Badge variant="outline" className="text-xs">
                                                                         {assignment.subject.course.code}
+                                                                    </Badge>
+                                                                )}
+                                                                {assignment.section && (
+                                                                    <Badge variant="outline" className="text-xs">
+                                                                        {assignment.section.code || assignment.section.name}
                                                                     </Badge>
                                                                 )}
                                                             </div>
@@ -397,13 +438,14 @@ export default function AssignInstructorsSubjects({
 
                         <div>
                             <Label htmlFor="subject_id">Subject</Label>
-                            <Select 
-                                value={formData.subject_id} 
+                            <Select
+                                value={formData.subject_id}
                                 onValueChange={(value) => {
                                     const selectedSubject = subjects.find(s => s.id.toString() === value);
-                                    setFormData(prev => ({ 
-                                        ...prev, 
+                                    setFormData(prev => ({
+                                        ...prev,
                                         subject_id: value,
+                                        section_id: '', // Reset section when subject changes
                                         academic_level_id: selectedSubject ? selectedSubject.academic_level_id.toString() : prev.academic_level_id
                                     }));
                                 }}
@@ -431,6 +473,32 @@ export default function AssignInstructorsSubjects({
                             {selectedAcademicLevel && filteredSubjects.length === 0 && (
                                 <p className="text-sm text-amber-600 mt-1">
                                     No subjects found for this academic level. Please add subjects first.
+                                </p>
+                            )}
+                        </div>
+
+                        <div>
+                            <Label htmlFor="section_id">Section *</Label>
+                            <Select
+                                value={formData.section_id}
+                                onValueChange={(value) => setFormData(prev => ({ ...prev, section_id: value }))}
+                                disabled={!formData.subject_id || filteredSections.length === 0}
+                                required
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select section" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {filteredSections.map((section) => (
+                                        <SelectItem key={section.id} value={section.id.toString()}>
+                                            {section.name}{section.code ? ` (${section.code})` : ''}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {formData.subject_id && filteredSections.length === 0 && (
+                                <p className="text-sm text-amber-600 mt-1">
+                                    No sections available for this subject's course. Please add sections first.
                                 </p>
                             )}
                         </div>

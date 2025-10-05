@@ -109,26 +109,55 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
     const [isInitialized, setIsInitialized] = useState(false);
 
     useEffect(() => {
-        // Clear URL parameters after form is initialized
+        // Only run once on mount
+        if (isInitialized) return;
+
+        // Initialize from URL parameters
         if (initialStudentId || initialSubjectId || initialAcademicLevelId) {
-            console.log('Form initialized with URL params:', { initialStudentId, initialSubjectId, initialAcademicLevelId, initialSchoolYear });
+            console.log('=== FORM INITIALIZATION ===');
+            console.log('URL Params:', {
+                initialStudentId,
+                initialSubjectId,
+                initialAcademicLevelId,
+                initialSchoolYear
+            });
+            console.log('Form Data After Init:', data);
+            console.log('Assigned Subjects:', assignedSubjects.map(s => ({
+                assignmentId: s.id,
+                subjectId: s.subject.id,
+                subjectName: s.subject.name
+            })));
+
+            // Verify the subject exists in assignedSubjects
+            const matchingSubject = assignedSubjects.find(s => s.subject.id.toString() === initialSubjectId);
+            if (matchingSubject) {
+                console.log('✓ Found matching subject:', matchingSubject.subject.name);
+            } else {
+                console.error('✗ Subject not found in assignedSubjects! subject_id:', initialSubjectId);
+                console.log('Available subject IDs:', assignedSubjects.map(s => s.subject.id));
+            }
+
             // Clear URL parameters after populating
             const newUrl = window.location.pathname;
             window.history.replaceState({}, '', newUrl);
         } else if (selectedStudent) {
             // Fallback to selectedStudent prop if no URL params
+            console.log('=== FALLBACK TO SELECTED STUDENT PROP ===');
             setData('student_id', selectedStudent.id.toString());
             setData('subject_id', selectedStudent.subjectId?.toString() || '');
             setData('academic_level_id', selectedStudent.academicLevelKey || '');
             setData('school_year', '2024-2025');
             setData('year_of_study', '');
             setData('grade', '');
-            
-            console.log('Form data set from selectedStudent prop');
+
+            console.log('Form data set from selectedStudent prop:', {
+                student_id: selectedStudent.id,
+                subject_id: selectedStudent.subjectId
+            });
         }
-        
+
         setIsInitialized(true);
-    }, [selectedStudent, setData, initialStudentId, initialSubjectId, initialAcademicLevelId]);
+    }, []);
 
     // Function to get subject and academic level when student is selected
     const getStudentSubjectInfo = (studentId: string) => {
@@ -281,7 +310,11 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                                 <div>
                                                     <span className="text-gray-500 dark:text-gray-400">Subject:</span>
                                                     <p className="font-medium">
-                                                        {assignedSubjects.find(s => s.subject.id.toString() === data.subject_id)?.subject.name || 'Unknown'}
+                                                        {(() => {
+                                                            const subject = assignedSubjects.find(s => s.subject.id.toString() === data.subject_id);
+                                                            console.log('Looking for subject_id:', data.subject_id, 'Found:', subject?.subject.name);
+                                                            return subject?.subject.name || 'Unknown';
+                                                        })()}
                                                     </p>
                                                 </div>
                                                 <div>

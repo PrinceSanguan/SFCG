@@ -229,17 +229,26 @@ export default function GradesIndex({ user, grades, assignedSubjects }: IndexPro
         gradingPeriod?: { name: string };
         schoolYear: string;
     }) => {
+        // Use the currently selected subject instead of finding the first match
         const subjectAssignment = assignedSubjects.find(subject =>
-            subject.enrolled_students.some(enrollment => enrollment.student.id === student.id)
+            subject.subject.id.toString() === selectedSubject
         );
 
         if (subjectAssignment) {
+            console.log('Creating grade for subject:', {
+                subjectId: subjectAssignment.subject.id,
+                subjectName: subjectAssignment.subject.name,
+                studentId: student.id
+            });
+
             window.location.href = route('instructor.grades.create') +
                 `?student_id=${student.id}` +
                 `&subject_id=${subjectAssignment.subject.id}` +
                 `&academic_level_id=${subjectAssignment.academicLevel.id}` +
                 `&academic_level_key=${subjectAssignment.academicLevel.key}` +
                 `&school_year=${subjectAssignment.school_year}`;
+        } else {
+            console.error('No subject assignment found for selectedSubject:', selectedSubject);
         }
     };
 

@@ -256,13 +256,42 @@ class GradeManagementController extends Controller
     public function store(Request $request)
     {
         $user = Auth::user();
-        
-        // Debug logging
-        Log::info('Grade creation attempt', [
+
+        // Enhanced debug logging
+        Log::info('=== GRADE CREATION ATTEMPT ===', [
             'user_id' => $user->id,
-            'request_data' => $request->all()
+            'user_name' => $user->name,
+            'request_data' => $request->all(),
+            'timestamp' => now()->toDateTimeString()
         ]);
-        
+
+        // Handle academic_level_id: could be ID (integer) or key (string like 'college')
+        $academicLevelId = $request->academic_level_id;
+
+        // If academic_level_id is a string (key like 'college'), convert it to ID
+        if (!is_numeric($academicLevelId)) {
+            Log::info('Academic level ID is a string key, converting to numeric ID', [
+                'received_key' => $academicLevelId
+            ]);
+
+            $academicLevel = \App\Models\AcademicLevel::where('key', $academicLevelId)->first();
+            if ($academicLevel) {
+                $academicLevelId = $academicLevel->id;
+                $request->merge(['academic_level_id' => $academicLevelId]);
+
+                Log::info('Converted academic level key to ID', [
+                    'key' => $academicLevelId,
+                    'id' => $academicLevel->id,
+                    'name' => $academicLevel->name
+                ]);
+            } else {
+                Log::error('Academic level not found with key', [
+                    'key' => $academicLevelId
+                ]);
+                return back()->withErrors(['academic_level_id' => 'Invalid academic level.'])->withInput();
+            }
+        }
+
         $validator = Validator::make($request->all(), [
             'student_id' => 'required|exists:users,id',
             'subject_id' => 'required|exists:subjects,id',
@@ -272,27 +301,47 @@ class GradeManagementController extends Controller
             'year_of_study' => 'nullable|integer|min:1|max:10',
             'grade' => 'required|numeric',
         ]);
-        
+
+        Log::info('Validation rules defined', [
+            'rules' => $validator->getRules()
+        ]);
+
         // Custom validation for grade based on academic level
         $academicLevel = \App\Models\AcademicLevel::find($request->academic_level_id);
         if ($academicLevel) {
+            Log::info('Academic level found for validation', [
+                'id' => $academicLevel->id,
+                'name' => $academicLevel->name,
+                'key' => $academicLevel->key
+            ]);
+
             if ($academicLevel->key === 'college') {
                 $validator->addRules(['grade' => 'numeric|min:1.0|max:5.0']);
+                Log::info('Applied college grade validation (1.0-5.0)');
             } else {
                 $validator->addRules(['grade' => 'numeric|min:0|max:100']);
+                Log::info('Applied standard grade validation (0-100)');
             }
+        } else {
+            Log::error('Academic level not found', [
+                'academic_level_id' => $request->academic_level_id
+            ]);
         }
         
         // Custom validation for grading_period_id
         if ($request->grading_period_id && $request->grading_period_id !== '0') {
             $validator->addRules(['grading_period_id' => 'exists:grading_periods,id']);
+            Log::info('Added grading period validation', [
+                'grading_period_id' => $request->grading_period_id
+            ]);
         }
-        
+
         // Handle "0" value for grading_period_id (no period selected)
         if ($request->grading_period_id === '0') {
             $request->merge(['grading_period_id' => null]);
+            Log::info('Grading period set to null (no period selected)');
         }
-        
+
         // Verify the instructor is assigned to this subject
         $isAssigned = InstructorSubjectAssignment::where('instructor_id', $user->id)
             ->where('subject_id', $request->subject_id)
@@ -301,16 +350,40 @@ class GradeManagementController extends Controller
                 $query->where('key', 'college');
             })
             ->exists();
-        
+
+        Log::info('Instructor assignment check', [
+            'instructor_id' => $user->id,
+            'subject_id' => $request->subject_id,
+            'is_assigned' => $isAssigned
+        ]);
+
         if (!$isAssigned) {
+            Log::warning('Instructor not assigned to subject', [
+                'instructor_id' => $user->id,
+                'subject_id' => $request->subject_id
+            ]);
             return back()->withErrors(['subject_id' => 'You are not assigned to this subject.']);
         }
-        
+
         if ($validator->fails()) {
+            Log::error('Validation failed', [
+                'errors' => $validator->errors()->toArray(),
+                'request_data' => $request->all()
+            ]);
             return back()->withErrors($validator)->withInput();
         }
+
+        Log::info('Validation passed successfully');
         
         // Check if grade already exists
+        Log::info('Checking for existing grade', [
+            'student_id' => $request->student_id,
+            'subject_id' => $request->subject_id,
+            'academic_level_id' => $request->academic_level_id,
+            'school_year' => $request->school_year,
+            'grading_period_id' => $request->grading_period_id
+        ]);
+
         $existingGrade = StudentGrade::where([
             'student_id' => $request->student_id,
             'subject_id' => $request->subject_id,
@@ -321,11 +394,17 @@ class GradeManagementController extends Controller
         })->when(!$request->grading_period_id, function ($query) {
             $query->whereNull('grading_period_id');
         })->first();
-        
+
         if ($existingGrade) {
+            Log::warning('Duplicate grade detected', [
+                'existing_grade_id' => $existingGrade->id,
+                'existing_grade_value' => $existingGrade->grade
+            ]);
             return back()->withErrors(['grade' => 'A grade already exists for this student, subject, and period.']);
         }
-        
+
+        Log::info('No existing grade found, proceeding with creation');
+
         // Prepare data for grade creation
         $gradeData = [
             'student_id' => $request->student_id,
@@ -336,23 +415,36 @@ class GradeManagementController extends Controller
             'year_of_study' => $request->year_of_study ?: null,
             'grade' => $request->grade,
         ];
-        
+
+        Log::info('Prepared grade data', [
+            'grade_data' => $gradeData
+        ]);
+
         // Create the grade
         try {
+            Log::info('Attempting to create grade in database');
             $grade = StudentGrade::create($gradeData);
-            Log::info('Grade created successfully', [
+
+            Log::info('=== GRADE CREATED SUCCESSFULLY ===', [
                 'grade_id' => $grade->id,
-                'grade_data' => $gradeData
+                'student_id' => $grade->student_id,
+                'subject_id' => $grade->subject_id,
+                'grade_value' => $grade->grade,
+                'grading_period_id' => $grade->grading_period_id,
+                'school_year' => $grade->school_year,
+                'created_at' => $grade->created_at->toDateTimeString()
             ]);
-            
+
             return redirect()->route('instructor.grades.index')
                 ->with('success', 'Grade created successfully.');
         } catch (\Exception $e) {
-            Log::error('Grade creation failed', [
-                'error' => $e->getMessage(),
-                'grade_data' => $gradeData
+            Log::error('=== GRADE CREATION FAILED ===', [
+                'error_message' => $e->getMessage(),
+                'error_trace' => $e->getTraceAsString(),
+                'grade_data' => $gradeData,
+                'exception_class' => get_class($e)
             ]);
-            
+
             return back()->withErrors(['grade' => 'Failed to create grade: ' . $e->getMessage()])->withInput();
         }
     }

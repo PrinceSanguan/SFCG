@@ -70,7 +70,21 @@ class ProfileController extends Controller
         ->get();
         
         return Inertia::render('Student/Profile', [
-            'user' => $user,
+            'user' => [
+                ...$user->toArray(),
+                'parents' => $user->parents->map(function ($parent) {
+                    return [
+                        'id' => $parent->id,
+                        'name' => $parent->name,
+                        'email' => $parent->email,
+                        'pivot' => [
+                            'relationship_type' => $parent->pivot->relationship_type,
+                            'emergency_contact' => $parent->pivot->emergency_contact,
+                            'notes' => $parent->pivot->notes ?? null,
+                        ]
+                    ];
+                })
+            ],
             'assignedSubjects' => $assignedSubjects,
             'subjectGrades' => $subjectGrades,
             'honorResults' => $honorResults,

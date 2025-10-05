@@ -88,19 +88,27 @@ interface InstructorCourseAssignment {
     subject?: Subject | null;
 }
 
+interface Section {
+    id: number;
+    name: string;
+    code: string;
+    course_id: number;
+}
+
 interface Props {
     user: User;
     assignments: InstructorCourseAssignment[];
     instructors: User[];
     departments: Department[];
     courses: Course[];
+    sections: Section[];
     subjects: Subject[];
     gradingPeriods: GradingPeriod[];
     academicLevels: AcademicLevel[];
     yearLevels: Record<string, string>;
 }
 
-export default function AssignInstructors({ user, assignments, instructors, departments, courses, subjects, gradingPeriods, academicLevels, yearLevels }: Props) {
+export default function AssignInstructors({ user, assignments, instructors, departments, courses, sections, subjects, gradingPeriods, academicLevels, yearLevels }: Props) {
     const { addToast } = useToast();
     const { props } = usePage<any>();
 
@@ -119,6 +127,7 @@ export default function AssignInstructors({ user, assignments, instructors, depa
         year_level: '',
         department_id: '',
         course_id: '',
+        section_id: '',
         subject_id: '',
         academic_level_id: '',
         semester_ids: [] as string[],
@@ -132,6 +141,7 @@ export default function AssignInstructors({ user, assignments, instructors, depa
     const [editAssignment, setEditAssignment] = useState<InstructorCourseAssignment | null>(null);
     const [editModal, setEditModal] = useState(false);
     const [filteredCourses, setFilteredCourses] = useState<Course[]>([]);
+    const [filteredSections, setFilteredSections] = useState<Section[]>([]);
     const [filteredSubjects, setFilteredSubjects] = useState<Subject[]>([]);
 
     // Filter for College level only
@@ -142,16 +152,20 @@ export default function AssignInstructors({ user, assignments, instructors, depa
         console.log('Subjects data:', subjects);
         console.log('Courses data:', courses);
         console.log('Departments data:', departments);
-        
+        console.log('Sections data:', sections);
+
         if (assignmentForm.department_id) {
             const filtered = courses.filter(c => c.department_id === parseInt(assignmentForm.department_id));
             setFilteredCourses(filtered);
         }
         if (assignmentForm.course_id) {
-            const filtered = subjects.filter(s => s.course_id == null || s.course_id === parseInt(assignmentForm.course_id));
-            setFilteredSubjects(filtered);
+            const filteredSubj = subjects.filter(s => s.course_id == null || s.course_id === parseInt(assignmentForm.course_id));
+            setFilteredSubjects(filteredSubj);
+
+            const filteredSect = sections.filter(s => s.course_id === parseInt(assignmentForm.course_id));
+            setFilteredSections(filteredSect);
         }
-    }, [assignmentForm.department_id, assignmentForm.course_id, courses, subjects, departments]);
+    }, [assignmentForm.department_id, assignmentForm.course_id, courses, subjects, sections, departments]);
     
     // Safety check: only proceed if we have valid level
     if (!collegeLevel) {
@@ -550,6 +564,29 @@ export default function AssignInstructors({ user, assignments, instructors, depa
                                 </div>
                             </div>
 
+                            <div>
+                                <Label htmlFor="section_id">Section</Label>
+                                <Select
+                                    value={assignmentForm.section_id}
+                                    onValueChange={(value) => setAssignmentForm({ ...assignmentForm, section_id: value })}
+                                    disabled={!assignmentForm.course_id || filteredSections.length === 0}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder={assignmentForm.course_id ? (filteredSections.length > 0 ? "Select section" : "No sections available") : "Select course first"} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {filteredSections.map((section) => (
+                                            <SelectItem key={section.id} value={section.id.toString()}>
+                                                {section.name}{section.code ? ` (${section.code})` : ''}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Optional: Select a section to assign this instructor to specific students
+                                </p>
+                            </div>
+
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <Label>Semesters</Label>
@@ -682,83 +719,130 @@ export default function AssignInstructors({ user, assignments, instructors, depa
             {/* Assignments Table */}
             {collegeAssignments.length > 0 ? (
                 <div className="grid gap-4">
-                    {collegeAssignments.map((assignment) => (
-                        <Card key={assignment.id}>
-                            <CardContent className="pt-6">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center space-x-4">
-                                        <div className="flex items-center space-x-2">
-                                            <User className="h-4 w-4 text-gray-500" />
-                                            <span className="font-medium">{assignment.instructor.name}</span>
-                                        </div>
-                                        <span className="text-gray-400">→</span>
-                                        <div className="flex items-center space-x-2">
-                                            <BookOpen className="h-4 w-4 text-gray-500" />
-                                            <span className="font-medium">{assignment.course.name}</span>
-                                            <Badge variant="outline">{assignment.course.department?.name || 'No Department'}</Badge>
-                                        </div>
-                                        {/* Show the specifically assigned subject if present; otherwise show course subjects */}
-                                        <div className="ml-8 mt-2">
-                                            <div className="text-sm text-gray-600 mb-1">Subjects:</div>
-                                            {assignment.subject ? (
-                                                <div className="flex flex-wrap gap-2">
-                                                    <Badge variant="secondary" className="text-xs">
-                                                        {assignment.subject.name} ({assignment.subject.code})
-                                                    </Badge>
+                    {(() => {
+                        // Group assignments by instructor, course, and period
+                        const grouped = collegeAssignments.reduce((acc, assignment) => {
+                            const key = `${assignment.instructor_id}-${assignment.course_id}-${assignment.grading_period_id}-${assignment.school_year}`;
+                            if (!acc[key]) {
+                                acc[key] = {
+                                    instructor: assignment.instructor,
+                                    course: assignment.course,
+                                    year_level: assignment.year_level,
+                                    gradingPeriod: assignment.gradingPeriod,
+                                    school_year: assignment.school_year,
+                                    is_active: assignment.is_active,
+                                    assignments: []
+                                };
+                            }
+                            acc[key].assignments.push(assignment);
+                            return acc;
+                        }, {} as Record<string, {
+                            instructor: User,
+                            course: Course,
+                            year_level: string | null,
+                            gradingPeriod: GradingPeriod | null,
+                            school_year: string,
+                            is_active: boolean,
+                            assignments: InstructorCourseAssignment[]
+                        }>);
+
+                        return Object.values(grouped).map((group, idx) => (
+                            <Card key={idx}>
+                                <CardContent className="pt-6">
+                                    <div className="space-y-4">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex-1">
+                                                <div className="flex items-center space-x-4">
+                                                    <div className="flex items-center space-x-2">
+                                                        <User className="h-4 w-4 text-gray-500" />
+                                                        <span className="font-medium">{group.instructor.name}</span>
+                                                    </div>
+                                                    <span className="text-gray-400">→</span>
+                                                    <div className="flex items-center space-x-2">
+                                                        <BookOpen className="h-4 w-4 text-gray-500" />
+                                                        <span className="font-medium">{group.course.name}</span>
+                                                        <Badge variant="outline">{group.course.department?.name || 'No Department'}</Badge>
+                                                    </div>
                                                 </div>
-                                            ) : (
-                                                <div className="flex flex-wrap gap-2">
-                                                    {subjects
-                                                        .filter(subject => subject.course_id?.toString() === assignment.course_id.toString())
-                                                        .map(subject => (
-                                                            <Badge key={subject.id} variant="secondary" className="text-xs">
-                                                                {subject.name} ({subject.code})
+
+                                                {/* Show all assigned subjects for this instructor/course/period */}
+                                                <div className="ml-8 mt-3">
+                                                    <div className="text-sm text-gray-600 mb-2">
+                                                        Subjects ({group.assignments.length} {group.assignments.length === 1 ? 'assignment' : 'assignments'}):
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {group.assignments.map(assignment => assignment.subject).filter(Boolean).map((subject, subIdx) => (
+                                                            <Badge key={subIdx} variant="secondary" className="text-xs">
+                                                                {subject!.name} ({subject!.code})
                                                             </Badge>
                                                         ))}
-                                                    {subjects.filter(subject => subject.course_id?.toString() === assignment.course_id.toString()).length === 0 && (
-                                                        <span className="text-xs text-gray-400 italic">No subjects for this course</span>
-                                                    )}
+                                                        {group.assignments.filter(a => a.subject).length === 0 && (
+                                                            <span className="text-xs text-gray-400 italic">No specific subjects assigned</span>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            )}
+                                            </div>
+
+                                            <div className="flex items-center space-x-4">
+                                                <div className="flex items-center space-x-2 text-sm text-gray-600">
+                                                    <Calendar className="h-4 w-4" />
+                                                    <span>{group.school_year}</span>
+                                                </div>
+                                                {group.year_level && (
+                                                    <Badge variant="outline">{yearLevels[group.year_level] || group.year_level}</Badge>
+                                                )}
+                                                {group.gradingPeriod && (
+                                                    <Badge variant="secondary">{group.gradingPeriod.name}</Badge>
+                                                )}
+                                                {getStatusBadge(group.is_active)}
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="flex items-center space-x-4">
-                                        <div className="flex items-center space-x-2 text-sm text-gray-600">
-                                            <Calendar className="h-4 w-4" />
-                                            <span>{assignment.school_year}</span>
+
+                                        {/* Individual assignment actions */}
+                                        <div className="border-t pt-3">
+                                            <div className="text-xs text-gray-500 mb-2">Individual Subject Actions:</div>
+                                            <div className="space-y-2">
+                                                {group.assignments.map(assignment => (
+                                                    <div key={assignment.id} className="flex items-center justify-between bg-gray-50 rounded px-3 py-2">
+                                                        <div className="flex items-center space-x-2">
+                                                            <BookOpen className="h-3 w-3 text-gray-400" />
+                                                            <span className="text-sm font-medium">
+                                                                {assignment.subject?.name || 'All Course Subjects'}
+                                                            </span>
+                                                            {assignment.subject && (
+                                                                <span className="text-xs text-gray-500">({assignment.subject.code})</span>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex items-center space-x-2">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => openEditModal(assignment)}
+                                                            >
+                                                                <Edit className="h-3 w-3" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => destroyAssignment(assignment.id)}
+                                                                className="text-red-600 hover:text-red-700"
+                                                            >
+                                                                <Trash2 className="h-3 w-3" />
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
-                                        {assignment.year_level && (
-                                            <Badge variant="outline">{yearLevels[assignment.year_level] || assignment.year_level}</Badge>
+
+                                        {group.assignments[0].notes && (
+                                            <p className="text-sm text-gray-600 border-t pt-3">{group.assignments[0].notes}</p>
                                         )}
-                                        {assignment.gradingPeriod && (
-                                            <Badge variant="secondary">{assignment.gradingPeriod.name}</Badge>
-                                        )}
-                                        {getStatusBadge(assignment.is_active)}
-                                        <div className="flex items-center space-x-2">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => openEditModal(assignment)}
-                                            >
-                                                <Edit className="h-4 w-4" />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => destroyAssignment(assignment.id)}
-                                                className="text-red-600 hover:text-red-700"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </div>
                                     </div>
-                                </div>
-                                {assignment.notes && (
-                                    <p className="text-sm text-gray-600 mt-2">{assignment.notes}</p>
-                                )}
-                            </CardContent>
-                        </Card>
-                    ))}
+                                </CardContent>
+                            </Card>
+                        ));
+                    })()}
                 </div>
             ) : (
                 <Card>

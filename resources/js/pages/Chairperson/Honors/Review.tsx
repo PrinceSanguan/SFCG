@@ -16,6 +16,17 @@ interface User {
     user_role: string;
 }
 
+interface HonorType {
+    id: number;
+    name: string;
+    description?: string;
+    criteria?: string;
+}
+
+interface AcademicLevel {
+    name: string;
+}
+
 interface Honor {
     id: number;
     student: {
@@ -24,15 +35,10 @@ interface Honor {
         student_number: string;
         email: string;
     };
-    honorType: {
-        id: number;
-        name: string;
-        description?: string;
-        criteria?: string;
-    };
-    academicLevel: {
-        name: string;
-    };
+    honor_type?: HonorType;  // Backend sends snake_case
+    honorType?: HonorType;   // For backwards compatibility
+    academic_level?: AcademicLevel;  // Backend sends snake_case
+    academicLevel?: AcademicLevel;   // For backwards compatibility
     gpa: number;
     school_year: string;
     is_pending_approval: boolean;
@@ -182,18 +188,18 @@ export default function HonorReview({ user, honor }: HonorReviewProps) {
                                 <CardContent className="space-y-3">
                                     <div>
                                         <Label className="text-sm font-medium text-gray-500">Honor Type</Label>
-                                        <p className="text-lg font-semibold">{honor.honorType?.name || 'N/A'}</p>
+                                        <p className="text-lg font-semibold">{(honor.honor_type || honor.honorType)?.name || 'N/A'}</p>
                                     </div>
-                                    {honor.honorType?.description && (
+                                    {((honor.honor_type || honor.honorType)?.description) && (
                                         <div>
                                             <Label className="text-sm font-medium text-gray-500">Description</Label>
-                                            <p className="text-lg">{honor.honorType?.description}</p>
+                                            <p className="text-lg">{(honor.honor_type || honor.honorType)?.description}</p>
                                         </div>
                                     )}
-                                    {honor.honorType?.criteria && (
+                                    {((honor.honor_type || honor.honorType)?.criteria) && (
                                         <div>
                                             <Label className="text-sm font-medium text-gray-500">Criteria</Label>
-                                            <p className="text-lg">{honor.honorType?.criteria}</p>
+                                            <p className="text-lg">{(honor.honor_type || honor.honorType)?.criteria}</p>
                                         </div>
                                     )}
                                 </CardContent>
@@ -218,7 +224,7 @@ export default function HonorReview({ user, honor }: HonorReviewProps) {
                                     </div>
                                     <div>
                                         <Label className="text-sm font-medium text-gray-500">Academic Level</Label>
-                                        <p className="text-lg">{honor.academicLevel?.name || 'N/A'}</p>
+                                        <p className="text-lg">{(honor.academic_level || honor.academicLevel)?.name || 'N/A'}</p>
                                     </div>
                                 </CardContent>
                             </Card>

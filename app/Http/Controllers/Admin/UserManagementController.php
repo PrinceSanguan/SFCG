@@ -118,7 +118,7 @@ class UserManagementController extends Controller
             'year_level' => 'required_if:user_role,student|string|in:elementary,junior_highschool,senior_highschool,college|nullable',
             'strand_id' => 'nullable|exists:strands,id',
             'course_id' => 'nullable|exists:courses,id',
-            'department_id' => 'nullable|exists:departments,id',
+            'department_id' => 'required_if:user_role,chairperson|nullable|exists:departments,id',
             'section_id' => 'nullable|exists:sections,id',
             'student_number' => 'nullable|string|max:40|unique:users,student_number',
         ]);
@@ -146,7 +146,7 @@ class UserManagementController extends Controller
             'year_level' => $request->user_role === 'student' ? $request->year_level : null,
             'strand_id' => $request->user_role === 'student' ? $request->strand_id : null,
             'course_id' => $request->user_role === 'student' ? $request->course_id : null,
-            'department_id' => $request->user_role === 'student' ? $request->department_id : null,
+            'department_id' => in_array($request->user_role, ['student', 'chairperson']) ? $request->department_id : null,
             'section_id' => $request->user_role === 'student' ? $request->section_id : null,
             'student_number' => $request->user_role === 'student' ? $request->student_number : null,
         ]);
@@ -468,7 +468,15 @@ class UserManagementController extends Controller
             $data['departments'] = \App\Models\Department::where('is_active', true)->get();
             $data['courses'] = \App\Models\Course::where('is_active', true)->get();
         }
-        
+
+        // Add departments for chairpersons (College departments only)
+        if ($role === 'chairperson') {
+            $collegeAcademicLevel = \App\Models\AcademicLevel::where('key', 'college')->first();
+            $data['departments'] = \App\Models\Department::where('is_active', true)
+                ->where('academic_level_id', $collegeAcademicLevel?->id)
+                ->get();
+        }
+
         return Inertia::render('Admin/AccountManagement/' . $folderName . '/Create', $data);
     }
 
@@ -507,7 +515,7 @@ class UserManagementController extends Controller
             'specific_year_level' => 'required_if:user_role,student|string|nullable',
             'strand_id' => 'nullable|exists:strands,id',
             'course_id' => 'nullable|exists:courses,id',
-            'department_id' => 'nullable|exists:departments,id',
+            'department_id' => 'required_if:user_role,chairperson|nullable|exists:departments,id',
             'student_number' => 'nullable|string|max:40|unique:users,student_number',
             // Personal Information validation
             'birth_date' => 'nullable|date|before:today',
@@ -536,6 +544,11 @@ class UserManagementController extends Controller
             }
         }
 
+        // Chairperson must have department
+        if ($role === 'chairperson' && !$request->department_id) {
+            $validator->errors()->add('department_id', 'Department is required for Chairpersons.');
+        }
+
         if ($validator->fails()) {
             return back()->withErrors($validator)->withInput();
         }
@@ -549,7 +562,7 @@ class UserManagementController extends Controller
             'specific_year_level' => $role === 'student' ? $request->specific_year_level : null,
             'strand_id' => $role === 'student' ? $request->strand_id : null,
             'course_id' => $role === 'student' ? $request->course_id : null,
-            'department_id' => $role === 'student' ? $request->department_id : null,
+            'department_id' => in_array($role, ['student', 'chairperson']) ? $request->department_id : null,
             'section_id' => $role === 'student' ? $request->section_id : null,
             'student_number' => $role === 'student' ? $request->student_number : null,
             // Personal Information

@@ -341,7 +341,7 @@ export default function Show({ user, student, subject, academicLevel, grades, gr
     });
 
     // Calculate semester averages and overall average
-    // For SHS/College: Each semester average = (Midterm + Pre-Final) / 2
+    // For SHS/College: Each semester average = average of all grades in that semester
     // Overall average = (Semester 1 Average + Semester 2 Average) / 2
     const calculateSemesterAverages = () => {
         const isSemesterBased = ['college', 'senior_highschool'].includes(academicLevelKey);
@@ -362,36 +362,48 @@ export default function Show({ user, student, subject, academicLevel, grades, gr
             return { semester1Average: null, semester2Average: null, overallAverage: null };
         }
 
-        // Calculate First Semester Average
-        const s1Midterm = grades.find(g => {
-            const code = g.gradingPeriod?.code?.toUpperCase() || '';
-            return code.includes('S1_MT') || code.includes('_S1_MT');
-        });
-        const s1PreFinal = grades.find(g => {
-            const code = g.gradingPeriod?.code?.toUpperCase() || '';
-            return code.includes('S1_PF') || code.includes('_S1_PF');
-        });
-
+        // Calculate averages based on semester structure
         let semester1Average = null;
-        if (s1Midterm?.grade !== null && s1Midterm?.grade !== undefined &&
-            s1PreFinal?.grade !== null && s1PreFinal?.grade !== undefined) {
-            semester1Average = (parseFloat(s1Midterm.grade) + parseFloat(s1PreFinal.grade)) / 2;
+        let semester2Average = null;
+
+        // Find semester 1 and calculate its average
+        const semester1 = semesterStructure.find(s => s.semesterNumber === 1);
+        if (semester1 && semester1.periods.length > 0) {
+            const semester1GradingPeriodIds = semester1.periods.map((p: any) => p.gradingPeriodId);
+            const semester1Grades = grades.filter(g =>
+                g.grading_period_id && semester1GradingPeriodIds.includes(g.grading_period_id)
+            );
+
+            console.log('🔍 Semester 1 calculation:', {
+                periodIds: semester1GradingPeriodIds,
+                foundGrades: semester1Grades.map(g => ({ id: g.grading_period_id, grade: g.grade })),
+                grades: semester1Grades.map(g => g.grade)
+            });
+
+            if (semester1Grades.length > 0) {
+                const sum = semester1Grades.reduce((acc, g) => acc + parseFloat(g.grade.toString()), 0);
+                semester1Average = sum / semester1Grades.length;
+            }
         }
 
-        // Calculate Second Semester Average
-        const s2Midterm = grades.find(g => {
-            const code = g.gradingPeriod?.code?.toUpperCase() || '';
-            return code.includes('S2_MT') || code.includes('_S2_MT');
-        });
-        const s2PreFinal = grades.find(g => {
-            const code = g.gradingPeriod?.code?.toUpperCase() || '';
-            return code.includes('S2_PF') || code.includes('_S2_PF');
-        });
+        // Find semester 2 and calculate its average
+        const semester2 = semesterStructure.find(s => s.semesterNumber === 2);
+        if (semester2 && semester2.periods.length > 0) {
+            const semester2GradingPeriodIds = semester2.periods.map((p: any) => p.gradingPeriodId);
+            const semester2Grades = grades.filter(g =>
+                g.grading_period_id && semester2GradingPeriodIds.includes(g.grading_period_id)
+            );
 
-        let semester2Average = null;
-        if (s2Midterm?.grade !== null && s2Midterm?.grade !== undefined &&
-            s2PreFinal?.grade !== null && s2PreFinal?.grade !== undefined) {
-            semester2Average = (parseFloat(s2Midterm.grade) + parseFloat(s2PreFinal.grade)) / 2;
+            console.log('🔍 Semester 2 calculation:', {
+                periodIds: semester2GradingPeriodIds,
+                foundGrades: semester2Grades.map(g => ({ id: g.grading_period_id, grade: g.grade })),
+                grades: semester2Grades.map(g => g.grade)
+            });
+
+            if (semester2Grades.length > 0) {
+                const sum = semester2Grades.reduce((acc, g) => acc + parseFloat(g.grade.toString()), 0);
+                semester2Average = sum / semester2Grades.length;
+            }
         }
 
         // Calculate Overall Average
@@ -404,10 +416,10 @@ export default function Show({ user, student, subject, academicLevel, grades, gr
             overallAverage = semester2Average;
         }
 
-        console.log('🔍 Semester averages:', {
-            semester1: { midterm: s1Midterm?.grade, preFinal: s1PreFinal?.grade, average: semester1Average },
-            semester2: { midterm: s2Midterm?.grade, preFinal: s2PreFinal?.grade, average: semester2Average },
-            overall: overallAverage
+        console.log('🔍 Final semester averages:', {
+            semester1Average,
+            semester2Average,
+            overallAverage
         });
 
         return { semester1Average, semester2Average, overallAverage };
@@ -588,71 +600,56 @@ export default function Show({ user, student, subject, academicLevel, grades, gr
 
 
 
-                        {/* Detailed Grades - Student Portal Style */}
-                        <Card className="bg-white shadow-sm">
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2 text-lg font-semibold">
-                                    <Calendar className="h-5 w-5 text-gray-600" />
-                                    Detailed Grades
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                {grades.length > 0 ? (
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full border-collapse">
-                                            <thead>
-                                                {(() => {
-                                                    const isSemesterBased = ['senior_highschool', 'college'].includes(academicLevelKey);
-                                                    const totalPeriods = semesterStructure.reduce((total, sem) => total + sem.periods.length, 0);
-                                                    const showSemesterHeaders = isSemesterBased && totalPeriods > 0 && semesterStructure.length > 1;
+                        {/* Detailed Grades - Separate Tables per Semester */}
+                        {semesterStructure.length > 0 && semesterStructure.some(sem => sem.periods.length > 0) ? (
+                            <>
+                                {/* Final Average Card - Displayed at the top */}
+                                {finalGrade && (
+                                    <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200">
+                                        <CardContent className="pt-6">
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <h3 className="text-lg font-semibold text-gray-900 mb-1">Overall Average</h3>
+                                                    <p className="text-sm text-gray-600">Combined average for {latestGrade?.school_year}</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="text-4xl font-bold text-gray-900 mb-2">
+                                                        {finalGrade.toFixed(2)}
+                                                    </div>
+                                                    <Badge className={`text-sm px-4 py-2 ${
+                                                        ['Superior', 'Very Good', 'Good', 'Satisfactory', 'Fair', 'Outstanding'].includes(getGradeStatus(finalGrade, academicLevelKey))
+                                                            ? 'bg-blue-100 text-blue-800'
+                                                            : 'bg-red-100 text-red-800'
+                                                    }`}>
+                                                        {getGradeStatus(finalGrade, academicLevelKey)}
+                                                    </Badge>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                )}
 
-                                                    if (showSemesterHeaders) {
-                                                        // Two-tier header structure for semester-based systems
-                                                        return (
-                                                            <>
-                                                                {/* Semester Headers Row */}
-                                                                <tr className="bg-gray-900 text-white">
-                                                                    <th className="p-2 border-r border-gray-600" rowSpan={2}>Student ID</th>
-                                                                    <th className="p-2 border-r border-gray-600" rowSpan={2}>Subject</th>
-                                                                    <th className="p-2 border-r border-gray-600" rowSpan={2}>Faculty</th>
-                                                                    {semesterStructure.map((semester) => (
-                                                                        <th key={semester.semesterNumber}
-                                                                            className="text-center p-2 border-r border-gray-600"
-                                                                            colSpan={semester.periods.length}>
-                                                                            {semester.name}
-                                                                        </th>
-                                                                    ))}
-                                                                    <th className="p-2 border-r border-gray-600" rowSpan={2}>AVERAGE</th>
-                                                                    <th className="p-2" rowSpan={2}>Grade Status</th>
-                                                                </tr>
-                                                                {/* Period Headers Row */}
-                                                                <tr className="bg-gray-800 text-white">
-                                                                    {semesterStructure.flatMap(semester =>
-                                                                        semester.periods.map((period: any) => (
-                                                                            <th key={period.id} className="text-center p-2 border-r border-gray-700">
-                                                                                {period.name
-                                                                                    .replace(/First Semester /, '')
-                                                                                    .replace(/Second Semester /, '')
-                                                                                    .replace(/First /, '')
-                                                                                    .replace(/Second /, '')
-                                                                                    .replace(/Semester /, '')
-                                                                                    .trim()}
-                                                                            </th>
-                                                                        ))
-                                                                    )}
-                                                                </tr>
-                                                            </>
-                                                        );
-                                                    } else {
-                                                        // Single header row for non-semester systems or single semester
-                                                        const periodsToShow = semesterStructure.flatMap(semester => semester.periods);
+                                {/* Semester Tables */}
+                                {semesterStructure.map((semester, semesterIndex) => {
+                                    if (semester.periods.length === 0) return null;
 
-                                                        return (
+                                    return (
+                                        <Card key={semester.semesterNumber} className="bg-white shadow-sm">
+                                            <CardHeader>
+                                                <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                                                    <Calendar className="h-5 w-5 text-gray-600" />
+                                                    {semester.name}
+                                                </CardTitle>
+                                            </CardHeader>
+                                            <CardContent>
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full border-collapse">
+                                                        <thead>
                                                             <tr className="bg-gray-800 text-white">
                                                                 <th className="text-left p-3 font-medium border-r border-gray-700">Student ID</th>
                                                                 <th className="text-left p-3 font-medium border-r border-gray-700">Subject</th>
                                                                 <th className="text-left p-3 font-medium border-r border-gray-700">Faculty</th>
-                                                                {periodsToShow.map((period: any) => (
+                                                                {semester.periods.map((period: any) => (
                                                                     <th key={period.id} className="text-center p-3 font-medium border-r border-gray-700">
                                                                         {period.name
                                                                             .replace(/First Semester /, '')
@@ -663,93 +660,105 @@ export default function Show({ user, student, subject, academicLevel, grades, gr
                                                                             .trim()}
                                                                     </th>
                                                                 ))}
-                                                                <th className="text-center p-3 font-medium border-r border-gray-700">AVERAGE</th>
+                                                                <th className="text-center p-3 font-medium border-r border-gray-700">Semester Average</th>
                                                                 <th className="text-center p-3 font-medium">Grade Status</th>
                                                             </tr>
-                                                        );
-                                                    }
-                                                })()}
-                                            </thead>
-                                            <tbody>
-                                                <tr className="border-b bg-white hover:bg-gray-50">
-                                                    <td className="p-3 border-r border-gray-200 font-medium">
-                                                        <div className="flex items-center">
-                                                            <User className="h-4 w-4 mr-2 text-gray-400" />
-                                                            {student.student_number || student.id}
-                                                        </div>
-                                                    </td>
-                                                    <td className="p-3 border-r border-gray-200">
-                                                        <div className="flex items-center">
-                                                            <BookOpen className="h-4 w-4 mr-2 text-gray-400" />
-                                                            <div>
-                                                                <div className="font-medium text-gray-900">{subject.name}</div>
-                                                                <div className="text-sm text-gray-500">{subject.code}</div>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="p-3 border-r border-gray-200">
-                                                        <div className="flex items-center">
-                                                            <User className="h-4 w-4 mr-2 text-gray-400" />
-                                                            <div className="text-sm text-gray-600">{user.name}</div>
-                                                        </div>
-                                                    </td>
-                                                    {(() => {
-                                                        const periodsToShow = semesterStructure.flatMap(semester => semester.periods);
-
-                                                        return periodsToShow.map((period: any) => {
-                                                            const grade = grades.find(g => g.grading_period_id === period.gradingPeriodId);
-                                                            return (
-                                                                <td key={period.id} className="p-3 border-r border-gray-200 text-center">
-                                                                    {grade ? (
-                                                                        <Badge className={getGradeColor(grade.grade, academicLevelKey)}>
-                                                                            {grade.grade}
-                                                                        </Badge>
-                                                                    ) : (
-                                                                        <span className="text-gray-400">-</span>
-                                                                    )}
+                                                        </thead>
+                                                        <tbody>
+                                                            <tr className="border-b bg-white hover:bg-gray-50">
+                                                                <td className="p-3 border-r border-gray-200 font-medium">
+                                                                    <div className="flex items-center">
+                                                                        <User className="h-4 w-4 mr-2 text-gray-400" />
+                                                                        {student.student_number || student.id}
+                                                                    </div>
                                                                 </td>
-                                                            );
-                                                        });
-                                                    })()}
-                                                    <td className="p-3 border-r border-gray-200 text-center">
-                                                        {finalGrade ? (
-                                                            <Badge className={`text-lg px-3 py-1 ${getGradeColor(finalGrade, academicLevelKey)}`}>
-                                                                {finalGrade.toFixed(2)}
-                                                            </Badge>
-                                                        ) : (
-                                                            <span className="text-gray-400">-</span>
-                                                        )}
-                                                    </td>
-                                                    <td className="p-3 text-center">
-                                                        {finalGrade ? (
-                                                            (() => {
-                                                                const status = getGradeStatus(finalGrade, academicLevelKey);
-                                                                return (
-                                                                    <Badge className={`${
-                                                                        ['Superior', 'Very Good', 'Good', 'Satisfactory', 'Fair', 'Outstanding'].includes(status)
-                                                                            ? 'bg-blue-100 text-blue-800'
-                                                                            : 'bg-red-100 text-red-800'
-                                                                    }`}>
-                                                                        {status}
-                                                                    </Badge>
-                                                                );
-                                                            })()
-                                                        ) : (
-                                                            <span className="text-gray-400">No Grade</span>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                ) : (
+                                                                <td className="p-3 border-r border-gray-200">
+                                                                    <div className="flex items-center">
+                                                                        <BookOpen className="h-4 w-4 mr-2 text-gray-400" />
+                                                                        <div>
+                                                                            <div className="font-medium text-gray-900">{subject.name}</div>
+                                                                            <div className="text-sm text-gray-500">{subject.code}</div>
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="p-3 border-r border-gray-200">
+                                                                    <div className="flex items-center">
+                                                                        <User className="h-4 w-4 mr-2 text-gray-400" />
+                                                                        <div className="text-sm text-gray-600">{user.name}</div>
+                                                                    </div>
+                                                                </td>
+                                                                {semester.periods.map((period: any) => {
+                                                                    const grade = grades.find(g => g.grading_period_id === period.gradingPeriodId);
+                                                                    return (
+                                                                        <td key={period.id} className="p-3 border-r border-gray-200 text-center">
+                                                                            {grade ? (
+                                                                                <Badge className={getGradeColor(grade.grade, academicLevelKey)}>
+                                                                                    {grade.grade}
+                                                                                </Badge>
+                                                                            ) : (
+                                                                                <span className="text-gray-400">-</span>
+                                                                            )}
+                                                                        </td>
+                                                                    );
+                                                                })}
+                                                                <td className="p-3 border-r border-gray-200 text-center">
+                                                                    {(() => {
+                                                                        const semesterAvg = semester.semesterNumber === 1 ? semester1Average : semester2Average;
+                                                                        return semesterAvg ? (
+                                                                            <Badge className={`text-lg px-3 py-1 ${getGradeColor(semesterAvg, academicLevelKey)}`}>
+                                                                                {semesterAvg.toFixed(2)}
+                                                                            </Badge>
+                                                                        ) : (
+                                                                            <span className="text-gray-400">-</span>
+                                                                        );
+                                                                    })()}
+                                                                </td>
+                                                                <td className="p-3 text-center">
+                                                                    {(() => {
+                                                                        const semesterAvg = semester.semesterNumber === 1 ? semester1Average : semester2Average;
+                                                                        if (semesterAvg) {
+                                                                            const status = getGradeStatus(semesterAvg, academicLevelKey);
+                                                                            return (
+                                                                                <Badge className={`${
+                                                                                    ['Superior', 'Very Good', 'Good', 'Satisfactory', 'Fair', 'Outstanding'].includes(status)
+                                                                                        ? 'bg-blue-100 text-blue-800'
+                                                                                        : 'bg-red-100 text-red-800'
+                                                                                }`}>
+                                                                                    {status}
+                                                                                </Badge>
+                                                                            );
+                                                                        }
+                                                                        return <span className="text-gray-400">No Grade</span>;
+                                                                    })()}
+                                                                </td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    );
+                                })}
+                            </>
+                        ) : (
+                            <Card className="bg-white shadow-sm">
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                                        <Calendar className="h-5 w-5 text-gray-600" />
+                                        Detailed Grades
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
                                     <div className="text-center py-8">
                                         <div className="h-16 w-16 text-gray-400 mx-auto mb-4">📊</div>
-                                        <p className="text-gray-500">No grade history available</p>
+                                        <p className="text-gray-500 dark:text-gray-400 font-medium mb-2">No grading periods configured</p>
+                                        <p className="text-sm text-gray-400 dark:text-gray-500">
+                                            Please contact the registrar to set up grading periods for {academicLevel.name}.
+                                        </p>
                                     </div>
-                                )}
-                            </CardContent>
-                        </Card>
+                                </CardContent>
+                            </Card>
+                        )}
 
                                                 {/* Action Buttons */}
                         <Card>

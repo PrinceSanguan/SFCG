@@ -13,6 +13,7 @@ class InstructorSubjectAssignment extends Model
     protected $fillable = [
         'instructor_id',
         'subject_id',
+        'section_id',
         'academic_level_id',
         'grading_period_id',
         'school_year',
@@ -35,6 +36,11 @@ class InstructorSubjectAssignment extends Model
     public function subject(): BelongsTo
     {
         return $this->belongsTo(Subject::class);
+    }
+
+    public function section(): BelongsTo
+    {
+        return $this->belongsTo(Section::class);
     }
 
     public function academicLevel(): BelongsTo
@@ -70,5 +76,64 @@ class InstructorSubjectAssignment extends Model
     public function scopeForInstructor($query, $instructorId)
     {
         return $query->where('instructor_id', $instructorId);
+    }
+
+    protected static function booted(): void
+    {
+        static::created(function (InstructorSubjectAssignment $assignment) {
+            // Auto-enroll all students in the section when instructor is assigned
+            if ($assignment->section_id) {
+                try {
+                    $instructorStudentService = new \App\Services\InstructorStudentAssignmentService();
+                    $enrolledStudents = $instructorStudentService->enrollSectionStudentsInSubject($assignment);
+
+                    \Log::info('Students auto-enrolled when instructor assigned to section', [
+                        'assignment_id' => $assignment->id,
+                        'instructor_id' => $assignment->instructor_id,
+                        'subject_id' => $assignment->subject_id,
+                        'section_id' => $assignment->section_id,
+                        'school_year' => $assignment->school_year,
+                        'enrolled_students_count' => count($enrolledStudents),
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::error('Failed to auto-enroll students via instructor assignment', [
+                        'assignment_id' => $assignment->id,
+                        'instructor_id' => $assignment->instructor_id,
+                        'subject_id' => $assignment->subject_id,
+                        'section_id' => $assignment->section_id,
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString(),
+                    ]);
+                }
+            }
+        });
+
+        static::updated(function (InstructorSubjectAssignment $assignment) {
+            // Re-enroll students if section_id or is_active status changed
+            $sectionChanged = $assignment->isDirty('section_id');
+            $activeChanged = $assignment->isDirty('is_active');
+
+            if (($sectionChanged || $activeChanged) && $assignment->section_id && $assignment->is_active) {
+                try {
+                    $instructorStudentService = new \App\Services\InstructorStudentAssignmentService();
+                    $enrolledStudents = $instructorStudentService->enrollSectionStudentsInSubject($assignment);
+
+                    \Log::info('Students re-enrolled after instructor assignment update', [
+                        'assignment_id' => $assignment->id,
+                        'instructor_id' => $assignment->instructor_id,
+                        'subject_id' => $assignment->subject_id,
+                        'section_id' => $assignment->section_id,
+                        'section_changed' => $sectionChanged,
+                        'active_changed' => $activeChanged,
+                        'enrolled_students_count' => count($enrolledStudents),
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::error('Failed to re-enroll students after instructor assignment update', [
+                        'assignment_id' => $assignment->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+        });
     }
 }
