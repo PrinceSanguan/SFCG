@@ -12,11 +12,13 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('instructor_subject_assignments', function (Blueprint $table) {
-            // Add section_id column
-            $table->foreignId('section_id')->nullable()->after('subject_id')->constrained()->onDelete('cascade');
-
-            // Drop the old unique constraint
+            // Drop the old unique constraint FIRST (before adding foreign keys)
             $table->dropUnique('unique_instructor_subject_assignment');
+        });
+
+        Schema::table('instructor_subject_assignments', function (Blueprint $table) {
+            // Add section_id column with foreign key
+            $table->foreignId('section_id')->nullable()->after('subject_id')->constrained()->onDelete('cascade');
 
             // Add new unique constraint including section_id
             $table->unique(
