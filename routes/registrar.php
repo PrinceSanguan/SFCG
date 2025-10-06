@@ -10,7 +10,7 @@ use App\Http\Controllers\Registrar\RegistrarAcademicController;
 use App\Http\Controllers\Registrar\StudentSubjectController;
 use App\Http\Controllers\Registrar\InstructorSubjectAssignmentController;
 use App\Http\Controllers\Registrar\TeacherSubjectAssignmentController;
-use App\Http\Controllers\Admin\CertificateController;
+use App\Http\Controllers\Registrar\RegistrarCertificateController;
 use App\Http\Controllers\Admin\ReportsController;
 
 
@@ -1027,10 +1027,26 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
     });
 
     // Certificates
-    Route::get('/certificates', [RegistrarAcademicController::class, 'certificates'])->name('certificates.index');
-    Route::get('/certificates/search', [CertificateController::class, 'search'])->name('certificates.search');
-    Route::get('/certificates/{certificate}/download', [CertificateController::class, 'download'])->name('certificates.download');
-    Route::get('/certificates/{certificate}/print', [CertificateController::class, 'print'])->name('certificates.print');
+    Route::get('/certificates', [RegistrarCertificateController::class, 'index'])->name('certificates.index');
+    Route::get('/certificates/search', [RegistrarCertificateController::class, 'search'])->name('certificates.search');
+    Route::post('/certificates/templates', [RegistrarCertificateController::class, 'storeTemplate'])->name('certificates.templates.store');
+    Route::put('/certificates/templates/{template}', [RegistrarCertificateController::class, 'updateTemplate'])->name('certificates.templates.update');
+    Route::delete('/certificates/templates/{template}', [RegistrarCertificateController::class, 'destroyTemplate'])->name('certificates.templates.destroy');
+    Route::post('/certificates/generate', [RegistrarCertificateController::class, 'generate'])->name('certificates.generate');
+    Route::post('/certificates/generate-bulk', [RegistrarCertificateController::class, 'generateBulk'])->name('certificates.generate-bulk');
+    Route::get('/certificates/resolve-student', [RegistrarCertificateController::class, 'resolveStudentApi'])->name('certificates.resolve-student');
+
+    // Bulk certificate generation routes
+    Route::post('/certificates/bulk-generate-by-level', [RegistrarCertificateController::class, 'bulkGenerateByLevel'])->name('certificates.bulk-generate-by-level');
+    Route::post('/certificates/bulk-generate-by-honor-type', [RegistrarCertificateController::class, 'bulkGenerateByHonorType'])->name('certificates.bulk-generate-by-honor-type');
+    Route::post('/certificates/bulk-print-pdf', [RegistrarCertificateController::class, 'bulkPrintPDF'])->name('certificates.bulk-print-pdf');
+
+    // Honor roll routes
+    Route::get('/certificates/honor-roll', [RegistrarCertificateController::class, 'honorRoll'])->name('certificates.honor-roll');
+    Route::get('/certificates/honor-roll/pdf', [RegistrarCertificateController::class, 'generateHonorRollPDF'])->name('certificates.honor-roll.pdf');
+
+    Route::get('/certificates/{certificate}/download', [RegistrarCertificateController::class, 'download'])->name('certificates.download');
+    Route::get('/certificates/{certificate}/print', [RegistrarCertificateController::class, 'print'])->name('certificates.print');
 });
 
 // Reports and Archiving routes (Registrar has access)
