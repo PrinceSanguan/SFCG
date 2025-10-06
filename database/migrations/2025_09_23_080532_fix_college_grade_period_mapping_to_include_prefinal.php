@@ -7,6 +7,13 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Check if there are any student grades to migrate
+        $hasGrades = DB::table('student_grades')->exists();
+        if (!$hasGrades) {
+            echo "No student grades exist. Skipping migration (safe for fresh installs).\n";
+            return;
+        }
+
         // Load the specific period ids for College by code
         $codes = ['P1', 'Q1', 'S2-MT', 'S2-PF'];
         $periods = DB::table('grading_periods')
