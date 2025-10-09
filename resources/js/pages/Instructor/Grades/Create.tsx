@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGr
 import { useForm } from '@inertiajs/react';
 import { ArrowLeft, Save, Plus } from 'lucide-react';
 import { Link } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 
 
 interface User {
@@ -107,6 +107,30 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
     });
     
     const [isInitialized, setIsInitialized] = useState(false);
+
+    // Extract unique semesters from instructor's assignments
+    const assignedSemesters = useMemo(() => {
+        const semesters = new Set<string>();
+        assignedSubjects.forEach(subject => {
+            subject.enrolled_students.forEach(enrollment => {
+                if (enrollment.semester) {
+                    semesters.add(enrollment.semester.toLowerCase());
+                }
+            });
+        });
+        return Array.from(semesters);
+    }, [assignedSubjects]);
+
+    // Check if instructor teaches first or second semester
+    const teachesFirstSemester = useMemo(() =>
+        assignedSemesters.some(s => s.includes('1st') || s.includes('first')),
+        [assignedSemesters]
+    );
+
+    const teachesSecondSemester = useMemo(() =>
+        assignedSemesters.some(s => s.includes('2nd') || s.includes('second')),
+        [assignedSemesters]
+    );
 
     useEffect(() => {
         // Only run once on mount
@@ -367,33 +391,37 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                                         <SelectItem value="0">No Period</SelectItem>
                                                         {gradingPeriods && gradingPeriods.length > 0 ? (
                                                             <>
-                                                                {/* First Semester */}
-                                                                <SelectGroup>
-                                                                    <SelectLabel>First Semester</SelectLabel>
-                                                                    {gradingPeriods
-                                                                        .filter(period => period.code.startsWith('COL_S1_') && !period.code.includes('_FA'))
-                                                                        .sort((a, b) => a.sort_order - b.sort_order)
-                                                                        .map((period) => (
-                                                                            <SelectItem key={period.id} value={period.id.toString()}>
-                                                                                {period.name}
-                                                                            </SelectItem>
-                                                                        ))
-                                                                    }
-                                                                </SelectGroup>
+                                                                {/* First Semester - Only show if instructor teaches it */}
+                                                                {teachesFirstSemester && (
+                                                                    <SelectGroup>
+                                                                        <SelectLabel>First Semester</SelectLabel>
+                                                                        {gradingPeriods
+                                                                            .filter(period => period.code.startsWith('COL_S1_') && !period.code.includes('_FA'))
+                                                                            .sort((a, b) => a.sort_order - b.sort_order)
+                                                                            .map((period) => (
+                                                                                <SelectItem key={period.id} value={period.id.toString()}>
+                                                                                    {period.name}
+                                                                                </SelectItem>
+                                                                            ))
+                                                                        }
+                                                                    </SelectGroup>
+                                                                )}
 
-                                                                {/* Second Semester */}
-                                                                <SelectGroup>
-                                                                    <SelectLabel>Second Semester</SelectLabel>
-                                                                    {gradingPeriods
-                                                                        .filter(period => period.code.startsWith('COL_S2_') && !period.code.includes('_FA'))
-                                                                        .sort((a, b) => a.sort_order - b.sort_order)
-                                                                        .map((period) => (
-                                                                            <SelectItem key={period.id} value={period.id.toString()}>
-                                                                                {period.name}
-                                                                            </SelectItem>
-                                                                        ))
-                                                                    }
-                                                                </SelectGroup>
+                                                                {/* Second Semester - Only show if instructor teaches it */}
+                                                                {teachesSecondSemester && (
+                                                                    <SelectGroup>
+                                                                        <SelectLabel>Second Semester</SelectLabel>
+                                                                        {gradingPeriods
+                                                                            .filter(period => period.code.startsWith('COL_S2_') && !period.code.includes('_FA'))
+                                                                            .sort((a, b) => a.sort_order - b.sort_order)
+                                                                            .map((period) => (
+                                                                                <SelectItem key={period.id} value={period.id.toString()}>
+                                                                                    {period.name}
+                                                                                </SelectItem>
+                                                                            ))
+                                                                        }
+                                                                    </SelectGroup>
+                                                                )}
                                                             </>
                                                         ) : (
                                                             <SelectItem value="debug" disabled>
@@ -501,33 +529,37 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                                     <SelectItem value="0">No Period</SelectItem>
                                                     {gradingPeriods && gradingPeriods.length > 0 ? (
                                                         <>
-                                                            {/* First Semester */}
-                                                            <SelectGroup>
-                                                                <SelectLabel>First Semester</SelectLabel>
-                                                                {gradingPeriods
-                                                                    .filter(period => period.code.startsWith('COL_S1_') && !period.code.includes('_FA'))
-                                                                    .sort((a, b) => a.sort_order - b.sort_order)
-                                                                    .map((period) => (
-                                                                        <SelectItem key={period.id} value={period.id.toString()}>
-                                                                            {period.name}
-                                                                        </SelectItem>
-                                                                    ))
-                                                                }
-                                                            </SelectGroup>
+                                                            {/* First Semester - Only show if instructor teaches it */}
+                                                            {teachesFirstSemester && (
+                                                                <SelectGroup>
+                                                                    <SelectLabel>First Semester</SelectLabel>
+                                                                    {gradingPeriods
+                                                                        .filter(period => period.code.startsWith('COL_S1_') && !period.code.includes('_FA'))
+                                                                        .sort((a, b) => a.sort_order - b.sort_order)
+                                                                        .map((period) => (
+                                                                            <SelectItem key={period.id} value={period.id.toString()}>
+                                                                                {period.name}
+                                                                            </SelectItem>
+                                                                        ))
+                                                                    }
+                                                                </SelectGroup>
+                                                            )}
 
-                                                            {/* Second Semester */}
-                                                            <SelectGroup>
-                                                                <SelectLabel>Second Semester</SelectLabel>
-                                                                {gradingPeriods
-                                                                    .filter(period => period.code.startsWith('COL_S2_') && !period.code.includes('_FA'))
-                                                                    .sort((a, b) => a.sort_order - b.sort_order)
-                                                                    .map((period) => (
-                                                                        <SelectItem key={period.id} value={period.id.toString()}>
-                                                                            {period.name}
-                                                                        </SelectItem>
-                                                                    ))
-                                                                }
-                                                            </SelectGroup>
+                                                            {/* Second Semester - Only show if instructor teaches it */}
+                                                            {teachesSecondSemester && (
+                                                                <SelectGroup>
+                                                                    <SelectLabel>Second Semester</SelectLabel>
+                                                                    {gradingPeriods
+                                                                        .filter(period => period.code.startsWith('COL_S2_') && !period.code.includes('_FA'))
+                                                                        .sort((a, b) => a.sort_order - b.sort_order)
+                                                                        .map((period) => (
+                                                                            <SelectItem key={period.id} value={period.id.toString()}>
+                                                                                {period.name}
+                                                                            </SelectItem>
+                                                                        ))
+                                                                    }
+                                                                </SelectGroup>
+                                                            )}
                                                         </>
                                                     ) : (
                                                         <SelectItem value="debug" disabled>

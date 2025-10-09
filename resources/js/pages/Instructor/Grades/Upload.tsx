@@ -215,12 +215,12 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
                                         )}
                                     </div>
 
-                                    {/* Subject Selection */}
+                                    {/* Subject Selection - Optional for multi-subject CSV */}
                                     <div>
-                                        <Label htmlFor="subject_id">Subject *</Label>
+                                        <Label htmlFor="subject_id">Subject (Optional for multi-subject CSV)</Label>
                                         <Select value={data.subject_id} onValueChange={handleSubjectChange}>
                                             <SelectTrigger className={errors.subject_id ? 'border-red-500' : ''}>
-                                                <SelectValue placeholder="Select a subject" />
+                                                <SelectValue placeholder="Select a subject (or leave blank for multi-subject CSV)" />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {assignedSubjects.map((assignment) => (
@@ -234,14 +234,17 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
                                         {errors.subject_id && (
                                             <p className="text-sm text-red-500 mt-1">{errors.subject_id}</p>
                                         )}
+                                        <p className="text-sm text-muted-foreground mt-1">
+                                            Leave blank to upload grades for multiple subjects. Include Subject Code column in your CSV.
+                                        </p>
                                     </div>
 
-                                    {/* Academic Level */}
+                                    {/* Academic Level - Optional for multi-subject CSV */}
                                     <div>
-                                        <Label htmlFor="academic_level_id">Academic Level *</Label>
+                                        <Label htmlFor="academic_level_id">Academic Level (Optional for multi-subject CSV)</Label>
                                         <Select value={data.academic_level_id} onValueChange={(value) => setData('academic_level_id', value)}>
                                             <SelectTrigger className={errors.academic_level_id ? 'border-red-500' : ''}>
-                                                <SelectValue placeholder="Select academic level" />
+                                                <SelectValue placeholder="Select academic level (optional)" />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {academicLevels.map((level) => (
@@ -392,22 +395,22 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
 
                                     {/* Action Buttons */}
                                     <div className="flex gap-4 pt-4">
-                                        <Button 
-                                            type="submit" 
-                                            disabled={processing || isUploading || !selectedFile || !data.subject_id || !data.academic_level_id || !data.school_year}
+                                        <Button
+                                            type="submit"
+                                            disabled={processing || isUploading || !selectedFile || !data.school_year}
                                             className="flex-1"
                                         >
                                             <UploadIcon className="h-4 w-4 mr-2" />
                                             {isUploading ? 'Uploading...' : 'Upload Grades'}
                                         </Button>
-                                        <Button 
-                                            type="button" 
-                                            variant="outline" 
+                                        <Button
+                                            type="button"
+                                            variant="outline"
                                             onClick={downloadTemplate}
                                             className="flex-1"
                                         >
                                             <Download className="h-4 w-4 mr-2" />
-                                            Download Template
+                                            Download Multi-Subject Template
                                         </Button>
                                     </div>
                                 </form>
@@ -420,16 +423,22 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
                                 <CardTitle>CSV Format Instructions</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                <div className="grid gap-4 md:grid-cols-2">
+                                <div className="space-y-4">
                                     <div>
-                                        <h4 className="font-medium mb-2">Required Columns:</h4>
-                                        <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                                        <h4 className="font-medium mb-2">Multi-Subject CSV Format (Recommended):</h4>
+                                        <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1 mb-3">
                                             <li>• <strong>Student ID:</strong> Student number or database ID</li>
                                             <li>• <strong>Student Name:</strong> Full name of student</li>
+                                            <li>• <strong>Subject Code:</strong> Subject code (e.g., DBMS01, WEBDEV01)</li>
                                             <li>• <strong>Grade:</strong> Numeric grade value</li>
+                                            <li>• <strong>Grading Period:</strong> Period code (e.g., COL_S1_M, COL_S2_M) - Optional</li>
                                             <li>• <strong>Notes:</strong> Optional comments</li>
                                         </ul>
+                                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                                            Upload grades for multiple subjects and students in a single CSV file. Each row represents one grade entry.
+                                        </p>
                                     </div>
+
                                     <div>
                                         <h4 className="font-medium mb-2">Grade Values:</h4>
                                         <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
@@ -437,12 +446,22 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
                                             <li>• <strong>Elementary/Senior High:</strong> 75 to 100 (75 = passing)</li>
                                         </ul>
                                     </div>
+
+                                    <div>
+                                        <h4 className="font-medium mb-2">Example Multi-Subject CSV:</h4>
+                                        <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded text-xs font-mono overflow-x-auto">
+                                            <div>Student ID,Student Name,Subject Code,Grade,Grading Period,Notes</div>
+                                            <div>CO-2024-001,John Doe,DBMS01,1.5,COL_S1_M,Good performance</div>
+                                            <div>CO-2024-001,John Doe,WEBDEV01,1.75,COL_S1_M,Excellent work</div>
+                                            <div>CO-2024-002,Jane Smith,DBMS01,2.0,COL_S1_M,Satisfactory</div>
+                                        </div>
+                                    </div>
                                 </div>
-                                
+
                                 <Alert>
                                     <CheckCircle className="h-4 w-4 text-green-600" />
                                     <AlertDescription>
-                                        <strong>Tip:</strong> Download the template to see the exact format. The system will automatically detect existing grades and update them, or create new ones if they don't exist.
+                                        <strong>Tip:</strong> Download the template to see the exact format. The system will automatically detect existing grades and update them, or create new ones if they don't exist. You can upload grades for multiple subjects and semesters in one file!
                                     </AlertDescription>
                                 </Alert>
                             </CardContent>
