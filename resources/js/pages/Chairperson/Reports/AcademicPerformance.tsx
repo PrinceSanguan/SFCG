@@ -237,10 +237,13 @@ export default function AcademicPerformance({ user, performance, filters }: Acad
                             </CardContent>
                         </Card>
 
-                        {/* Student Performance */}
+                        {/* Student Performance - Rankings by GPA */}
                         <Card>
                             <CardHeader>
-                                <CardTitle>Top Student Performance</CardTitle>
+                                <CardTitle>Student Rankings by GPA (Department)</CardTitle>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                    Top performing students in your department, ranked by average grade
+                                </p>
                             </CardHeader>
                             <CardContent>
                                 {performance.student_performance.length === 0 ? (
@@ -252,19 +255,30 @@ export default function AcademicPerformance({ user, performance, filters }: Acad
                                         <table className="w-full">
                                             <thead>
                                                 <tr className="border-b">
+                                                    <th className="text-left p-2 w-20">Rank</th>
                                                     <th className="text-left p-2">Student</th>
-                                                    <th className="text-left p-2">Average Grade</th>
+                                                    <th className="text-left p-2">GPA / Avg Grade</th>
                                                     <th className="text-left p-2">Total Subjects</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {performance.student_performance.slice(0, 10).map((student, index) => (
-                                                    <tr key={index} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800">
-                                                        <td className="p-2 font-medium">{student.student_name}</td>
-                                                        <td className="p-2">{student.average_grade}</td>
-                                                        <td className="p-2">{student.total_subjects}</td>
-                                                    </tr>
-                                                ))}
+                                                {performance.student_performance.slice(0, 10).map((student, index) => {
+                                                    const getRankBadge = (rank: number) => {
+                                                        if (rank === 1) return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">🥇 1st</span>;
+                                                        if (rank === 2) return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">🥈 2nd</span>;
+                                                        if (rank === 3) return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">🥉 3rd</span>;
+                                                        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">#{rank}</span>;
+                                                    };
+
+                                                    return (
+                                                        <tr key={index} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800">
+                                                            <td className="p-2">{getRankBadge(index + 1)}</td>
+                                                            <td className="p-2 font-medium">{student.student_name}</td>
+                                                            <td className="p-2 font-bold text-blue-600 dark:text-blue-400">{student.average_grade}</td>
+                                                            <td className="p-2">{student.total_subjects}</td>
+                                                        </tr>
+                                                    );
+                                                })}
                                             </tbody>
                                         </table>
                                     </div>

@@ -1,11 +1,11 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Head, useForm, Link } from '@inertiajs/react';
 import { ArrowLeft, Save, Edit as EditIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
 import { Sidebar } from '@/components/instructor/sidebar';
 import { Header } from '@/components/instructor/header';
 
@@ -63,6 +63,28 @@ interface StudentGrade {
     };
 }
 
+interface AssignedSubject {
+    id: number;
+    subject: {
+        id: number;
+        name: string;
+        code: string;
+        course?: { id: number; name: string; code: string; };
+    };
+    academicLevel: { id: number; name: string; key: string; };
+    gradingPeriod?: { id: number; name: string; };
+    school_year: string;
+    is_active: boolean;
+    enrolled_students: Array<{
+        id: number;
+        student: { id: number; name: string; email: string; };
+        semester?: string;
+        is_active: boolean;
+        school_year: string;
+    }>;
+    student_count: number;
+}
+
 interface EditProps {
     user: {
         id: number;
@@ -72,13 +94,38 @@ interface EditProps {
     };
     grade: StudentGrade;
     gradingPeriods: GradingPeriod[];
+    assignedSubjects: AssignedSubject[];
 }
 
-export default function Edit({ user, grade, gradingPeriods }: EditProps) {
+export default function Edit({ user, grade, gradingPeriods, assignedSubjects }: EditProps) {
     const { data, setData, put, processing, errors } = useForm({
         grade: grade.grade.toString(),
         grading_period_id: grade.grading_period_id?.toString() || '0',
     });
+
+    // Extract unique semesters from instructor's assignments
+    const assignedSemesters = useMemo(() => {
+        const semesters = new Set<string>();
+        assignedSubjects.forEach(subject => {
+            subject.enrolled_students.forEach(enrollment => {
+                if (enrollment.semester) {
+                    semesters.add(enrollment.semester.toLowerCase());
+                }
+            });
+        });
+        return Array.from(semesters);
+    }, [assignedSubjects]);
+
+    // Check if instructor teaches first or second semester
+    const teachesFirstSemester = useMemo(() =>
+        assignedSemesters.some(s => s.includes('1st') || s.includes('first')),
+        [assignedSemesters]
+    );
+
+    const teachesSecondSemester = useMemo(() =>
+        assignedSemesters.some(s => s.includes('2nd') || s.includes('second')),
+        [assignedSemesters]
+    );
 
     // Get current academic level key for grade validation
     const getCurrentAcademicLevelKey = () => {
@@ -251,59 +298,41 @@ export default function Edit({ user, grade, gradingPeriods }: EditProps) {
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="0">No Period</SelectItem>
-                                                    {gradingPeriods && gradingPeriods.length > 0 ? (() => {
-                                                        const filteredPeriods = gradingPeriods.filter(period =>
-                                                            period.academic_level_id === (grade.academic_level_id || 0)
-                                                        );
-
-                                                        // Group periods by semester for college level
-                                                        if (grade.academicLevel?.key === 'college') {
-                                                            // Get main semesters (not sub-periods)
-                                                            const mainSemesters = filteredPeriods.filter(p =>
-                                                                (p.code === 'COL_S1' || p.code === 'COL_S2') && !p.code.includes('_')
-                                                            );
-
-                                                            return mainSemesters.map((semester) => {
-                                                                // Get sub-periods for this specific semester, excluding Final Average
-                                                                const subPeriods = filteredPeriods.filter(p =>
-                                                                    p.code.startsWith(semester.code + '_') &&
-                                                                    !p.code.includes('_FA') // Exclude Final Average
-                                                                ).sort((a, b) => a.sort_order - b.sort_order);
-
-                                                                return (
-                                                                    <div key={semester.id}>
-                                                                        {/* Main semester - selectable */}
-                                                                        <SelectItem
-                                                                            value={semester.id.toString()}
-                                                                            className="font-semibold"
-                                                                        >
-                                                                            {semester.name}
-                                                                        </SelectItem>
-                                                                        {/* Sub-periods - quarters only */}
-                                                                        {subPeriods.map((period) => (
-                                                                            <SelectItem
-                                                                                key={period.id}
-                                                                                value={period.id.toString()}
-                                                                                className="pl-6 text-sm"
-                                                                            >
-                                                                                • {period.name}
+                                                    {gradingPeriods && gradingPeriods.length > 0 ? (
+                                                        <>
+                                                            {/* First Semester - Only show if instructor teaches it */}
+                                                            {teachesFirstSemester && (
+                                                                <SelectGroup>
+                                                                    <SelectLabel>First Semester</SelectLabel>
+                                                                    {gradingPeriods
+                                                                        .filter(period => period.code.startsWith('COL_S1_') && !period.code.includes('_FA'))
+                                                                        .sort((a, b) => a.sort_order - b.sort_order)
+                                                                        .map((period) => (
+                                                                            <SelectItem key={period.id} value={period.id.toString()}>
+                                                                                {period.name}
                                                                             </SelectItem>
-                                                                        ))}
-                                                                    </div>
-                                                                );
-                                                            });
-                                                        } else {
-                                                            // For other academic levels, show regular list (excluding final averages)
-                                                            return filteredPeriods
-                                                                .filter(period => !period.name.toLowerCase().includes('final average'))
-                                                                .sort((a, b) => a.sort_order - b.sort_order)
-                                                                .map((period) => (
-                                                                    <SelectItem key={period.id} value={period.id.toString()}>
-                                                                        {period.name}
-                                                                    </SelectItem>
-                                                                ));
-                                                        }
-                                                    })() : (
+                                                                        ))
+                                                                    }
+                                                                </SelectGroup>
+                                                            )}
+
+                                                            {/* Second Semester - Only show if instructor teaches it */}
+                                                            {teachesSecondSemester && (
+                                                                <SelectGroup>
+                                                                    <SelectLabel>Second Semester</SelectLabel>
+                                                                    {gradingPeriods
+                                                                        .filter(period => period.code.startsWith('COL_S2_') && !period.code.includes('_FA'))
+                                                                        .sort((a, b) => a.sort_order - b.sort_order)
+                                                                        .map((period) => (
+                                                                            <SelectItem key={period.id} value={period.id.toString()}>
+                                                                                {period.name}
+                                                                            </SelectItem>
+                                                                        ))
+                                                                    }
+                                                                </SelectGroup>
+                                                            )}
+                                                        </>
+                                                    ) : (
                                                         <SelectItem value="none" disabled>No grading periods available</SelectItem>
                                                     )}
                                                 </SelectContent>

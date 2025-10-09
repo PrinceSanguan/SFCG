@@ -48,57 +48,69 @@ class ReportsController extends Controller
     {
         $user = Auth::user();
         $departmentId = $user->department_id;
-        
+
         if (!$departmentId) {
             return back()->withErrors(['department' => 'No department assigned.']);
         }
-        
-        // Handle GET request (show form with default data)
+
+        // Set default filters
+        $defaultSchoolYear = date('Y') . '-' . (date('Y') + 1);
+
+        // Handle GET request (show form with actual data using current school year)
         if ($request->isMethod('get')) {
             $defaultFilters = [
-                'school_year' => date('Y') . '-' . (date('Y') + 1),
+                'school_year' => $defaultSchoolYear,
                 'academic_level_id' => '',
                 'grading_period_id' => '',
             ];
-            
+
+            // Load actual data for current school year on initial GET
+            $query = StudentGrade::whereHas('subject.course', function ($query) use ($departmentId) {
+                    $query->where('department_id', $departmentId);
+                })
+                ->where('school_year', $defaultSchoolYear);
+
+            $grades = $query->with(['student', 'subject', 'academicLevel', 'gradingPeriod'])
+                ->get();
+
             $performance = [
-                'total_grades' => 0,
-                'average_grade' => 0,
-                'grade_distribution' => [],
-                'subject_performance' => [],
-                'student_performance' => [],
+                'total_grades' => $grades->count(),
+                'average_grade' => round($grades->avg('grade') ?? 0, 2),
+                'grade_distribution' => $this->getGradeDistribution($grades),
+                'subject_performance' => $this->getSubjectPerformance($grades),
+                'student_performance' => $this->getStudentPerformance($grades),
             ];
-            
+
             return Inertia::render('Chairperson/Reports/AcademicPerformance', [
                 'user' => $user,
                 'performance' => $performance,
                 'filters' => $defaultFilters,
             ]);
         }
-        
+
         // Handle POST request (process form and show results)
         $validated = $request->validate([
             'school_year' => 'required|string',
             'academic_level_id' => 'nullable|exists:academic_levels,id',
             'grading_period_id' => 'nullable|exists:grading_periods,id',
         ]);
-        
+
         $query = StudentGrade::whereHas('subject.course', function ($query) use ($departmentId) {
                 $query->where('department_id', $departmentId);
             })
             ->where('school_year', $validated['school_year']);
-        
+
         if ($validated['academic_level_id']) {
             $query->where('academic_level_id', $validated['academic_level_id']);
         }
-        
+
         if ($validated['grading_period_id']) {
             $query->where('grading_period_id', $validated['grading_period_id']);
         }
-        
+
         $grades = $query->with(['student', 'subject', 'academicLevel', 'gradingPeriod'])
             ->get();
-        
+
         $performance = [
             'total_grades' => $grades->count(),
             'average_grade' => round($grades->avg('grade') ?? 0, 2),
@@ -106,7 +118,7 @@ class ReportsController extends Controller
             'subject_performance' => $this->getSubjectPerformance($grades),
             'student_performance' => $this->getStudentPerformance($grades),
         ];
-        
+
         return Inertia::render('Chairperson/Reports/AcademicPerformance', [
             'user' => $user,
             'performance' => $performance,

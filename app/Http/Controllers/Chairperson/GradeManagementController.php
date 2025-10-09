@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Chairperson;
 
 use App\Http\Controllers\Controller;
 use App\Models\StudentGrade;
+use App\Models\Subject;
 use App\Models\Department;
 use App\Models\AcademicLevel;
 use Illuminate\Http\Request;
@@ -145,8 +146,8 @@ class GradeManagementController extends Controller
                 $query->where('department_id', $departmentId);
             });
 
-        $grades = $gradesQuery->with(['student', 'subject.course.department', 'academicLevel'])
-            ->select('student_id', 'subject_id', 'academic_level_id', 'school_year')
+        $grades = $gradesQuery->with(['student', 'subject.course.department', 'academicLevel', 'gradingPeriod'])
+            ->select('student_id', 'subject_id', 'academic_level_id', 'school_year', 'grading_period_id')
             ->selectRaw('MAX(id) as id') // Get the latest grade ID
             ->selectRaw('MAX(grade) as grade')
             ->selectRaw('MAX(CASE WHEN is_approved = true THEN 1 ELSE 0 END) as is_approved')
@@ -155,7 +156,7 @@ class GradeManagementController extends Controller
             ->selectRaw('MAX(submitted_at) as submitted_at')
             ->selectRaw('MAX(approved_at) as approved_at')
             ->selectRaw('MAX(returned_at) as returned_at')
-            ->groupBy('student_id', 'subject_id', 'academic_level_id', 'school_year')
+            ->groupBy('student_id', 'subject_id', 'academic_level_id', 'school_year', 'grading_period_id')
             ->orderByRaw('MAX(created_at) DESC')
             ->paginate(20);
 
@@ -340,12 +341,20 @@ class GradeManagementController extends Controller
         $user = Auth::user();
         $grade = StudentGrade::with(['student', 'subject.course', 'academicLevel', 'gradingPeriod'])
             ->findOrFail($gradeId);
-        
+
         // Verify the grade belongs to the chairperson's department
         if ($user->department_id !== $grade->subject->course->department_id) {
             abort(403, 'You can only review grades from your department.');
         }
-        
+
+        // If academic level is not set on the grade, get it from the subject
+        if (!$grade->academicLevel && $grade->subject) {
+            $subject = Subject::with('academicLevel')->find($grade->subject_id);
+            if ($subject && $subject->academicLevel) {
+                $grade->setRelation('academicLevel', $subject->academicLevel);
+            }
+        }
+
         return Inertia::render('Chairperson/Grades/Review', [
             'user' => $user,
             'grade' => $grade,

@@ -539,7 +539,7 @@ class GradeManagementController extends Controller
     public function edit(StudentGrade $grade)
     {
         $user = Auth::user();
-        
+
         // Verify the instructor is assigned to this subject
         $isAssigned = InstructorSubjectAssignment::where('instructor_id', $user->id)
             ->where('subject_id', $grade->subject_id)
@@ -548,23 +548,80 @@ class GradeManagementController extends Controller
                 $query->where('key', 'college');
             })
             ->exists();
-        
+
         if (!$isAssigned) {
             abort(403, 'You are not authorized to edit this grade.');
         }
-        
+
         $grade->load(['student', 'subject', 'academicLevel', 'gradingPeriod']);
-        
+
         // Get all grading periods for this academic level
         $gradingPeriods = \App\Models\GradingPeriod::where('academic_level_id', $grade->academic_level_id)
             ->where('is_active', true)
             ->orderBy('sort_order')
             ->get();
-        
+
+        // Get instructor's assigned subjects with enrolled students
+        $assignedSubjects = InstructorSubjectAssignment::with(['subject.course', 'academicLevel', 'gradingPeriod'])
+            ->where('instructor_id', $user->id)
+            ->where('is_active', true)
+            ->get();
+
+        // Build the same data structure as create method
+        $assignedSubjectsData = $assignedSubjects->map(function($assignment) {
+            // Get enrolled students for this subject
+            $enrolledStudents = \App\Models\StudentSubjectAssignment::with(['student'])
+                ->where('subject_id', $assignment->subject_id)
+                ->where('school_year', $assignment->school_year)
+                ->where('is_active', true)
+                ->get();
+
+            return [
+                'id' => $assignment->id,
+                'subject_id' => $assignment->subject_id,
+                'subject' => $assignment->subject ? [
+                    'id' => $assignment->subject->id,
+                    'name' => $assignment->subject->name,
+                    'code' => $assignment->subject->code,
+                    'course' => $assignment->subject->course ? [
+                        'id' => $assignment->subject->course->id,
+                        'name' => $assignment->subject->course->name,
+                        'code' => $assignment->subject->course->code,
+                    ] : null,
+                ] : null,
+                'academicLevel' => $assignment->academicLevel ? [
+                    'id' => $assignment->academicLevel->id,
+                    'name' => $assignment->academicLevel->name,
+                    'key' => $assignment->academicLevel->key,
+                ] : null,
+                'gradingPeriod' => $assignment->gradingPeriod ? [
+                    'id' => $assignment->gradingPeriod->id,
+                    'name' => $assignment->gradingPeriod->name,
+                ] : null,
+                'school_year' => $assignment->school_year,
+                'is_active' => $assignment->is_active,
+                'enrolled_students' => $enrolledStudents->map(function($enrollment) {
+                    return [
+                        'id' => $enrollment->id,
+                        'student' => [
+                            'id' => $enrollment->student->id,
+                            'name' => $enrollment->student->name,
+                            'email' => $enrollment->student->email,
+                        ],
+                        'semester' => $enrollment->semester,
+                        'is_active' => $enrollment->is_active,
+                        'school_year' => $enrollment->school_year,
+                    ];
+                }),
+                'student_count' => $enrolledStudents->count(),
+            ];
+        });
+
         return Inertia::render('Instructor/Grades/Edit', [
             'user' => $user,
             'grade' => $grade,
             'gradingPeriods' => $gradingPeriods,
+            'assignedSubjects' => $assignedSubjectsData,
         ]);
     }
     
