@@ -84,6 +84,16 @@ export default function Grading({ user, gradingPeriods, academicLevels }: Gradin
         });
     };
 
+    const formatDateForInput = (dateString: string) => {
+        // Convert date to YYYY-MM-DD format for input[type="date"]
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
     const handleEdit = (period: GradingPeriod) => {
         setEditingPeriod(period);
         setData('name', period.name);
@@ -100,8 +110,8 @@ export default function Grading({ user, gradingPeriods, academicLevels }: Gradin
         setData('include_midterm', (period as GradingPeriod & { include_midterm?: boolean }).include_midterm as any);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setData('include_prefinal', (period as GradingPeriod & { include_prefinal?: boolean }).include_prefinal as any);
-        setData('start_date', period.start_date);
-        setData('end_date', period.end_date);
+        setData('start_date', formatDateForInput(period.start_date));
+        setData('end_date', formatDateForInput(period.end_date));
         setData('sort_order', period.sort_order);
         setData('is_active', period.is_active);
         setIsEditDialogOpen(true);
@@ -683,190 +693,266 @@ export default function Grading({ user, gradingPeriods, academicLevels }: Gradin
                                     <DialogTitle>Edit Grading Period</DialogTitle>
                                 </DialogHeader>
                                 <div className="space-y-4">
-                        <div>
-                            <Label htmlFor="edit_name">Name</Label>
-                            <Input
-                                id="edit_name"
-                                value={data.name}
-                                onChange={(e) => setData('name', e.target.value)}
-                            />
-                        </div>
+                                    {/* Show selected academic level as info */}
+                                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                        <div className="flex items-center gap-2">
+                                            <BookOpen className="h-4 w-4 text-blue-600" />
+                                            <span className="text-sm font-medium text-blue-800">
+                                                Academic Level: {academicLevels.find(level => level.id.toString() === data.academic_level_id)?.name || 'Not selected'}
+                                            </span>
+                                        </div>
+                                    </div>
 
-                        <div>
-                            <Label htmlFor="edit_code">Code</Label>
-                            <Input
-                                id="edit_code"
-                                value={data.code}
-                                onChange={(e) => setData('code', e.target.value)}
-                            />
-                        </div>
-
-                        <div>
-                            <Label htmlFor="edit_academic_level_id">Academic Level</Label>
-                            <Select value={data.academic_level_id} onValueChange={(value) => setData('academic_level_id', value)}>
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {academicLevels.map((level) => (
-                                        <SelectItem key={level.id} value={level.id.toString()}>
-                                            {level.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div>
-                            <Label htmlFor="edit_type">Type</Label>
-                            <Select value={data.type} onValueChange={(value) => setData('type', value as 'quarter' | 'semester')}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select type" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="quarter">Quarter</SelectItem>
-                                    <SelectItem value="semester">Semester</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        {data.type === 'semester' && (
-                            <>
-                                <div>
-                                    <Label htmlFor="edit_period_type">Period Type</Label>
-                                    <Select value={data.period_type} onValueChange={(value) => setData('period_type', value as 'quarter' | 'midterm' | 'prefinal' | 'final')}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select period type" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="quarter">Semester</SelectItem>
-                                            <SelectItem value="midterm">Midterm</SelectItem>
-                                            <SelectItem value="prefinal">Pre-Final</SelectItem>
-                                            <SelectItem value="final">Final Average</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                {data.period_type !== 'quarter' && (
                                     <div>
-                                        <Label htmlFor="edit_parent_id">Parent Semester</Label>
-                                        <Select value={data.parent_id?.toString() || ''} onValueChange={(value) => setData('parent_id', value ? parseInt(value) : null)}>
+                                        <Label htmlFor="edit_type">Type</Label>
+                                        <Select value={data.type} onValueChange={(value) => setData('type', value as 'quarter' | 'semester')}>
                                             <SelectTrigger>
-                                                <SelectValue placeholder="Select parent semester" />
+                                                <SelectValue placeholder="Select type" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {getParentPeriodOptions(parseInt(data.academic_level_id)).map((option) => (
-                                                    <SelectItem key={option.value} value={option.value}>
-                                                        {option.label}
+                                                <SelectItem value="quarter">Quarter</SelectItem>
+                                                <SelectItem value="semester">Semester</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        {formErrors?.type && (
+                                            <Alert variant="destructive">
+                                                <AlertDescription>{formErrors.type}</AlertDescription>
+                                            </Alert>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <Label htmlFor="edit_name">Name</Label>
+                                        <Input
+                                            id="edit_name"
+                                            value={data.name}
+                                            onChange={(e) => setData('name', e.target.value)}
+                                            placeholder="e.g., First Quarter, First Semester"
+                                        />
+                                        {formErrors?.name && (
+                                            <Alert variant="destructive">
+                                                <AlertDescription>{formErrors.name}</AlertDescription>
+                                            </Alert>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <Label htmlFor="edit_code">Code</Label>
+                                        <Input
+                                            id="edit_code"
+                                            value={data.code}
+                                            onChange={(e) => setData('code', e.target.value)}
+                                            placeholder="e.g., Q1, S1"
+                                        />
+                                        {formErrors?.code && (
+                                            <Alert variant="destructive">
+                                                <AlertDescription>{formErrors.code}</AlertDescription>
+                                            </Alert>
+                                        )}
+                                    </div>
+
+                                    {/* Academic Level - Hidden but maintain value */}
+                                    <div className="hidden">
+                                        <Label htmlFor="edit_academic_level_id">Academic Level</Label>
+                                        <Select value={data.academic_level_id} onValueChange={(value) => setData('academic_level_id', value)}>
+                                            <SelectTrigger>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {academicLevels.map((level) => (
+                                                    <SelectItem key={level.id} value={level.id.toString()}>
+                                                        {level.name}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
                                     </div>
-                                )}
 
-                                <div>
-                                    <Label htmlFor="edit_semester_number">Semester Number</Label>
-                                    <Input
-                                        id="edit_semester_number"
-                                        type="number"
-                                        value={data.semester_number || ''}
-                                        onChange={(e) => setData('semester_number', e.target.value ? parseInt(e.target.value) : null)}
-                                        min="1"
-                                        max="2"
-                                    />
+                                    {/* Show parent semester selection for sub-periods (midterm, prefinal, final) - only for Senior High and College */}
+                                    {data.type === 'quarter' && shouldShowSemesterSelection(parseInt(data.academic_level_id)) && data.period_type !== 'quarter' && (
+                                        <div>
+                                            <Label htmlFor="edit_parent_id">Parent Semester</Label>
+                                            <Select value={data.parent_id?.toString() || ''} onValueChange={(value) => setData('parent_id', value ? parseInt(value) : null)}>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select parent semester" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {getParentPeriodOptions(parseInt(data.academic_level_id)).map((option) => (
+                                                        <SelectItem key={option.value} value={option.value}>
+                                                            {option.label}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            {formErrors?.parent_id && (
+                                                <Alert variant="destructive">
+                                                    <AlertDescription>{formErrors.parent_id}</AlertDescription>
+                                                </Alert>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Show period type for quarters - only for Senior High and College */}
+                                    {data.type === 'quarter' && shouldShowSemesterSelection(parseInt(data.academic_level_id)) && (
+                                        <div>
+                                            <Label htmlFor="edit_period_type">Period Type</Label>
+                                            <Select value={data.period_type} onValueChange={(value) => setData('period_type', value as 'quarter' | 'midterm' | 'prefinal' | 'final')}>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select period type" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="midterm">Midterm</SelectItem>
+                                                    <SelectItem value="prefinal">Pre-Final</SelectItem>
+                                                    <SelectItem value="final">Final Average</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            {formErrors?.period_type && (
+                                                <Alert variant="destructive">
+                                                    <AlertDescription>{formErrors.period_type}</AlertDescription>
+                                                </Alert>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Semester Number - only for semester type */}
+                                    {data.type === 'semester' && shouldShowSemesterSelection(parseInt(data.academic_level_id)) && (
+                                        <div>
+                                            <Label htmlFor="edit_semester_number">Semester Number</Label>
+                                            <Select value={data.semester_number?.toString() || ''} onValueChange={(value) => setData('semester_number', value ? parseInt(value) : null)}>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select semester number" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="1">First Semester</SelectItem>
+                                                    <SelectItem value="2">Second Semester</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            {formErrors?.semester_number && (
+                                                <Alert variant="destructive">
+                                                    <AlertDescription>{formErrors.semester_number}</AlertDescription>
+                                                </Alert>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Only show weight and calculated fields for quarters, not for semesters or final average */}
+                                    {data.type === 'quarter' && data.period_type !== 'final' && (
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <Label htmlFor="edit_weight">Grade Contribution (%)</Label>
+                                                <Input
+                                                    id="edit_weight"
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={data.weight}
+                                                    onChange={(e) => setData('weight', parseFloat(e.target.value) || 0)}
+                                                    min="0"
+                                                    max="1"
+                                                    placeholder="0.50 = 50%"
+                                                />
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    How much this period contributes to final grade (0.50 = 50%, 1.00 = 100%)
+                                                </p>
+                                                {formErrors?.weight && (
+                                                    <Alert variant="destructive">
+                                                        <AlertDescription>{formErrors.weight}</AlertDescription>
+                                                    </Alert>
+                                                )}
+                                            </div>
+
+                                            <div className="flex items-start space-x-2 pt-6">
+                                                <input
+                                                    id="edit_is_calculated"
+                                                    type="checkbox"
+                                                    checked={data.is_calculated}
+                                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                                    onChange={(e) => setData('is_calculated', e.target.checked as any)}
+                                                    className="rounded border-gray-300 mt-1"
+                                                />
+                                                <div>
+                                                    <Label htmlFor="edit_is_calculated" className="text-sm font-medium">Auto-Calculated Grade</Label>
+                                                    <p className="text-xs text-gray-500 mt-1">
+                                                        System will automatically calculate this grade from other periods
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <Label htmlFor="edit_start_date">Start Date</Label>
+                                            <Input
+                                                id="edit_start_date"
+                                                type="date"
+                                                value={data.start_date}
+                                                onChange={(e) => setData('start_date', e.target.value)}
+                                            />
+                                            {formErrors?.start_date && (
+                                                <Alert variant="destructive">
+                                                    <AlertDescription>{formErrors.start_date}</AlertDescription>
+                                                </Alert>
+                                            )}
+                                        </div>
+
+                                        <div>
+                                            <Label htmlFor="edit_end_date">End Date</Label>
+                                            <Input
+                                                id="edit_end_date"
+                                                type="date"
+                                                value={data.end_date}
+                                                onChange={(e) => setData('end_date', e.target.value)}
+                                            />
+                                            {formErrors?.end_date && (
+                                                <Alert variant="destructive">
+                                                    <AlertDescription>{formErrors.end_date}</AlertDescription>
+                                                </Alert>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <Label htmlFor="edit_sort_order">Sort Order</Label>
+                                            <Input
+                                                id="edit_sort_order"
+                                                type="number"
+                                                value={data.sort_order}
+                                                onChange={(e) => setData('sort_order', parseInt(e.target.value) || 0)}
+                                                min="0"
+                                            />
+                                        </div>
+
+                                        <div className="flex items-center space-x-2 pt-6">
+                                            <input
+                                                id="edit_is_active"
+                                                type="checkbox"
+                                                checked={data.is_active}
+                                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                                onChange={(e) => setData('is_active', e.target.checked as any)}
+                                                className="rounded border-gray-300"
+                                            />
+                                            <Label htmlFor="edit_is_active">Active</Label>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex justify-end space-x-2 pt-4">
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => {
+                                                setIsEditDialogOpen(false);
+                                                setEditingPeriod(null);
+                                            }}
+                                        >
+                                            Cancel
+                                        </Button>
+                                        <Button onClick={handleUpdate} disabled={processing}>
+                                            {processing ? 'Updating...' : 'Update'}
+                                        </Button>
+                                    </div>
                                 </div>
-                            </>
-                        )}
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <Label htmlFor="edit_weight">Weight</Label>
-                                <Input
-                                    id="edit_weight"
-                                    type="number"
-                                    step="0.01"
-                                    value={data.weight}
-                                    onChange={(e) => setData('weight', parseFloat(e.target.value) || 0)}
-                                    min="0"
-                                    max="1"
-                                />
-                            </div>
-
-                            <div className="flex items-center space-x-2 pt-6">
-                                <input
-                                    id="edit_is_calculated"
-                                    type="checkbox"
-                                    checked={data.is_calculated}
-                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                    onChange={(e) => setData('is_calculated', e.target.checked as any)}
-                                    className="rounded border-gray-300"
-                                />
-                                <Label htmlFor="edit_is_calculated">Calculated Period</Label>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <Label htmlFor="edit_start_date">Start Date</Label>
-                                <Input
-                                    id="edit_start_date"
-                                    type="date"
-                                    value={data.start_date}
-                                    onChange={(e) => setData('start_date', e.target.value)}
-                                />
-                            </div>
-
-                            <div>
-                                <Label htmlFor="edit_end_date">End Date</Label>
-                                <Input
-                                    id="edit_end_date"
-                                    type="date"
-                                    value={data.end_date}
-                                    onChange={(e) => setData('end_date', e.target.value)}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <Label htmlFor="edit_sort_order">Sort Order</Label>
-                                <Input
-                                    id="edit_sort_order"
-                                    type="number"
-                                    value={data.sort_order}
-                                    onChange={(e) => setData('sort_order', parseInt(e.target.value) || 0)}
-                                    min="0"
-                                />
-                            </div>
-
-                            <div className="flex items-center space-x-2 pt-6">
-                                <input
-                                    id="edit_is_active"
-                                    type="checkbox"
-                                    checked={data.is_active}
-                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                    onChange={(e) => setData('is_active', e.target.checked as any)}
-                                    className="rounded border-gray-300"
-                                />
-                                <Label htmlFor="edit_is_active">Active</Label>
-                            </div>
-                        </div>
-
-                        <div className="flex justify-end space-x-2 pt-4">
-                            <Button
-                                variant="outline"
-                                onClick={() => setIsEditDialogOpen(false)}
-                            >
-                                Cancel
-                            </Button>
-                            <Button onClick={handleUpdate} disabled={processing}>
-                                {processing ? 'Updating...' : 'Update'}
-                            </Button>
-                        </div>
-                    </div>
-                </DialogContent>
-            </Dialog>
+                            </DialogContent>
+                        </Dialog>
         </div>
     );
 }

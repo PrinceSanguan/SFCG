@@ -100,7 +100,9 @@ export default function StudentsList({ user, users, filters, roles, currentAcade
     };
 
     const handleDownloadTemplate = () => {
-        window.location.href = route('admin.students.template');
+        // Pass academic level as query parameter if viewing a specific level
+        const params = currentAcademicLevel ? { academic_level: currentAcademicLevel } : {};
+        window.location.href = route('admin.students.template', params);
     };
 
     const handleUploadClick = () => {
@@ -112,6 +114,10 @@ export default function StudentsList({ user, users, filters, roles, currentAcade
         if (!file) return;
         const formData = new FormData();
         formData.append('file', file);
+        // Pass academic level if viewing a specific level
+        if (currentAcademicLevel) {
+            formData.append('academic_level', currentAcademicLevel);
+        }
         router.post(route('admin.students.upload'), formData, {
             forceFormData: true,
             onSuccess: () => {

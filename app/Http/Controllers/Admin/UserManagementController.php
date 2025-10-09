@@ -830,39 +830,32 @@ class UserManagementController extends Controller
 
     /**
      * Download CSV template for bulk student upload.
+     * Filters template by academic level if provided.
      */
-    public function downloadStudentsCsvTemplate()
+    public function downloadStudentsCsvTemplate(Request $request)
     {
+        $academicLevel = $request->get('academic_level'); // Get academic level filter
+
+        $filename = $academicLevel
+            ? strtolower(str_replace('_', '-', $academicLevel)) . '_students_template.csv'
+            : 'students_template.csv';
+
         $headers = [
             'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="students_template.csv"',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
         ];
 
         $columns = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'strand_id', 'department_id', 'course_id', 'section_id', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
-        
-        // Get sample data for different academic levels
-        $elementarySection = \App\Models\Section::whereHas('academicLevel', function($q) {
-            $q->where('key', 'elementary');
-        })->first();
-        
-        $jhsSection = \App\Models\Section::whereHas('academicLevel', function($q) {
-            $q->where('key', 'junior_highschool');
-        })->first();
-        
-        $strand = \App\Models\Strand::first();
-        $shsSection = \App\Models\Section::whereHas('academicLevel', function($q) {
-            $q->where('key', 'senior_highschool');
-        })->first();
-        
-        $department = \App\Models\Department::first();
-        $course = \App\Models\Course::first();
-        $collegeSection = \App\Models\Section::whereHas('academicLevel', function($q) {
-            $q->where('key', 'college');
-        })->first();
-        
-        $sampleRows = [
-            // Elementary example
-            [
+
+        $sampleRows = [];
+
+        // Generate samples based on academic level filter
+        if (!$academicLevel || $academicLevel === 'elementary') {
+            $elementarySection = \App\Models\Section::whereHas('academicLevel', function($q) {
+                $q->where('key', 'elementary');
+            })->first();
+
+            $sampleRows[] = [
                 'Juan Dela Cruz',
                 'juan.delacruz@example.com',
                 'password123',
@@ -880,9 +873,15 @@ class UserManagementController extends Controller
                 'Pedro Dela Cruz',
                 '09123456788',
                 'father'
-            ],
-            // Junior High School example
-            [
+            ];
+        }
+
+        if (!$academicLevel || $academicLevel === 'junior_highschool') {
+            $jhsSection = \App\Models\Section::whereHas('academicLevel', function($q) {
+                $q->where('key', 'junior_highschool');
+            })->first();
+
+            $sampleRows[] = [
                 'Maria Santos',
                 'maria.santos@example.com',
                 'password123',
@@ -900,9 +899,16 @@ class UserManagementController extends Controller
                 'Juan Santos',
                 '09123456791',
                 'father'
-            ],
-            // Senior High School example
-            [
+            ];
+        }
+
+        if (!$academicLevel || $academicLevel === 'senior_highschool') {
+            $strand = \App\Models\Strand::first();
+            $shsSection = \App\Models\Section::whereHas('academicLevel', function($q) {
+                $q->where('key', 'senior_highschool');
+            })->first();
+
+            $sampleRows[] = [
                 'Pedro Garcia',
                 'pedro.garcia@example.com',
                 'password123',
@@ -920,9 +926,17 @@ class UserManagementController extends Controller
                 'Ana Garcia',
                 '09123456793',
                 'mother'
-            ],
-            // College example
-            [
+            ];
+        }
+
+        if (!$academicLevel || $academicLevel === 'college') {
+            $department = \App\Models\Department::first();
+            $course = \App\Models\Course::first();
+            $collegeSection = \App\Models\Section::whereHas('academicLevel', function($q) {
+                $q->where('key', 'college');
+            })->first();
+
+            $sampleRows[] = [
                 'Ana Rodriguez',
                 'ana.rodriguez@example.com',
                 'password123',
@@ -940,8 +954,8 @@ class UserManagementController extends Controller
                 'Carlos Rodriguez',
                 '09123456795',
                 'father'
-            ]
-        ];
+            ];
+        }
 
         $callback = function () use ($columns, $sampleRows) {
             $handle = fopen('php://output', 'w');
@@ -957,15 +971,18 @@ class UserManagementController extends Controller
 
     /**
      * Handle bulk student upload via CSV.
+     * Validates that all students match the expected academic level if provided.
      */
     public function uploadStudentsCsv(Request $request)
     {
         $request->validate([
             'file' => 'required|file|mimes:csv,txt|max:2048',
+            'academic_level' => 'nullable|string|in:elementary,junior_highschool,senior_highschool,college',
         ]);
 
+        $expectedAcademicLevel = $request->get('academic_level'); // Get expected academic level
         $file = $request->file('file');
-        
+
         // Check if file can be opened
         if (!$file->isValid()) {
             return back()->with('error', 'Invalid file. Please ensure the file is a valid CSV file.');
@@ -982,7 +999,7 @@ class UserManagementController extends Controller
         $lineNumber = 1; // Start at 1 since header is line 0
 
         $expected = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'strand_id', 'department_id', 'course_id', 'section_id', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
-        
+
         // Validate header format
         if (!$header || array_map('strtolower', $header) !== $expected) {
             fclose($handle);
@@ -991,7 +1008,7 @@ class UserManagementController extends Controller
 
         while (($row = fgetcsv($handle)) !== false) {
             $lineNumber++;
-            
+
             // Check if row has correct number of columns
             if (count($row) !== count($expected)) {
                 $errors[] = [
@@ -1001,8 +1018,18 @@ class UserManagementController extends Controller
                 ];
                 continue;
             }
-            
+
             [$name, $email, $password, $academicLevel, $specificYearLevel, $strandId, $departmentId, $courseId, $sectionId, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship] = $row;
+
+            // Validate academic level matches expected level if provided
+            if ($expectedAcademicLevel && $academicLevel !== $expectedAcademicLevel) {
+                $errors[] = [
+                    'line' => $lineNumber,
+                    'email' => $email,
+                    'errors' => ['Academic level mismatch. Expected "' . $expectedAcademicLevel . '" but got "' . $academicLevel . '". Please use the correct CSV template for this academic level.'],
+                ];
+                continue;
+            }
             
             $validator = Validator::make([
                 'name' => $name,
@@ -1087,9 +1114,16 @@ class UserManagementController extends Controller
 
         fclose($handle);
 
+        // Determine redirect route based on academic level
+        $redirectRoute = 'admin.students.index';
+        if ($expectedAcademicLevel) {
+            $academicLevelRoute = str_replace('_', '-', $expectedAcademicLevel);
+            $redirectRoute = 'admin.students.' . $academicLevelRoute;
+        }
+
         if ($created > 0 && empty($errors)) {
             $message = "Successfully uploaded {$created} students.";
-            return redirect()->route('admin.students.index')->with('success', $message);
+            return redirect()->route($redirectRoute)->with('success', $message);
         } elseif ($created > 0 && !empty($errors)) {
             $errorCount = count($errors);
             $errorDetails = '';
@@ -1105,7 +1139,7 @@ class UserManagementController extends Controller
             }
             $message = "Successfully uploaded {$created} students, but{$errorDetails}";
             Log::warning('Student CSV upload partial success', ['created' => $created, 'errors' => $errors]);
-            return redirect()->route('admin.students.index')->with('warning', $message);
+            return redirect()->route($redirectRoute)->with('warning', $message);
         } else {
             $errorCount = count($errors);
             $errorDetails = '';
@@ -1121,7 +1155,7 @@ class UserManagementController extends Controller
             }
             $message = "No students were uploaded.{$errorDetails}";
             Log::error('Student CSV upload failed', ['errors' => $errors]);
-            return redirect()->route('admin.students.index')->with('error', $message);
+            return redirect()->route($redirectRoute)->with('error', $message);
         }
     }
 
