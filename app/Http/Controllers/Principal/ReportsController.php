@@ -34,16 +34,20 @@ class ReportsController extends Controller
     public function academicPerformance(Request $request)
     {
         $user = Auth::user();
-        
+        $principalAcademicLevel = AcademicLevel::where('key', $user->year_level)->first();
+
         $filters = $request->only(['academic_level_id', 'course_id', 'year', 'period']);
-        
+
         try {
             $query = StudentGrade::with(['student', 'subject.course', 'academicLevel', 'gradingPeriod'])
                 ->where('is_approved', true);
-            
-            if (!empty($filters['academic_level_id'])) {
-                $query->where('academic_level_id', $filters['academic_level_id']);
+
+            // Auto-filter by principal's academic level
+            if ($principalAcademicLevel) {
+                $query->where('academic_level_id', $principalAcademicLevel->id);
             }
+
+            // Note: Removed manual academic_level_id filter since it's auto-set above
             
             if (!empty($filters['course_id'])) {
                 $query->whereHas('subject.course', function ($q) use ($filters) {
@@ -113,15 +117,17 @@ class ReportsController extends Controller
     public function gradeTrends(Request $request)
     {
         $user = Auth::user();
-        
+        $principalAcademicLevel = AcademicLevel::where('key', $user->year_level)->first();
+
         $filters = $request->only(['academic_level_id', 'course_id', 'year']);
-        
+
         try {
             $query = StudentGrade::with(['academicLevel', 'gradingPeriod'])
                 ->where('is_approved', true);
-            
-            if (!empty($filters['academic_level_id'])) {
-                $query->where('academic_level_id', $filters['academic_level_id']);
+
+            // Auto-filter by principal's academic level
+            if ($principalAcademicLevel) {
+                $query->where('academic_level_id', $principalAcademicLevel->id);
             }
             
             if (!empty($filters['course_id'])) {
@@ -177,15 +183,17 @@ class ReportsController extends Controller
     public function honorStatistics(Request $request)
     {
         $user = Auth::user();
-        
+        $principalAcademicLevel = AcademicLevel::where('key', $user->year_level)->first();
+
         $filters = $request->only(['academic_level_id', 'honor_type_id', 'year']);
-        
+
         try {
             $query = HonorResult::with(['student', 'honorType', 'academicLevel'])
                 ->where('is_approved', true);
-            
-            if (!empty($filters['academic_level_id'])) {
-                $query->where('academic_level_id', $filters['academic_level_id']);
+
+            // Auto-filter by principal's academic level
+            if ($principalAcademicLevel) {
+                $query->where('academic_level_id', $principalAcademicLevel->id);
             }
             
             if (!empty($filters['honor_type_id'])) {
@@ -263,13 +271,16 @@ class ReportsController extends Controller
 
     private function exportGrades($filters)
     {
+        $user = Auth::user();
+        $principalAcademicLevel = AcademicLevel::where('key', $user->year_level)->first();
+
         // Query grades with relationships
         $query = StudentGrade::with(['student', 'subject.course', 'academicLevel', 'gradingPeriod'])
             ->where('is_approved', true);
 
-        // Apply filters
-        if (!empty($filters['academic_level_id'])) {
-            $query->where('academic_level_id', $filters['academic_level_id']);
+        // Auto-filter by principal's academic level
+        if ($principalAcademicLevel) {
+            $query->where('academic_level_id', $principalAcademicLevel->id);
         }
 
         if (!empty($filters['course_id'])) {
@@ -345,12 +356,16 @@ class ReportsController extends Controller
     // API methods
     public function getPerformanceData(Request $request)
     {
+        $user = Auth::user();
+        $principalAcademicLevel = AcademicLevel::where('key', $user->year_level)->first();
+
         $filters = $request->only(['academic_level_id', 'course_id', 'year', 'period']);
-        
+
         $query = StudentGrade::where('is_approved', true);
-        
-        if ($filters['academic_level_id']) {
-            $query->where('academic_level_id', $filters['academic_level_id']);
+
+        // Auto-filter by principal's academic level
+        if ($principalAcademicLevel) {
+            $query->where('academic_level_id', $principalAcademicLevel->id);
         }
         
         if ($filters['course_id']) {
@@ -380,12 +395,16 @@ class ReportsController extends Controller
     
     public function getTrendData(Request $request)
     {
+        $user = Auth::user();
+        $principalAcademicLevel = AcademicLevel::where('key', $user->year_level)->first();
+
         $filters = $request->only(['academic_level_id', 'course_id', 'year']);
-        
+
         $query = StudentGrade::where('is_approved', true);
-        
-        if ($filters['academic_level_id']) {
-            $query->where('academic_level_id', $filters['academic_level_id']);
+
+        // Auto-filter by principal's academic level
+        if ($principalAcademicLevel) {
+            $query->where('academic_level_id', $principalAcademicLevel->id);
         }
         
         if ($filters['course_id']) {
@@ -412,12 +431,16 @@ class ReportsController extends Controller
     
     public function getHonorData(Request $request)
     {
+        $user = Auth::user();
+        $principalAcademicLevel = AcademicLevel::where('key', $user->year_level)->first();
+
         $filters = $request->only(['academic_level_id', 'honor_type_id', 'year']);
-        
+
         $query = HonorResult::where('is_approved', true);
-        
-        if ($filters['academic_level_id']) {
-            $query->where('academic_level_id', $filters['academic_level_id']);
+
+        // Auto-filter by principal's academic level
+        if ($principalAcademicLevel) {
+            $query->where('academic_level_id', $principalAcademicLevel->id);
         }
         
         if ($filters['honor_type_id']) {

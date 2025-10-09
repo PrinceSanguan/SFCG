@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Link, useForm } from '@inertiajs/react';
@@ -28,6 +29,7 @@ export default function CreatePrincipal({ user, currentRole, errors }: CreatePro
         name: '',
         email: '',
         user_role: currentRole, // Auto-set the role based on current page
+        year_level: '', // Academic level for principal
         password: '',
         password_confirmation: '',
     });
@@ -104,6 +106,32 @@ export default function CreatePrincipal({ user, currentRole, errors }: CreatePro
                                                 </Alert>
                                             )}
                                         </div>
+                                    </div>
+
+                                    {/* Academic Level */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="year_level">Academic Level *</Label>
+                                        <Select
+                                            value={data.year_level}
+                                            onValueChange={(value) => setData('year_level', value)}
+                                        >
+                                            <SelectTrigger id="year_level">
+                                                <SelectValue placeholder="Select academic level" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="elementary">Elementary</SelectItem>
+                                                <SelectItem value="junior_highschool">Junior High School</SelectItem>
+                                                <SelectItem value="senior_highschool">Senior High School</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        {errors?.year_level && (
+                                            <Alert variant="destructive">
+                                                <AlertDescription>{errors.year_level}</AlertDescription>
+                                            </Alert>
+                                        )}
+                                        <p className="text-sm text-gray-500">
+                                            The principal will only have access to data for the selected academic level.
+                                        </p>
                                     </div>
 
                                     {/* Password Information */}

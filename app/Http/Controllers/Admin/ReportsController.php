@@ -411,14 +411,46 @@ class ReportsController extends Controller
 
     private function getSchoolYears(): array
     {
-        $years = [];
-        $start = (int) date('Y') - 3;
-        for ($i = 0; $i < 7; $i++) {
-            $from = $start + $i;
-            $to = $from + 1;
-            $years[] = $from . '-' . $to;
+        // Get distinct school years from all relevant tables
+        $yearsFromGrades = StudentGrade::select('school_year')
+            ->distinct()
+            ->whereNotNull('school_year')
+            ->pluck('school_year');
+
+        $yearsFromHonors = HonorResult::select('school_year')
+            ->distinct()
+            ->whereNotNull('school_year')
+            ->pluck('school_year');
+
+        $yearsFromSections = \App\Models\Section::select('school_year')
+            ->distinct()
+            ->whereNotNull('school_year')
+            ->pluck('school_year');
+
+        $yearsFromCertificates = Certificate::select('school_year')
+            ->distinct()
+            ->whereNotNull('school_year')
+            ->pluck('school_year');
+
+        // Merge all years and remove duplicates
+        $allYears = $yearsFromGrades
+            ->merge($yearsFromHonors)
+            ->merge($yearsFromSections)
+            ->merge($yearsFromCertificates)
+            ->unique()
+            ->sort()
+            ->reverse() // Most recent first
+            ->values() // Reset keys to 0, 1, 2... (must be after reverse)
+            ->toArray();
+
+        // If no data exists, return current school year as fallback
+        if (empty($allYears)) {
+            $currentYear = (int) date('Y');
+            $nextYear = $currentYear + 1;
+            $allYears = [$currentYear . '-' . $nextYear];
         }
-        return $years;
+
+        return $allYears;
     }
 
     public function generateClassSectionReport(Request $request)

@@ -280,7 +280,7 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
                                         Assign Adviser
                                     </Button>
                                 </DialogTrigger>
-                                <DialogContent className="max-w-md">
+                                <DialogContent className="w-[95vw] max-w-[800px] max-h-[90vh] overflow-y-auto">
                                     <DialogHeader>
                                         <DialogTitle>Assign Class Adviser</DialogTitle>
                                     </DialogHeader>
@@ -530,7 +530,7 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
                         {/* Edit Assignment Modal */}
                         {editAssignment && (
                             <Dialog open={editModal} onOpenChange={setEditModal}>
-                                <DialogContent className="max-w-md">
+                                <DialogContent className="w-[95vw] max-w-[800px] max-h-[90vh] overflow-y-auto">
                                     <DialogHeader>
                                         <DialogTitle>Edit Adviser Assignment</DialogTitle>
                                     </DialogHeader>

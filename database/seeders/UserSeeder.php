@@ -58,6 +58,7 @@ class UserSeeder extends Seeder
                 'email' => 'principal@school.edu',
                 'password' => bcrypt('principal123'),
                 'user_role' => 'principal',
+                'year_level' => 'elementary',
             ],
             [
                 'name' => 'Student User',

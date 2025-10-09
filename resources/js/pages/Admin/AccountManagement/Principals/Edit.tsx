@@ -17,6 +17,7 @@ interface UserData {
     name: string;
     email: string;
     user_role: string;
+    year_level?: string;
     created_at: string;
     last_login_at?: string;
 }
@@ -33,6 +34,7 @@ export default function EditPrincipal({ user, targetUser, roles, errors }: EditP
         name: targetUser?.name || '',
         email: targetUser?.email || '',
         user_role: targetUser?.user_role || '',
+        year_level: targetUser?.year_level || '',
     });
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const { errors: pageErrors } = usePage().props;
@@ -189,11 +191,39 @@ export default function EditPrincipal({ user, targetUser, roles, errors }: EditP
                                             )}
                                         </div>
 
+                                        {/* Academic Level - Only show for principals */}
+                                        {data.user_role === 'principal' && (
+                                            <div className="space-y-2">
+                                                <Label htmlFor="year_level">Academic Level *</Label>
+                                                <Select
+                                                    value={data.year_level}
+                                                    onValueChange={(value) => setData('year_level', value)}
+                                                >
+                                                    <SelectTrigger id="year_level">
+                                                        <SelectValue placeholder="Select academic level" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="elementary">Elementary</SelectItem>
+                                                        <SelectItem value="junior_highschool">Junior High School</SelectItem>
+                                                        <SelectItem value="senior_highschool">Senior High School</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                {errors?.year_level && (
+                                                    <Alert variant="destructive">
+                                                        <AlertDescription>{errors.year_level}</AlertDescription>
+                                                    </Alert>
+                                                )}
+                                                <p className="text-sm text-gray-500">
+                                                    The principal will only have access to data for the selected academic level.
+                                                </p>
+                                            </div>
+                                        )}
+
                                         {/* Last Login Info */}
                                         <div className="space-y-2">
                                             <Label>Last Login</Label>
                                             <div className="p-3 bg-gray-50 rounded border dark:bg-gray-800">
-                                                {targetUser.last_login_at 
+                                                {targetUser.last_login_at
                                                     ? new Date(targetUser.last_login_at).toLocaleString()
                                                     : 'Never logged in'
                                                 }

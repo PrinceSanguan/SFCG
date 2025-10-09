@@ -302,7 +302,7 @@ export default function AssignInstructors({ user, assignments = [], instructors 
                             Assign Instructor
                         </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-md">
+                    <DialogContent className="w-[95vw] max-w-[800px] max-h-[90vh] overflow-y-auto">
                         <DialogHeader>
                             <DialogTitle>Assign Instructor to Course</DialogTitle>
                         </DialogHeader>
@@ -559,7 +559,7 @@ export default function AssignInstructors({ user, assignments = [], instructors 
 
             {/* Edit Assignment Modal */}
             <Dialog open={editModal} onOpenChange={setEditModal}>
-                <DialogContent className="max-w-md">
+                <DialogContent className="w-[95vw] max-w-[800px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Edit Instructor Assignment</DialogTitle>
                     </DialogHeader>

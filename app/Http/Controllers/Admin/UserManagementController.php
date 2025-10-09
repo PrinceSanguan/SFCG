@@ -513,6 +513,7 @@ class UserManagementController extends Controller
             'password' => 'required|string|min:8|confirmed',
             'academic_level' => 'required_if:user_role,student|string|in:elementary,junior_highschool,senior_highschool,college|nullable',
             'specific_year_level' => 'required_if:user_role,student|string|nullable',
+            'year_level' => 'required_if:user_role,principal|string|in:elementary,junior_highschool,senior_highschool|nullable',
             'strand_id' => 'nullable|exists:strands,id',
             'course_id' => 'nullable|exists:courses,id',
             'department_id' => 'required_if:user_role,chairperson|nullable|exists:departments,id',
@@ -549,6 +550,11 @@ class UserManagementController extends Controller
             $validator->errors()->add('department_id', 'Department is required for Chairpersons.');
         }
 
+        // Principal must have academic level
+        if ($role === 'principal' && !$request->year_level) {
+            $validator->errors()->add('year_level', 'Academic level is required for Principals.');
+        }
+
         if ($validator->fails()) {
             return back()->withErrors($validator)->withInput();
         }
@@ -558,7 +564,7 @@ class UserManagementController extends Controller
             'email' => $request->email,
             'user_role' => $role,
             'password' => Hash::make($request->password),
-            'year_level' => $role === 'student' ? $request->academic_level : null,
+            'year_level' => $role === 'student' ? $request->academic_level : ($role === 'principal' ? $request->year_level : null),
             'specific_year_level' => $role === 'student' ? $request->specific_year_level : null,
             'strand_id' => $role === 'student' ? $request->strand_id : null,
             'course_id' => $role === 'student' ? $request->course_id : null,
@@ -1099,9 +1105,28 @@ class UserManagementController extends Controller
                     'emergency_contact_phone' => $emergencyContactPhone ?: null,
                     'emergency_contact_relationship' => $emergencyContactRelationship ?: null,
                 ]);
-                
+
                 // Note: Automatic subject enrollment is handled by User model's boot method
-                
+
+                // Send email to student with their credentials
+                try {
+                    Mail::to($student->email)->send(
+                        new UserAccountCreatedEmail($student, $password)
+                    );
+                    Log::info('CSV upload: Account creation email sent', [
+                        'user_id' => $student->id,
+                        'user_email' => $student->email,
+                        'line_number' => $lineNumber,
+                    ]);
+                } catch (\Exception $e) {
+                    Log::error('CSV upload: Email failed to send', [
+                        'user_id' => $student->id,
+                        'user_email' => $student->email,
+                        'line_number' => $lineNumber,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+
                 $created++;
             } catch (\Exception $e) {
                 $errors[] = [
@@ -1199,8 +1224,13 @@ class UserManagementController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
             'user_role' => 'required|in:admin,registrar,instructor,teacher,adviser,chairperson,principal,student,parent',
-            'year_level' => 'required_if:user_role,student|string|in:elementary,junior_highschool,senior_highschool,college|nullable',
+            'year_level' => 'required_if:user_role,student,principal|string|in:elementary,junior_highschool,senior_highschool,college|nullable',
         ]);
+
+        // Principal must have academic level and it cannot be college
+        if ($request->user_role === 'principal' && $request->year_level === 'college') {
+            $validator->errors()->add('year_level', 'Principals cannot be assigned to College level.');
+        }
 
         if ($validator->fails()) {
             return back()->withErrors($validator)->withInput();
@@ -1212,7 +1242,7 @@ class UserManagementController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'user_role' => $request->user_role,
-            'year_level' => $user->user_role === 'student' ? $request->year_level : null,
+            'year_level' => in_array($request->user_role, ['student', 'principal']) ? $request->year_level : null,
         ]);
 
         // Log the activity
