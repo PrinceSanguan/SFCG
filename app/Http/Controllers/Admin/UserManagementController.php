@@ -851,7 +851,7 @@ class UserManagementController extends Controller
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
         ];
 
-        $columns = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'strand_id', 'department_id', 'course_id', 'section_id', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
+        $columns = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'strand_name', 'department_name', 'course_name', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
 
         $sampleRows = [];
 
@@ -870,7 +870,7 @@ class UserManagementController extends Controller
                 '',
                 '',
                 '',
-                $elementarySection ? $elementarySection->id : '',
+                $elementarySection ? $elementarySection->name : '',
                 'EL-2025-000001',
                 '2018-01-15',
                 'male',
@@ -896,7 +896,7 @@ class UserManagementController extends Controller
                 '',
                 '',
                 '',
-                $jhsSection ? $jhsSection->id : '',
+                $jhsSection ? $jhsSection->name : '',
                 'JHS-2025-000002',
                 '2010-05-20',
                 'female',
@@ -920,10 +920,10 @@ class UserManagementController extends Controller
                 'password123',
                 'senior_highschool',
                 'grade_11',
-                $strand ? $strand->id : '',
+                $strand ? $strand->name : '',
                 '',
                 '',
-                $shsSection ? $shsSection->id : '',
+                $shsSection ? $shsSection->name : '',
                 'SHS-2025-000003',
                 '2008-03-10',
                 'male',
@@ -949,9 +949,9 @@ class UserManagementController extends Controller
                 'college',
                 '',
                 '',
-                $department ? $department->id : '',
-                $course ? $course->id : '',
-                $collegeSection ? $collegeSection->id : '',
+                $department ? $department->name : '',
+                $course ? $course->name : '',
+                $collegeSection ? $collegeSection->name : '',
                 'CO-2025-000004',
                 '2005-12-25',
                 'female',
@@ -1004,12 +1004,12 @@ class UserManagementController extends Controller
         $errors = [];
         $lineNumber = 1; // Start at 1 since header is line 0
 
-        $expected = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'strand_id', 'department_id', 'course_id', 'section_id', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
+        $expected = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'strand_name', 'department_name', 'course_name', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
 
         // Validate header format
         if (!$header || array_map('strtolower', $header) !== $expected) {
             fclose($handle);
-            return back()->with('error', 'Invalid CSV format. Expected columns: name,email,password,academic_level,specific_year_level,strand_id,department_id,course_id,section_id,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship');
+            return back()->with('error', 'Invalid CSV format. Expected columns: name,email,password,academic_level,specific_year_level,strand_name,department_name,course_name,section_name,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship');
         }
 
         while (($row = fgetcsv($handle)) !== false) {
@@ -1025,7 +1025,7 @@ class UserManagementController extends Controller
                 continue;
             }
 
-            [$name, $email, $password, $academicLevel, $specificYearLevel, $strandId, $departmentId, $courseId, $sectionId, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship] = $row;
+            [$name, $email, $password, $academicLevel, $specificYearLevel, $strandName, $departmentName, $courseName, $sectionName, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship] = $row;
 
             // Validate academic level matches expected level if provided
             if ($expectedAcademicLevel && $academicLevel !== $expectedAcademicLevel) {
@@ -1036,7 +1036,65 @@ class UserManagementController extends Controller
                 ];
                 continue;
             }
-            
+
+            // Convert names to IDs
+            $strandId = null;
+            $departmentId = null;
+            $courseId = null;
+            $sectionId = null;
+
+            if (!empty($strandName)) {
+                $strand = \App\Models\Strand::where('name', $strandName)->first();
+                if (!$strand) {
+                    $errors[] = [
+                        'line' => $lineNumber,
+                        'email' => $email,
+                        'errors' => ['Strand "' . $strandName . '" not found. Please check the strand name.'],
+                    ];
+                    continue;
+                }
+                $strandId = $strand->id;
+            }
+
+            if (!empty($departmentName)) {
+                $department = \App\Models\Department::where('name', $departmentName)->first();
+                if (!$department) {
+                    $errors[] = [
+                        'line' => $lineNumber,
+                        'email' => $email,
+                        'errors' => ['Department "' . $departmentName . '" not found. Please check the department name.'],
+                    ];
+                    continue;
+                }
+                $departmentId = $department->id;
+            }
+
+            if (!empty($courseName)) {
+                $course = \App\Models\Course::where('name', $courseName)->first();
+                if (!$course) {
+                    $errors[] = [
+                        'line' => $lineNumber,
+                        'email' => $email,
+                        'errors' => ['Course "' . $courseName . '" not found. Please check the course name.'],
+                    ];
+                    continue;
+                }
+                $courseId = $course->id;
+            }
+
+            if (!empty($sectionName)) {
+                $section = \App\Models\Section::where('name', $sectionName)->first();
+                if (!$section) {
+                    $errors[] = [
+                        'line' => $lineNumber,
+                        'email' => $email,
+                        'errors' => ['Section "' . $sectionName . '" not found. Please check the section name.'],
+                    ];
+                    continue;
+                }
+                $sectionId = $section->id;
+            }
+
             $validator = Validator::make([
                 'name' => $name,
                 'email' => $email,

@@ -70,13 +70,22 @@ class AcademicController extends Controller
             ->orderBy('academic_level_id')
             ->orderBy('sort_order')
             ->get();
-        
+
         $academicLevels = AcademicLevel::orderBy('sort_order')->get();
-        
+
+        // Get unique period types from existing grading periods
+        $periodTypes = GradingPeriod::whereNotNull('period_type')
+            ->distinct()
+            ->pluck('period_type')
+            ->filter()
+            ->values()
+            ->toArray();
+
         return Inertia::render('Admin/Academic/Grading', [
             'user' => $this->sharedUser(),
             'gradingPeriods' => $gradingPeriods,
             'academicLevels' => $academicLevels,
+            'periodTypes' => $periodTypes,
         ]);
     }
 

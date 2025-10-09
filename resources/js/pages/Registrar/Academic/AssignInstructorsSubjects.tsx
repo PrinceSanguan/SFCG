@@ -44,6 +44,9 @@ interface Subject {
         name: string;
         key: string;
     };
+    shs_year_level?: string | null;
+    jhs_year_level?: string | null;
+    selected_grade_level?: string | null;
 }
 
 interface AcademicLevel {
@@ -62,6 +65,7 @@ interface Section {
     name: string;
     code: string;
     course_id: number;
+    specific_year_level?: string | null;
 }
 
 interface InstructorSubjectAssignment {
@@ -131,14 +135,26 @@ export default function AssignInstructorsSubjects({
         }
     }, [selectedAcademicLevel, subjects]);
 
-    // Filter sections based on selected subject's course
+    // Filter sections based on selected subject's course and year level
     useEffect(() => {
         if (formData.subject_id) {
             const selectedSubject = subjects.find(s => s.id.toString() === formData.subject_id);
             if (selectedSubject && selectedSubject.course_id) {
-                const filtered = sections.filter(section =>
-                    section.course_id === selectedSubject.course_id
-                );
+                // Determine the year level to filter by
+                const yearLevel = selectedSubject.shs_year_level || selectedSubject.jhs_year_level || selectedSubject.selected_grade_level;
+
+                const filtered = sections.filter(section => {
+                    const matchesCourse = section.course_id === selectedSubject.course_id;
+
+                    // If subject has year level and section has year level, they must match
+                    if (yearLevel && section.specific_year_level) {
+                        return matchesCourse && section.specific_year_level === yearLevel;
+                    }
+
+                    // Otherwise, just filter by course
+                    return matchesCourse;
+                });
+
                 setFilteredSections(filtered);
             } else {
                 setFilteredSections([]);

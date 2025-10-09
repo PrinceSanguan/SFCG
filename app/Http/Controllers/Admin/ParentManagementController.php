@@ -175,8 +175,20 @@ class ParentManagementController extends Controller
             }
         ]);
 
-        // Get all students for potential linking
-        $allStudents = User::where('user_role', 'student')->orderBy('name')->get();
+        // Get all students for potential linking with their academic level information
+        $allStudents = User::where('user_role', 'student')
+            ->with('academicLevel')
+            ->orderBy('name')
+            ->get()
+            ->map(function($student) {
+                return [
+                    'id' => $student->id,
+                    'name' => $student->name,
+                    'email' => $student->email,
+                    'academic_level' => $student->academicLevel ? $student->academicLevel->name : 'N/A',
+                    'student_number' => $student->student_number,
+                ];
+            });
 
         return Inertia::render('Admin/AccountManagement/Parents/Edit', [
             'user' => Auth::user(),

@@ -50,9 +50,10 @@ interface GradingProps {
     user: User;
     gradingPeriods: GradingPeriod[];
     academicLevels: AcademicLevel[];
+    periodTypes: string[];
 }
 
-export default function Grading({ user, gradingPeriods, academicLevels }: GradingProps) {
+export default function Grading({ user, gradingPeriods, academicLevels, periodTypes }: GradingProps) {
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
     const [editingPeriod, setEditingPeriod] = useState<GradingPeriod | null>(null);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -176,6 +177,16 @@ export default function Grading({ user, gradingPeriods, academicLevels }: Gradin
     const shouldShowSemesterSelection = (academicLevelId: number) => {
         const level = academicLevels.find(l => l.id === academicLevelId);
         return level && (level.key === 'senior_highschool' || level.key === 'college');
+    };
+
+    const formatPeriodTypeName = (periodType: string) => {
+        const typeMap: Record<string, string> = {
+            'quarter': 'Quarter',
+            'midterm': 'Midterm',
+            'prefinal': 'Pre-Final',
+            'final': 'Final Average',
+        };
+        return typeMap[periodType] || periodType.charAt(0).toUpperCase() + periodType.slice(1);
     };
 
     return (
@@ -801,9 +812,20 @@ export default function Grading({ user, gradingPeriods, academicLevels }: Gradin
                                                     <SelectValue placeholder="Select period type" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="midterm">Midterm</SelectItem>
-                                                    <SelectItem value="prefinal">Pre-Final</SelectItem>
-                                                    <SelectItem value="final">Final Average</SelectItem>
+                                                    {periodTypes.length > 0 ? (
+                                                        periodTypes.map((type) => (
+                                                            <SelectItem key={type} value={type}>
+                                                                {formatPeriodTypeName(type)}
+                                                            </SelectItem>
+                                                        ))
+                                                    ) : (
+                                                        <>
+                                                            <SelectItem value="quarter">Quarter</SelectItem>
+                                                            <SelectItem value="midterm">Midterm</SelectItem>
+                                                            <SelectItem value="prefinal">Pre-Final</SelectItem>
+                                                            <SelectItem value="final">Final Average</SelectItem>
+                                                        </>
+                                                    )}
                                                 </SelectContent>
                                             </Select>
                                             {formErrors?.period_type && (

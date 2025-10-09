@@ -17,6 +17,8 @@ interface User {
     name: string;
     email: string;
     user_role: string;
+    academic_level?: string;
+    student_number?: string;
     students?: Array<{
         id: number;
         name: string;
@@ -100,7 +102,7 @@ export default function EditParent({ user, parent, allStudents, relationshipType
     const studentOptionsMap = useMemo(() => {
         const map: Record<string, number> = {};
         availableStudents.forEach((s) => {
-            map[`${s.name} (${s.email})`] = s.id;
+            map[`${s.name} - ${s.academic_level || 'N/A'} (${s.email})`] = s.id;
         });
         return map;
     }, [availableStudents]);
@@ -216,7 +218,7 @@ export default function EditParent({ user, parent, allStudents, relationshipType
                                                         />
                                                         <datalist id="available-students">
                                                             {availableStudents.map((student) => (
-                                                                <option key={student.id} value={`${student.name} (${student.email})`} />
+                                                                <option key={student.id} value={`${student.name} - ${student.academic_level || 'N/A'} (${student.email})`} />
                                                             ))}
                                                         </datalist>
                                                         <InputError message={errors.student_id} className="mt-2" />

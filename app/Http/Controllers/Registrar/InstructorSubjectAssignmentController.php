@@ -274,10 +274,17 @@ class InstructorSubjectAssignmentController extends Controller
     public function getSectionsByCourse(Request $request)
     {
         $courseId = $request->course_id;
+        $yearLevel = $request->year_level;
 
-        $sections = Section::where('course_id', $courseId)
-            ->where('is_active', true)
-            ->get(['id', 'name', 'code']);
+        $query = Section::where('course_id', $courseId)
+            ->where('is_active', true);
+
+        // Filter by year level if provided
+        if ($yearLevel) {
+            $query->where('specific_year_level', $yearLevel);
+        }
+
+        $sections = $query->get(['id', 'name', 'code', 'specific_year_level']);
 
         return response()->json($sections);
     }
