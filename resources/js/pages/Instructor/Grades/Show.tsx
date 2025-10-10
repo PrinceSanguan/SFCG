@@ -92,9 +92,10 @@ interface ShowProps {
     };
     grades: StudentGrade[];
     gradingPeriods: GradingPeriod[];
+    assignmentSchoolYear: string;
 }
 
-export default function Show({ user, student, subject, academicLevel, grades, gradingPeriods }: ShowProps) {
+export default function Show({ user, student, subject, academicLevel, grades, gradingPeriods, assignmentSchoolYear }: ShowProps) {
     const latestGrade = grades.length > 0 ? grades[0] : null;
     const academicLevelKey = academicLevel.key;
     
@@ -591,7 +592,7 @@ export default function Show({ user, student, subject, academicLevel, grades, gr
                                         </div>
                                         <div>
                                             <p className="text-sm text-gray-500 dark:text-gray-400">School Year</p>
-                                            <p className="font-medium">{latestGrade?.school_year || 'N/A'}</p>
+                                            <p className="font-medium">{latestGrade?.school_year || assignmentSchoolYear}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -764,14 +765,14 @@ export default function Show({ user, student, subject, academicLevel, grades, gr
                         <Card>
                             <CardContent className="pt-6">
                                 <div className="flex gap-4">
-                                    <Link 
-                                        href={route('instructor.grades.create') + 
+                                    <Link
+                                        href={route('instructor.grades.create') +
                                             `?student_id=${student.id}` +
                                             `&subject_id=${subject.id}` +
                                             `&academic_level_id=${academicLevel.id}` +
                                             `&academic_level_key=${academicLevel.key}` +
-                                            `&school_year=${latestGrade?.school_year || '2024-2025'}`
-                                        } 
+                                            `&school_year=${latestGrade?.school_year || assignmentSchoolYear}`
+                                        }
                                         className="flex-1"
                                         onClick={() => {
                                             console.log('Navigating to grade creation with params:', {
@@ -779,7 +780,7 @@ export default function Show({ user, student, subject, academicLevel, grades, gr
                                                 subject_id: subject.id,
                                                 academic_level_id: academicLevel.id,
                                                 academic_level_key: academicLevel.key,
-                                                school_year: latestGrade?.school_year || '2024-2025'
+                                                school_year: latestGrade?.school_year || assignmentSchoolYear
                                             });
                                         }}
                                     >

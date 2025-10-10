@@ -30,8 +30,11 @@ interface Grade {
             name: string;
             code: string;
         };
+        academicLevel?: {
+            name: string;
+        };
     };
-    academicLevel: {
+    academicLevel?: {
         name: string;
     };
     gradingPeriod?: {
@@ -216,7 +219,7 @@ export default function GradeReview({ user, grade }: GradeReviewProps) {
                                 <CardContent className="space-y-3">
                                     <div>
                                         <Label className="text-sm font-medium text-gray-500">Academic Level</Label>
-                                        <p className="text-lg">{grade.academicLevel?.name || 'N/A'}</p>
+                                        <p className="text-lg">{grade.academicLevel?.name || grade.subject?.academicLevel?.name || 'N/A'}</p>
                                     </div>
                                     {grade.gradingPeriod && (
                                         <div>

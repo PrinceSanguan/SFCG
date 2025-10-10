@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useForm, usePage } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -37,9 +37,16 @@ interface GradingPeriod {
     academic_level_id: number; 
 }
 
-interface HonorType { 
-    id: number; 
-    name: string; 
+interface HonorType {
+    id: number;
+    name: string;
+}
+
+interface Section {
+    id: number;
+    name: string;
+    academic_level_id: number;
+    specific_year_level: string;
 }
 
 interface Props {
@@ -48,6 +55,7 @@ interface Props {
     schoolYears: string[];
     gradingPeriods: GradingPeriod[];
     honorTypes: HonorType[];
+    sections: Section[];
     stats: {
         total_students: number;
         total_certificates: number;
@@ -56,8 +64,9 @@ interface Props {
     };
 }
 
-export default function RegistrarReportsIndex({ user, academicLevels, schoolYears, gradingPeriods, honorTypes, stats }: Props) {
+export default function RegistrarReportsIndex({ user, academicLevels, schoolYears, gradingPeriods, honorTypes, sections, stats }: Props) {
     const [activeTab, setActiveTab] = useState('grade-reports');
+    const [filteredSections, setFilteredSections] = useState<Section[]>([]);
 
     // Get CSRF token from Inertia page props
     const { props } = usePage();
@@ -89,6 +98,15 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
         include_honors: '1',
         include_certificates: '1',
         format: 'excel',
+    });
+
+    // Class Section Report Form
+    const { data: sectionData, setData: setSectionData, processing: sectionProcessing } = useForm({
+        academic_level_id: '',
+        section_id: 'all',
+        school_year: schoolYears[0] || '',
+        include_grades: false,
+        format: 'pdf',
     });
 
     const handleGradeReport = (e: React.FormEvent) => {
@@ -241,7 +259,68 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
         setTimeout(() => setIsGenerating(false), 2000);
     };
 
-    const filteredGradingPeriods = gradingPeriods.filter(period => 
+    const handleClassSectionReport = (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (!csrfToken) {
+            console.error('CSRF token not found');
+            alert('Session expired. Please refresh the page and try again.');
+            return;
+        }
+
+        setIsGenerating(true);
+
+        // Create a hidden iframe for download
+        let iframe = document.getElementById('download-iframe') as HTMLIFrameElement;
+        if (!iframe) {
+            iframe = document.createElement('iframe');
+            iframe.id = 'download-iframe';
+            iframe.style.display = 'none';
+            document.body.appendChild(iframe);
+        }
+
+        // Create a temporary form for file download
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = route('registrar.reports.class-section-report');
+        form.target = 'download-iframe';
+
+        // Add CSRF token
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = '_token';
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+
+        // Add form data
+        Object.entries(sectionData).forEach(([key, value]) => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = key;
+            input.value = value?.toString() || '';
+            form.appendChild(input);
+        });
+
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
+
+        // Reset loading state after a delay
+        setTimeout(() => setIsGenerating(false), 2000);
+    };
+
+    // Filter sections based on selected academic level
+    useEffect(() => {
+        if (sectionData.academic_level_id) {
+            const levelId = parseInt(sectionData.academic_level_id);
+            const filtered = sections.filter(section => section.academic_level_id === levelId);
+            setFilteredSections(filtered);
+        } else {
+            setFilteredSections([]);
+        }
+    }, [sectionData.academic_level_id, sections]);
+
+    const filteredGradingPeriods = gradingPeriods.filter(period =>
         period.academic_level_id.toString() === gradeData.academic_level_id || gradeData.academic_level_id === 'all'
     );
 
@@ -323,7 +402,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
 
                         {/* Reports Tabs */}
                         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                            <TabsList className="grid w-full grid-cols-3">
+                            <TabsList className="grid w-full grid-cols-4">
                                 <TabsTrigger value="grade-reports" className="flex items-center gap-2">
                                     <FileText className="h-4 w-4" />
                                     Grade Reports
@@ -335,6 +414,10 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                 <TabsTrigger value="archiving" className="flex items-center gap-2">
                                     <Archive className="h-4 w-4" />
                                     Archiving
+                                </TabsTrigger>
+                                <TabsTrigger value="class-section-reports" className="flex items-center gap-2">
+                                    <Users className="h-4 w-4" />
+                                    Class Section Reports
                                 </TabsTrigger>
                             </TabsList>
 
@@ -715,6 +798,138 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                     <>
                                                         <Archive className="h-4 w-4 mr-2" />
                                                         Archive Records
+                                                    </>
+                                                )}
+                                            </Button>
+                                        </form>
+                                    </CardContent>
+                                </Card>
+                            </TabsContent>
+
+                            {/* Class Section Reports Tab */}
+                            <TabsContent value="class-section-reports" className="mt-6">
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <Users className="h-5 w-5" />
+                                            Generate Class Section Reports
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <form onSubmit={handleClassSectionReport} className="space-y-4">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="section_academic_level">Academic Level</Label>
+                                                    <Select
+                                                        value={sectionData.academic_level_id}
+                                                        onValueChange={(value) => {
+                                                            setSectionData('academic_level_id', value);
+                                                            setSectionData('section_id', 'all');
+                                                        }}
+                                                    >
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select academic level" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {academicLevels.map((level) => (
+                                                                <SelectItem key={level.id} value={level.id.toString()}>
+                                                                    {level.name}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="section">Section</Label>
+                                                    <Select
+                                                        value={sectionData.section_id}
+                                                        onValueChange={(value) => setSectionData('section_id', value)}
+                                                        disabled={!sectionData.academic_level_id}
+                                                    >
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder={sectionData.academic_level_id ? "All sections" : "Select level first"} />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="all">All Sections</SelectItem>
+                                                            {filteredSections.map((section) => (
+                                                                <SelectItem key={section.id} value={section.id.toString()}>
+                                                                    {section.name} {section.specific_year_level ? `(${section.specific_year_level})` : ''}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="section_school_year">School Year</Label>
+                                                    <Select
+                                                        value={sectionData.school_year}
+                                                        onValueChange={(value) => setSectionData('school_year', value)}
+                                                    >
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select school year" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {schoolYears.map((year) => (
+                                                                <SelectItem key={year} value={year}>
+                                                                    {year}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="section_format">Format</Label>
+                                                    <Select
+                                                        value={sectionData.format}
+                                                        onValueChange={(value) => setSectionData('format', value)}
+                                                    >
+                                                        <SelectTrigger>
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="pdf">
+                                                                <div className="flex items-center gap-2">
+                                                                    <FileText className="h-4 w-4" />
+                                                                    PDF
+                                                                </div>
+                                                            </SelectItem>
+                                                            <SelectItem value="excel">
+                                                                <div className="flex items-center gap-2">
+                                                                    <FileSpreadsheet className="h-4 w-4" />
+                                                                    Excel
+                                                                </div>
+                                                            </SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center space-x-2">
+                                                <Checkbox
+                                                    id="include_grades_section"
+                                                    checked={sectionData.include_grades}
+                                                    onCheckedChange={(checked) => setSectionData('include_grades', checked === true)}
+                                                />
+                                                <Label htmlFor="include_grades_section">Include student average grades in the report</Label>
+                                            </div>
+
+                                            <Button
+                                                type="submit"
+                                                disabled={sectionProcessing || !sectionData.academic_level_id || !sectionData.school_year || isGenerating}
+                                                className="w-full md:w-auto"
+                                            >
+                                                {sectionProcessing || isGenerating ? (
+                                                    <>
+                                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                                        Generating Report...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Download className="h-4 w-4 mr-2" />
+                                                        Generate Class Section Report
                                                     </>
                                                 )}
                                             </Button>

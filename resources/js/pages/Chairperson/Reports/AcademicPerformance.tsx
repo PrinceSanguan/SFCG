@@ -2,8 +2,8 @@ import { Header } from '@/components/admin/header';
 import { Sidebar } from '@/components/chairperson/sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Link, useForm } from '@inertiajs/react';
 import { ArrowLeft, TrendingUp, Download, BarChart } from 'lucide-react';
 
@@ -28,13 +28,35 @@ interface Filters {
     grading_period_id?: string;
 }
 
+interface AcademicLevel {
+    id: number;
+    name: string;
+    key: string;
+}
+
+interface GradingPeriod {
+    id: number;
+    name: string;
+    code: string;
+}
+
 interface AcademicPerformanceProps {
     user: User;
     performance: Performance;
     filters: Filters;
+    academicLevels: AcademicLevel[];
+    gradingPeriods: GradingPeriod[];
+    availableSchoolYears: string[];
 }
 
-export default function AcademicPerformance({ user, performance, filters }: AcademicPerformanceProps) {
+export default function AcademicPerformance({
+    user,
+    performance,
+    filters,
+    academicLevels,
+    gradingPeriods,
+    availableSchoolYears
+}: AcademicPerformanceProps) {
     if (!user) {
         return <div>Loading...</div>;
     }
@@ -86,33 +108,59 @@ export default function AcademicPerformance({ user, performance, filters }: Acad
                                 <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-3">
                                     <div>
                                         <Label htmlFor="school_year">School Year</Label>
-                                        <Input
-                                            id="school_year"
-                                            type="text"
+                                        <Select
                                             value={data.school_year}
-                                            onChange={(e) => setData('school_year', e.target.value)}
-                                            placeholder="e.g., 2024-2025"
-                                        />
+                                            onValueChange={(value) => setData('school_year', value)}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select school year" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {availableSchoolYears.map((year) => (
+                                                    <SelectItem key={year} value={year}>
+                                                        {year}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                     </div>
                                     <div>
                                         <Label htmlFor="academic_level_id">Academic Level</Label>
-                                        <Input
-                                            id="academic_level_id"
-                                            type="text"
+                                        <Select
                                             value={data.academic_level_id}
-                                            onChange={(e) => setData('academic_level_id', e.target.value)}
-                                            placeholder="Optional"
-                                        />
+                                            onValueChange={(value) => setData('academic_level_id', value)}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="All levels (optional)" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="">All Levels</SelectItem>
+                                                {academicLevels.map((level) => (
+                                                    <SelectItem key={level.id} value={level.id.toString()}>
+                                                        {level.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                     </div>
                                     <div>
                                         <Label htmlFor="grading_period_id">Grading Period</Label>
-                                        <Input
-                                            id="grading_period_id"
-                                            type="text"
+                                        <Select
                                             value={data.grading_period_id}
-                                            onChange={(e) => setData('grading_period_id', e.target.value)}
-                                            placeholder="Optional"
-                                        />
+                                            onValueChange={(value) => setData('grading_period_id', value)}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="All periods (optional)" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="">All Periods</SelectItem>
+                                                {gradingPeriods.map((period) => (
+                                                    <SelectItem key={period.id} value={period.id.toString()}>
+                                                        {period.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                     </div>
                                     <div className="md:col-span-3">
                                         <Button type="submit" disabled={processing}>

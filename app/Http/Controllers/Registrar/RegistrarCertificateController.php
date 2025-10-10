@@ -43,6 +43,7 @@ class RegistrarCertificateController extends Controller
             'student' => function ($query) {
                 $query->select('id', 'name', 'student_number', 'year_level', 'section_id');
             },
+            'student.section',
             'honorType',
             'academicLevel',
             'approvedBy'

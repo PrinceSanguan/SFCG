@@ -288,9 +288,10 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
     Route::delete('/sections/{section}', [\App\Http\Controllers\Admin\SectionController::class, 'destroy'])->name('sections.destroy');
     Route::get('/api/sections', [\App\Http\Controllers\Admin\SectionController::class, 'list'])->name('api.sections');
 
-    Route::get('/assign-instructors', [RegistrarAcademicController::class, 'assignInstructors'])->name('assign-instructors');
-    
-    // New Subject-Based Instructor Assignments
+    // Modern Subject-Based Instructor Assignments (default)
+    Route::get('/assign-instructors', [InstructorSubjectAssignmentController::class, 'index'])->name('assign-instructors');
+
+    // Alias route for backwards compatibility
     Route::get('/assign-instructors-subjects', [InstructorSubjectAssignmentController::class, 'index'])->name('assign-instructors-subjects');
     Route::post('/assign-instructors-subjects', [InstructorSubjectAssignmentController::class, 'store'])->name('assign-instructors-subjects.store');
     Route::put('/assign-instructors-subjects/{assignment}', [InstructorSubjectAssignmentController::class, 'update'])->name('assign-instructors-subjects.update');

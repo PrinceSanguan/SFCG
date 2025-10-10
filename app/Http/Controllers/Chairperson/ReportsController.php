@@ -56,6 +56,43 @@ class ReportsController extends Controller
         // Set default filters
         $defaultSchoolYear = date('Y') . '-' . (date('Y') + 1);
 
+        // Get College academic level (Chairperson only handles College)
+        $collegeLevel = AcademicLevel::where('key', 'college')->first();
+
+        // Get dropdown options
+        $academicLevels = AcademicLevel::where('is_active', true)
+            ->where('key', 'college')
+            ->orderBy('sort_order')
+            ->get(['id', 'name', 'key']);
+
+        $gradingPeriods = [];
+        if ($collegeLevel) {
+            $gradingPeriods = \App\Models\GradingPeriod::where('academic_level_id', $collegeLevel->id)
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->get(['id', 'name', 'code']);
+        }
+
+        // Get available school years from database
+        $availableSchoolYears = StudentGrade::whereHas('subject.course', function ($query) use ($departmentId) {
+                $query->where('department_id', $departmentId);
+            })
+            ->distinct()
+            ->pluck('school_year')
+            ->sort()
+            ->values()
+            ->toArray();
+
+        // If no school years in database, provide current and nearby years
+        if (empty($availableSchoolYears)) {
+            $currentYear = date('Y');
+            $availableSchoolYears = [
+                ($currentYear - 1) . '-' . $currentYear,
+                $currentYear . '-' . ($currentYear + 1),
+                ($currentYear + 1) . '-' . ($currentYear + 2),
+            ];
+        }
+
         // Handle GET request (show form with actual data using current school year)
         if ($request->isMethod('get')) {
             $defaultFilters = [
@@ -85,6 +122,9 @@ class ReportsController extends Controller
                 'user' => $user,
                 'performance' => $performance,
                 'filters' => $defaultFilters,
+                'academicLevels' => $academicLevels,
+                'gradingPeriods' => $gradingPeriods,
+                'availableSchoolYears' => $availableSchoolYears,
             ]);
         }
 
@@ -123,6 +163,9 @@ class ReportsController extends Controller
             'user' => $user,
             'performance' => $performance,
             'filters' => $validated,
+            'academicLevels' => $academicLevels,
+            'gradingPeriods' => $gradingPeriods,
+            'availableSchoolYears' => $availableSchoolYears,
         ]);
     }
     

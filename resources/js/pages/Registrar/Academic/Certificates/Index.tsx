@@ -37,12 +37,19 @@ interface Template {
     is_active: boolean;
 }
 
+interface Section {
+    id: number;
+    name: string;
+    code?: string;
+}
+
 interface Student {
     id: number;
     name: string;
     student_number?: string;
     year_level?: string;
     section_id?: number;
+    section?: Section;
 }
 
 interface HonorResult {
@@ -56,6 +63,7 @@ interface HonorResult {
     approved_at?: string;
     year_level?: string;
     section_id?: number;
+    section?: Section;
 }
 
 interface Certificate {
@@ -529,7 +537,7 @@ export default function CertificatesIndex({
                                                                     {honor.year_level || honor.student.year_level || 'N/A'}
                                                                 </TableCell>
                                                                 <TableCell>
-                                                                    {honor.section_id || honor.student.section_id || 'N/A'}
+                                                                    {honor.section?.name || honor.student.section?.name || 'N/A'}
                                                                 </TableCell>
                                                                 <TableCell>
                                                                     <Badge variant="secondary">

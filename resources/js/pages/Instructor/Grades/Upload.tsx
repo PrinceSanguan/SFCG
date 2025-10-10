@@ -21,6 +21,7 @@ interface GradingPeriod {
     name: string;
     code: string;
     academic_level_id: number;
+    sort_order: number;
 }
 
 interface Subject {
@@ -96,22 +97,13 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         if (!selectedFile) {
             return;
         }
 
         setIsUploading(true);
         setUploadProgress(0);
-
-        // Create FormData for file upload
-        const formData = new FormData();
-        formData.append('csv_file', selectedFile);
-        formData.append('subject_id', data.subject_id);
-        formData.append('academic_level_id', data.academic_level_id);
-        formData.append('grading_period_id', data.grading_period_id || '');
-        formData.append('school_year', data.school_year);
-        formData.append('year_of_study', data.year_of_study || '');
 
         // Simulate upload progress
         const progressInterval = setInterval(() => {
@@ -124,9 +116,12 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
             });
         }, 200);
 
+        // Inertia will automatically convert form data with files to FormData
         post(route('instructor.grades.upload.store'), {
-            data: formData,
+            preserveScroll: true,
+            forceFormData: true,
             onSuccess: () => {
+                clearInterval(progressInterval);
                 setUploadProgress(100);
                 setTimeout(() => {
                     setIsUploading(false);
@@ -139,6 +134,7 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
                 }, 1000);
             },
             onError: () => {
+                clearInterval(progressInterval);
                 setIsUploading(false);
                 setUploadProgress(0);
             },

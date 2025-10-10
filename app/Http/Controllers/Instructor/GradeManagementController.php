@@ -512,6 +512,7 @@ class GradeManagementController extends Controller
                 'name' => $student->name,
                 'email' => $student->email,
                 'student_number' => $student->student_number,
+                'parents' => $student->parents,
             ],
             'subject' => [
                 'id' => $subject->id,
@@ -530,6 +531,7 @@ class GradeManagementController extends Controller
             ],
             'grades' => $grades,
             'gradingPeriods' => $gradingPeriods,
+            'assignmentSchoolYear' => $assignment->school_year,
         ]);
     }
 
