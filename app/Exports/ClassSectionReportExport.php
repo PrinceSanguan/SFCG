@@ -57,14 +57,16 @@ class SectionOverviewSheet implements FromCollection, WithHeadings, WithMapping,
 
     public function headings(): array
     {
+        $isSeniorHighSchool = $this->academicLevel->key === 'senior_highschool';
+
         return [
             'Section Name',
             'Year Level',
             'Current Enrollment',
             'Max Capacity',
             'Capacity %',
-            'Course',
-            'Department',
+            $isSeniorHighSchool ? 'Academic Strand' : 'Course',
+            $isSeniorHighSchool ? 'Track' : 'Department',
             'School Year',
         ];
     }
@@ -72,14 +74,16 @@ class SectionOverviewSheet implements FromCollection, WithHeadings, WithMapping,
     public function map($sectionData): array
     {
         $section = $sectionData['section'];
+        $isSeniorHighSchool = $this->academicLevel->key === 'senior_highschool';
+
         return [
             $section->name,
             $section->specific_year_level ?? 'N/A',
             $sectionData['enrollment_count'],
             $section->max_students ?? 'N/A',
             number_format($sectionData['capacity_percentage'], 1) . '%',
-            $section->course->name ?? 'N/A',
-            $section->department->name ?? 'N/A',
+            $isSeniorHighSchool ? ($section->strand->name ?? 'N/A') : ($section->course->name ?? 'N/A'),
+            $isSeniorHighSchool ? ($section->track->name ?? 'N/A') : ($section->department->name ?? 'N/A'),
             $this->filters['school_year'],
         ];
     }

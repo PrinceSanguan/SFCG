@@ -851,7 +851,12 @@ class UserManagementController extends Controller
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
         ];
 
-        $columns = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'strand_name', 'department_name', 'course_name', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
+        // Use different columns for Senior High School
+        if ($academicLevel === 'senior_highschool') {
+            $columns = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'academic_strand', 'track', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
+        } else {
+            $columns = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'strand_name', 'department_name', 'course_name', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
+        }
 
         $sampleRows = [];
 
@@ -909,21 +914,21 @@ class UserManagementController extends Controller
         }
 
         if (!$academicLevel || $academicLevel === 'senior_highschool') {
-            $strand = \App\Models\Strand::first();
+            $strand = \App\Models\Strand::with('track')->first();
             $shsSection = \App\Models\Section::whereHas('academicLevel', function($q) {
                 $q->where('key', 'senior_highschool');
             })->first();
 
+            // Different columns for SHS: academic_strand, track (no department_name, course_name)
             $sampleRows[] = [
                 'Pedro Garcia',
                 'pedro.garcia@example.com',
                 'password123',
                 'senior_highschool',
                 'grade_11',
-                $strand ? $strand->name : '',
-                '',
-                '',
-                $shsSection ? $shsSection->name : '',
+                $strand ? $strand->name : '',  // academic_strand
+                $strand && $strand->track ? $strand->track->name : '',  // track
+                $shsSection ? $shsSection->name : '',  // section_name
                 'SHS-2025-000003',
                 '2008-03-10',
                 'male',
@@ -1004,12 +1009,19 @@ class UserManagementController extends Controller
         $errors = [];
         $lineNumber = 1; // Start at 1 since header is line 0
 
-        $expected = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'strand_name', 'department_name', 'course_name', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
+        // Different expected columns for Senior High School
+        if ($expectedAcademicLevel === 'senior_highschool') {
+            $expected = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'academic_strand', 'track', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
+            $expectedColumnsString = 'name,email,password,academic_level,specific_year_level,academic_strand,track,section_name,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship';
+        } else {
+            $expected = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'strand_name', 'department_name', 'course_name', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
+            $expectedColumnsString = 'name,email,password,academic_level,specific_year_level,strand_name,department_name,course_name,section_name,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship';
+        }
 
         // Validate header format
         if (!$header || array_map('strtolower', $header) !== $expected) {
             fclose($handle);
-            return back()->with('error', 'Invalid CSV format. Expected columns: name,email,password,academic_level,specific_year_level,strand_name,department_name,course_name,section_name,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship');
+            return back()->with('error', 'Invalid CSV format. Expected columns: ' . $expectedColumnsString);
         }
 
         while (($row = fgetcsv($handle)) !== false) {
@@ -1025,7 +1037,15 @@ class UserManagementController extends Controller
                 continue;
             }
 
-            [$name, $email, $password, $academicLevel, $specificYearLevel, $strandName, $departmentName, $courseName, $sectionName, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship] = $row;
+            // Parse row based on academic level
+            if ($expectedAcademicLevel === 'senior_highschool') {
+                [$name, $email, $password, $academicLevel, $specificYearLevel, $strandName, $trackName, $sectionName, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship] = $row;
+                $departmentName = '';
+                $courseName = '';
+            } else {
+                [$name, $email, $password, $academicLevel, $specificYearLevel, $strandName, $departmentName, $courseName, $sectionName, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship] = $row;
+                $trackName = '';
+            }
 
             // Validate academic level matches expected level if provided
             if ($expectedAcademicLevel && $academicLevel !== $expectedAcademicLevel) {
@@ -1043,17 +1063,45 @@ class UserManagementController extends Controller
             $courseId = null;
             $sectionId = null;
 
+            // Handle strand lookup differently for SHS (needs track)
             if (!empty($strandName)) {
-                $strand = \App\Models\Strand::where('name', $strandName)->first();
-                if (!$strand) {
-                    $errors[] = [
-                        'line' => $lineNumber,
-                        'email' => $email,
-                        'errors' => ['Strand "' . $strandName . '" not found. Please check the strand name.'],
-                    ];
-                    continue;
+                if ($expectedAcademicLevel === 'senior_highschool' && !empty($trackName)) {
+                    // For SHS, find strand by name and track
+                    $track = \App\Models\Track::where('name', $trackName)->first();
+                    if (!$track) {
+                        $errors[] = [
+                            'line' => $lineNumber,
+                            'email' => $email,
+                            'errors' => ['Track "' . $trackName . '" not found. Please check the track name.'],
+                        ];
+                        continue;
+                    }
+
+                    $strand = \App\Models\Strand::where('name', $strandName)
+                        ->where('track_id', $track->id)
+                        ->first();
+                    if (!$strand) {
+                        $errors[] = [
+                            'line' => $lineNumber,
+                            'email' => $email,
+                            'errors' => ['Academic Strand "' . $strandName . '" not found for Track "' . $trackName . '". Please check the strand and track names.'],
+                        ];
+                        continue;
+                    }
+                    $strandId = $strand->id;
+                } else {
+                    // For other levels, just find by strand name
+                    $strand = \App\Models\Strand::where('name', $strandName)->first();
+                    if (!$strand) {
+                        $errors[] = [
+                            'line' => $lineNumber,
+                            'email' => $email,
+                            'errors' => ['Strand "' . $strandName . '" not found. Please check the strand name.'],
+                        ];
+                        continue;
+                    }
+                    $strandId = $strand->id;
                 }
-                $strandId = $strand->id;
             }
 
             if (!empty($departmentName)) {
