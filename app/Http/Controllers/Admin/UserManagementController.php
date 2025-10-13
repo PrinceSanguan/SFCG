@@ -851,10 +851,15 @@ class UserManagementController extends Controller
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
         ];
 
-        // Use different columns for Senior High School
+        // Use different columns based on academic level
         if ($academicLevel === 'senior_highschool') {
             $columns = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'academic_strand', 'track', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
+        } elseif ($academicLevel === 'college') {
+            $columns = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'department_name', 'course_name', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
+        } elseif ($academicLevel === 'elementary' || $academicLevel === 'junior_highschool') {
+            $columns = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
         } else {
+            // Default for when no academic level is specified
             $columns = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'strand_name', 'department_name', 'course_name', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
         }
 
@@ -866,25 +871,46 @@ class UserManagementController extends Controller
                 $q->where('key', 'elementary');
             })->first();
 
-            $sampleRows[] = [
-                'Juan Dela Cruz',
-                'juan.delacruz@example.com',
-                'password123',
-                'elementary',
-                'grade_1',
-                '',
-                '',
-                '',
-                $elementarySection ? $elementarySection->name : '',
-                'EL-2025-000001',
-                '2018-01-15',
-                'male',
-                '09123456789',
-                '123 Main Street, Barangay 1',
-                'Pedro Dela Cruz',
-                '09123456788',
-                'father'
-            ];
+            // Elementary uses simplified template with only specific_year_level
+            if ($academicLevel === 'elementary') {
+                $sampleRows[] = [
+                    'Juan Dela Cruz',
+                    'juan.delacruz@example.com',
+                    'password123',
+                    'elementary',
+                    'grade_1',
+                    $elementarySection ? $elementarySection->name : '',
+                    'EL-2025-000001',
+                    '2018-01-15',
+                    'male',
+                    '09123456789',
+                    '123 Main Street, Barangay 1',
+                    'Pedro Dela Cruz',
+                    '09123456788',
+                    'father'
+                ];
+            } else {
+                // When no specific academic level, use full template with empty fields
+                $sampleRows[] = [
+                    'Juan Dela Cruz',
+                    'juan.delacruz@example.com',
+                    'password123',
+                    'elementary',
+                    'grade_1',
+                    '',
+                    '',
+                    '',
+                    $elementarySection ? $elementarySection->name : '',
+                    'EL-2025-000001',
+                    '2018-01-15',
+                    'male',
+                    '09123456789',
+                    '123 Main Street, Barangay 1',
+                    'Pedro Dela Cruz',
+                    '09123456788',
+                    'father'
+                ];
+            }
         }
 
         if (!$academicLevel || $academicLevel === 'junior_highschool') {
@@ -892,25 +918,46 @@ class UserManagementController extends Controller
                 $q->where('key', 'junior_highschool');
             })->first();
 
-            $sampleRows[] = [
-                'Maria Santos',
-                'maria.santos@example.com',
-                'password123',
-                'junior_highschool',
-                'first_year',
-                '',
-                '',
-                '',
-                $jhsSection ? $jhsSection->name : '',
-                'JHS-2025-000002',
-                '2010-05-20',
-                'female',
-                '09123456790',
-                '456 Oak Avenue, Barangay 2',
-                'Juan Santos',
-                '09123456791',
-                'father'
-            ];
+            // JHS uses simplified template with only specific_year_level
+            if ($academicLevel === 'junior_highschool') {
+                $sampleRows[] = [
+                    'Maria Santos',
+                    'maria.santos@example.com',
+                    'password123',
+                    'junior_highschool',
+                    'grade_7',
+                    $jhsSection ? $jhsSection->name : '',
+                    'JHS-2025-000002',
+                    '2010-05-20',
+                    'female',
+                    '09123456790',
+                    '456 Oak Avenue, Barangay 2',
+                    'Juan Santos',
+                    '09123456791',
+                    'father'
+                ];
+            } else {
+                // When no specific academic level, use full template with empty fields
+                $sampleRows[] = [
+                    'Maria Santos',
+                    'maria.santos@example.com',
+                    'password123',
+                    'junior_highschool',
+                    'grade_7',
+                    '',
+                    '',
+                    '',
+                    $jhsSection ? $jhsSection->name : '',
+                    'JHS-2025-000002',
+                    '2010-05-20',
+                    'female',
+                    '09123456790',
+                    '456 Oak Avenue, Barangay 2',
+                    'Juan Santos',
+                    '09123456791',
+                    'father'
+                ];
+            }
         }
 
         if (!$academicLevel || $academicLevel === 'senior_highschool') {
@@ -947,13 +994,13 @@ class UserManagementController extends Controller
                 $q->where('key', 'college');
             })->first();
 
+            // College template: no strand_name, only department_name and course_name
             $sampleRows[] = [
                 'Ana Rodriguez',
                 'ana.rodriguez@example.com',
                 'password123',
                 'college',
-                '',
-                '',
+                'first_year',
                 $department ? $department->name : '',
                 $course ? $course->name : '',
                 $collegeSection ? $collegeSection->name : '',
@@ -1009,11 +1056,18 @@ class UserManagementController extends Controller
         $errors = [];
         $lineNumber = 1; // Start at 1 since header is line 0
 
-        // Different expected columns for Senior High School
+        // Different expected columns based on academic level
         if ($expectedAcademicLevel === 'senior_highschool') {
             $expected = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'academic_strand', 'track', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
             $expectedColumnsString = 'name,email,password,academic_level,specific_year_level,academic_strand,track,section_name,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship';
+        } elseif ($expectedAcademicLevel === 'college') {
+            $expected = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'department_name', 'course_name', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
+            $expectedColumnsString = 'name,email,password,academic_level,specific_year_level,department_name,course_name,section_name,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship';
+        } elseif ($expectedAcademicLevel === 'elementary' || $expectedAcademicLevel === 'junior_highschool') {
+            $expected = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
+            $expectedColumnsString = 'name,email,password,academic_level,specific_year_level,section_name,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship';
         } else {
+            // Default for when no academic level is specified
             $expected = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'strand_name', 'department_name', 'course_name', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
             $expectedColumnsString = 'name,email,password,academic_level,specific_year_level,strand_name,department_name,course_name,section_name,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship';
         }
@@ -1042,7 +1096,18 @@ class UserManagementController extends Controller
                 [$name, $email, $password, $academicLevel, $specificYearLevel, $strandName, $trackName, $sectionName, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship] = $row;
                 $departmentName = '';
                 $courseName = '';
+            } elseif ($expectedAcademicLevel === 'college') {
+                [$name, $email, $password, $academicLevel, $specificYearLevel, $departmentName, $courseName, $sectionName, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship] = $row;
+                $strandName = '';
+                $trackName = '';
+            } elseif ($expectedAcademicLevel === 'elementary' || $expectedAcademicLevel === 'junior_highschool') {
+                [$name, $email, $password, $academicLevel, $specificYearLevel, $sectionName, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship] = $row;
+                $strandName = '';
+                $departmentName = '';
+                $courseName = '';
+                $trackName = '';
             } else {
+                // Default for when no academic level is specified
                 [$name, $email, $password, $academicLevel, $specificYearLevel, $strandName, $departmentName, $courseName, $sectionName, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship] = $row;
                 $trackName = '';
             }
@@ -1296,7 +1361,7 @@ class UserManagementController extends Controller
     public function editByRole(User $user)
     {
         $role = $this->getRoleFromRoute();
-        
+
         // Ensure the user has the correct role
         if ($user->user_role !== $role) {
             abort(404);
@@ -1304,14 +1369,24 @@ class UserManagementController extends Controller
 
         $folderName = $this->getRoleFolderName($role);
 
-        return Inertia::render('Admin/AccountManagement/' . $folderName . '/Edit', [
+        $data = [
             'user' => Auth::user(),
             'targetUser' => $user,
             'roles' => User::getAvailableRoles(),
             'yearLevels' => User::getYearLevels(),
             'role' => $role,
             'roleDisplayName' => User::getAvailableRoles()[$role] ?? ucfirst($role),
-        ]);
+        ];
+
+        // Add additional data for student editing (same as create form)
+        if ($role === 'student') {
+            $data['specificYearLevels'] = User::getSpecificYearLevels();
+            $data['strands'] = \App\Models\Strand::with('track')->where('is_active', true)->get();
+            $data['departments'] = \App\Models\Department::where('is_active', true)->get();
+            $data['courses'] = \App\Models\Course::where('is_active', true)->get();
+        }
+
+        return Inertia::render('Admin/AccountManagement/' . $folderName . '/Edit', $data);
     }
 
     /**
@@ -1320,7 +1395,7 @@ class UserManagementController extends Controller
     public function updateByRole(Request $request, User $user)
     {
         $role = $this->getRoleFromRoute();
-        
+
         // Ensure the user has the correct role
         if ($user->user_role !== $role) {
             abort(404);
@@ -1330,8 +1405,36 @@ class UserManagementController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
             'user_role' => 'required|in:admin,registrar,instructor,teacher,adviser,chairperson,principal,student,parent',
-            'year_level' => 'required_if:user_role,student,principal|string|in:elementary,junior_highschool,senior_highschool,college|nullable',
+            'academic_level' => 'required_if:user_role,student|string|in:elementary,junior_highschool,senior_highschool,college|nullable',
+            'specific_year_level' => 'nullable|string',
+            'year_level' => 'required_if:user_role,principal|string|in:elementary,junior_highschool,senior_highschool|nullable',
+            'strand_id' => 'nullable|exists:strands,id',
+            'course_id' => 'nullable|exists:courses,id',
+            'department_id' => 'nullable|exists:departments,id',
+            'section_id' => 'nullable|exists:sections,id',
+            'student_number' => 'nullable|string|max:40|unique:users,student_number,' . $user->id,
+            // Personal Information validation
+            'birth_date' => 'nullable|date|before:today',
+            'gender' => 'nullable|in:male,female,other',
+            'phone_number' => 'nullable|string|max:20',
+            'address' => 'nullable|string|max:500',
+            'emergency_contact_name' => 'nullable|string|max:255',
+            'emergency_contact_phone' => 'nullable|string|max:20',
+            'emergency_contact_relationship' => 'nullable|string|max:50',
         ]);
+
+        // Additional validation for strands, courses, and departments
+        if ($role === 'student') {
+            if ($request->academic_level === 'senior_highschool' && !$request->strand_id) {
+                $validator->errors()->add('strand_id', 'Strand is required for Senior High School students.');
+            }
+            if ($request->academic_level === 'college' && !$request->department_id) {
+                $validator->errors()->add('department_id', 'Department is required for College students.');
+            }
+            if ($request->academic_level === 'college' && !$request->course_id) {
+                $validator->errors()->add('course_id', 'Course is required for College students.');
+            }
+        }
 
         // Principal must have academic level and it cannot be college
         if ($request->user_role === 'principal' && $request->year_level === 'college') {
@@ -1344,12 +1447,33 @@ class UserManagementController extends Controller
 
         $originalData = $user->toArray();
 
-        $user->update([
+        $updateData = [
             'name' => $request->name,
             'email' => $request->email,
             'user_role' => $request->user_role,
-            'year_level' => in_array($request->user_role, ['student', 'principal']) ? $request->year_level : null,
-        ]);
+        ];
+
+        // Add student-specific fields
+        if ($role === 'student') {
+            $updateData['year_level'] = $request->academic_level;
+            $updateData['specific_year_level'] = $request->specific_year_level;
+            $updateData['strand_id'] = $request->strand_id;
+            $updateData['course_id'] = $request->course_id;
+            $updateData['department_id'] = $request->department_id;
+            $updateData['section_id'] = $request->section_id;
+            $updateData['student_number'] = $request->student_number;
+            $updateData['birth_date'] = $request->birth_date;
+            $updateData['gender'] = $request->gender;
+            $updateData['phone_number'] = $request->phone_number;
+            $updateData['address'] = $request->address;
+            $updateData['emergency_contact_name'] = $request->emergency_contact_name;
+            $updateData['emergency_contact_phone'] = $request->emergency_contact_phone;
+            $updateData['emergency_contact_relationship'] = $request->emergency_contact_relationship;
+        } elseif ($role === 'principal') {
+            $updateData['year_level'] = $request->year_level;
+        }
+
+        $user->update($updateData);
 
         // Log the activity
         $currentUser = Auth::user();

@@ -345,7 +345,24 @@ export default function ViewStudent({ user, targetUser, activityLogs, assignedSu
                                                 <School className="h-5 w-5 text-gray-500" />
                                                 <div>
                                                     <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Year Level</p>
-                                                    <p className="text-sm capitalize">{targetUser.specific_year_level.replace('_', ' ')}</p>
+                                                    <p className="text-sm capitalize">
+                                                        {(() => {
+                                                            const yearLevelMap: Record<string, string> = {
+                                                                // Elementary
+                                                                'grade_1': 'Grade 1', 'grade_2': 'Grade 2', 'grade_3': 'Grade 3',
+                                                                'grade_4': 'Grade 4', 'grade_5': 'Grade 5', 'grade_6': 'Grade 6',
+                                                                // Junior High School
+                                                                'grade_7': 'Grade 7', 'grade_8': 'Grade 8',
+                                                                'grade_9': 'Grade 9', 'grade_10': 'Grade 10',
+                                                                // Senior High School
+                                                                'grade_11': 'Grade 11', 'grade_12': 'Grade 12',
+                                                                // College
+                                                                'first_year': '1st Year', 'second_year': '2nd Year',
+                                                                'third_year': '3rd Year', 'fourth_year': '4th Year',
+                                                            };
+                                                            return yearLevelMap[targetUser.specific_year_level] || targetUser.specific_year_level.replace('_', ' ');
+                                                        })()}
+                                                    </p>
                                                 </div>
                                             </div>
                                         )}
