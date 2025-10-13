@@ -1260,17 +1260,53 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                                 </span>
                                                             </td>
                                                             <td className="p-3">
-                                                                {subject.academic_level.key === 'elementary' && subject.grade_levels && subject.grade_levels.length > 0 ? (
-                                                                    <div className="flex flex-wrap gap-1">
-                                                                        {subject.grade_levels.map((grade) => (
-                                                                            <Badge key={grade} variant="secondary" className="text-xs">
-                                                                                {elementaryGradeLevels.find(g => g.value === grade)?.label || grade}
+                                                                {(() => {
+                                                                    // Elementary subjects
+                                                                    if (subject.academic_level.key === 'elementary' && subject.grade_levels && subject.grade_levels.length > 0) {
+                                                                        return (
+                                                                            <div className="flex flex-wrap gap-1">
+                                                                                {subject.grade_levels.map((grade) => (
+                                                                                    <Badge key={grade} variant="secondary" className="text-xs">
+                                                                                        {elementaryGradeLevels.find(g => g.value === grade)?.label || grade}
+                                                                                    </Badge>
+                                                                                ))}
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    // Junior High School subjects
+                                                                    if (subject.academic_level.key === 'junior_highschool' && subject.jhs_year_level) {
+                                                                        const jhsLabels: Record<string, string> = {
+                                                                            'grade_7': 'Grade 7',
+                                                                            'grade_8': 'Grade 8',
+                                                                            'grade_9': 'Grade 9',
+                                                                            'grade_10': 'Grade 10'
+                                                                        };
+                                                                        return (
+                                                                            <Badge variant="secondary" className="text-xs">
+                                                                                {jhsLabels[subject.jhs_year_level] || subject.jhs_year_level}
                                                                             </Badge>
-                                                                        ))}
-                                                                    </div>
-                                                                ) : (
-                                                                    <span className="text-gray-400">-</span>
-                                                                )}
+                                                                        );
+                                                                    }
+                                                                    // Senior High School subjects
+                                                                    if (subject.academic_level.key === 'senior_highschool' && subject.shs_year_level) {
+                                                                        const shsLabels = shsYearLevels;
+                                                                        return (
+                                                                            <Badge variant="secondary" className="text-xs">
+                                                                                {shsLabels[subject.shs_year_level] || subject.shs_year_level}
+                                                                            </Badge>
+                                                                        );
+                                                                    }
+                                                                    // College subjects
+                                                                    if (subject.academic_level.key === 'college' && subject.year_level) {
+                                                                        const collegeLabels = yearLevels;
+                                                                        return (
+                                                                            <Badge variant="secondary" className="text-xs">
+                                                                                {collegeLabels[subject.year_level] || subject.year_level}
+                                                                            </Badge>
+                                                                        );
+                                                                    }
+                                                                    return <span className="text-gray-400">-</span>;
+                                                                })()}
                                                             </td>
                                                             <td className="p-3">
                                                                 {subject.grading_periods && subject.grading_periods.length > 0 ? (

@@ -82,6 +82,18 @@ interface TeacherSubjectAssignment {
     strand?: Strand | null;
 }
 
+interface Section {
+    id: number;
+    name: string;
+    academic_level_id: number;
+    specific_year_level?: string;
+    track_id?: number;
+    strand_id?: number;
+    department_id?: number;
+    course_id?: number;
+    max_students?: number;
+}
+
 interface Props {
     user: User;
     assignments: TeacherSubjectAssignment[];
@@ -93,6 +105,7 @@ interface Props {
     tracks: Track[];
     departments: Department[];
     courses: Course[];
+    sections: Section[];
 }
 
 interface Department {
@@ -119,7 +132,7 @@ interface Course {
     updated_at: string;
 }
 
-export default function AssignTeachers({ user, assignments, teachers, subjects, gradingPeriods, academicLevels, strands, tracks = [], departments = [], courses = [] }: Props) {
+export default function AssignTeachers({ user, assignments, teachers, subjects, gradingPeriods, academicLevels, strands, tracks = [], departments = [], courses = [], sections = [] }: Props) {
     const { addToast } = useToast();
     const { props } = usePage<any>();
 
@@ -143,6 +156,7 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
         grade_level: '',
         track_id: '',
         strand_id: '',
+        section_id: '',
         department_id: '',
         course_id: '',
         semester_ids: [] as string[],
@@ -156,6 +170,7 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
     const [editAssignment, setEditAssignment] = useState<TeacherSubjectAssignment | null>(null);
     const [editModal, setEditModal] = useState(false);
     const [filteredStrands, setFilteredStrands] = useState<Strand[]>([]);
+    const [filteredSections, setFilteredSections] = useState<Section[]>([]);
     const [filteredSubjects, setFilteredSubjects] = useState<Subject[]>([]);
     const [filteredCourses, setFilteredCourses] = useState<Course[]>([]);
     const [filteredGradingPeriods, setFilteredGradingPeriods] = useState<GradingPeriod[]>([]);
@@ -311,9 +326,11 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
             grade_level: assignment.grade_level || '',
             strand_id: assignment.strand ? assignment.strand.id.toString() : '',
             track_id: assignment.strand && assignment.strand.track_id ? assignment.strand.track_id.toString() : '',
+            section_id: '',
             department_id: '',
             course_id: '',
-            grading_period_id: assignment.grading_period_id?.toString() || '',
+            semester_ids: [],
+            grading_period_ids: assignment.grading_period_id ? [assignment.grading_period_id.toString()] : [],
             school_year: assignment.school_year,
             notes: assignment.notes || '',
             is_active: assignment.is_active,
@@ -345,6 +362,7 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
             grade_level: '',
             track_id: '',
             strand_id: '',
+            section_id: '',
             department_id: '',
             course_id: '',
             semester_ids: [],
@@ -354,6 +372,7 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
             is_active: true,
         });
         setFilteredStrands([]);
+        setFilteredSections([]);
         setFilteredSubjects([]);
         setFilteredCourses([]);
         setFilteredGradingPeriods([]);
@@ -509,13 +528,16 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                                         <Select
                                             value={assignmentForm.strand_id}
                                             onValueChange={(value) => {
-                                                setAssignmentForm({ ...assignmentForm, strand_id: value, subject_id: '' });
-                                                const filtered = subjects.filter(s => {
-                                                    const matchesStrand = s.strand_id === parseInt(value);
-                                                    const isGeneral = s.strand_id == null;
-                                                    return matchesStrand || isGeneral;
-                                                });
-                                                setFilteredSubjects(filtered);
+                                                setAssignmentForm({ ...assignmentForm, strand_id: value, section_id: '', subject_id: '' });
+                                                // Filter sections by SHS level, track, strand, and grade level
+                                                const filtered = sections.filter(s =>
+                                                    s.academic_level_id === shsLevel?.id &&
+                                                    s.track_id?.toString() === assignmentForm.track_id &&
+                                                    s.strand_id?.toString() === value &&
+                                                    s.specific_year_level === assignmentForm.grade_level
+                                                );
+                                                setFilteredSections(filtered);
+                                                setFilteredSubjects([]);
                                             }}
                                             disabled={!assignmentForm.track_id}
                                         >
@@ -533,12 +555,41 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                                     </div>
 
                                     <div>
+                                        <Label htmlFor="section_id">Section</Label>
+                                        <Select
+                                            value={assignmentForm.section_id}
+                                            onValueChange={(value) => {
+                                                setAssignmentForm({ ...assignmentForm, section_id: value, subject_id: '' });
+                                                // Filter subjects by strand
+                                                const filtered = subjects.filter(s => {
+                                                    const matchesStrand = s.strand_id === parseInt(assignmentForm.strand_id);
+                                                    const isGeneral = s.strand_id == null;
+                                                    return matchesStrand || isGeneral;
+                                                });
+                                                setFilteredSubjects(filtered);
+                                            }}
+                                            disabled={!assignmentForm.strand_id}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select section" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {filteredSections.map((section) => (
+                                                    <SelectItem key={section.id} value={section.id.toString()}>
+                                                        {section.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div>
                                         <Label htmlFor="subject_id">Subject</Label>
                                         <Select
                                             value={assignmentForm.subject_id}
                                             onValueChange={(value) => setAssignmentForm({ ...assignmentForm, subject_id: value })}
                                             required
-                                            disabled={!assignmentForm.strand_id}
+                                            disabled={!assignmentForm.section_id}
                                         >
                                             <SelectTrigger>
                                                 <SelectValue placeholder="Select subject" />
@@ -988,23 +1039,42 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                         </div>
 
                         <div>
-                            <Label htmlFor="edit_grading_period_id">Grading Period</Label>
-                            <Select
-                                value={assignmentForm.grading_period_id || 'none'}
-                                onValueChange={(value) => setAssignmentForm({ ...assignmentForm, grading_period_id: value === 'none' ? '' : value })}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select grading period (optional)" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="none">No grading period</SelectItem>
-                                    {filteredGradingPeriods.filter(p => p.parent_id !== null).map((period) => (
-                                        <SelectItem key={period.id} value={period.id.toString()}>
-                                            {period.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <Label htmlFor="edit_grading_periods">Grading Periods</Label>
+                            <div className="border rounded-lg p-3">
+                                {filteredGradingPeriods.filter(p => p.parent_id !== null).length > 0 ? (
+                                    <div className="space-y-2">
+                                        {filteredGradingPeriods.filter(p => p.parent_id !== null).map((period) => (
+                                            <div key={period.id} className="flex items-center space-x-2">
+                                                <input
+                                                    type="checkbox"
+                                                    id={`edit-period-${period.id}`}
+                                                    checked={assignmentForm.grading_period_ids.includes(period.id.toString())}
+                                                    onChange={(e) => {
+                                                        const periodId = period.id.toString();
+                                                        if (e.target.checked) {
+                                                            setAssignmentForm({
+                                                                ...assignmentForm,
+                                                                grading_period_ids: [...assignmentForm.grading_period_ids, periodId]
+                                                            });
+                                                        } else {
+                                                            setAssignmentForm({
+                                                                ...assignmentForm,
+                                                                grading_period_ids: assignmentForm.grading_period_ids.filter(id => id !== periodId)
+                                                            });
+                                                        }
+                                                    }}
+                                                    className="w-4 h-4 rounded border-gray-300"
+                                                />
+                                                <Label htmlFor={`edit-period-${period.id}`} className="text-sm font-normal cursor-pointer">
+                                                    {period.name}
+                                                </Label>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-gray-500">No grading periods available</p>
+                                )}
+                            </div>
                         </div>
 
                         <div>

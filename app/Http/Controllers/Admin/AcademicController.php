@@ -168,7 +168,8 @@ class AcademicController extends Controller
         $tracks = Track::where('is_active', true)->orderBy('name')->get();
         $departments = Department::where('is_active', true)->orderBy('name')->get();
         $courses = Course::where('is_active', true)->with('department')->orderBy('name')->get();
-        
+        $sections = Section::with('academicLevel')->orderBy('name')->get();
+
         return Inertia::render('Admin/Academic/AssignTeachers', [
             'user' => $this->sharedUser(),
             'assignments' => $assignments,
@@ -180,6 +181,7 @@ class AcademicController extends Controller
             'tracks' => $tracks,
             'departments' => $departments,
             'courses' => $courses,
+            'sections' => $sections,
         ]);
     }
 
