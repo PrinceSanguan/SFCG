@@ -31,10 +31,14 @@ interface AcademicLevel {
     key: string; 
 }
 
-interface GradingPeriod { 
-    id: number; 
-    name: string; 
-    academic_level_id: number; 
+interface GradingPeriod {
+    id: number;
+    name: string;
+    code: string;
+    academic_level_id: number;
+    sort_order: number;
+    parent_id?: number | null;
+    type?: string;
 }
 
 interface HonorType {
@@ -105,7 +109,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
         academic_level_id: '',
         section_id: 'all',
         school_year: schoolYears[0] || '',
-        include_grades: false,
+        include_grades: false as boolean,
         format: 'pdf',
     });
 
@@ -320,9 +324,32 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
         }
     }, [sectionData.academic_level_id, sections]);
 
-    const filteredGradingPeriods = gradingPeriods.filter(period =>
-        period.academic_level_id.toString() === gradeData.academic_level_id || gradeData.academic_level_id === 'all'
-    );
+    // Organize grading periods - remove duplicates and sort properly
+    const getOrganizedGradingPeriods = () => {
+        // Filter by academic level
+        let periods = gradingPeriods.filter(period =>
+            period.academic_level_id.toString() === gradeData.academic_level_id || gradeData.academic_level_id === 'all'
+        );
+
+        // Remove duplicates by ID
+        const uniquePeriods = Array.from(
+            new Map(periods.map(period => [period.id, period])).values()
+        );
+
+        // Sort by sort_order, then by name
+        return uniquePeriods.sort((a, b) => {
+            // First sort by sort_order if available
+            if (a.sort_order !== undefined && b.sort_order !== undefined) {
+                if (a.sort_order !== b.sort_order) {
+                    return a.sort_order - b.sort_order;
+                }
+            }
+            // Then by name
+            return a.name.localeCompare(b.name);
+        });
+    };
+
+    const organizedGradingPeriods = getOrganizedGradingPeriods();
 
     return (
         <div className="flex min-h-screen bg-gray-100 dark:bg-gray-900">
@@ -464,7 +491,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                         </SelectTrigger>
                                                         <SelectContent>
                                                             <SelectItem value="all">All Periods</SelectItem>
-                                                            {filteredGradingPeriods.map((period) => (
+                                                            {organizedGradingPeriods.map((period) => (
                                                                 <SelectItem key={period.id} value={period.id.toString()}>
                                                                     {period.name}
                                                                 </SelectItem>
@@ -911,7 +938,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                 <Checkbox
                                                     id="include_grades_section"
                                                     checked={sectionData.include_grades}
-                                                    onCheckedChange={(checked) => setSectionData('include_grades', checked === true)}
+                                                    onCheckedChange={(checked) => setSectionData('include_grades', checked === true ? true : false)}
                                                 />
                                                 <Label htmlFor="include_grades_section">Include student average grades in the report</Label>
                                             </div>
