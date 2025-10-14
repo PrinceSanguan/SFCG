@@ -8,9 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ArrowLeft, Plus, Edit, Trash2, GraduationCap, Calendar, User, BookOpen } from 'lucide-react';
-import { useToast } from '@/components/ui/toast';
 
 interface User {
     id: number;
@@ -30,6 +29,9 @@ interface GradingPeriod {
     name: string;
     code: string;
     academic_level_id: number;
+    semester_number: number | null;
+    parent_id: number | null;
+    type: string;
 }
 
 interface Subject {
@@ -50,8 +52,20 @@ interface Strand {
     id: number;
     name: string;
     code: string;
-    track_id: number | null;
+    track_id?: number;
     academic_level_id: number;
+}
+
+interface Section {
+    id: number;
+    name: string;
+    academic_level_id: number;
+    specific_year_level?: string;
+    track_id?: number;
+    strand_id?: number;
+    department_id?: number;
+    course_id?: number;
+    max_students?: number;
 }
 
 interface TeacherSubjectAssignment {
@@ -94,6 +108,7 @@ interface Props {
     tracks: Track[];
     departments: Department[];
     courses: Course[];
+    sections: Section[];
 }
 
 interface Department {
@@ -120,9 +135,7 @@ interface Course {
     updated_at: string;
 }
 
-export default function AssignTeachers({ user, assignments = [], teachers = [], subjects = [], gradingPeriods = [], academicLevels = [], strands = [], tracks = [], departments = [], courses = [] }: Props) {
-    const { addToast } = useToast();
-    
+export default function AssignTeachers({ user, assignments = [], teachers = [], subjects = [], gradingPeriods = [], academicLevels = [], strands = [], tracks = [], departments = [], courses = [], sections = [] }: Props) {
     const [assignmentForm, setAssignmentForm] = useState({
         teacher_id: '',
         subject_id: '',
@@ -130,7 +143,9 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
         grade_level: '',
         track_id: '',
         strand_id: '',
-        grading_period_id: '',
+        section_id: '',
+        semester_ids: [] as string[],
+        grading_period_ids: [] as string[],
         school_year: '',
         notes: '',
         is_active: true,
@@ -140,11 +155,50 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
     const [editAssignment, setEditAssignment] = useState<TeacherSubjectAssignment | null>(null);
     const [editModal, setEditModal] = useState(false);
     const [filteredStrands, setFilteredStrands] = useState<Strand[]>([]);
+    const [filteredSections, setFilteredSections] = useState<Section[]>([]);
     const [filteredSubjects, setFilteredSubjects] = useState<Subject[]>([]);
+    const [filteredGradingPeriods, setFilteredGradingPeriods] = useState<GradingPeriod[]>([]);
 
     // Filter for Senior High School level only
     const shsLevel = academicLevels.find(level => level.key === 'senior_highschool');
-    
+
+    // Get semester options for SHS
+    const getSemesterOptions = () => {
+        if (shsLevel) {
+            return gradingPeriods.filter(period =>
+                period.academic_level_id === shsLevel.id &&
+                period.parent_id === null &&
+                period.type === 'semester'
+            );
+        }
+        return [];
+    };
+
+    const semesterOptions = getSemesterOptions();
+
+    // Filter grading periods based on selected semesters
+    React.useEffect(() => {
+        if (shsLevel) {
+            let filtered = gradingPeriods.filter(period => period.academic_level_id === shsLevel.id);
+
+            // If semesters are selected, filter by selected semesters
+            if (assignmentForm.semester_ids.length > 0) {
+                const semesterIds = assignmentForm.semester_ids.map(id => parseInt(id));
+                filtered = filtered.filter(period =>
+                    period.parent_id &&
+                    semesterIds.includes(period.parent_id) &&
+                    !period.name.toLowerCase().includes('average') &&
+                    period.type !== 'final_average' &&
+                    period.type !== 'final'
+                );
+            }
+
+            setFilteredGradingPeriods(filtered);
+        } else {
+            setFilteredGradingPeriods([]);
+        }
+    }, [assignmentForm.semester_ids, gradingPeriods, shsLevel]);
+
     // Safety check: only proceed if we have valid level
     if (!shsLevel) {
         return (
@@ -206,12 +260,10 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
             },
             {
                 onSuccess: () => {
-                    addToast('Teacher assigned successfully!', 'success');
                     setAssignmentModal(false);
                     resetForm();
                 },
                 onError: (errors) => {
-                    addToast('Failed to assign teacher. Please try again.', 'error');
                     console.error(errors);
                 },
                 preserveScroll: true,
@@ -222,7 +274,7 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
     const updateAssignment = (e: React.FormEvent) => {
         e.preventDefault();
         if (!editAssignment) return;
-        
+
         router.put(
             `/registrar/academic/assign-teachers/${editAssignment.id}`,
             {
@@ -231,11 +283,9 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
             },
             {
                 onSuccess: () => {
-                    addToast('Teacher assignment updated successfully!', 'success');
                     setEditModal(false);
                 },
                 onError: (errors) => {
-                    addToast('Failed to update teacher assignment. Please try again.', 'error');
                     console.error(errors);
                 },
                 preserveScroll: true,
@@ -247,10 +297,9 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
         if (confirm('Are you sure you want to delete this assignment?')) {
             router.delete(`/registrar/academic/assign-teachers/${id}`, {
                 onSuccess: () => {
-                    addToast('Teacher assignment removed successfully!', 'success');
+                    // Success
                 },
                 onError: (errors) => {
-                    addToast('Failed to remove teacher assignment. Please try again.', 'error');
                     console.error(errors);
                 },
             });
@@ -264,8 +313,11 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
             subject_id: assignment.subject_id.toString(),
             academic_level_id: assignment.academic_level_id.toString(),
             grade_level: assignment.grade_level || '',
+            track_id: assignment.strand && assignment.strand.track_id ? assignment.strand.track_id.toString() : '',
             strand_id: assignment.strand ? assignment.strand.id.toString() : '',
-            grading_period_id: assignment.grading_period_id?.toString() || '',
+            section_id: '',
+            semester_ids: [],
+            grading_period_ids: assignment.grading_period_id ? [assignment.grading_period_id.toString()] : [],
             school_year: assignment.school_year,
             notes: assignment.notes || '',
             is_active: assignment.is_active,
@@ -294,14 +346,18 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
             teacher_id: '',
             subject_id: '',
             academic_level_id: '',
+            grade_level: '',
             track_id: '',
             strand_id: '',
-            grading_period_id: '',
+            section_id: '',
+            semester_ids: [],
+            grading_period_ids: [],
             school_year: '',
             notes: '',
             is_active: true,
         });
         setFilteredStrands([]);
+        setFilteredSections([]);
         setFilteredSubjects([]);
     };
 
@@ -363,176 +419,306 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
                     <DialogContent className="w-[95vw] max-w-[800px] max-h-[90vh] overflow-y-auto">
                         <DialogHeader>
                             <DialogTitle>Assign Teacher to Subject</DialogTitle>
+                            <DialogDescription>Select a teacher and subject to create a new assignment.</DialogDescription>
                         </DialogHeader>
                         <form onSubmit={submitAssignment} className="space-y-4">
-                            <div>
-                                <Label htmlFor="teacher_id">Teacher</Label>
-                                <Select
-                                    value={assignmentForm.teacher_id}
-                                    onValueChange={(value) => setAssignmentForm({ ...assignmentForm, teacher_id: value })}
-                                    required
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select teacher" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {(teachers || [])
-                                            .filter(teacher => teacher.user_role === 'teacher')
-                                            .map((teacher) => (
-                                                <SelectItem key={teacher.id} value={teacher.id.toString()}>
-                                                    {teacher.name}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <Label htmlFor="teacher_id">Teacher</Label>
+                                    <Select
+                                        value={assignmentForm.teacher_id}
+                                        onValueChange={(value) => setAssignmentForm({ ...assignmentForm, teacher_id: value })}
+                                        required
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select teacher" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {(teachers || [])
+                                                .filter(teacher => teacher.user_role === 'teacher')
+                                                .map((teacher) => (
+                                                    <SelectItem key={teacher.id} value={teacher.id.toString()}>
+                                                        {teacher.name}
+                                                    </SelectItem>
+                                                ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div>
+                                    <Label htmlFor="academic_level_id">Academic Level *</Label>
+                                    <div className="bg-blue-50 p-3 rounded-md">
+                                        <div className="text-sm font-medium text-blue-800">
+                                            {shsLevel?.name || 'Senior High School'}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <Label htmlFor="grade_level">Grade Level *</Label>
+                                    <Select
+                                        value={assignmentForm.grade_level}
+                                        onValueChange={(value) => {
+                                            setAssignmentForm({ ...assignmentForm, grade_level: value, track_id: '', strand_id: '', section_id: '', subject_id: '' });
+                                            setFilteredStrands([]);
+                                            setFilteredSections([]);
+                                            setFilteredSubjects([]);
+                                        }}
+                                        required
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select grade level" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="grade_11">Grade 11</SelectItem>
+                                            <SelectItem value="grade_12">Grade 12</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div>
+                                    <Label htmlFor="track_id">Track</Label>
+                                    <Select
+                                        value={assignmentForm.track_id}
+                                        onValueChange={(value) => {
+                                            setAssignmentForm({ ...assignmentForm, track_id: value, strand_id: '', section_id: '', subject_id: '' });
+                                            const filtered = strands.filter(s => s.track_id === parseInt(value));
+                                            setFilteredStrands(filtered);
+                                            setFilteredSections([]);
+                                            setFilteredSubjects([]);
+                                        }}
+                                        disabled={!assignmentForm.grade_level}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select track" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {(tracks || []).map((track) => (
+                                                <SelectItem key={track.id} value={track.id.toString()}>
+                                                    {track.name} ({track.code})
                                                 </SelectItem>
                                             ))}
-                                    </SelectContent>
-                                </Select>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div>
+                                    <Label htmlFor="strand_id">Strand</Label>
+                                    <Select
+                                        value={assignmentForm.strand_id}
+                                        onValueChange={(value) => {
+                                            setAssignmentForm({ ...assignmentForm, strand_id: value, section_id: '', subject_id: '' });
+                                            // Filter sections by SHS level, track, strand, and grade level
+                                            const filtered = sections.filter(s =>
+                                                s.academic_level_id === shsLevel?.id &&
+                                                s.track_id?.toString() === assignmentForm.track_id &&
+                                                s.strand_id?.toString() === value &&
+                                                s.specific_year_level === assignmentForm.grade_level
+                                            );
+                                            setFilteredSections(filtered);
+                                            setFilteredSubjects([]);
+                                        }}
+                                        disabled={!assignmentForm.track_id}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select strand" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {filteredStrands.map((strand) => (
+                                                <SelectItem key={strand.id} value={strand.id.toString()}>
+                                                    {strand.name} ({strand.code})
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div>
+                                    <Label htmlFor="section_id">Section</Label>
+                                    <Select
+                                        value={assignmentForm.section_id}
+                                        onValueChange={(value) => {
+                                            setAssignmentForm({ ...assignmentForm, section_id: value, subject_id: '' });
+                                            // Filter subjects by strand
+                                            const filtered = subjects.filter(s => {
+                                                const matchesStrand = s.strand_id === parseInt(assignmentForm.strand_id);
+                                                const isGeneral = s.strand_id == null;
+                                                return matchesStrand || isGeneral;
+                                            });
+                                            setFilteredSubjects(filtered);
+                                        }}
+                                        disabled={!assignmentForm.strand_id}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select section" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {filteredSections.map((section) => (
+                                                <SelectItem key={section.id} value={section.id.toString()}>
+                                                    {section.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div>
+                                    <Label htmlFor="subject_id">Subject</Label>
+                                    <Select
+                                        value={assignmentForm.subject_id}
+                                        onValueChange={(value) => setAssignmentForm({ ...assignmentForm, subject_id: value })}
+                                        required
+                                        disabled={!assignmentForm.section_id}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select subject" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {filteredSubjects.map((subject) => (
+                                                <SelectItem key={subject.id} value={subject.id.toString()}>
+                                                    {subject.name} ({subject.code})
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
 
-                            <div>
-                                <Label htmlFor="track_id">Track</Label>
-                                <Select
-                                    value={assignmentForm.track_id}
-                                    onValueChange={(value) => {
-                                        setAssignmentForm({ ...assignmentForm, track_id: value, strand_id: '', subject_id: '' });
-                                        // Filter strands based on selected track
-                                        const filtered = strands.filter(s => s.track_id === parseInt(value));
-                                        setFilteredStrands(filtered);
-                                        setFilteredSubjects([]);
-                                    }}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select track" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {(tracks || []).map((track) => (
-                                            <SelectItem key={track.id} value={track.id.toString()}>
-                                                {track.name} ({track.code})
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                            {semesterOptions.length > 0 && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="border rounded-lg p-4">
+                                        <Label className="text-lg font-semibold mb-3 block">Semesters</Label>
+                                        <div className="space-y-3">
+                                            {semesterOptions.map((semester) => (
+                                                <div key={semester.id} className="flex items-center space-x-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        id={`semester-${semester.id}`}
+                                                        checked={assignmentForm.semester_ids.includes(semester.id.toString())}
+                                                        onChange={(e) => {
+                                                            const semesterId = semester.id.toString();
+                                                            if (e.target.checked) {
+                                                                setAssignmentForm({
+                                                                    ...assignmentForm,
+                                                                    semester_ids: [...assignmentForm.semester_ids, semesterId],
+                                                                    grading_period_ids: []
+                                                                });
+                                                            } else {
+                                                                setAssignmentForm({
+                                                                    ...assignmentForm,
+                                                                    semester_ids: assignmentForm.semester_ids.filter(id => id !== semesterId),
+                                                                    grading_period_ids: []
+                                                                });
+                                                            }
+                                                        }}
+                                                        className="w-5 h-5 rounded border-gray-300"
+                                                    />
+                                                    <Label htmlFor={`semester-${semester.id}`} className="text-base font-normal cursor-pointer">
+                                                        {semester.name}
+                                                    </Label>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="border rounded-lg p-4">
+                                        <Label className="text-lg font-semibold mb-3 block">Grading Periods</Label>
+                                        {assignmentForm.semester_ids.length === 0 ? (
+                                            <p className="text-sm text-gray-500">Select a semester first</p>
+                                        ) : (
+                                            <div className="space-y-4">
+                                                {assignmentForm.semester_ids.map((semesterId) => {
+                                                    const semester = semesterOptions.find(s => s.id.toString() === semesterId);
+                                                    const periods = filteredGradingPeriods.filter(p => p.parent_id === parseInt(semesterId));
+
+                                                    return periods.length > 0 ? (
+                                                        <div key={semesterId}>
+                                                            <div className="text-sm font-medium text-blue-600 mb-2 border-l-4 border-blue-600 pl-2">
+                                                                {semester?.name} Periods:
+                                                            </div>
+                                                            <div className="space-y-2 ml-2">
+                                                                {periods.map((period) => (
+                                                                    <div key={period.id} className="flex items-center space-x-2">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            id={`period-${period.id}`}
+                                                                            checked={assignmentForm.grading_period_ids.includes(period.id.toString())}
+                                                                            onChange={(e) => {
+                                                                                const periodId = period.id.toString();
+                                                                                if (e.target.checked) {
+                                                                                    setAssignmentForm({
+                                                                                        ...assignmentForm,
+                                                                                        grading_period_ids: [...assignmentForm.grading_period_ids, periodId]
+                                                                                    });
+                                                                                } else {
+                                                                                    setAssignmentForm({
+                                                                                        ...assignmentForm,
+                                                                                        grading_period_ids: assignmentForm.grading_period_ids.filter(id => id !== periodId)
+                                                                                    });
+                                                                                }
+                                                                            }}
+                                                                            className="w-4 h-4 rounded border-gray-300"
+                                                                        />
+                                                                        <Label htmlFor={`period-${period.id}`} className="text-base font-normal cursor-pointer">
+                                                                            {period.name}
+                                                                        </Label>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    ) : null;
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <Label htmlFor="school_year">School Year</Label>
+                                    <Select
+                                        value={assignmentForm.school_year}
+                                        onValueChange={(value) => setAssignmentForm({ ...assignmentForm, school_year: value })}
+                                        required
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select school year" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {schoolYearOptions.map((year) => (
+                                                <SelectItem key={year} value={year}>
+                                                    {year}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
 
-                            <div>
-                                <Label htmlFor="strand_id">Strand</Label>
-                                <Select
-                                    value={assignmentForm.strand_id}
-                                    onValueChange={(value) => {
-                                        setAssignmentForm({ ...assignmentForm, strand_id: value, subject_id: '' });
-                                        // Filter subjects based on selected strand
-                                        const filtered = subjects.filter(s => s.strand_id === parseInt(value));
-                                        setFilteredSubjects(filtered);
-                                    }}
-                                    disabled={!assignmentForm.track_id}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select strand (optional)" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {filteredStrands.map((strand) => (
-                                            <SelectItem key={strand.id} value={strand.id.toString()}>
-                                                {strand.name} ({strand.code})
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="md:col-span-2">
+                                    <Label htmlFor="notes">Notes</Label>
+                                    <Textarea
+                                        id="notes"
+                                        value={assignmentForm.notes}
+                                        onChange={(e) => setAssignmentForm({ ...assignmentForm, notes: e.target.value })}
+                                        placeholder="Additional notes..."
+                                    />
+                                </div>
 
-                            <div>
-                                <Label htmlFor="subject_id">Subject</Label>
-                                <Select
-                                    value={assignmentForm.subject_id}
-                                    onValueChange={(value) => setAssignmentForm({ ...assignmentForm, subject_id: value })}
-                                    required
-                                    disabled={!assignmentForm.strand_id}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select subject" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {filteredSubjects.map((subject) => (
-                                            <SelectItem key={subject.id} value={subject.id.toString()}>
-                                                {subject.name} ({subject.code})
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div>
-                                <Label htmlFor="grade_level">Grade Level *</Label>
-                                <Select
-                                    value={assignmentForm.grade_level}
-                                    onValueChange={(value) => setAssignmentForm({ ...assignmentForm, grade_level: value })}
-                                    required
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select grade level" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="grade_11">Grade 11</SelectItem>
-                                        <SelectItem value="grade_12">Grade 12</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div>
-                                <Label htmlFor="grading_period_id">Grading Period</Label>
-                                <Select
-                                    value={assignmentForm.grading_period_id}
-                                    onValueChange={(value) => setAssignmentForm({ ...assignmentForm, grading_period_id: value })}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select grading period (optional)" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {(shsGradingPeriods || []).map((period) => (
-                                            <SelectItem key={period.id} value={period.id.toString()}>
-                                                {period.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div>
-                                <Label htmlFor="school_year">School Year</Label>
-                                <Select
-                                    value={assignmentForm.school_year}
-                                    onValueChange={(value) => setAssignmentForm({ ...assignmentForm, school_year: value })}
-                                    required
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select school year" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {schoolYearOptions.map((year) => (
-                                            <SelectItem key={year} value={year}>
-                                                {year}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div>
-                                <Label htmlFor="notes">Notes</Label>
-                                <Textarea
-                                    id="notes"
-                                    value={assignmentForm.notes}
-                                    onChange={(e) => setAssignmentForm({ ...assignmentForm, notes: e.target.value })}
-                                    placeholder="Additional notes..."
-                                />
-                            </div>
-
-                            <div className="flex items-center space-x-2">
-                                <input
-                                    type="checkbox"
-                                    id="is_active"
-                                    checked={assignmentForm.is_active}
-                                    onChange={(e) => setAssignmentForm({ ...assignmentForm, is_active: e.target.checked })}
-                                    className="rounded border-gray-300"
-                                />
-                                <Label htmlFor="is_active">Active</Label>
+                                <div className="flex items-center space-x-2">
+                                    <input
+                                        type="checkbox"
+                                        id="is_active"
+                                        checked={assignmentForm.is_active}
+                                        onChange={(e) => setAssignmentForm({ ...assignmentForm, is_active: e.target.checked })}
+                                        className="rounded border-gray-300"
+                                    />
+                                    <Label htmlFor="is_active">Active</Label>
+                                </div>
                             </div>
 
                             <div className="flex justify-end space-x-2">
@@ -635,6 +821,7 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
                 <DialogContent className="w-[95vw] max-w-[800px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Edit Teacher Assignment</DialogTitle>
+                        <DialogDescription>Update the teacher assignment details.</DialogDescription>
                     </DialogHeader>
                     <form onSubmit={updateAssignment} className="space-y-4">
                         <div>
@@ -699,22 +886,42 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
                         </div>
 
                         <div>
-                            <Label htmlFor="edit_grading_period_id">Grading Period</Label>
-                            <Select
-                                value={assignmentForm.grading_period_id}
-                                onValueChange={(value) => setAssignmentForm({ ...assignmentForm, grading_period_id: value })}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select grading period (optional)" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {(shsGradingPeriods || []).map((period) => (
-                                        <SelectItem key={period.id} value={period.id.toString()}>
-                                            {period.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <Label htmlFor="edit_grading_periods">Grading Periods</Label>
+                            <div className="border rounded-lg p-3">
+                                {filteredGradingPeriods.filter(p => p.parent_id !== null).length > 0 ? (
+                                    <div className="space-y-2">
+                                        {filteredGradingPeriods.filter(p => p.parent_id !== null).map((period) => (
+                                            <div key={period.id} className="flex items-center space-x-2">
+                                                <input
+                                                    type="checkbox"
+                                                    id={`edit-period-${period.id}`}
+                                                    checked={assignmentForm.grading_period_ids.includes(period.id.toString())}
+                                                    onChange={(e) => {
+                                                        const periodId = period.id.toString();
+                                                        if (e.target.checked) {
+                                                            setAssignmentForm({
+                                                                ...assignmentForm,
+                                                                grading_period_ids: [...assignmentForm.grading_period_ids, periodId]
+                                                            });
+                                                        } else {
+                                                            setAssignmentForm({
+                                                                ...assignmentForm,
+                                                                grading_period_ids: assignmentForm.grading_period_ids.filter(id => id !== periodId)
+                                                            });
+                                                        }
+                                                    }}
+                                                    className="w-4 h-4 rounded border-gray-300"
+                                                />
+                                                <Label htmlFor={`edit-period-${period.id}`} className="text-sm font-normal cursor-pointer">
+                                                    {period.name}
+                                                </Label>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-gray-500">No grading periods available</p>
+                                )}
+                            </div>
                         </div>
 
                         <div>

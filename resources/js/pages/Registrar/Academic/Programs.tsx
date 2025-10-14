@@ -15,14 +15,15 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 interface User { name: string; email: string; user_role: string }
 interface AcademicLevel { id: number; name: string; key: string; strands: Strand[] }
 interface Department { id: number; name: string; code: string; courses: Course[] }
-interface Strand { id: number; name: string; code: string; academic_level_id: number; academic_level: AcademicLevel }
+interface Track { id: number; name: string; code: string; is_active: boolean }
+interface Strand { id: number; name: string; code: string; academic_level_id: number; track_id?: number; academic_level: AcademicLevel; track?: Track }
 interface Course { id: number; name: string; code: string; department_id: number; description?: string; units?: number; is_active?: boolean }
 
-export default function Programs({ user, academicLevels = [], departments = [], formErrors }: { user: User; academicLevels?: AcademicLevel[]; departments?: Department[]; formErrors?: Record<string, string> }) {
+export default function Programs({ user, academicLevels = [], departments = [], tracks = [], formErrors }: { user: User; academicLevels?: AcademicLevel[]; departments?: Department[]; tracks?: Track[]; formErrors?: Record<string, string> }) {
     const [activeTab, setActiveTab] = useState('strands');
     
     // Strand form state
-    const [strandForm, setStrandForm] = useState({ name: '', code: '', academic_level_id: '' });
+    const [strandForm, setStrandForm] = useState({ name: '', code: '', academic_level_id: '', track_id: '' });
     const [strandModal, setStrandModal] = useState(false);
     const [editStrand, setEditStrand] = useState<Strand | null>(null);
 
@@ -30,7 +31,7 @@ export default function Programs({ user, academicLevels = [], departments = [], 
     const openStrandModal = () => {
         const seniorHighLevel = academicLevels.find(level => level.key === 'senior_highschool');
         if (seniorHighLevel) {
-            setStrandForm({ name: '', code: '', academic_level_id: seniorHighLevel.id.toString() });
+            setStrandForm({ name: '', code: '', academic_level_id: seniorHighLevel.id.toString(), track_id: '' });
         }
         setStrandModal(true);
     };
@@ -49,15 +50,15 @@ export default function Programs({ user, academicLevels = [], departments = [], 
     const submitStrand = () => {
         router.post(route('registrar.academic.strands.store'), strandForm, {
             preserveScroll: true,
-            onSuccess: () => { setStrandForm({ name: '', code: '', academic_level_id: '' }); setStrandModal(false); },
+            onSuccess: () => { setStrandForm({ name: '', code: '', academic_level_id: '', track_id: '' }); setStrandModal(false); },
         });
     };
-    
+
     const updateStrand = (strand: Strand) => {
-        const data = { name: strand.name, code: strand.code, academic_level_id: strand.academic_level_id };
-        router.put(route('registrar.academic.strands.update', strand.id), data, { 
-            preserveScroll: true, 
-            onSuccess: () => setEditStrand(null) 
+        const data = { name: strand.name, code: strand.code, academic_level_id: strand.academic_level_id, track_id: strand.track_id };
+        router.put(route('registrar.academic.strands.update', strand.id), data, {
+            preserveScroll: true,
+            onSuccess: () => setEditStrand(null)
         });
     };
     
@@ -166,6 +167,25 @@ export default function Programs({ user, academicLevels = [], departments = [], 
                                                         <Input id="strand-code" value={strandForm.code} onChange={(e) => setStrandForm({ ...strandForm, code: e.target.value })} />
                                                     </div>
                                                     <div>
+                                                        <Label htmlFor="strand-track">Track</Label>
+                                                        <Select value={strandForm.track_id} onValueChange={(value) => setStrandForm({ ...strandForm, track_id: value })}>
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder="Select track (optional)" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="">No Track</SelectItem>
+                                                                {tracks.map((track) => (
+                                                                    <SelectItem key={track.id} value={track.id.toString()}>
+                                                                        {track.name}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                        <p className="text-sm text-gray-500 mt-1">
+                                                            Tracks are optional groupings for strands
+                                                        </p>
+                                                    </div>
+                                                    <div>
                                                         <Label htmlFor="strand-level">Academic Level</Label>
                                                         <Select value={strandForm.academic_level_id} onValueChange={(value) => setStrandForm({ ...strandForm, academic_level_id: value })} disabled>
                                                             <SelectTrigger>
@@ -204,6 +224,7 @@ export default function Programs({ user, academicLevels = [], departments = [], 
                                                 <tr>
                                                     <th className="text-left p-3">Code</th>
                                                     <th className="text-left p-3">Name</th>
+                                                    <th className="text-left p-3">Track</th>
                                                     <th className="text-left p-3">Academic Level</th>
                                                     <th className="text-left p-3">Actions</th>
                                                 </tr>
@@ -213,6 +234,7 @@ export default function Programs({ user, academicLevels = [], departments = [], 
                                                     <tr key={strand.id} className="border-t">
                                                         <td className="p-3">{strand.code}</td>
                                                         <td className="p-3">{strand.name}</td>
+                                                        <td className="p-3">{strand.track?.name || '-'}</td>
                                                         <td className="p-3">
                                                             {academicLevels.find(l => l.id === strand.academic_level_id)?.name || '-'}
                                                         </td>
@@ -381,6 +403,25 @@ export default function Programs({ user, academicLevels = [], departments = [], 
                                     <div>
                                         <Label>Code</Label>
                                         <Input value={editStrand.code} onChange={(e) => setEditStrand({ ...editStrand, code: e.target.value })} />
+                                    </div>
+                                    <div>
+                                        <Label>Track</Label>
+                                        <Select value={editStrand.track_id?.toString() || ''} onValueChange={(value) => setEditStrand({ ...editStrand, track_id: value ? Number(value) : undefined })}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select track (optional)" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="">No Track</SelectItem>
+                                                {tracks.map((track) => (
+                                                    <SelectItem key={track.id} value={track.id.toString()}>
+                                                        {track.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <p className="text-sm text-gray-500 mt-1">
+                                            Tracks are optional groupings for strands
+                                        </p>
                                     </div>
                                     <div>
                                         <Label>Academic Level</Label>
