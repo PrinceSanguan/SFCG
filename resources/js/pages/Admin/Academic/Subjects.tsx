@@ -331,7 +331,21 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
     };
 
     const openEditModal = (subject: Subject) => {
-        setEditSubject(subject);
+        // Properly initialize all fields with correct types for Select components
+        setEditSubject({
+            ...subject,
+            track_id: subject.track_id?.toString() || '',
+            strand_id: subject.strand_id?.toString() || '',
+            semester_ids: subject.semester_ids || [],
+            grading_period_ids: subject.grading_period_ids || [],
+            section_id: subject.section_id || undefined,
+            jhs_year_level: subject.jhs_year_level || '',
+            shs_year_level: subject.shs_year_level || '',
+            year_level: subject.year_level || '',  // College year level
+            department_id: subject.department_id,   // Keep as number
+            course_id: subject.course_id,           // Keep as number
+            grade_levels: subject.grade_levels || [], // Elementary grade levels
+        });
         setEditModal(true);
     };
 
@@ -1712,15 +1726,89 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                     );
                                 })()}
 
-                                {/* Junior High: Year Level (1st to 4th year) - Edit */}
+                                {/* Elementary: Grade Level - Edit */}
+                                {(() => {
+                                    const selectedLevel = academicLevels.find(level => level.id === editSubject.academic_level_id);
+                                    if (selectedLevel?.key !== 'elementary') return null;
+
+                                    // Get the first grade level from the array
+                                    const currentGradeLevel = editSubject.grade_levels?.[0] || '';
+
+                                    return (
+                                        <div>
+                                            <Label htmlFor="edit-elem-grade">Grade Level</Label>
+                                            <Select
+                                                value={currentGradeLevel}
+                                                onValueChange={(v) => setEditSubject({ ...editSubject, grade_levels: [v] })}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select grade level" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {elementaryGradeLevels.map(opt => (
+                                                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    );
+                                })()}
+
+                                {/* Section for Elementary - Edit */}
+                                {(() => {
+                                    const selectedLevel = academicLevels.find(level => level.id === editSubject.academic_level_id);
+                                    if (selectedLevel?.key !== 'elementary') return null;
+
+                                    const currentGradeLevel = editSubject.grade_levels?.[0] || '';
+                                    if (!currentGradeLevel) return null;
+
+                                    return (
+                                        <div>
+                                            <Label htmlFor="edit-elem-section">Section *</Label>
+                                            <Select
+                                                value={editSubject.section_id?.toString() || ''}
+                                                onValueChange={(value) => setEditSubject({ ...editSubject, section_id: parseInt(value) })}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select section" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {(() => {
+                                                        // Filter sections by elementary level and grade level
+                                                        const elemSections = sections.filter(section => {
+                                                            const level = academicLevels.find(l => l.id === section.academic_level_id);
+                                                            return level?.key === 'elementary' &&
+                                                                   section.specific_year_level === currentGradeLevel;
+                                                        });
+
+                                                        if (elemSections.length === 0) {
+                                                            return <SelectItem value="no-sections" disabled>No sections available</SelectItem>;
+                                                        }
+
+                                                        return elemSections.map((section) => (
+                                                            <SelectItem key={section.id} value={section.id.toString()}>
+                                                                {section.name}
+                                                            </SelectItem>
+                                                        ));
+                                                    })()}
+                                                </SelectContent>
+                                            </Select>
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                Select a specific section for this subject
+                                            </p>
+                                        </div>
+                                    );
+                                })()}
+
+                                {/* Junior High: Year Level - Edit */}
                             {(() => {
                                     const selectedLevel = academicLevels.find(level => level.id === editSubject.academic_level_id);
                                     if (selectedLevel?.key !== 'junior_highschool') return null;
                                     const jhsYearOptions = [
-                                        { value: 'first_year', label: '1st Year' },
-                                        { value: 'second_year', label: '2nd Year' },
-                                        { value: 'third_year', label: '3rd Year' },
-                                        { value: 'fourth_year', label: '4th Year' },
+                                        { value: 'grade_7', label: 'Grade 7' },
+                                        { value: 'grade_8', label: 'Grade 8' },
+                                        { value: 'grade_9', label: 'Grade 9' },
+                                        { value: 'grade_10', label: 'Grade 10' },
                                     ];
                                 return (
                                         <div>
@@ -1735,6 +1823,49 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                     ))}
                                                 </SelectContent>
                                             </Select>
+                                        </div>
+                                    );
+                                })()}
+
+                                {/* Section for Junior High School - Edit */}
+                                {(() => {
+                                    const selectedLevel = academicLevels.find(level => level.id === editSubject.academic_level_id);
+                                    if (selectedLevel?.key !== 'junior_highschool' || !editSubject.jhs_year_level) return null;
+
+                                    return (
+                                        <div>
+                                            <Label htmlFor="edit-jhs-section">Section *</Label>
+                                            <Select
+                                                value={editSubject.section_id?.toString() || ''}
+                                                onValueChange={(value) => setEditSubject({ ...editSubject, section_id: parseInt(value) })}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select section" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {(() => {
+                                                        // Filter sections by junior high school level and year level
+                                                        const jhsSections = sections.filter(section => {
+                                                            const level = academicLevels.find(l => l.id === section.academic_level_id);
+                                                            return level?.key === 'junior_highschool' &&
+                                                                   section.specific_year_level === editSubject.jhs_year_level;
+                                                        });
+
+                                                        if (jhsSections.length === 0) {
+                                                            return <SelectItem value="no-sections" disabled>No sections available</SelectItem>;
+                                                        }
+
+                                                        return jhsSections.map((section) => (
+                                                            <SelectItem key={section.id} value={section.id.toString()}>
+                                                                {section.name}
+                                                            </SelectItem>
+                                                        ));
+                                                    })()}
+                                                </SelectContent>
+                                            </Select>
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                Select a specific section for this subject
+                                            </p>
                                         </div>
                                     );
                                 })()}
@@ -1811,7 +1942,52 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                         </div>
                                     </div>
                                 )}
-                            
+
+                                {/* Section for Senior High School - Edit */}
+                                {(() => {
+                                    const selectedLevel = academicLevels.find(level => level.id === editSubject.academic_level_id);
+                                    if (selectedLevel?.key !== 'senior_highschool' || !editSubject.track_id || !editSubject.strand_id || !editSubject.shs_year_level) return null;
+
+                                    return (
+                                        <div>
+                                            <Label htmlFor="edit-shs-section">Section *</Label>
+                                            <Select
+                                                value={editSubject.section_id?.toString() || ''}
+                                                onValueChange={(value) => setEditSubject({ ...editSubject, section_id: parseInt(value) })}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select section" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {(() => {
+                                                        // Filter sections by senior high school level, track, strand, and year level
+                                                        const shsSections = sections.filter(section => {
+                                                            const level = academicLevels.find(l => l.id === section.academic_level_id);
+                                                            return level?.key === 'senior_highschool' &&
+                                                                   section.track_id?.toString() === editSubject.track_id &&
+                                                                   section.strand_id?.toString() === editSubject.strand_id &&
+                                                                   section.specific_year_level === editSubject.shs_year_level;
+                                                        });
+
+                                                        if (shsSections.length === 0) {
+                                                            return <SelectItem value="no-sections" disabled>No sections available</SelectItem>;
+                                                        }
+
+                                                        return shsSections.map((section) => (
+                                                            <SelectItem key={section.id} value={section.id.toString()}>
+                                                                {section.name}
+                                                            </SelectItem>
+                                                        ));
+                                                    })()}
+                                                </SelectContent>
+                                            </Select>
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                Select a specific section for this subject
+                                            </p>
+                                        </div>
+                                    );
+                                })()}
+
                                 {/* Department and Course for College */}
                             {editSubject.academic_level_id && academicLevels.find(level => level.id === editSubject.academic_level_id)?.key === 'college' && (
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1847,8 +2023,53 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                         </div>
                                 </div>
                             )}
+
+                            {/* Section for College - Edit */}
+                            {(() => {
+                                const selectedLevel = academicLevels.find(level => level.id === editSubject.academic_level_id);
+                                if (selectedLevel?.key !== 'college' || !editSubject.department_id || !editSubject.course_id || !editSubject.year_level) return null;
+
+                                return (
+                                    <div>
+                                        <Label htmlFor="edit-college-section">Section *</Label>
+                                        <Select
+                                            value={editSubject.section_id?.toString() || ''}
+                                            onValueChange={(value) => setEditSubject({ ...editSubject, section_id: parseInt(value) })}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select section" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {(() => {
+                                                    // Filter sections by college level, department, course, and year level
+                                                    const collegeSections = sections.filter(section => {
+                                                        const level = academicLevels.find(l => l.id === section.academic_level_id);
+                                                        return level?.key === 'college' &&
+                                                               section.department_id === editSubject.department_id &&
+                                                               section.course_id === editSubject.course_id &&
+                                                               section.specific_year_level === editSubject.year_level;
+                                                    });
+
+                                                    if (collegeSections.length === 0) {
+                                                        return <SelectItem value="no-sections" disabled>No sections available</SelectItem>;
+                                                    }
+
+                                                    return collegeSections.map((section) => (
+                                                        <SelectItem key={section.id} value={section.id.toString()}>
+                                                            {section.name}
+                                                        </SelectItem>
+                                                    ));
+                                                })()}
+                                            </SelectContent>
+                                        </Select>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            Select a specific section for this subject
+                                        </p>
+                                    </div>
+                                );
+                            })()}
                             </div>
-                            
+
                             {/* Additional Period Selection for Senior High School and College */}
                             {(() => {
                                 const selectedLevel = academicLevels.find(level => level.id === editSubject.academic_level_id);

@@ -184,16 +184,16 @@ class ReportsController extends Controller
         if ($request->isMethod('get')) {
             $defaultFilters = [
                 'school_year' => date('Y') . '-' . (date('Y') + 1),
-                'academic_level_id' => '',
+                'course_id' => '',
             ];
-            
+
             // Get available school years from the database
             $availableSchoolYears = StudentGrade::distinct()
                 ->pluck('school_year')
                 ->sort()
                 ->values()
                 ->toArray();
-            
+
             // If no school years in database, provide current and next year
             if (empty($availableSchoolYears)) {
                 $currentYear = date('Y');
@@ -203,11 +203,11 @@ class ReportsController extends Controller
                     ($currentYear + 1) . '-' . ($currentYear + 2),
                 ];
             }
-            
-            // Get available academic levels
-            $academicLevels = AcademicLevel::where('is_active', true)
-                ->orderBy('sort_order')
-                ->get(['id', 'name', 'key']);
+
+            // Get courses from the chairperson's department
+            $courses = Course::where('department_id', $departmentId)
+                ->orderBy('name')
+                ->get(['id', 'name', 'code']);
             
             $stats = [
                 'total_students' => 0,
@@ -227,14 +227,14 @@ class ReportsController extends Controller
                 'stats' => $stats,
                 'filters' => $defaultFilters,
                 'availableSchoolYears' => $availableSchoolYears,
-                'academicLevels' => $academicLevels,
+                'courses' => $courses,
             ]);
         }
         
         // Handle POST request (process form and show results)
         $validated = $request->validate([
             'school_year' => 'required|string',
-            'academic_level_id' => 'nullable|exists:academic_levels,id',
+            'course_id' => 'nullable|exists:courses,id',
         ]);
         
         $departmentStats = $this->getDepartmentStats($user);
@@ -250,13 +250,13 @@ class ReportsController extends Controller
             'performance_trends' => $this->getPerformanceTrends($departmentId),
         ];
         
-        // Get available school years and academic levels for the form
+        // Get available school years and courses for the form
         $availableSchoolYears = StudentGrade::distinct()
             ->pluck('school_year')
             ->sort()
             ->values()
             ->toArray();
-        
+
         if (empty($availableSchoolYears)) {
             $currentYear = date('Y');
             $availableSchoolYears = [
@@ -265,18 +265,19 @@ class ReportsController extends Controller
                 ($currentYear + 1) . '-' . ($currentYear + 2),
             ];
         }
-        
-        $academicLevels = AcademicLevel::where('is_active', true)
-            ->orderBy('sort_order')
-            ->get(['id', 'name', 'key']);
-        
+
+        // Get courses from the chairperson's department
+        $courses = Course::where('department_id', $departmentId)
+            ->orderBy('name')
+            ->get(['id', 'name', 'code']);
+
         return Inertia::render('Chairperson/Reports/DepartmentAnalysis', [
             'user' => $user,
             'department' => $department,
             'stats' => $stats,
             'filters' => $validated,
             'availableSchoolYears' => $availableSchoolYears,
-            'academicLevels' => $academicLevels,
+            'courses' => $courses,
         ]);
     }
     

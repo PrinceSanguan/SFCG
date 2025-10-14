@@ -432,25 +432,43 @@ class ReportsController extends Controller
             ->whereNotNull('school_year')
             ->pluck('school_year');
 
-        // Merge all years and remove duplicates
+        // Merge all years from database
         $allYears = $yearsFromGrades
             ->merge($yearsFromHonors)
             ->merge($yearsFromSections)
             ->merge($yearsFromCertificates)
             ->unique()
-            ->sort()
-            ->reverse() // Most recent first
-            ->values() // Reset keys to 0, 1, 2... (must be after reverse)
             ->toArray();
 
-        // If no data exists, return current school year as fallback
-        if (empty($allYears)) {
-            $currentYear = (int) date('Y');
-            $nextYear = $currentYear + 1;
-            $allYears = [$currentYear . '-' . $nextYear];
+        // Generate school years: 3 years in the past, current year, and 1 year in the future
+        $currentYear = (int) date('Y');
+        $currentMonth = (int) date('n');
+
+        // Determine the current school year based on the month
+        // School year typically starts in August (month 8) or later
+        if ($currentMonth >= 8) {
+            // If we're in Aug-Dec, we're in academic year YYYY-YYYY+1
+            $academicStartYear = $currentYear;
+        } else {
+            // If we're in Jan-Jul, we're still in academic year YYYY-1-YYYY
+            $academicStartYear = $currentYear - 1;
         }
 
-        return $allYears;
+        // Generate a range of school years: 3 years back + current + 1 year forward
+        $generatedYears = [];
+        for ($i = 3; $i >= -1; $i--) {
+            $startYear = $academicStartYear - $i;
+            $endYear = $startYear + 1;
+            $generatedYears[] = $startYear . '-' . $endYear;
+        }
+
+        // Merge generated years with database years and remove duplicates
+        $allYears = array_unique(array_merge($allYears, $generatedYears));
+
+        // Sort in descending order (most recent first)
+        rsort($allYears);
+
+        return array_values($allYears);
     }
 
     public function generateClassSectionReport(Request $request)

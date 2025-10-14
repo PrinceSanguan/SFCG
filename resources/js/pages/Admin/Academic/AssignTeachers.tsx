@@ -687,9 +687,16 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                                         <Select
                                             value={assignmentForm.grade_level}
                                             onValueChange={(value) => {
-                                                setAssignmentForm({ ...assignmentForm, grade_level: value, subject_id: '' });
-                                                const filtered = subjects.filter(s => s.academic_level_id === parseInt(assignmentForm.academic_level_id));
-                                                setFilteredSubjects(filtered);
+                                                setAssignmentForm({ ...assignmentForm, grade_level: value, section_id: '', subject_id: '' });
+                                                // Filter sections by academic level and year level
+                                                const filtered = sections.filter(s =>
+                                                    s.academic_level_id === parseInt(assignmentForm.academic_level_id) &&
+                                                    s.specific_year_level === value
+                                                );
+                                                setFilteredSections(filtered);
+                                                // Filter subjects by academic level
+                                                const filteredSubs = subjects.filter(s => s.academic_level_id === parseInt(assignmentForm.academic_level_id));
+                                                setFilteredSubjects(filteredSubs);
                                             }}
                                             required
                                         >
@@ -720,12 +727,37 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                                     </div>
 
                                     <div>
+                                        <Label htmlFor="section_id">Section *</Label>
+                                        <Select
+                                            value={assignmentForm.section_id}
+                                            onValueChange={(value) => setAssignmentForm({ ...assignmentForm, section_id: value })}
+                                            required
+                                            disabled={!assignmentForm.grade_level}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select section" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {filteredSections.length === 0 ? (
+                                                    <SelectItem value="no-sections" disabled>No sections available</SelectItem>
+                                                ) : (
+                                                    filteredSections.map((section) => (
+                                                        <SelectItem key={section.id} value={section.id.toString()}>
+                                                            {section.name}
+                                                        </SelectItem>
+                                                    ))
+                                                )}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div>
                                         <Label htmlFor="subject_id">Subject</Label>
                                         <Select
                                             value={assignmentForm.subject_id}
                                             onValueChange={(value) => setAssignmentForm({ ...assignmentForm, subject_id: value })}
                                             required
-                                            disabled={!assignmentForm.grade_level}
+                                            disabled={!assignmentForm.section_id}
                                         >
                                             <SelectTrigger>
                                                 <SelectValue placeholder="Select subject" />

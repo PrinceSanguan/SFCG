@@ -45,13 +45,13 @@ interface DepartmentStats {
 
 interface Filters {
     school_year: string;
-    academic_level_id?: string;
+    course_id?: string;
 }
 
-interface AcademicLevel {
+interface Course {
     id: number;
     name: string;
-    key: string;
+    code: string;
 }
 
 interface DepartmentAnalysisProps {
@@ -59,13 +59,13 @@ interface DepartmentAnalysisProps {
     stats: DepartmentStats;
     filters: Filters;
     availableSchoolYears: string[];
-    academicLevels: AcademicLevel[];
+    courses: Course[];
 }
 
-export default function DepartmentAnalysis({ user, stats, filters, availableSchoolYears, academicLevels }: DepartmentAnalysisProps) {
+export default function DepartmentAnalysis({ user, stats, filters, availableSchoolYears, courses }: DepartmentAnalysisProps) {
     const { data, setData, post, processing } = useForm({
         school_year: filters.school_year || '',
-        academic_level_id: filters.academic_level_id || '',
+        course_id: filters.course_id || '',
     });
 
     if (!user) {
@@ -127,15 +127,15 @@ export default function DepartmentAnalysis({ user, stats, filters, availableScho
                                         </Select>
                                     </div>
                                     <div>
-                                        <Label htmlFor="academic_level_id">Academic Level</Label>
-                                        <Select onValueChange={(value) => setData('academic_level_id', value)} value={data.academic_level_id}>
-                                            <SelectTrigger id="academic_level_id" className="w-full">
-                                                <SelectValue placeholder="Select an academic level" />
+                                        <Label htmlFor="course_id">Course</Label>
+                                        <Select onValueChange={(value) => setData('course_id', value)} value={data.course_id}>
+                                            <SelectTrigger id="course_id" className="w-full">
+                                                <SelectValue placeholder="Select a course" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {academicLevels.map((level: AcademicLevel) => (
-                                                    <SelectItem key={level.id} value={level.id.toString()}>
-                                                        {level.name}
+                                                {courses.map((course: Course) => (
+                                                    <SelectItem key={course.id} value={course.id.toString()}>
+                                                        {course.name}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>

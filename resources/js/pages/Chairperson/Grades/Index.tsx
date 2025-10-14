@@ -115,8 +115,10 @@ export default function GradesIndex({ user, grades, stats, academicLevels, selec
         if (grade.is_approved) {
             return <Badge variant="default">Approved</Badge>;
         }
-        // All non-approved grades should show as Pending
-        return <Badge variant="secondary">Pending</Badge>;
+        if (grade.is_submitted_for_validation) {
+            return <Badge variant="secondary">Pending</Badge>;
+        }
+        return <Badge variant="outline">Draft</Badge>;
     };
 
     const getStatusIcon = (grade: Grade) => {
@@ -126,8 +128,10 @@ export default function GradesIndex({ user, grades, stats, academicLevels, selec
         if (grade.is_approved) {
             return <CheckCircle className="h-4 w-4 text-green-500" />;
         }
-        // All non-approved grades should show pending icon
-        return <Clock className="h-4 w-4 text-yellow-500" />;
+        if (grade.is_submitted_for_validation) {
+            return <Clock className="h-4 w-4 text-yellow-500" />;
+        }
+        return null; // No icon for draft grades
     };
 
     return (

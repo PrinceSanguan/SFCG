@@ -146,7 +146,7 @@ class GradeManagementController extends Controller
                 $query->where('department_id', $departmentId);
             });
 
-        $grades = $gradesQuery->with(['student', 'subject.course.department', 'academicLevel', 'gradingPeriod'])
+        $grades = $gradesQuery->with(['student', 'subject.course.department', 'gradingPeriod'])
             ->select('student_id', 'subject_id', 'academic_level_id', 'school_year', 'grading_period_id')
             ->selectRaw('MAX(id) as id') // Get the latest grade ID
             ->selectRaw('MAX(grade) as grade')
@@ -159,6 +159,12 @@ class GradeManagementController extends Controller
             ->groupBy('student_id', 'subject_id', 'academic_level_id', 'school_year', 'grading_period_id')
             ->orderByRaw('MAX(created_at) DESC')
             ->paginate(20);
+
+        // Manually attach academic level to each grade since relationship loading doesn't work with grouped queries
+        $grades->getCollection()->transform(function ($grade) use ($collegeLevel) {
+            $grade->academic_level = $collegeLevel;
+            return $grade;
+        });
 
         return Inertia::render('Chairperson/Grades/All', [
             'user' => $user,

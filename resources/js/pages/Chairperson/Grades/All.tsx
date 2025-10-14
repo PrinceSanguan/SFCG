@@ -1,11 +1,10 @@
 import { Header } from '@/components/admin/header';
 import { Sidebar } from '@/components/chairperson/sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Link, router } from '@inertiajs/react';
-import { GraduationCap, Clock, Eye, ArrowLeft, Filter, CheckCircle, XCircle } from 'lucide-react';
+import { GraduationCap, Eye, ArrowLeft, Filter } from 'lucide-react';
 
 interface User {
     id: number;
@@ -95,32 +94,6 @@ export default function AllGrades({ user, grades, academicLevels, selectedAcadem
             preserveState: true,
             preserveScroll: true,
         });
-    };
-
-    const getStatusBadge = (grade: Grade) => {
-        if (grade.is_returned) {
-            return <Badge variant="destructive">Returned</Badge>;
-        }
-        if (grade.is_approved) {
-            return <Badge variant="default">Approved</Badge>;
-        }
-        if (grade.is_submitted_for_validation) {
-            return <Badge variant="secondary">Pending</Badge>;
-        }
-        return <Badge variant="outline">Draft</Badge>;
-    };
-
-    const getStatusIcon = (grade: Grade) => {
-        if (grade.is_returned) {
-            return <XCircle className="h-4 w-4 text-red-500" />;
-        }
-        if (grade.is_approved) {
-            return <CheckCircle className="h-4 w-4 text-green-500" />;
-        }
-        if (grade.is_submitted_for_validation) {
-            return <Clock className="h-4 w-4 text-yellow-500" />;
-        }
-        return null; // No icon for draft grades
     };
 
     return (
@@ -225,7 +198,6 @@ export default function AllGrades({ user, grades, academicLevels, selectedAcadem
                                                     <th className="text-left p-2">Academic Level</th>
                                                     <th className="text-left p-2">Grading Period</th>
                                                     <th className="text-left p-2">School Year</th>
-                                                    <th className="text-left p-2">Status</th>
                                                     <th className="text-left p-2">Actions</th>
                                                 </tr>
                                             </thead>
@@ -248,12 +220,6 @@ export default function AllGrades({ user, grades, academicLevels, selectedAcadem
                                                         <td className="p-2">{grade.academic_level?.name || grade.academicLevel?.name || 'N/A'}</td>
                                                         <td className="p-2">{grade.grading_period?.name || grade.gradingPeriod?.name || 'N/A'}</td>
                                                         <td className="p-2">{grade.school_year}</td>
-                                                        <td className="p-2">
-                                                            <div className="flex items-center gap-2">
-                                                                {getStatusIcon(grade)}
-                                                                {getStatusBadge(grade)}
-                                                            </div>
-                                                        </td>
                                                         <td className="p-2">
                                                             <div className="flex gap-2">
                                                                 <Button asChild size="sm" variant="outline">

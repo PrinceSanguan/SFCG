@@ -177,15 +177,27 @@ class ParentManagementController extends Controller
 
         // Get all students for potential linking with their academic level information
         $allStudents = User::where('user_role', 'student')
-            ->with('academicLevel')
             ->orderBy('name')
             ->get()
             ->map(function($student) {
+                // Map year_level to readable format
+                $yearLevelMap = [
+                    'elementary' => 'Elementary',
+                    'junior_highschool' => 'Junior High School',
+                    'senior_highschool' => 'Senior High School',
+                    'college' => 'College',
+                ];
+
+                $academicLevel = isset($student->year_level) && isset($yearLevelMap[$student->year_level])
+                    ? $yearLevelMap[$student->year_level]
+                    : 'N/A';
+
                 return [
                     'id' => $student->id,
                     'name' => $student->name,
                     'email' => $student->email,
-                    'academic_level' => $student->academicLevel ? $student->academicLevel->name : 'N/A',
+                    'user_role' => $student->user_role,
+                    'academic_level' => $academicLevel,
                     'student_number' => $student->student_number,
                 ];
             });
