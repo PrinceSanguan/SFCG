@@ -465,69 +465,85 @@ export default function AssignInstructors({ user, assignments = [], instructors 
                     {collegeAssignments.map((assignment) => (
                         <Card key={assignment.id}>
                             <CardContent className="pt-6">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center space-x-4">
-                                        <div className="flex items-center space-x-2">
-                                            <User className="h-4 w-4 text-gray-500" />
-                                            <span className="font-medium">{assignment.instructor.name}</span>
-                                        </div>
-                                        <span className="text-gray-400">→</span>
-                                        <div className="flex items-center space-x-2">
-                                            <BookOpen className="h-4 w-4 text-gray-500" />
-                                            <span className="font-medium">{assignment.course.name}</span>
-                                            <Badge variant="outline">{assignment.course.department?.name || 'No Department'}</Badge>
-                                        </div>
-                                        {/* Show subjects for this course */}
-                                        <div className="ml-8 mt-2">
-                                            <div className="text-sm text-gray-600 mb-1">Subjects:</div>
-                                            <div className="flex flex-wrap gap-2">
-                                                {subjects
-                                                    .filter(subject => subject.course_id?.toString() === assignment.course_id.toString())
-                                                    .map(subject => (
-                                                        <Badge key={subject.id} variant="secondary" className="text-xs">
-                                                            {subject.name} ({subject.code})
-                                                        </Badge>
-                                                    ))}
+                                <div className="space-y-3">
+                                    {/* First row: Instructor, Course, and Actions */}
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center space-x-4">
+                                            <div className="flex items-center space-x-2">
+                                                <User className="h-4 w-4 text-gray-500" />
+                                                <span className="font-medium">{assignment.instructor.name}</span>
                                             </div>
-                                            {subjects.filter(subject => subject.course_id?.toString() === assignment.course_id.toString()).length === 0 && (
-                                                <span className="text-xs text-gray-400 italic">No subjects assigned to this course</span>
+                                            <span className="text-gray-400">→</span>
+                                            <div className="flex items-center space-x-2">
+                                                <BookOpen className="h-4 w-4 text-gray-500" />
+                                                <span className="font-medium">{assignment.course.name}</span>
+                                            </div>
+                                            {assignment.course.department && (
+                                                <div className="flex items-center space-x-2">
+                                                    <Building2 className="h-4 w-4 text-blue-500" />
+                                                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                                        {assignment.course.department.name}
+                                                    </Badge>
+                                                </div>
                                             )}
                                         </div>
-                                    </div>
-                                    <div className="flex items-center space-x-4">
-                                        <div className="flex items-center space-x-2 text-sm text-gray-600">
-                                            <Calendar className="h-4 w-4" />
-                                            <span>{assignment.school_year}</span>
+                                        <div className="flex items-center space-x-4">
+                                            <div className="flex items-center space-x-2 text-sm text-gray-600">
+                                                <Calendar className="h-4 w-4" />
+                                                <span>{assignment.school_year}</span>
+                                            </div>
+                                            {assignment.year_level && (
+                                                <Badge variant="outline">{yearLevels[assignment.year_level] || assignment.year_level}</Badge>
+                                            )}
+                                            {assignment.gradingPeriod && (
+                                                <Badge variant="secondary">{assignment.gradingPeriod.name}</Badge>
+                                            )}
+                                            {getStatusBadge(assignment.is_active)}
+                                            <div className="flex items-center space-x-2">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => openEditModal(assignment)}
+                                                >
+                                                    <Edit className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => destroyAssignment(assignment.id)}
+                                                    className="text-red-600 hover:text-red-700"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
                                         </div>
-                                        {assignment.year_level && (
-                                            <Badge variant="outline">{yearLevels[assignment.year_level] || assignment.year_level}</Badge>
-                                        )}
-                                        {assignment.gradingPeriod && (
-                                            <Badge variant="secondary">{assignment.gradingPeriod.name}</Badge>
-                                        )}
-                                        {getStatusBadge(assignment.is_active)}
-                                        <div className="flex items-center space-x-2">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => openEditModal(assignment)}
-                                            >
-                                                <Edit className="h-4 w-4" />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => destroyAssignment(assignment.id)}
-                                                className="text-red-600 hover:text-red-700"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </div>
                                     </div>
+
+                                    {/* Second row: Subjects */}
+                                    <div className="pl-6 border-l-2 border-gray-200">
+                                        <div className="text-sm text-gray-600 mb-1 font-medium">Subjects:</div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {subjects
+                                                .filter(subject => subject.course_id?.toString() === assignment.course_id.toString())
+                                                .map(subject => (
+                                                    <Badge key={subject.id} variant="secondary" className="text-xs">
+                                                        {subject.name} ({subject.code})
+                                                    </Badge>
+                                                ))}
+                                        </div>
+                                        {subjects.filter(subject => subject.course_id?.toString() === assignment.course_id.toString()).length === 0 && (
+                                            <span className="text-xs text-gray-400 italic">No subjects assigned to this course</span>
+                                        )}
+                                    </div>
+
+                                    {/* Third row: Notes */}
+                                    {assignment.notes && (
+                                        <div className="pl-6 border-l-2 border-gray-200">
+                                            <div className="text-sm text-gray-600 mb-1 font-medium">Notes:</div>
+                                            <p className="text-sm text-gray-600">{assignment.notes}</p>
+                                        </div>
+                                    )}
                                 </div>
-                                {assignment.notes && (
-                                    <p className="text-sm text-gray-600 mt-2">{assignment.notes}</p>
-                                )}
                             </CardContent>
                         </Card>
                     ))}
