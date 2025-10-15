@@ -255,13 +255,21 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
 
         console.log('Form validation passed, submitting...');
         console.log('Form data being sent:', JSON.stringify(subjectForm, null, 2));
-        
+
         // Clean up empty strings for optional fields
         const cleanedForm = {
             ...subjectForm,
             description: subjectForm.description || null,
             grading_period_ids: subjectForm.grading_period_ids.length > 0 ? subjectForm.grading_period_ids : null,
+            semester_ids: subjectForm.semester_ids.length > 0 ? subjectForm.semester_ids : null,
             course_id: subjectForm.course_id || null,
+            department_id: subjectForm.department_id || null,
+            section_id: subjectForm.section_id || null,
+            strand_id: subjectForm.strand_id || null,
+            track_id: subjectForm.track_id || null,
+            shs_year_level: subjectForm.shs_year_level || null,
+            jhs_year_level: subjectForm.jhs_year_level || null,
+            college_year_level: subjectForm.college_year_level || null,
         };
 
         router.post(route('admin.academic.subjects.store'), cleanedForm, {
@@ -277,7 +285,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                 console.log('Subject creation failed:', errors);
                 console.log('Error details:', JSON.stringify(errors, null, 2));
                 setErrors(errors);
-                
+
                 // Show specific error messages
                 if (errors.code) {
                     const suggestedCode = `${subjectForm.code}_${Date.now().toString().slice(-4)}`;
@@ -286,8 +294,16 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                     setSubjectForm(prev => ({ ...prev, code: suggestedCode }));
                 } else if (errors.name) {
                     addToast(`Subject name error: ${errors.name}`, "error");
+                } else if (errors.strand_id) {
+                    addToast(`Strand is required for Senior High School subjects.`, "error");
+                } else if (errors.section_id) {
+                    addToast(`Section is required. Please select a section.`, "error");
+                } else if (errors.shs_year_level) {
+                    addToast(`Year level is required for Senior High School subjects.`, "error");
                 } else {
-                    addToast("Failed to create subject. Please check the form and try again.", "error");
+                    // Show all error messages
+                    const errorMessages = Object.entries(errors).map(([key, value]) => `${key}: ${value}`).join(', ');
+                    addToast(`Failed to create subject. ${errorMessages}`, "error");
                 }
             },
         });
