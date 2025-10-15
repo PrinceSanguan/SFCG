@@ -108,28 +108,30 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
     
     const [isInitialized, setIsInitialized] = useState(false);
 
-    // Extract unique semesters from instructor's assignments
-    const assignedSemesters = useMemo(() => {
+    // Extract unique semesters from grading periods available in the system
+    // Check which semesters have grading periods defined (not based on student enrollment)
+    const availableSemesters = useMemo(() => {
         const semesters = new Set<string>();
-        assignedSubjects.forEach(subject => {
-            subject.enrolled_students.forEach(enrollment => {
-                if (enrollment.semester) {
-                    semesters.add(enrollment.semester.toLowerCase());
-                }
-            });
+        gradingPeriods.forEach(period => {
+            if (period.code.includes('_S1_')) {
+                semesters.add('first');
+            }
+            if (period.code.includes('_S2_')) {
+                semesters.add('second');
+            }
         });
         return Array.from(semesters);
-    }, [assignedSubjects]);
+    }, [gradingPeriods]);
 
-    // Check if instructor teaches first or second semester
-    const teachesFirstSemester = useMemo(() =>
-        assignedSemesters.some(s => s.includes('1st') || s.includes('first')),
-        [assignedSemesters]
+    // Check if grading periods exist for first or second semester
+    const hasFirstSemesterPeriods = useMemo(() =>
+        availableSemesters.includes('first'),
+        [availableSemesters]
     );
 
-    const teachesSecondSemester = useMemo(() =>
-        assignedSemesters.some(s => s.includes('2nd') || s.includes('second')),
-        [assignedSemesters]
+    const hasSecondSemesterPeriods = useMemo(() =>
+        availableSemesters.includes('second'),
+        [availableSemesters]
     );
 
     useEffect(() => {
@@ -391,8 +393,8 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                                         <SelectItem value="0">No Period</SelectItem>
                                                         {gradingPeriods && gradingPeriods.length > 0 ? (
                                                             <>
-                                                                {/* First Semester - Only show if instructor teaches it */}
-                                                                {teachesFirstSemester && (
+                                                                {/* First Semester - Show if grading periods exist */}
+                                                                {hasFirstSemesterPeriods && (
                                                                     <SelectGroup>
                                                                         <SelectLabel>First Semester</SelectLabel>
                                                                         {gradingPeriods
@@ -407,8 +409,8 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                                                     </SelectGroup>
                                                                 )}
 
-                                                                {/* Second Semester - Only show if instructor teaches it */}
-                                                                {teachesSecondSemester && (
+                                                                {/* Second Semester - Show if grading periods exist */}
+                                                                {hasSecondSemesterPeriods && (
                                                                     <SelectGroup>
                                                                         <SelectLabel>Second Semester</SelectLabel>
                                                                         {gradingPeriods
@@ -529,8 +531,8 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                                     <SelectItem value="0">No Period</SelectItem>
                                                     {gradingPeriods && gradingPeriods.length > 0 ? (
                                                         <>
-                                                            {/* First Semester - Only show if instructor teaches it */}
-                                                            {teachesFirstSemester && (
+                                                            {/* First Semester - Show if grading periods exist */}
+                                                            {hasFirstSemesterPeriods && (
                                                                 <SelectGroup>
                                                                     <SelectLabel>First Semester</SelectLabel>
                                                                     {gradingPeriods
@@ -545,8 +547,8 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                                                 </SelectGroup>
                                                             )}
 
-                                                            {/* Second Semester - Only show if instructor teaches it */}
-                                                            {teachesSecondSemester && (
+                                                            {/* Second Semester - Show if grading periods exist */}
+                                                            {hasSecondSemesterPeriods && (
                                                                 <SelectGroup>
                                                                     <SelectLabel>Second Semester</SelectLabel>
                                                                     {gradingPeriods

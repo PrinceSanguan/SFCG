@@ -345,7 +345,7 @@ class GradeManagementController extends Controller
     public function reviewGrade($gradeId)
     {
         $user = Auth::user();
-        $grade = StudentGrade::with(['student', 'subject.course', 'academicLevel', 'gradingPeriod'])
+        $grade = StudentGrade::with(['student', 'subject.course', 'subject.academicLevel', 'academicLevel', 'gradingPeriod', 'approvedBy', 'returnedBy'])
             ->findOrFail($gradeId);
 
         // Verify the grade belongs to the chairperson's department
@@ -354,11 +354,8 @@ class GradeManagementController extends Controller
         }
 
         // If academic level is not set on the grade, get it from the subject
-        if (!$grade->academicLevel && $grade->subject) {
-            $subject = Subject::with('academicLevel')->find($grade->subject_id);
-            if ($subject && $subject->academicLevel) {
-                $grade->setRelation('academicLevel', $subject->academicLevel);
-            }
+        if (!$grade->academicLevel && $grade->subject && $grade->subject->academicLevel) {
+            $grade->setRelation('academicLevel', $grade->subject->academicLevel);
         }
 
         return Inertia::render('Chairperson/Grades/Review', [

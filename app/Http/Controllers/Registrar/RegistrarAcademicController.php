@@ -942,136 +942,44 @@ class RegistrarAcademicController extends Controller
 
         $level = AcademicLevel::findOrFail($validated['academic_level_id']);
 
-        // Use specialized calculation for elementary students
-        if ($level->key === 'elementary') {
-            $elementaryService = new \App\Services\ElementaryHonorCalculationService();
-            $result = $elementaryService->generateElementaryHonorResults($level->id, $validated['school_year']);
+        // Route to appropriate specialized service based on academic level
+        switch ($level->key) {
+            case 'elementary':
+                $service = new \App\Services\ElementaryHonorCalculationService();
+                $result = $service->generateElementaryHonorResults($level->id, $validated['school_year']);
+                break;
 
-            return response()->json([
-                'success' => $result['success'],
-                'message' => $result['message'],
-                'data' => [
-                    'academic_level' => $level->name,
-                    'school_year' => $validated['school_year'],
-                    'total_processed' => $result['total_processed'],
-                    'total_qualified' => $result['total_qualified'],
-                    'results' => $result['results'],
-                ]
-            ]);
-        }
+            case 'junior_highschool':
+                $service = new \App\Services\JuniorHighSchoolHonorCalculationService();
+                $result = $service->generateJuniorHighSchoolHonorResults($level->id, $validated['school_year']);
+                break;
 
-        // Use standard calculation for other academic levels
-        $criteria = HonorCriterion::where('academic_level_id', $level->id)->get();
+            case 'senior_highschool':
+                $service = new \App\Services\SeniorHighSchoolHonorCalculationService();
+                $result = $service->generateSeniorHighSchoolHonorResults($level->id, $validated['school_year']);
+                break;
 
-        $honorResults = [];
+            case 'college':
+                $service = new \App\Services\CollegeHonorCalculationService();
+                $result = $service->generateCollegeHonorResults($level->id, $validated['school_year']);
+                break;
 
-        foreach ($criteria as $criterion) {
-            $students = User::where('user_role', 'student')
-                ->where('year_level', $level->key)
-                ->get();
-
-            $qualifiedStudents = [];
-
-            foreach ($students as $student) {
-                $grades = StudentGrade::where('student_id', $student->id)
-                    ->where('academic_level_id', $level->id)
-                    ->where('school_year', $validated['school_year']);
-
-                // Apply year restrictions for college honors
-                if ($criterion->min_year || $criterion->max_year) {
-                    $grades = $grades->whereBetween('year_of_study', [
-                        $criterion->min_year ?? 1,
-                        $criterion->max_year ?? 4
-                    ]);
-                }
-
-                $grades = $grades->pluck('grade');
-
-                if ($grades->isEmpty()) {
-                    continue;
-                }
-
-                $gpa = round($grades->avg(), 2);
-                $minGrade = (int) floor($grades->min());
-
-                // Check if student qualifies for this honor
-                $qualifies = true;
-
-                // GPA requirements
-                if ($criterion->min_gpa && $gpa < $criterion->min_gpa) {
-                    $qualifies = false;
-                }
-                if ($criterion->max_gpa && $gpa > $criterion->max_gpa) {
-                    $qualifies = false;
-                }
-
-                // Minimum grade requirements
-                if ($criterion->min_grade && $minGrade < $criterion->min_grade) {
-                    $qualifies = false;
-                }
-
-                // Consistent honor standing (for Dean's List)
-                if ($criterion->require_consistent_honor) {
-                    // Check if student has been on honor roll in previous years
-                    $previousHonors = HonorResult::where('student_id', $student->id)
-                        ->where('academic_level_id', $level->id)
-                        ->where('school_year', '!=', $validated['school_year'])
-                        ->where('is_overridden', false)
-                        ->exists();
-
-                    if (!$previousHonors) {
-                        $qualifies = false;
-                    }
-                }
-
-                if ($qualifies) {
-                    $qualifiedStudents[] = [
-                        'id' => $student->id,
-                        'name' => $student->name,
-                        'student_number' => $student->student_number,
-                        'gpa' => $gpa,
-                        'min_grade' => $minGrade,
-                        'grades_count' => $grades->count(),
-                    ];
-                }
-            }
-
-            if (!empty($qualifiedStudents)) {
-                $honorResults[] = [
-                    'honor_type' => $criterion->honorType,
-                    'criterion' => $criterion,
-                    'students' => $qualifiedStudents,
-                    'count' => count($qualifiedStudents),
-                ];
-            }
-        }
-
-        // Store results in honor_results table
-        foreach ($honorResults as $result) {
-            foreach ($result['students'] as $student) {
-                HonorResult::updateOrCreate([
-                    'student_id' => $student['id'],
-                    'honor_type_id' => $result['honor_type']->id,
-                    'academic_level_id' => $level->id,
-                    'school_year' => $validated['school_year'],
-                ], [
-                    'gpa' => $student['gpa'],
-                    'is_overridden' => false,
-                    'is_pending_approval' => true, // Set as pending for Principal approval
-                    'is_approved' => false,
-                    'is_rejected' => false,
-                ]);
-            }
+            default:
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unsupported academic level: ' . $level->name
+                ], 400);
         }
 
         return response()->json([
-            'success' => true,
-            'message' => 'Honor roll generated successfully',
+            'success' => $result['success'],
+            'message' => $result['message'],
             'data' => [
                 'academic_level' => $level->name,
                 'school_year' => $validated['school_year'],
-                'honor_results' => $honorResults,
-                'total_students' => array_sum(array_column($honorResults, 'count')),
+                'total_processed' => $result['total_processed'],
+                'total_qualified' => $result['total_qualified'],
+                'results' => $result['results'],
             ]
         ]);
     }

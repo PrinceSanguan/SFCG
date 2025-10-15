@@ -643,17 +643,82 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
     })->name('assign-teachers.destroy');
     Route::get('/assign-advisers', [RegistrarAcademicController::class, 'assignAdvisers'])->name('assign-advisers');
     
+    // Tracks CRUD routes
+    Route::post('/tracks', function(\Illuminate\Http\Request $request) {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'code' => ['required', 'string', 'max:20', 'unique:tracks,code'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        $validated['is_active'] = $validated['is_active'] ?? true;
+
+        $track = \App\Models\Track::create($validated);
+
+        // Log activity
+        \App\Models\ActivityLog::create([
+            'user_id' => \Illuminate\Support\Facades\Auth::id(),
+            'action' => 'created_track',
+            'entity_type' => 'track',
+            'entity_id' => $track->id,
+            'details' => [
+                'track_name' => $track->name,
+                'track_code' => $track->code,
+            ],
+        ]);
+
+        return back()->with('success', 'Track created successfully!');
+    })->name('tracks.store');
+
+    Route::put('/tracks/{track}', function(\Illuminate\Http\Request $request, \App\Models\Track $track) {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'code' => ['required', 'string', 'max:20', 'unique:tracks,code,' . $track->id],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        $track->update($validated);
+
+        // Log activity
+        \App\Models\ActivityLog::create([
+            'user_id' => \Illuminate\Support\Facades\Auth::id(),
+            'action' => 'updated_track',
+            'entity_type' => 'track',
+            'entity_id' => $track->id,
+            'details' => [
+                'track_name' => $track->name,
+                'track_code' => $track->code,
+            ],
+        ]);
+
+        return back()->with('success', 'Track updated successfully!');
+    })->name('tracks.update');
+
+    Route::delete('/tracks/{track}', function(\App\Models\Track $track) {
+        $track->delete();
+
+        // Log activity
+        \App\Models\ActivityLog::create([
+            'user_id' => \Illuminate\Support\Facades\Auth::id(),
+            'action' => 'deleted_track',
+            'entity_type' => 'track',
+            'entity_id' => $track->id,
+        ]);
+
+        return back()->with('success', 'Track deleted successfully!');
+    })->name('tracks.destroy');
+
     // Strands CRUD routes
     Route::post('/strands', function(\Illuminate\Http\Request $request) {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'code' => ['required', 'string', 'max:20', 'unique:strands,code'],
-            'academic_track' => ['nullable', 'string', 'max:50'],
+            'track_id' => ['nullable', 'exists:tracks,id'],
             'academic_level_id' => ['required', 'exists:academic_levels,id'],
         ]);
-        
+
         $strand = \App\Models\Strand::create($validated);
-        
+
         // Log activity
         \App\Models\ActivityLog::create([
             'user_id' => \Illuminate\Support\Facades\Auth::id(),
@@ -665,20 +730,20 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
                 'strand_code' => $strand->code,
             ],
         ]);
-        
+
         return back()->with('success', 'Strand created successfully!');
     })->name('strands.store');
-    
+
     Route::put('/strands/{strand}', function(\Illuminate\Http\Request $request, \App\Models\Strand $strand) {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'code' => ['required', 'string', 'max:20', 'unique:strands,code,' . $strand->id],
-            'academic_track' => ['nullable', 'string', 'max:50'],
+            'track_id' => ['nullable', 'exists:tracks,id'],
             'academic_level_id' => ['required', 'exists:academic_levels,id'],
         ]);
-        
+
         $strand->update($validated);
-        
+
         // Log activity
         \App\Models\ActivityLog::create([
             'user_id' => \Illuminate\Support\Facades\Auth::id(),
@@ -690,13 +755,13 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
                 'strand_code' => $strand->code,
             ],
         ]);
-        
+
         return back()->with('success', 'Strand updated successfully!');
     })->name('strands.update');
-    
+
     Route::delete('/strands/{strand}', function(\App\Models\Strand $strand) {
         $strand->delete();
-        
+
         // Log activity
         \App\Models\ActivityLog::create([
             'user_id' => \Illuminate\Support\Facades\Auth::id(),
@@ -704,7 +769,7 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
             'entity_type' => 'strand',
             'entity_id' => $strand->id,
         ]);
-        
+
         return back()->with('success', 'Strand deleted successfully!');
     })->name('strands.destroy');
     

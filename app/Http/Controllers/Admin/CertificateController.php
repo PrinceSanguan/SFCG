@@ -41,7 +41,8 @@ class CertificateController extends Controller
         // Get all approved honors from all academic levels with grade level and section info
         $honorsQuery = HonorResult::with([
             'student' => function ($query) {
-                $query->select('id', 'name', 'student_number', 'year_level', 'section_id');
+                $query->select('id', 'name', 'student_number', 'year_level', 'section_id')
+                    ->with('section:id,name');
             },
             'honorType',
             'academicLevel',

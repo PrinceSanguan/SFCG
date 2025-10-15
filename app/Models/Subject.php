@@ -23,6 +23,7 @@ class Subject extends Model
         'course_id',
         'shs_year_level',
         'jhs_year_level',
+        'college_year_level',
         'units',
         'hours_per_week',
         'is_core',

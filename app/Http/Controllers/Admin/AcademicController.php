@@ -246,7 +246,7 @@ class AcademicController extends Controller
 
     public function subjects()
     {
-        $subjects = Subject::with(['academicLevel', 'gradingPeriod', 'course', 'section'])
+        $subjects = Subject::with(['academicLevel', 'gradingPeriod', 'course', 'section', 'strand.track'])
             ->orderBy('academic_level_id')
             ->orderBy('name')
             ->get()
@@ -1370,6 +1370,7 @@ class AcademicController extends Controller
             'strand_id' => 'nullable|exists:strands,id',
             'shs_year_level' => 'nullable|string|in:grade_11,grade_12',
             'jhs_year_level' => 'nullable|string|in:grade_7,grade_8,grade_9,grade_10',
+            'college_year_level' => 'nullable|string|in:first_year,second_year,third_year,fourth_year,fifth_year',
             'grade_levels' => 'nullable|array',
             'grade_levels.*' => 'string|in:grade_1,grade_2,grade_3,grade_4,grade_5,grade_6',
             'selected_grade_level' => 'nullable|string|in:grade_1,grade_2,grade_3,grade_4,grade_5,grade_6',
@@ -1515,6 +1516,7 @@ class AcademicController extends Controller
             'strand_id' => 'nullable|exists:strands,id',
             'shs_year_level' => 'nullable|string|in:grade_11,grade_12',
             'jhs_year_level' => 'nullable|string|in:grade_7,grade_8,grade_9,grade_10',
+            'college_year_level' => 'nullable|string|in:first_year,second_year,third_year,fourth_year,fifth_year',
             'grade_levels' => 'nullable|array',
             'grade_levels.*' => 'string|in:grade_1,grade_2,grade_3,grade_4,grade_5,grade_6',
             'grading_period_ids' => 'nullable|array',

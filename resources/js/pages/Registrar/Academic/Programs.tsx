@@ -21,7 +21,12 @@ interface Course { id: number; name: string; code: string; department_id: number
 
 export default function Programs({ user, academicLevels = [], departments = [], tracks = [], formErrors }: { user: User; academicLevels?: AcademicLevel[]; departments?: Department[]; tracks?: Track[]; formErrors?: Record<string, string> }) {
     const [activeTab, setActiveTab] = useState('strands');
-    
+
+    // Track form state
+    const [trackForm, setTrackForm] = useState({ name: '', code: '', is_active: true });
+    const [trackModal, setTrackModal] = useState(false);
+    const [editTrack, setEditTrack] = useState<Track | null>(null);
+
     // Strand form state
     const [strandForm, setStrandForm] = useState({ name: '', code: '', academic_level_id: '', track_id: '' });
     const [strandModal, setStrandModal] = useState(false);
@@ -35,12 +40,12 @@ export default function Programs({ user, academicLevels = [], departments = [], 
         }
         setStrandModal(true);
     };
-    
+
     // Department form state
     const [deptForm, setDeptForm] = useState({ name: '', code: '' });
     const [deptModal, setDeptModal] = useState(false);
     const [editDept, setEditDept] = useState<Department | null>(null);
-    
+
     // Course form state
     const [courseForm, setCourseForm] = useState({ name: '', code: '', department_id: '' });
     const [courseModal, setCourseModal] = useState(false);
@@ -97,18 +102,40 @@ export default function Programs({ user, academicLevels = [], departments = [], 
             onSuccess: () => { setCourseForm({ name: '', code: '', department_id: '' }); setCourseModal(false); },
         });
     };
-    
+
     const updateCourse = (course: Course) => {
         const data = { name: course.name, code: course.code, department_id: course.department_id };
-        router.put(route('registrar.academic.courses.update', course.id), data, { 
-            preserveScroll: true, 
-            onSuccess: () => setEditCourse(null) 
+        router.put(route('registrar.academic.courses.update', course.id), data, {
+            preserveScroll: true,
+            onSuccess: () => setEditCourse(null)
         });
     };
-    
+
     const destroyCourse = (course: Course) => {
         if (confirm(`Delete course ${course.name}?`)) {
             router.delete(route('registrar.academic.courses.destroy', course.id), { preserveScroll: true });
+        }
+    };
+
+    // Track handlers
+    const submitTrack = () => {
+        router.post(route('registrar.academic.tracks.store'), trackForm, {
+            preserveScroll: true,
+            onSuccess: () => { setTrackForm({ name: '', code: '', is_active: true }); setTrackModal(false); },
+        });
+    };
+
+    const updateTrack = (track: Track) => {
+        const data = { name: track.name, code: track.code, is_active: track.is_active };
+        router.put(route('registrar.academic.tracks.update', track.id), data, {
+            preserveScroll: true,
+            onSuccess: () => setEditTrack(null)
+        });
+    };
+
+    const destroyTrack = (track: Track) => {
+        if (confirm(`Delete track ${track.name}?`)) {
+            router.delete(route('registrar.academic.tracks.destroy', track.id), { preserveScroll: true });
         }
     };
 
@@ -132,18 +159,19 @@ export default function Programs({ user, academicLevels = [], departments = [], 
                         </CardHeader>
                         <CardContent>
                             <Tabs value={activeTab} onValueChange={setActiveTab}>
-                                <TabsList className="grid w-full grid-cols-3">
+                                <TabsList className="grid w-full grid-cols-4">
                                     <TabsTrigger value="strands">Strands</TabsTrigger>
+                                    <TabsTrigger value="tracks">Tracks</TabsTrigger>
                                     <TabsTrigger value="departments">Departments</TabsTrigger>
                                     <TabsTrigger value="courses">Courses</TabsTrigger>
                                 </TabsList>
-                                
+
                                 <TabsContent value="strands" className="space-y-4">
                                     <div className="flex items-center justify-between">
                                         <h3 className="font-semibold">Academic Strands</h3>
                                         <Dialog open={strandModal} onOpenChange={setStrandModal}>
                                             <DialogTrigger asChild>
-                                                <Button onClick={openStrandModal} className="flex items-center gap-2">
+                                                <Button className="flex items-center gap-2">
                                                     <Plus className="h-4 w-4" />
                                                     Add Strand
                                                 </Button>
@@ -250,7 +278,73 @@ export default function Programs({ user, academicLevels = [], departments = [], 
                                         </table>
                                     </div>
                                 </TabsContent>
-                                
+
+                                <TabsContent value="tracks" className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="font-semibold">Academic Tracks</h3>
+                                        <Dialog open={trackModal} onOpenChange={setTrackModal}>
+                                            <DialogTrigger asChild>
+                                                <Button className="flex items-center gap-2"><Plus className="h-4 w-4" /> Add Track</Button>
+                                            </DialogTrigger>
+                                            <DialogContent>
+                                                <DialogHeader>
+                                                    <DialogTitle>Add new track</DialogTitle>
+                                                </DialogHeader>
+                                                <div className="space-y-3">
+                                                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                                        <p className="text-sm text-blue-800">
+                                                            <strong>Note:</strong> Tracks are groupings for Senior High School strands (e.g., Academic Track, TVL Track, Arts & Design Track, Sports Track).
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <Label htmlFor="track-name">Name</Label>
+                                                        <Input id="track-name" value={trackForm.name} onChange={(e) => setTrackForm({ ...trackForm, name: e.target.value })} />
+                                                    </div>
+                                                    <div>
+                                                        <Label htmlFor="track-code">Code</Label>
+                                                        <Input id="track-code" value={trackForm.code} onChange={(e) => setTrackForm({ ...trackForm, code: e.target.value })} />
+                                                    </div>
+                                                </div>
+                                                <DialogFooter>
+                                                    <Button onClick={submitTrack}>Save</Button>
+                                                </DialogFooter>
+                                            </DialogContent>
+                                        </Dialog>
+                                    </div>
+
+                                    <div className="overflow-x-auto rounded border">
+                                        <table className="w-full text-sm">
+                                            <thead className="bg-gray-50 dark:bg-gray-800">
+                                                <tr>
+                                                    <th className="text-left p-3">Code</th>
+                                                    <th className="text-left p-3">Name</th>
+                                                    <th className="text-left p-3">Status</th>
+                                                    <th className="text-left p-3">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {tracks.map((track) => (
+                                                    <tr key={track.id} className="border-t">
+                                                        <td className="p-3">{track.code}</td>
+                                                        <td className="p-3">{track.name}</td>
+                                                        <td className="p-3">
+                                                            <span className={`text-xs px-2 py-1 rounded ${track.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                                                                {track.is_active ? 'Active' : 'Inactive'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-3">
+                                                            <div className="flex gap-2">
+                                                                <Button variant="outline" size="sm" onClick={() => setEditTrack(track)}>Edit</Button>
+                                                                <Button variant="destructive" size="sm" onClick={() => destroyTrack(track)}>Delete</Button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </TabsContent>
+
                                 <TabsContent value="departments" className="space-y-4">
                                     <div className="flex items-center justify-between">
                                         <h3 className="font-semibold">Departments</h3>
@@ -384,6 +478,34 @@ export default function Programs({ user, academicLevels = [], departments = [], 
                     </Card>
 
                     {/* Edit modals */}
+                    {editTrack && (
+                        <Dialog open={!!editTrack} onOpenChange={(open) => !open && setEditTrack(null)}>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Edit track</DialogTitle>
+                                </DialogHeader>
+                                <div className="space-y-3">
+                                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                        <p className="text-sm text-blue-800">
+                                            <strong>Note:</strong> Tracks are groupings for Senior High School strands (e.g., Academic Track, TVL Track, Arts & Design Track, Sports Track).
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <Label>Name</Label>
+                                        <Input value={editTrack.name} onChange={(e) => setEditTrack({ ...editTrack, name: e.target.value })} />
+                                    </div>
+                                    <div>
+                                        <Label>Code</Label>
+                                        <Input value={editTrack.code} onChange={(e) => setEditTrack({ ...editTrack, code: e.target.value })} />
+                                    </div>
+                                </div>
+                                <DialogFooter>
+                                    <Button onClick={() => updateTrack(editTrack)}>Save</Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    )}
+
                     {editStrand && (
                         <Dialog open={!!editStrand} onOpenChange={(open) => !open && setEditStrand(null)}>
                             <DialogContent>

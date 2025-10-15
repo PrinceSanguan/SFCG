@@ -83,6 +83,30 @@ export default function AllGrades({ user, grades, academicLevels, selectedAcadem
     const safeGrades = grades || { data: [], current_page: 1, last_page: 1, per_page: 20, total: 0 };
     const safeAcademicLevels = academicLevels || [];
 
+    // Group grades by student and subject
+    const groupedGrades = safeGrades.data.reduce((acc, grade) => {
+        const key = `${grade.student.id}-${grade.subject.id}`;
+        if (!acc[key]) {
+            acc[key] = {
+                student: grade.student,
+                subject: grade.subject,
+                academicLevel: grade.academic_level || grade.academicLevel,
+                schoolYear: grade.school_year,
+                grades: []
+            };
+        }
+        acc[key].grades.push({
+            id: grade.id,
+            grade: grade.grade,
+            gradingPeriod: grade.grading_period || grade.gradingPeriod,
+            isApproved: grade.is_approved,
+            isReturned: grade.is_returned
+        });
+        return acc;
+    }, {} as Record<string, any>);
+
+    const groupedGradesArray = Object.values(groupedGrades);
+
     const handleAcademicLevelChange = (value: string) => {
         const params = new URLSearchParams(window.location.search);
         if (value === 'all') {
@@ -183,7 +207,7 @@ export default function AllGrades({ user, grades, academicLevels, selectedAcadem
                                 <CardTitle>All Grades</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                {safeGrades.data.length === 0 ? (
+                                {groupedGradesArray.length === 0 ? (
                                     <p className="text-center text-gray-500 dark:text-gray-400 py-8">
                                         No grades found
                                     </p>
@@ -192,41 +216,62 @@ export default function AllGrades({ user, grades, academicLevels, selectedAcadem
                                         <table className="w-full">
                                             <thead>
                                                 <tr className="border-b">
-                                                    <th className="text-left p-2">Student</th>
-                                                    <th className="text-left p-2">Subject</th>
-                                                    <th className="text-left p-2">Grade</th>
-                                                    <th className="text-left p-2">Academic Level</th>
-                                                    <th className="text-left p-2">Grading Period</th>
-                                                    <th className="text-left p-2">School Year</th>
-                                                    <th className="text-left p-2">Actions</th>
+                                                    <th className="text-left p-3">Student</th>
+                                                    <th className="text-left p-3">Subject</th>
+                                                    <th className="text-left p-3">Academic Level</th>
+                                                    <th className="text-left p-3">Grading Periods & Grades</th>
+                                                    <th className="text-left p-3">School Year</th>
+                                                    <th className="text-left p-3">Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {safeGrades.data.map((grade) => (
-                                                    <tr key={grade.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800">
-                                                        <td className="p-2">
+                                                {groupedGradesArray.map((groupedGrade, index) => (
+                                                    <tr key={`${groupedGrade.student.id}-${groupedGrade.subject.id}`} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800">
+                                                        <td className="p-3">
                                                             <div>
-                                                                <div className="font-medium">{grade.student?.name || 'N/A'}</div>
-                                                                <div className="text-sm text-gray-500">{grade.student?.student_number || 'N/A'}</div>
+                                                                <div className="font-medium">{groupedGrade.student?.name || 'N/A'}</div>
+                                                                <div className="text-sm text-gray-500">{groupedGrade.student?.student_number || 'N/A'}</div>
                                                             </div>
                                                         </td>
-                                                        <td className="p-2">
+                                                        <td className="p-3">
                                                             <div>
-                                                                <div className="font-medium">{grade.subject?.name || 'N/A'}</div>
-                                                                <div className="text-sm text-gray-500">{grade.subject?.course?.name || 'N/A'}</div>
+                                                                <div className="font-medium">{groupedGrade.subject?.name || 'N/A'}</div>
+                                                                <div className="text-sm text-gray-500">{groupedGrade.subject?.course?.name || 'N/A'}</div>
                                                             </div>
                                                         </td>
-                                                        <td className="p-2 font-medium">{grade.grade}</td>
-                                                        <td className="p-2">{grade.academic_level?.name || grade.academicLevel?.name || 'N/A'}</td>
-                                                        <td className="p-2">{grade.grading_period?.name || grade.gradingPeriod?.name || 'N/A'}</td>
-                                                        <td className="p-2">{grade.school_year}</td>
-                                                        <td className="p-2">
+                                                        <td className="p-3">{groupedGrade.academicLevel?.name || 'N/A'}</td>
+                                                        <td className="p-3">
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {groupedGrade.grades
+                                                                    .sort((a: any, b: any) => {
+                                                                        // Sort by grading period name
+                                                                        const aName = a.gradingPeriod?.name || '';
+                                                                        const bName = b.gradingPeriod?.name || '';
+                                                                        return aName.localeCompare(bName);
+                                                                    })
+                                                                    .map((gradeItem: any) => (
+                                                                        <div key={gradeItem.id} className="inline-flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-md px-2 py-1">
+                                                                            <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                                                                                {gradeItem.gradingPeriod?.name || 'No Period'}:
+                                                                            </span>
+                                                                            <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                                                                                {gradeItem.grade}
+                                                                            </span>
+                                                                        </div>
+                                                                    ))
+                                                                }
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-3">{groupedGrade.schoolYear}</td>
+                                                        <td className="p-3">
                                                             <div className="flex gap-2">
-                                                                <Button asChild size="sm" variant="outline">
-                                                                    <Link href={route('chairperson.grades.review', grade.id)}>
-                                                                        <Eye className="h-4 w-4" />
-                                                                    </Link>
-                                                                </Button>
+                                                                {groupedGrade.grades.map((gradeItem: any) => (
+                                                                    <Button key={gradeItem.id} asChild size="sm" variant="outline" title={`View ${gradeItem.gradingPeriod?.name || 'grade'}`}>
+                                                                        <Link href={route('chairperson.grades.review', gradeItem.id)}>
+                                                                            <Eye className="h-4 w-4" />
+                                                                        </Link>
+                                                                    </Button>
+                                                                ))}
                                                             </div>
                                                         </td>
                                                     </tr>
