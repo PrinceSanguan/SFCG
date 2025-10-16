@@ -269,6 +269,10 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
     Route::get('/honors/junior-high-school', [RegistrarAcademicController::class, 'juniorHighSchoolHonors'])->name('honors.junior-high-school');
     Route::get('/honors/senior-high-school', [RegistrarAcademicController::class, 'seniorHighSchoolHonors'])->name('honors.senior-high-school');
     Route::get('/honors/college', [RegistrarAcademicController::class, 'collegeHonors'])->name('honors.college');
+    Route::post('/honors/elementary/generate-results', [RegistrarAcademicController::class, 'generateElementaryHonorResults'])->name('honors.elementary.generate-results');
+    Route::post('/honors/junior-high-school/generate-results', [RegistrarAcademicController::class, 'generateJuniorHighSchoolHonorResults'])->name('honors.junior-high-school.generate-results');
+    Route::post('/honors/senior-high-school/generate-results', [RegistrarAcademicController::class, 'generateSeniorHighSchoolHonorResults'])->name('honors.senior-high-school.generate-results');
+    Route::post('/honors/college/generate-results', [RegistrarAcademicController::class, 'generateCollegeHonorResults'])->name('honors.college.generate-results');
     Route::post('/honors/criteria', [RegistrarAcademicController::class, 'saveHonorCriteria'])->name('honors.criteria.save');
     Route::put('/honors/criteria/{criterion}', [RegistrarAcademicController::class, 'updateHonorCriterion'])->name('honors.criteria.update');
     Route::delete('/honors/criteria/{criterion}', [RegistrarAcademicController::class, 'destroyHonorCriterion'])->name('honors.criteria.destroy');
