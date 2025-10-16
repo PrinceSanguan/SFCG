@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Link, usePage } from '@inertiajs/react';
 import React from 'react';
 
-type User = { id: number; name: string };
+type User = { id: number; name: string; email: string; user_role: string };
 
 export default function SectionsHome() {
     const { props } = usePage<{ user: User }>();
@@ -57,6 +57,7 @@ export default function SectionsHome() {
         </div>
     );
 }
+
 
 
 

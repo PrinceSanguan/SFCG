@@ -655,6 +655,7 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'code' => ['required', 'string', 'max:20', 'unique:tracks,code'],
+            'description' => ['nullable', 'string'],
             'is_active' => ['nullable', 'boolean'],
         ]);
 
@@ -681,6 +682,7 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'code' => ['required', 'string', 'max:20', 'unique:tracks,code,' . $track->id],
+            'description' => ['nullable', 'string'],
             'is_active' => ['nullable', 'boolean'],
         ]);
 
