@@ -4,10 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Link, useForm } from '@inertiajs/react';
-import { Search, Users, Eye, Edit, Trash2, Key } from 'lucide-react';
-import { useState } from 'react';
+import { Link, useForm, router } from '@inertiajs/react';
+import { Search, Users, Eye, Edit, Trash2, Key, Upload, Download } from 'lucide-react';
+import { useState, useRef } from 'react';
 import PasswordResetModal from '@/components/registrar/PasswordResetModal';
+import { useToast } from '@/components/ui/toast';
 
 interface User {
     id: number;
@@ -37,6 +38,8 @@ export default function UsersIndex({ user, users, filters, roles, currentRole, y
     const [userToDelete, setUserToDelete] = useState<User | null>(null);
     const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
     const { delete: deleteUser } = useForm();
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const { addToast } = useToast();
 
     const handleDelete = (userItem: User) => {
         setUserToDelete(userItem);
@@ -44,6 +47,42 @@ export default function UsersIndex({ user, users, filters, roles, currentRole, y
 
     const handleResetPassword = (userItem: User) => {
         setResetPasswordUser(userItem);
+    };
+
+    const handleDownloadTemplate = () => {
+        // Pass academic level as query parameter if viewing a specific level
+        const params = yearLevel ? { academic_level: yearLevel } : {};
+        window.location.href = route('registrar.students.template', params);
+    };
+
+    const handleUploadClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileSelected: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append('file', file);
+        // Pass academic level if viewing a specific level
+        if (yearLevel) {
+            formData.append('academic_level', yearLevel);
+        }
+        router.post(route('registrar.students.upload'), formData, {
+            forceFormData: true,
+            onSuccess: () => {
+                addToast('Students CSV uploaded successfully.', 'success');
+                router.reload();
+            },
+            onError: (err) => {
+                console.error('CSV upload failed:', err);
+                addToast('CSV upload failed. Please check the file format.', 'error');
+            }
+        });
+        // Reset the input
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
     };
 
     const confirmDelete = () => {
@@ -101,14 +140,36 @@ export default function UsersIndex({ user, users, filters, roles, currentRole, y
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="flex gap-4">
-                                    <div className="flex-1">
-                                        <Input
-                                            placeholder="Search users by name or email..."
-                                            defaultValue={filters?.search || ''}
-                                        />
+                                <div className="flex flex-col lg:flex-row gap-4">
+                                    <div className="flex gap-4 flex-1">
+                                        <div className="flex-1">
+                                            <Input
+                                                placeholder="Search users by name or email..."
+                                                defaultValue={filters?.search || ''}
+                                            />
+                                        </div>
+                                        <Button>Search</Button>
                                     </div>
-                                    <Button>Search</Button>
+                                    {/* Only show CSV buttons for student pages with yearLevel */}
+                                    {yearLevel && (
+                                        <div className="flex flex-wrap gap-2 justify-end w-full lg:w-auto">
+                                            <input
+                                                type="file"
+                                                accept=".csv,text/csv"
+                                                ref={fileInputRef}
+                                                className="hidden"
+                                                onChange={handleFileSelected}
+                                            />
+                                            <Button variant="outline" className="flex items-center gap-2" onClick={handleUploadClick}>
+                                                <Upload className="h-4 w-4" />
+                                                Upload CSV
+                                            </Button>
+                                            <Button variant="outline" className="flex items-center gap-2" onClick={handleDownloadTemplate}>
+                                                <Download className="h-4 w-4" />
+                                                Download Template
+                                            </Button>
+                                        </div>
+                                    )}
                                 </div>
                             </CardContent>
                         </Card>

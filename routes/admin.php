@@ -385,7 +385,16 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('admin/aca
             'description' => ['nullable', 'string'],
             'is_active' => ['nullable', 'boolean'],
         ]);
+
+        // Auto-assign to College academic level (departments are college-level entities)
+        $collegeLevel = \App\Models\AcademicLevel::where('key', 'college')->first();
+        if (!$collegeLevel) {
+            return back()->with('error', 'College academic level not found. Please configure academic levels first.');
+        }
+
+        $validated['academic_level_id'] = $collegeLevel->id;
         $validated['is_active'] = $validated['is_active'] ?? true;
+
         \App\Models\Department::create($validated);
         return back();
     })->name('departments.store');

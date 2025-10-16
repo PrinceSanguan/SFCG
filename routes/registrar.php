@@ -161,6 +161,9 @@ Route::middleware(['auth', 'registrar'])->prefix('registrar')->name('registrar.'
         Route::get('/junior-highschool', [RegistrarUserManagementController::class, 'indexJuniorHighschool'])->name('junior_highschool');
         Route::get('/senior-highschool', [RegistrarUserManagementController::class, 'indexSeniorHighschool'])->name('senior_highschool');
         Route::get('/college', [RegistrarUserManagementController::class, 'indexCollege'])->name('college');
+        // CSV template and upload endpoints
+        Route::get('/template/csv', [RegistrarUserManagementController::class, 'downloadStudentsCsvTemplate'])->name('template');
+        Route::post('/upload/csv', [RegistrarUserManagementController::class, 'uploadStudentsCsv'])->name('upload');
         Route::get('/{user}', [RegistrarUserManagementController::class, 'showByRole'])->name('show');
         Route::get('/{user}/edit', [RegistrarUserManagementController::class, 'editByRole'])->name('edit');
         Route::put('/{user}', [RegistrarUserManagementController::class, 'updateByRole'])->name('update');
@@ -782,10 +785,21 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'code' => ['required', 'string', 'max:20', 'unique:departments,code'],
+            'description' => ['nullable', 'string'],
+            'is_active' => ['nullable', 'boolean'],
         ]);
-        
+
+        // Auto-assign to College academic level (departments are college-level entities)
+        $collegeLevel = \App\Models\AcademicLevel::where('key', 'college')->first();
+        if (!$collegeLevel) {
+            return back()->with('error', 'College academic level not found. Please configure academic levels first.');
+        }
+
+        $validated['academic_level_id'] = $collegeLevel->id;
+        $validated['is_active'] = $validated['is_active'] ?? true;
+
         $department = \App\Models\Department::create($validated);
-        
+
         // Log activity
         \App\Models\ActivityLog::create([
             'user_id' => \Illuminate\Support\Facades\Auth::id(),
@@ -797,7 +811,7 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
                 'department_code' => $department->code,
             ],
         ]);
-        
+
         return back()->with('success', 'Department created successfully!');
     })->name('departments.store');
     
@@ -805,10 +819,12 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'code' => ['required', 'string', 'max:20', 'unique:departments,code,' . $department->id],
+            'description' => ['nullable', 'string'],
+            'is_active' => ['nullable', 'boolean'],
         ]);
-        
+
         $department->update($validated);
-        
+
         // Log activity
         \App\Models\ActivityLog::create([
             'user_id' => \Illuminate\Support\Facades\Auth::id(),
@@ -820,7 +836,7 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
                 'department_code' => $department->code,
             ],
         ]);
-        
+
         return back()->with('success', 'Department updated successfully!');
     })->name('departments.update');
     
