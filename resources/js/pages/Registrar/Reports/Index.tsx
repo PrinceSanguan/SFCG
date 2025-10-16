@@ -122,6 +122,12 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
             return;
         }
 
+        // Validate required fields
+        if (!gradeData.school_year) {
+            alert('Please select a school year.');
+            return;
+        }
+
         setIsGenerating(true);
 
         // Create a hidden iframe for download
@@ -159,8 +165,11 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
         form.submit();
         document.body.removeChild(form);
 
-        // Reset loading state after a delay
-        setTimeout(() => setIsGenerating(false), 2000);
+        // Reset loading state after a delay and show success message
+        setTimeout(() => {
+            setIsGenerating(false);
+            alert('Report generation initiated. Your download should begin shortly. If it doesn\'t, please check your filters and try again.');
+        }, 2000);
     };
 
     const handleHonorStatistics = (e: React.FormEvent) => {
@@ -272,6 +281,16 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
             return;
         }
 
+        // Validate required fields
+        if (!sectionData.academic_level_id) {
+            alert('Please select an academic level.');
+            return;
+        }
+        if (!sectionData.school_year) {
+            alert('Please select a school year.');
+            return;
+        }
+
         setIsGenerating(true);
 
         // Create a hidden iframe for download
@@ -296,12 +315,17 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
         csrfInput.value = csrfToken;
         form.appendChild(csrfInput);
 
-        // Add form data
+        // Add form data with proper type conversion
         Object.entries(sectionData).forEach(([key, value]) => {
             const input = document.createElement('input');
             input.type = 'hidden';
             input.name = key;
-            input.value = value?.toString() || '';
+            // Convert boolean to string for include_grades
+            if (key === 'include_grades') {
+                input.value = value ? '1' : '0';
+            } else {
+                input.value = value?.toString() || '';
+            }
             form.appendChild(input);
         });
 
@@ -309,8 +333,11 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
         form.submit();
         document.body.removeChild(form);
 
-        // Reset loading state after a delay
-        setTimeout(() => setIsGenerating(false), 2000);
+        // Reset loading state after a delay and show success message
+        setTimeout(() => {
+            setIsGenerating(false);
+            alert('Report generation initiated. Your download should begin shortly. If it doesn\'t, please check your filters and try again.');
+        }, 2000);
     };
 
     // Filter sections based on selected academic level

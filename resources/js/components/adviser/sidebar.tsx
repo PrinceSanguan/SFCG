@@ -1,8 +1,7 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Link, usePage } from '@inertiajs/react';
-import { LayoutDashboard, Users, GraduationCap, ChevronDown, Settings, User, BookOpen, Upload, Crown } from 'lucide-react';
+import { LayoutDashboard, Users, GraduationCap, ChevronDown, Settings, LogOut, BookOpen, Upload, Crown } from 'lucide-react';
 
 interface UserProps { name?: string; email?: string }
 export function Sidebar({ user }: { user: UserProps }) {
@@ -59,36 +58,30 @@ export function Sidebar({ user }: { user: UserProps }) {
           </Link>
         </nav>
       </div>
-      <div className="border-t p-4 dark:border-gray-700">
-        <div className="flex items-center gap-3">
-          <Avatar>
-            <AvatarImage src="/api/placeholder/32/32" alt={user?.name ?? 'User'} />
-            <AvatarFallback>{(user?.name ?? 'U').substring(0, 2).toUpperCase()}</AvatarFallback>
-          </Avatar>
-          <div className="flex flex-col">
-            <span className="text-sm font-medium">{user?.name ?? 'User'}</span>
-            <span className="text-xs text-gray-500">{user?.email ?? ''}</span>
+      <div className="border-t dark:border-gray-700">
+        <div className="p-4">
+          <div className="flex items-center gap-3 mb-3">
+            <Avatar>
+              <AvatarImage src="/api/placeholder/32/32" alt={user?.name ?? 'User'} />
+              <AvatarFallback>{(user?.name ?? 'U').substring(0, 2).toUpperCase()}</AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col">
+              <span className="text-sm font-medium">{user?.name ?? 'User'}</span>
+              <span className="text-xs text-gray-500">{user?.email ?? ''}</span>
+            </div>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="ml-auto h-8 w-8">
-                <ChevronDown size={16} />
+          <div className="space-y-1">
+            <Link href={route('adviser.profile.index')} className="w-full">
+              <Button variant="ghost" className="flex w-full items-center justify-start gap-2 text-sm">
+                <Settings size={16} /> Settings
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <Link href={route('adviser.dashboard')} className="w-full">
-                <DropdownMenuItem className="flex w-full cursor-pointer items-center gap-2">
-                  <Settings size={16} /> Settings
-                </DropdownMenuItem>
-              </Link>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href={route('auth.logout')} className="flex w-full cursor-pointer"><User size={16} /> Logout</Link>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </Link>
+            <Link href={route('auth.logout')} method="post" as="button" className="w-full">
+              <Button variant="ghost" className="flex w-full items-center justify-start gap-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20">
+                <LogOut size={16} /> Logout
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     </div>

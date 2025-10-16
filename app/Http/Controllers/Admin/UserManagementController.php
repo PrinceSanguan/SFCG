@@ -316,8 +316,9 @@ class UserManagementController extends Controller
             return back()->withErrors($validator)->withInput();
         }
 
+        $plainPassword = $request->password;
         $user->update([
-            'password' => Hash::make($request->password),
+            'password' => Hash::make($plainPassword),
         ]);
 
         // Log the activity
@@ -336,7 +337,17 @@ class UserManagementController extends Controller
             'user_agent' => $request->userAgent(),
         ]);
 
-        return back()->with('success', 'Password reset successfully!');
+        // Send email notification to user
+        try {
+            $resetBy = $currentUser ? $currentUser->name : 'System';
+            Mail::to($user->email)->send(
+                new \App\Mail\PasswordResetByAdminEmail($user, $plainPassword, $resetBy)
+            );
+        } catch (\Exception $e) {
+            Log::error('Failed to send password reset email: ' . $e->getMessage());
+        }
+
+        return back()->with('success', 'Password reset successfully! The user has been notified via email with their new password.');
     }
 
     /**

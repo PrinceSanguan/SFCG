@@ -28,10 +28,11 @@ class TeacherSubjectAssignmentController extends Controller
             'assignedBy'
         ])->latest()->paginate(15);
 
-        $teachers = User::where('user_role', 'teacher')->get();
-        $subjects = Subject::with(['academicLevel'])->get();
-        $academicLevels = AcademicLevel::all();
-        $gradingPeriods = GradingPeriod::select('id', 'name', 'academic_level_id', 'parent_id')->get();
+        $teachers = User::where('user_role', 'teacher')->orderBy('name')->get();
+        $subjects = Subject::with(['academicLevel'])->orderBy('name')->get();
+        $academicLevels = AcademicLevel::orderBy('sort_order')->get();
+        $gradingPeriods = GradingPeriod::select('id', 'name', 'academic_level_id', 'parent_id', 'sort_order')->orderBy('sort_order')->get();
+        $strands = \App\Models\Strand::with('academicLevel')->orderBy('name')->get();
 
         return Inertia::render('Registrar/Academic/AssignTeachersSubjects', [
             'user' => Auth::user(),
@@ -40,6 +41,7 @@ class TeacherSubjectAssignmentController extends Controller
             'subjects' => $subjects,
             'academicLevels' => $academicLevels,
             'gradingPeriods' => $gradingPeriods,
+            'strands' => $strands,
         ]);
     }
 

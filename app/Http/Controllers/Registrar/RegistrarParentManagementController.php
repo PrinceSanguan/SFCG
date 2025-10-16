@@ -121,8 +121,9 @@ class RegistrarParentManagementController extends Controller
             'password' => 'required|string|min:8|confirmed',
         ]);
 
+        $plainPassword = $validated['password'];
         $parent->update([
-            'password' => Hash::make($validated['password']),
+            'password' => Hash::make($plainPassword),
         ]);
 
         // Log the activity
@@ -138,7 +139,17 @@ class RegistrarParentManagementController extends Controller
             ],
         ]);
 
-        return back()->with('success', 'Parent password reset successfully!');
+        // Send email notification to parent
+        try {
+            $resetBy = Auth::user()->name;
+            \Illuminate\Support\Facades\Mail::to($parent->email)->send(
+                new \App\Mail\PasswordResetByAdminEmail($parent, $plainPassword, $resetBy)
+            );
+        } catch (\Exception $e) {
+            Log::error('Failed to send password reset email: ' . $e->getMessage());
+        }
+
+        return back()->with('success', 'Parent password reset successfully! The parent has been notified via email with their new password.');
     }
 
     /**

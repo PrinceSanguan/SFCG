@@ -20,14 +20,15 @@ class ReportsController extends Controller
     public function index()
     {
         $user = Auth::user();
-        
-        $academicLevels = AcademicLevel::all();
-        $courses = Course::with('department')->get();
-        
+
+        // Filter out College level for Principal (only Elementary, JHS, SHS)
+        $academicLevels = AcademicLevel::whereNotIn('key', ['college'])->get();
+        $strands = \App\Models\Strand::with('academicLevel')->get();
+
         return Inertia::render('Principal/Reports/Index', [
             'user' => $user,
             'academicLevels' => $academicLevels,
-            'courses' => $courses,
+            'strands' => $strands,
         ]);
     }
     
@@ -77,25 +78,25 @@ class ReportsController extends Controller
                 'passing_rate' => $gradeValues->count() > 0 ? ($gradeValues->where('>=', 75)->count() / $gradeValues->count() * 100) : 0,
             ];
             
-            // Get additional data for filters
-            $academicLevels = AcademicLevel::all();
-            $courses = Course::with('department')->get();
+            // Get additional data for filters (exclude College for Principal)
+            $academicLevels = AcademicLevel::whereNotIn('key', ['college'])->get();
+            $strands = \App\Models\Strand::with('academicLevel')->get();
             $gradingPeriods = \App\Models\GradingPeriod::all();
-            
+
             return Inertia::render('Principal/Reports/AcademicPerformance', [
                 'user' => $user,
                 'grades' => $grades,
                 'stats' => $stats,
                 'filters' => $filters,
                 'academicLevels' => $academicLevels,
-                'courses' => $courses,
+                'strands' => $strands,
                 'gradingPeriods' => $gradingPeriods,
             ]);
             
         } catch (\Exception $e) {
             Log::error('Academic Performance Error: ' . $e->getMessage());
-            
-            // Return empty data on error
+
+            // Return empty data on error (exclude College for Principal)
             return Inertia::render('Principal/Reports/AcademicPerformance', [
                 'user' => $user,
                 'grades' => new \Illuminate\Pagination\LengthAwarePaginator([], 0, 20),
@@ -107,8 +108,8 @@ class ReportsController extends Controller
                     'passing_rate' => 0,
                 ],
                 'filters' => $filters,
-                'academicLevels' => AcademicLevel::all(),
-                'courses' => Course::with('department')->get(),
+                'academicLevels' => AcademicLevel::whereNotIn('key', ['college'])->get(),
+                'strands' => \App\Models\Strand::with('academicLevel')->get(),
                 'gradingPeriods' => \App\Models\GradingPeriod::all(),
             ]);
         }
@@ -151,30 +152,30 @@ class ReportsController extends Controller
                 ->with('gradingPeriod')
                 ->get();
             
-            // Get additional data for filters
-            $academicLevels = AcademicLevel::all();
-            $courses = Course::with('department')->get();
+            // Get additional data for filters (exclude College for Principal)
+            $academicLevels = AcademicLevel::whereNotIn('key', ['college'])->get();
+            $strands = \App\Models\Strand::with('academicLevel')->get();
             $gradingPeriods = \App\Models\GradingPeriod::all();
-            
+
             return Inertia::render('Principal/Reports/GradeTrends', [
                 'user' => $user,
                 'trends' => $trends,
                 'filters' => $filters,
                 'academicLevels' => $academicLevels,
-                'courses' => $courses,
+                'strands' => $strands,
                 'gradingPeriods' => $gradingPeriods,
             ]);
             
         } catch (\Exception $e) {
             Log::error('Grade Trends Error: ' . $e->getMessage());
-            
-            // Return empty data on error
+
+            // Return empty data on error (exclude College for Principal)
             return Inertia::render('Principal/Reports/GradeTrends', [
                 'user' => $user,
                 'trends' => collect([]),
                 'filters' => $filters,
-                'academicLevels' => AcademicLevel::all(),
-                'courses' => Course::with('department')->get(),
+                'academicLevels' => AcademicLevel::whereNotIn('key', ['college'])->get(),
+                'strands' => \App\Models\Strand::with('academicLevel')->get(),
                 'gradingPeriods' => \App\Models\GradingPeriod::all(),
             ]);
         }
@@ -217,10 +218,10 @@ class ReportsController extends Controller
                 'average_gpa' => $gpaValues->count() > 0 ? $gpaValues->avg() : 0,
             ];
             
-            // Get additional data for filters
-            $academicLevels = AcademicLevel::all();
+            // Get additional data for filters (exclude College for Principal)
+            $academicLevels = AcademicLevel::whereNotIn('key', ['college'])->get();
             $honorTypes = \App\Models\HonorType::all();
-            
+
             return Inertia::render('Principal/Reports/HonorStatistics', [
                 'user' => $user,
                 'honors' => $honors,
@@ -232,8 +233,8 @@ class ReportsController extends Controller
             
         } catch (\Exception $e) {
             Log::error('Honor Statistics Error: ' . $e->getMessage());
-            
-            // Return empty data on error
+
+            // Return empty data on error (exclude College for Principal)
             return Inertia::render('Principal/Reports/HonorStatistics', [
                 'user' => $user,
                 'honors' => new \Illuminate\Pagination\LengthAwarePaginator([], 0, 20),
@@ -244,7 +245,7 @@ class ReportsController extends Controller
                     'average_gpa' => 0,
                 ],
                 'filters' => $filters,
-                'academicLevels' => AcademicLevel::all(),
+                'academicLevels' => AcademicLevel::whereNotIn('key', ['college'])->get(),
                 'honorTypes' => \App\Models\HonorType::all(),
             ]);
         }

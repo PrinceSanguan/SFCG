@@ -17,10 +17,11 @@ interface AcademicLevel {
     name: string;
 }
 
-interface Course {
+interface Strand {
     id: number;
     name: string;
-    department: {
+    code: string;
+    academicLevel?: {
         id: number;
         name: string;
     };
@@ -29,10 +30,10 @@ interface Course {
 interface ReportsIndexProps {
     user: User;
     academicLevels: AcademicLevel[];
-    courses: Course[];
+    strands: Strand[];
 }
 
-export default function ReportsIndex({ user, academicLevels, courses }: ReportsIndexProps) {
+export default function ReportsIndex({ user, academicLevels, strands }: ReportsIndexProps) {
     return (
         <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
             <Sidebar user={user} />
@@ -117,8 +118,8 @@ export default function ReportsIndex({ user, academicLevels, courses }: ReportsI
                                 <Badge variant="outline">{academicLevels.length} levels</Badge>
                             </div>
                             <div className="flex items-center justify-between">
-                                <span className="text-sm">Filter by Course</span>
-                                <Badge variant="outline">{courses.length} courses</Badge>
+                                <span className="text-sm">Filter by Strand</span>
+                                <Badge variant="outline">{strands.length} strands</Badge>
                             </div>
                             <div className="flex items-center justify-between">
                                 <span className="text-sm">Export Formats</span>

@@ -170,7 +170,17 @@ class RegistrarUserManagementController extends Controller
             'entity_id' => $user->id,
         ]);
 
-        return back()->with('success', 'Password reset successfully. New password: ' . $newPassword);
+        // Send email notification to user
+        try {
+            $resetBy = Auth::user()->name;
+            \Illuminate\Support\Facades\Mail::to($user->email)->send(
+                new \App\Mail\PasswordResetByAdminEmail($user, $newPassword, $resetBy)
+            );
+        } catch (\Exception $e) {
+            Log::error('Failed to send password reset email: ' . $e->getMessage());
+        }
+
+        return back()->with('success', 'Password reset successfully. The user has been notified via email with their new password.');
     }
 
     /**

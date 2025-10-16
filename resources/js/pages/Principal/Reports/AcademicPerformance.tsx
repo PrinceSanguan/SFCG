@@ -20,10 +20,11 @@ interface AcademicLevel {
     name: string;
 }
 
-interface Course {
+interface Strand {
     id: number;
     name: string;
-    department: {
+    code: string;
+    academicLevel?: {
         id: number;
         name: string;
     };
@@ -81,19 +82,19 @@ interface AcademicPerformanceProps {
     stats: Stats;
     filters: {
         academic_level_id?: string;
-        course_id?: string;
+        strand_id?: string;
         year?: string;
         period?: string;
     };
     academicLevels: AcademicLevel[];
-    courses: Course[];
+    strands: Strand[];
     gradingPeriods: GradingPeriod[];
 }
 
-export default function AcademicPerformance({ user, grades, stats, filters, academicLevels, courses, gradingPeriods }: AcademicPerformanceProps) {
+export default function AcademicPerformance({ user, grades, stats, filters, academicLevels, strands, gradingPeriods }: AcademicPerformanceProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedLevel, setSelectedLevel] = useState(filters.academic_level_id || '');
-    const [selectedCourse, setSelectedCourse] = useState(filters.course_id || '');
+    const [selectedStrand, setSelectedStrand] = useState(filters.strand_id || '');
     const [selectedYear, setSelectedYear] = useState(filters.year || '');
     const [selectedPeriod, setSelectedPeriod] = useState(filters.period || '');
 
@@ -101,11 +102,11 @@ export default function AcademicPerformance({ user, grades, stats, filters, acad
         const matchesSearch = grade.student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             grade.subject.name.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesLevel = !selectedLevel || selectedLevel === 'all' || grade.academicLevel.id.toString() === selectedLevel;
-        const matchesCourse = !selectedCourse || selectedCourse === 'all' || grade.subject.course.id.toString() === selectedCourse;
+        const matchesStrand = !selectedStrand || selectedStrand === 'all' || grade.subject.course.id.toString() === selectedStrand;
         const matchesYear = !selectedYear || grade.school_year === selectedYear;
         const matchesPeriod = !selectedPeriod || selectedPeriod === 'all' || grade.gradingPeriod.id.toString() === selectedPeriod;
 
-        return matchesSearch && matchesLevel && matchesCourse && matchesYear && matchesPeriod;
+        return matchesSearch && matchesLevel && matchesStrand && matchesYear && matchesPeriod;
     });
 
     const getGradeColor = (grade: number) => {
@@ -246,16 +247,16 @@ export default function AcademicPerformance({ user, grades, stats, filters, acad
                             </Select>
                         </div>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">Course</label>
-                            <Select value={selectedCourse} onValueChange={setSelectedCourse}>
+                            <label className="text-sm font-medium">Strand</label>
+                            <Select value={selectedStrand} onValueChange={setSelectedStrand}>
                                 <SelectTrigger>
-                                    <SelectValue placeholder="All courses" />
+                                    <SelectValue placeholder="All strands" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">All courses</SelectItem>
-                                    {courses.map((course) => (
-                                        <SelectItem key={course.id} value={course.id.toString()}>
-                                            {course.name}
+                                    <SelectItem value="all">All strands</SelectItem>
+                                    {strands.map((strand) => (
+                                        <SelectItem key={strand.id} value={strand.id.toString()}>
+                                            {strand.name}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>

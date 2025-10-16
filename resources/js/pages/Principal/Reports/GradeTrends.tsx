@@ -33,10 +33,11 @@ interface AcademicLevel {
     name: string;
 }
 
-interface Course {
+interface Strand {
     id: number;
     name: string;
-    department: {
+    code: string;
+    academicLevel?: {
         id: number;
         name: string;
     };
@@ -47,17 +48,17 @@ interface GradeTrendsProps {
     trends: TrendData[];
     filters: {
         academic_level_id?: string;
-        course_id?: string;
+        strand_id?: string;
         year?: string;
     };
     academicLevels: AcademicLevel[];
-    courses: Course[];
+    strands: Strand[];
     gradingPeriods: GradingPeriod[];
 }
 
-export default function GradeTrends({ user, trends, filters, academicLevels, courses, gradingPeriods }: GradeTrendsProps) {
+export default function GradeTrends({ user, trends, filters, academicLevels, strands, gradingPeriods }: GradeTrendsProps) {
     const [selectedLevel, setSelectedLevel] = useState(filters.academic_level_id || '');
-    const [selectedCourse, setSelectedCourse] = useState(filters.course_id || '');
+    const [selectedStrand, setSelectedStrand] = useState(filters.strand_id || '');
     const [selectedYear, setSelectedYear] = useState(filters.year || '');
 
     const calculatePassingRate = (trend: TrendData) => {
@@ -172,16 +173,16 @@ export default function GradeTrends({ user, trends, filters, academicLevels, cou
                             </Select>
                         </div>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">Course</label>
-                            <Select value={selectedCourse} onValueChange={setSelectedCourse}>
+                            <label className="text-sm font-medium">Strand</label>
+                            <Select value={selectedStrand} onValueChange={setSelectedStrand}>
                                 <SelectTrigger>
-                                    <SelectValue placeholder="All courses" />
+                                    <SelectValue placeholder="All strands" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">All courses</SelectItem>
-                                    {courses.map((course) => (
-                                        <SelectItem key={course.id} value={course.id.toString()}>
-                                            {course.name}
+                                    <SelectItem value="all">All strands</SelectItem>
+                                    {strands.map((strand) => (
+                                        <SelectItem key={strand.id} value={strand.id.toString()}>
+                                            {strand.name}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
