@@ -995,21 +995,153 @@ class RegistrarAcademicController extends Controller
             case 'elementary':
                 $service = new \App\Services\ElementaryHonorCalculationService();
                 $result = $service->generateElementaryHonorResults($level->id, $validated['school_year']);
+
+                // Send pending approval notification to Principal
+                if ($result['success']) {
+                    try {
+                        $notificationService = new \App\Services\NotificationService();
+                        $honorCount = \App\Models\HonorResult::where('academic_level_id', $level->id)
+                            ->where('school_year', $validated['school_year'])
+                            ->where('approval_status', 'pending')
+                            ->count();
+
+                        Log::info('[Registrar] Sending elementary honor approval notification to Principal', [
+                            'academic_level' => $level->name,
+                            'school_year' => $validated['school_year'],
+                            'honor_count' => $honorCount,
+                        ]);
+
+                        $notificationResult = $notificationService->sendPendingHonorApprovalNotification(
+                            $level,
+                            $validated['school_year'],
+                            $honorCount
+                        );
+
+                        if ($notificationResult['success']) {
+                            Log::info('[Registrar] Elementary honor approval notification sent successfully', [
+                                'notification_id' => $notificationResult['notification_id'],
+                            ]);
+                        }
+                    } catch (\Exception $e) {
+                        Log::error('[Registrar] Exception while sending elementary honor approval notification', [
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
                 break;
 
             case 'junior_highschool':
                 $service = new \App\Services\JuniorHighSchoolHonorCalculationService();
                 $result = $service->generateJuniorHighSchoolHonorResults($level->id, $validated['school_year']);
+
+                // Send pending approval notification to Principal
+                if ($result['success']) {
+                    try {
+                        $notificationService = new \App\Services\NotificationService();
+                        $honorCount = \App\Models\HonorResult::where('academic_level_id', $level->id)
+                            ->where('school_year', $validated['school_year'])
+                            ->where('approval_status', 'pending')
+                            ->count();
+
+                        Log::info('[Registrar] Sending junior high school honor approval notification to Principal', [
+                            'academic_level' => $level->name,
+                            'school_year' => $validated['school_year'],
+                            'honor_count' => $honorCount,
+                        ]);
+
+                        $notificationResult = $notificationService->sendPendingHonorApprovalNotification(
+                            $level,
+                            $validated['school_year'],
+                            $honorCount
+                        );
+
+                        if ($notificationResult['success']) {
+                            Log::info('[Registrar] Junior high school honor approval notification sent successfully', [
+                                'notification_id' => $notificationResult['notification_id'],
+                            ]);
+                        }
+                    } catch (\Exception $e) {
+                        Log::error('[Registrar] Exception while sending junior high school honor approval notification', [
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
                 break;
 
             case 'senior_highschool':
                 $service = new \App\Services\SeniorHighSchoolHonorCalculationService();
                 $result = $service->generateSeniorHighSchoolHonorResults($level->id, $validated['school_year']);
+
+                // Send pending approval notification to Principal
+                if ($result['success']) {
+                    try {
+                        $notificationService = new \App\Services\NotificationService();
+                        $honorCount = \App\Models\HonorResult::where('academic_level_id', $level->id)
+                            ->where('school_year', $validated['school_year'])
+                            ->where('approval_status', 'pending')
+                            ->count();
+
+                        Log::info('[Registrar] Sending senior high school honor approval notification to Principal', [
+                            'academic_level' => $level->name,
+                            'school_year' => $validated['school_year'],
+                            'honor_count' => $honorCount,
+                        ]);
+
+                        $notificationResult = $notificationService->sendPendingHonorApprovalNotification(
+                            $level,
+                            $validated['school_year'],
+                            $honorCount
+                        );
+
+                        if ($notificationResult['success']) {
+                            Log::info('[Registrar] Senior high school honor approval notification sent successfully', [
+                                'notification_id' => $notificationResult['notification_id'],
+                            ]);
+                        }
+                    } catch (\Exception $e) {
+                        Log::error('[Registrar] Exception while sending senior high school honor approval notification', [
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
                 break;
 
             case 'college':
                 $service = new \App\Services\CollegeHonorCalculationService();
                 $result = $service->generateCollegeHonorResults($level->id, $validated['school_year']);
+
+                // Send pending approval notification to Chairperson
+                if ($result['success']) {
+                    try {
+                        $notificationService = new \App\Services\NotificationService();
+                        $honorCount = \App\Models\HonorResult::where('academic_level_id', $level->id)
+                            ->where('school_year', $validated['school_year'])
+                            ->where('approval_status', 'pending')
+                            ->count();
+
+                        Log::info('[Registrar] Sending college honor approval notification to Chairperson', [
+                            'academic_level' => $level->name,
+                            'school_year' => $validated['school_year'],
+                            'honor_count' => $honorCount,
+                        ]);
+
+                        $notificationResult = $notificationService->sendPendingHonorApprovalNotification(
+                            $level,
+                            $validated['school_year'],
+                            $honorCount
+                        );
+
+                        if ($notificationResult['success']) {
+                            Log::info('[Registrar] College honor approval notification sent successfully', [
+                                'notification_id' => $notificationResult['notification_id'],
+                            ]);
+                        }
+                    } catch (\Exception $e) {
+                        Log::error('[Registrar] Exception while sending college honor approval notification', [
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
                 break;
 
             default:

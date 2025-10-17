@@ -106,6 +106,61 @@ class InstructorSubjectAssignmentController extends Controller
             ],
         ]);
 
+        // Send assignment notification to instructor
+        try {
+            $notificationService = new \App\Services\NotificationService();
+            $subject = Subject::find($request->subject_id);
+            $section = Section::find($request->section_id);
+            $academicLevel = AcademicLevel::find($request->academic_level_id);
+            $gradingPeriod = $request->grading_period_id ? GradingPeriod::find($request->grading_period_id) : null;
+
+            \Illuminate\Support\Facades\Log::info('Preparing instructor subject assignment notification data', [
+                'instructor_id' => $instructor->id,
+                'instructor_name' => $instructor->name,
+                'subject_name' => $subject ? $subject->name : 'N/A',
+                'section_name' => $section ? $section->name : 'N/A',
+            ]);
+
+            $assignmentDetails = [
+                'assignment_id' => $assignment->id,
+                'subject_name' => $subject ? $subject->name : 'N/A',
+                'section_name' => $section ? $section->name : 'N/A',
+                'course_name' => ($subject && $subject->course) ? $subject->course->name : 'N/A',
+                'department_name' => ($subject && $subject->course && $subject->course->department) ? $subject->course->department->name : 'N/A',
+                'academic_level' => $academicLevel ? $academicLevel->name : 'N/A',
+                'school_year' => $request->school_year,
+                'grading_period' => $gradingPeriod ? $gradingPeriod->name : null,
+                'notes' => $request->notes,
+            ];
+
+            \Illuminate\Support\Facades\Log::info('Sending instructor subject assignment notification', [
+                'instructor_id' => $instructor->id,
+                'assignment_details' => $assignmentDetails,
+            ]);
+
+            $notificationResult = $notificationService->sendAssignmentNotification($instructor, 'instructor', $assignmentDetails);
+
+            if ($notificationResult['success']) {
+                \Illuminate\Support\Facades\Log::info('Instructor subject assignment notification sent successfully', [
+                    'instructor_name' => $instructor->name,
+                    'instructor_email' => $instructor->email,
+                    'notification_id' => $notificationResult['notification_id'],
+                ]);
+            } else {
+                \Illuminate\Support\Facades\Log::warning('Instructor subject assignment notification failed', [
+                    'instructor_name' => $instructor->name,
+                    'error' => $notificationResult['error'] ?? 'Unknown error',
+                ]);
+            }
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Exception while sending instructor subject assignment notification', [
+                'instructor_id' => $instructor->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            // Don't fail the whole operation if notification fails
+        }
+
         return back()->with('success', 'Instructor assigned to subject successfully!');
     }
 

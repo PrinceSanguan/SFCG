@@ -573,6 +573,46 @@ class AcademicController extends Controller
         );
 
         if ($result['success']) {
+            // Send pending approval notification to Principal
+            try {
+                $notificationService = new \App\Services\NotificationService();
+
+                // Count pending honors for this academic level and school year
+                $honorCount = \App\Models\HonorResult::where('academic_level_id', $elementaryLevel->id)
+                    ->where('school_year', $validated['school_year'])
+                    ->where('approval_status', 'pending')
+                    ->count();
+
+                Log::info('Sending elementary honor approval notification to Principal', [
+                    'academic_level' => $elementaryLevel->name,
+                    'school_year' => $validated['school_year'],
+                    'honor_count' => $honorCount,
+                ]);
+
+                $notificationResult = $notificationService->sendPendingHonorApprovalNotification(
+                    $elementaryLevel,
+                    $validated['school_year'],
+                    $honorCount
+                );
+
+                if ($notificationResult['success']) {
+                    Log::info('Elementary honor approval notification sent successfully', [
+                        'notification_id' => $notificationResult['notification_id'],
+                        'recipient' => $notificationResult['recipient_name'] ?? 'Unknown',
+                    ]);
+                } else {
+                    Log::warning('Elementary honor approval notification failed', [
+                        'error' => $notificationResult['error'] ?? 'Unknown error',
+                    ]);
+                }
+            } catch (\Exception $e) {
+                Log::error('Exception while sending elementary honor approval notification', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+                // Don't fail the whole operation if notification fails
+            }
+
             return back()->with('success', $result['message'] . ' Honor results have been submitted for principal approval.');
         } else {
             return back()->with('error', $result['message']);
@@ -598,6 +638,46 @@ class AcademicController extends Controller
         );
 
         if ($result['success']) {
+            // Send pending approval notification to Principal
+            try {
+                $notificationService = new \App\Services\NotificationService();
+
+                // Count pending honors for this academic level and school year
+                $honorCount = \App\Models\HonorResult::where('academic_level_id', $juniorHighSchoolLevel->id)
+                    ->where('school_year', $validated['school_year'])
+                    ->where('approval_status', 'pending')
+                    ->count();
+
+                Log::info('Sending junior high school honor approval notification to Principal', [
+                    'academic_level' => $juniorHighSchoolLevel->name,
+                    'school_year' => $validated['school_year'],
+                    'honor_count' => $honorCount,
+                ]);
+
+                $notificationResult = $notificationService->sendPendingHonorApprovalNotification(
+                    $juniorHighSchoolLevel,
+                    $validated['school_year'],
+                    $honorCount
+                );
+
+                if ($notificationResult['success']) {
+                    Log::info('Junior high school honor approval notification sent successfully', [
+                        'notification_id' => $notificationResult['notification_id'],
+                        'recipient' => $notificationResult['recipient_name'] ?? 'Unknown',
+                    ]);
+                } else {
+                    Log::warning('Junior high school honor approval notification failed', [
+                        'error' => $notificationResult['error'] ?? 'Unknown error',
+                    ]);
+                }
+            } catch (\Exception $e) {
+                Log::error('Exception while sending junior high school honor approval notification', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+                // Don't fail the whole operation if notification fails
+            }
+
             return back()->with('success', $result['message'] . ' Honor results have been submitted for principal approval.');
         } else {
             return back()->with('error', $result['message']);
@@ -626,6 +706,46 @@ class AcademicController extends Controller
         );
 
         if ($result['success']) {
+            // Send pending approval notification to Principal
+            try {
+                $notificationService = new \App\Services\NotificationService();
+
+                // Count pending honors for this academic level and school year
+                $honorCount = \App\Models\HonorResult::where('academic_level_id', $seniorHighSchoolLevel->id)
+                    ->where('school_year', $validated['school_year'])
+                    ->where('approval_status', 'pending')
+                    ->count();
+
+                Log::info('Sending senior high school honor approval notification to Principal', [
+                    'academic_level' => $seniorHighSchoolLevel->name,
+                    'school_year' => $validated['school_year'],
+                    'honor_count' => $honorCount,
+                ]);
+
+                $notificationResult = $notificationService->sendPendingHonorApprovalNotification(
+                    $seniorHighSchoolLevel,
+                    $validated['school_year'],
+                    $honorCount
+                );
+
+                if ($notificationResult['success']) {
+                    Log::info('Senior high school honor approval notification sent successfully', [
+                        'notification_id' => $notificationResult['notification_id'],
+                        'recipient' => $notificationResult['recipient_name'] ?? 'Unknown',
+                    ]);
+                } else {
+                    Log::warning('Senior high school honor approval notification failed', [
+                        'error' => $notificationResult['error'] ?? 'Unknown error',
+                    ]);
+                }
+            } catch (\Exception $e) {
+                Log::error('Exception while sending senior high school honor approval notification', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+                // Don't fail the whole operation if notification fails
+            }
+
             return back()->with('success', $result['message'] . ' Honor results have been submitted for principal approval.');
         } else {
             return back()->with('error', $result['message']);
@@ -654,6 +774,46 @@ class AcademicController extends Controller
         );
 
         if ($result['success']) {
+            // Send pending approval notification to Chairperson
+            try {
+                $notificationService = new \App\Services\NotificationService();
+
+                // Count pending honors for this academic level and school year
+                $honorCount = \App\Models\HonorResult::where('academic_level_id', $collegeLevel->id)
+                    ->where('school_year', $validated['school_year'])
+                    ->where('approval_status', 'pending')
+                    ->count();
+
+                Log::info('Sending college honor approval notification to Chairperson', [
+                    'academic_level' => $collegeLevel->name,
+                    'school_year' => $validated['school_year'],
+                    'honor_count' => $honorCount,
+                ]);
+
+                $notificationResult = $notificationService->sendPendingHonorApprovalNotification(
+                    $collegeLevel,
+                    $validated['school_year'],
+                    $honorCount
+                );
+
+                if ($notificationResult['success']) {
+                    Log::info('College honor approval notification sent successfully', [
+                        'notification_id' => $notificationResult['notification_id'],
+                        'recipient' => $notificationResult['recipient_name'] ?? 'Unknown',
+                    ]);
+                } else {
+                    Log::warning('College honor approval notification failed', [
+                        'error' => $notificationResult['error'] ?? 'Unknown error',
+                    ]);
+                }
+            } catch (\Exception $e) {
+                Log::error('Exception while sending college honor approval notification', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+                // Don't fail the whole operation if notification fails
+            }
+
             return back()->with('success', $result['message'] . ' Honor results have been submitted for chairperson approval.');
         } else {
             return back()->with('error', $result['message']);
@@ -1896,6 +2056,66 @@ class AcademicController extends Controller
             ],
         ]);
 
+        // Send assignment notification to teacher
+        try {
+            $notificationService = new \App\Services\NotificationService();
+            $subject = Subject::find($request->subject_id);
+            $academicLevel = \App\Models\AcademicLevel::find($request->academic_level_id);
+            $track = $request->track_id ? \App\Models\Track::find($request->track_id) : null;
+            $strand = $request->strand_id ? \App\Models\Strand::find($request->strand_id) : null;
+            $department = $request->department_id ? \App\Models\Department::find($request->department_id) : null;
+            $course = $request->course_id ? \App\Models\Course::find($request->course_id) : null;
+            $gradingPeriod = $request->grading_period_id ? \App\Models\GradingPeriod::find($request->grading_period_id) : null;
+
+            Log::info('Preparing teacher assignment notification data', [
+                'teacher_id' => $teacher->id,
+                'teacher_name' => $teacher->name,
+                'subject_name' => $subject ? $subject->name : 'N/A',
+                'academic_level' => $academicLevel ? $academicLevel->name : 'N/A',
+            ]);
+
+            $assignmentDetails = [
+                'assignment_id' => $assignment->id,
+                'subject_name' => $subject ? $subject->name : 'N/A',
+                'academic_level' => $academicLevel ? $academicLevel->name : 'N/A',
+                'grade_level' => $request->grade_level,
+                'track_name' => $track ? $track->name : null,
+                'strand_name' => $strand ? $strand->name : null,
+                'department_name' => $department ? $department->name : null,
+                'course_name' => $course ? $course->name : null,
+                'school_year' => $request->school_year,
+                'grading_period' => $gradingPeriod ? $gradingPeriod->name : null,
+                'notes' => $request->notes,
+            ];
+
+            Log::info('Sending teacher assignment notification', [
+                'teacher_id' => $teacher->id,
+                'assignment_details' => $assignmentDetails,
+            ]);
+
+            $notificationResult = $notificationService->sendAssignmentNotification($teacher, 'teacher', $assignmentDetails);
+
+            if ($notificationResult['success']) {
+                Log::info('Teacher assignment notification sent successfully', [
+                    'teacher_name' => $teacher->name,
+                    'teacher_email' => $teacher->email,
+                    'notification_id' => $notificationResult['notification_id'],
+                ]);
+            } else {
+                Log::warning('Teacher assignment notification failed', [
+                    'teacher_name' => $teacher->name,
+                    'error' => $notificationResult['error'] ?? 'Unknown error',
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('Exception while sending teacher assignment notification', [
+                'teacher_id' => $teacher->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            // Don't fail the whole operation if notification fails
+        }
+
         return back()->with('success', 'Teacher assigned to subject successfully!');
     }
 
@@ -2164,6 +2384,63 @@ class AcademicController extends Controller
             'school_year' => $request->school_year,
         ]);
 
+        // Send assignment notification to instructor
+        try {
+            $notificationService = new \App\Services\NotificationService();
+            $subject = Subject::find($request->subject_id);
+            $course = \App\Models\Course::find($request->course_id);
+            $academicLevel = \App\Models\AcademicLevel::find($request->academic_level_id);
+            $section = $request->section_id ? \App\Models\Section::find($request->section_id) : null;
+            $gradingPeriod = $request->grading_period_id ? \App\Models\GradingPeriod::find($request->grading_period_id) : null;
+
+            Log::info('Preparing assignment notification data', [
+                'instructor_id' => $instructor->id,
+                'instructor_name' => $instructor->name,
+                'subject_name' => $subject ? $subject->name : 'N/A',
+                'course_name' => $course ? $course->name : 'N/A',
+            ]);
+
+            $assignmentDetails = [
+                'assignment_id' => $assignment->id,
+                'subject_name' => $subject ? $subject->name : 'N/A',
+                'course_name' => $course ? $course->name : 'N/A',
+                'department_name' => ($course && $course->department) ? $course->department->name : 'N/A',
+                'section_name' => $section ? $section->name : null,
+                'academic_level' => $academicLevel ? $academicLevel->name : 'N/A',
+                'year_level' => $request->year_level,
+                'school_year' => $request->school_year,
+                'grading_period' => $gradingPeriod ? $gradingPeriod->name : null,
+                'notes' => $request->notes,
+            ];
+
+            Log::info('Sending instructor assignment notification', [
+                'instructor_id' => $instructor->id,
+                'assignment_details' => $assignmentDetails,
+            ]);
+
+            $notificationResult = $notificationService->sendAssignmentNotification($instructor, 'instructor', $assignmentDetails);
+
+            if ($notificationResult['success']) {
+                Log::info('Instructor assignment notification sent successfully', [
+                    'instructor_name' => $instructor->name,
+                    'instructor_email' => $instructor->email,
+                    'notification_id' => $notificationResult['notification_id'],
+                ]);
+            } else {
+                Log::warning('Instructor assignment notification failed', [
+                    'instructor_name' => $instructor->name,
+                    'error' => $notificationResult['error'] ?? 'Unknown error',
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('Exception while sending instructor assignment notification', [
+                'instructor_id' => $instructor->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            // Don't fail the whole operation if notification fails
+        }
+
         return back()->with('success', 'Instructor assigned to course successfully!');
     }
 
@@ -2353,6 +2630,60 @@ class AcademicController extends Controller
 
             if (!$assignment) {
                 return back()->with('error', 'Failed to assign adviser to subject. Please try again.');
+            }
+
+            // Send assignment notification to adviser
+            try {
+                $notificationService = new \App\Services\NotificationService();
+                $academicLevel = \App\Models\AcademicLevel::find($request->academic_level_id);
+                $gradingPeriods = [];
+                if ($request->grading_period_ids) {
+                    $gradingPeriods = \App\Models\GradingPeriod::whereIn('id', $request->grading_period_ids)->pluck('name')->toArray();
+                }
+
+                Log::info('Preparing adviser assignment notification data', [
+                    'adviser_id' => $adviser->id,
+                    'adviser_name' => $adviser->name,
+                    'subject_name' => $subject->name,
+                    'academic_level' => $academicLevel ? $academicLevel->name : 'N/A',
+                ]);
+
+                $assignmentDetails = [
+                    'assignment_id' => $assignment->id,
+                    'subject_name' => $subject->name,
+                    'academic_level' => $academicLevel ? $academicLevel->name : 'N/A',
+                    'grade_level' => $request->grade_level,
+                    'school_year' => $request->school_year,
+                    'grading_period' => !empty($gradingPeriods) ? implode(', ', $gradingPeriods) : null,
+                    'notes' => $request->notes,
+                ];
+
+                Log::info('Sending adviser assignment notification', [
+                    'adviser_id' => $adviser->id,
+                    'assignment_details' => $assignmentDetails,
+                ]);
+
+                $notificationResult = $notificationService->sendAssignmentNotification($adviser, 'adviser', $assignmentDetails);
+
+                if ($notificationResult['success']) {
+                    Log::info('Adviser assignment notification sent successfully', [
+                        'adviser_name' => $adviser->name,
+                        'adviser_email' => $adviser->email,
+                        'notification_id' => $notificationResult['notification_id'],
+                    ]);
+                } else {
+                    Log::warning('Adviser assignment notification failed', [
+                        'adviser_name' => $adviser->name,
+                        'error' => $notificationResult['error'] ?? 'Unknown error',
+                    ]);
+                }
+            } catch (\Exception $notifException) {
+                Log::error('Exception while sending adviser assignment notification', [
+                    'adviser_id' => $adviser->id,
+                    'error' => $notifException->getMessage(),
+                    'trace' => $notifException->getTraceAsString(),
+                ]);
+                // Don't fail the whole operation if notification fails
             }
 
             return back()->with('success', 'Class adviser assigned successfully! Students in this subject are now automatically linked to this adviser.');

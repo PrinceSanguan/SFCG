@@ -31,6 +31,8 @@ class Notification extends Model
     const TYPE_GRADE_UPDATE = 'grade_update';
     const TYPE_HONOR_QUALIFICATION = 'honor_qualification';
     const TYPE_GENERAL_ANNOUNCEMENT = 'general_announcement';
+    const TYPE_ASSIGNMENT_NOTIFICATION = 'assignment_notification';
+    const TYPE_PENDING_HONOR_APPROVAL = 'pending_honor_approval';
 
     // Status constants
     const STATUS_PENDING = 'pending';

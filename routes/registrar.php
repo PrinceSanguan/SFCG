@@ -424,6 +424,58 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
             ],
         ]);
 
+        // Send assignment notification to instructor
+        try {
+            $notificationService = new \App\Services\NotificationService();
+            $course = \App\Models\Course::find($request->course_id);
+            $academicLevel = \App\Models\AcademicLevel::find($request->academic_level_id);
+            $gradingPeriod = $request->grading_period_id ? \App\Models\GradingPeriod::find($request->grading_period_id) : null;
+
+            \Illuminate\Support\Facades\Log::info('[Registrar] Preparing instructor assignment notification data', [
+                'instructor_id' => $instructor->id,
+                'instructor_name' => $instructor->name,
+                'course_name' => $course ? $course->name : 'N/A',
+            ]);
+
+            $assignmentDetails = [
+                'assignment_id' => $assignment->id,
+                'course_name' => $course ? $course->name : 'N/A',
+                'department_name' => ($course && $course->department) ? $course->department->name : 'N/A',
+                'academic_level' => $academicLevel ? $academicLevel->name : 'N/A',
+                'year_level' => $request->year_level,
+                'school_year' => $request->school_year,
+                'grading_period' => $gradingPeriod ? $gradingPeriod->name : null,
+                'notes' => $request->notes,
+            ];
+
+            \Illuminate\Support\Facades\Log::info('[Registrar] Sending instructor assignment notification', [
+                'instructor_id' => $instructor->id,
+                'assignment_details' => $assignmentDetails,
+            ]);
+
+            $notificationResult = $notificationService->sendAssignmentNotification($instructor, 'instructor', $assignmentDetails);
+
+            if ($notificationResult['success']) {
+                \Illuminate\Support\Facades\Log::info('[Registrar] Instructor assignment notification sent successfully', [
+                    'instructor_name' => $instructor->name,
+                    'instructor_email' => $instructor->email,
+                    'notification_id' => $notificationResult['notification_id'],
+                ]);
+            } else {
+                \Illuminate\Support\Facades\Log::warning('[Registrar] Instructor assignment notification failed', [
+                    'instructor_name' => $instructor->name,
+                    'error' => $notificationResult['error'] ?? 'Unknown error',
+                ]);
+            }
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('[Registrar] Exception while sending instructor assignment notification', [
+                'instructor_id' => $instructor->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            // Don't fail the whole operation if notification fails
+        }
+
         return back()->with('success', 'Instructor assigned to course successfully!');
     })->name('assign-instructors.store');
     Route::put('/assign-instructors/{assignment}', function(\Illuminate\Http\Request $request, \App\Models\InstructorCourseAssignment $assignment) {
@@ -583,6 +635,61 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
                 'school_year' => $request->school_year,
             ],
         ]);
+
+        // Send assignment notification to teacher
+        try {
+            $notificationService = new \App\Services\NotificationService();
+            $subject = \App\Models\Subject::find($request->subject_id);
+            $academicLevel = \App\Models\AcademicLevel::find($request->academic_level_id);
+            $track = $request->track_id ? \App\Models\Track::find($request->track_id) : null;
+            $strand = $request->strand_id ? \App\Models\Strand::find($request->strand_id) : null;
+            $gradingPeriod = $request->grading_period_id ? \App\Models\GradingPeriod::find($request->grading_period_id) : null;
+
+            \Illuminate\Support\Facades\Log::info('[Registrar] Preparing teacher assignment notification data', [
+                'teacher_id' => $teacher->id,
+                'teacher_name' => $teacher->name,
+                'subject_name' => $subject ? $subject->name : 'N/A',
+            ]);
+
+            $assignmentDetails = [
+                'assignment_id' => $assignment->id,
+                'subject_name' => $subject ? $subject->name : 'N/A',
+                'academic_level' => $academicLevel ? $academicLevel->name : 'N/A',
+                'grade_level' => $request->grade_level,
+                'track_name' => $track ? $track->name : null,
+                'strand_name' => $strand ? $strand->name : null,
+                'school_year' => $request->school_year,
+                'grading_period' => $gradingPeriod ? $gradingPeriod->name : null,
+                'notes' => $request->notes,
+            ];
+
+            \Illuminate\Support\Facades\Log::info('[Registrar] Sending teacher assignment notification', [
+                'teacher_id' => $teacher->id,
+                'assignment_details' => $assignmentDetails,
+            ]);
+
+            $notificationResult = $notificationService->sendAssignmentNotification($teacher, 'teacher', $assignmentDetails);
+
+            if ($notificationResult['success']) {
+                \Illuminate\Support\Facades\Log::info('[Registrar] Teacher assignment notification sent successfully', [
+                    'teacher_name' => $teacher->name,
+                    'teacher_email' => $teacher->email,
+                    'notification_id' => $notificationResult['notification_id'],
+                ]);
+            } else {
+                \Illuminate\Support\Facades\Log::warning('[Registrar] Teacher assignment notification failed', [
+                    'teacher_name' => $teacher->name,
+                    'error' => $notificationResult['error'] ?? 'Unknown error',
+                ]);
+            }
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('[Registrar] Exception while sending teacher assignment notification', [
+                'teacher_id' => $teacher->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            // Don't fail the whole operation if notification fails
+        }
 
         return back()->with('success', 'Teacher assigned to subject successfully!');
     })->name('assign-teachers.store');
@@ -950,7 +1057,58 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
                 'school_year' => $request->school_year,
             ],
         ]);
-        
+
+        // Send assignment notification to adviser
+        try {
+            $notificationService = new \App\Services\NotificationService();
+            $adviser = \App\Models\User::find($request->adviser_id);
+            $subject = \App\Models\Subject::find($request->subject_id);
+            $academicLevel = \App\Models\AcademicLevel::find($request->academic_level_id);
+
+            \Illuminate\Support\Facades\Log::info('[Registrar] Preparing adviser assignment notification data', [
+                'adviser_id' => $adviser->id,
+                'adviser_name' => $adviser->name,
+                'subject_name' => $subject ? $subject->name : 'N/A',
+            ]);
+
+            $assignmentDetails = [
+                'assignment_id' => $assignment->id,
+                'subject_name' => $subject ? $subject->name : 'N/A',
+                'academic_level' => $academicLevel ? $academicLevel->name : 'N/A',
+                'grade_level' => $request->grade_level,
+                'section' => $request->section,
+                'school_year' => $request->school_year,
+                'notes' => $request->notes,
+            ];
+
+            \Illuminate\Support\Facades\Log::info('[Registrar] Sending adviser assignment notification', [
+                'adviser_id' => $adviser->id,
+                'assignment_details' => $assignmentDetails,
+            ]);
+
+            $notificationResult = $notificationService->sendAssignmentNotification($adviser, 'adviser', $assignmentDetails);
+
+            if ($notificationResult['success']) {
+                \Illuminate\Support\Facades\Log::info('[Registrar] Adviser assignment notification sent successfully', [
+                    'adviser_name' => $adviser->name,
+                    'adviser_email' => $adviser->email,
+                    'notification_id' => $notificationResult['notification_id'],
+                ]);
+            } else {
+                \Illuminate\Support\Facades\Log::warning('[Registrar] Adviser assignment notification failed', [
+                    'adviser_name' => $adviser->name,
+                    'error' => $notificationResult['error'] ?? 'Unknown error',
+                ]);
+            }
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('[Registrar] Exception while sending adviser assignment notification', [
+                'adviser_id' => $request->adviser_id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            // Don't fail the whole operation if notification fails
+        }
+
         return back()->with('success', 'Adviser assigned successfully!');
     })->name('assign-advisers.store');
     

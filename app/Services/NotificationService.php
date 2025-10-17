@@ -529,7 +529,7 @@ class NotificationService
         }
 
         $honorResults = $query->get();
-        
+
         if ($honorResults->isEmpty()) {
             return [
                 'success' => false,
@@ -562,5 +562,262 @@ class NotificationService
             'count' => count($students),
             'students' => $students
         ];
+    }
+
+    /**
+     * Send assignment notification to assigned user (instructor/teacher/adviser)
+     */
+    public function sendAssignmentNotification($user, $assignmentType, $assignmentDetails)
+    {
+        try {
+            Log::info('Preparing assignment notification', [
+                'user_id' => $user->id,
+                'user_email' => $user->email,
+                'assignment_type' => $assignmentType,
+                'assignment_details' => $assignmentDetails
+            ]);
+
+            // Extract assignment details
+            $assignmentName = $assignmentDetails['subject_name'] ?? $assignmentDetails['course_name'] ?? 'your new assignment';
+            $subjectName = $assignmentDetails['subject_name'] ?? null;
+            $courseName = $assignmentDetails['course_name'] ?? null;
+            $academicLevel = $assignmentDetails['academic_level'] ?? null;
+            $schoolYear = $assignmentDetails['school_year'] ?? null;
+            $assignmentId = $assignmentDetails['assignment_id'] ?? null;
+
+            // Create notification record
+            $notification = Notification::create([
+                'type' => Notification::TYPE_ASSIGNMENT_NOTIFICATION,
+                'title' => ucfirst($assignmentType) . ' Assignment Notification',
+                'message' => "You have been assigned as {$assignmentType}",
+                'recipients' => [$user->email],
+                'status' => Notification::STATUS_PENDING,
+                'metadata' => [
+                    'user_id' => $user->id,
+                    'assignment_type' => $assignmentType,
+                    'subject_name' => $subjectName,
+                    'course_name' => $courseName,
+                    'academic_level' => $academicLevel,
+                    'school_year' => $schoolYear,
+                    'assignment_id' => $assignmentId,
+                ],
+                'email_subject' => ucfirst($assignmentType) . ' Assignment Notification',
+                'email_body' => "You have been assigned as {$assignmentType} for {$assignmentName}.",
+            ]);
+
+            Log::info('Assignment notification record created', [
+                'notification_id' => $notification->id,
+                'user_email' => $user->email
+            ]);
+
+            // Send email
+            try {
+                Log::info('Sending assignment notification email', [
+                    'notification_id' => $notification->id,
+                    'email' => $user->email
+                ]);
+
+                Mail::to($user->email)->send(
+                    new \App\Mail\AssignmentNotificationEmail($user, $assignmentType, $assignmentDetails)
+                );
+
+                $notification->markAsSent();
+
+                Log::info('Assignment notification sent successfully', [
+                    'notification_id' => $notification->id,
+                    'user_id' => $user->id,
+                    'user_email' => $user->email,
+                    'assignment_type' => $assignmentType
+                ]);
+
+                return [
+                    'success' => true,
+                    'message' => "{$assignmentType} assignment notification sent successfully",
+                    'notification_id' => $notification->id
+                ];
+            } catch (\Exception $e) {
+                $notification->markAsFailed();
+
+                Log::error('Failed to send assignment notification email', [
+                    'notification_id' => $notification->id,
+                    'user_id' => $user->id,
+                    'user_email' => $user->email,
+                    'assignment_type' => $assignmentType,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+
+                return [
+                    'success' => false,
+                    'message' => 'Failed to send assignment notification: ' . $e->getMessage(),
+                    'notification_id' => $notification->id
+                ];
+            }
+        } catch (\Exception $e) {
+            Log::error('Error creating assignment notification', [
+                'user_id' => $user->id,
+                'assignment_type' => $assignmentType,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'Error creating assignment notification: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Send pending honor approval notification to Chairperson/Principal
+     */
+    public function sendPendingHonorApprovalNotification($academicLevel, $schoolYear, $honorCount)
+    {
+        try {
+            Log::info('Preparing pending honor approval notification', [
+                'academic_level' => $academicLevel->name,
+                'academic_level_key' => $academicLevel->key,
+                'school_year' => $schoolYear,
+                'honor_count' => $honorCount
+            ]);
+
+            // Determine recipients based on academic level
+            // Principal handles: elementary, junior_highschool, senior_highschool
+            // Chairperson handles: college
+            $recipients = [];
+            $role = '';
+
+            if ($academicLevel->key === 'college') {
+                // Send to Chairpersons
+                $chairpersons = User::where('user_role', 'chairperson')->get();
+                foreach ($chairpersons as $chairperson) {
+                    $recipients[] = $chairperson->email;
+                }
+                $role = 'Chairperson';
+            } else {
+                // Send to Principals (elementary, junior_highschool, senior_highschool)
+                $principals = User::where('user_role', 'principal')->get();
+                foreach ($principals as $principal) {
+                    $recipients[] = $principal->email;
+                }
+                $role = 'Principal';
+            }
+
+            if (empty($recipients)) {
+                Log::warning('No recipients found for honor approval notification', [
+                    'academic_level' => $academicLevel->name,
+                    'role' => $role
+                ]);
+
+                return [
+                    'success' => false,
+                    'message' => "No {$role}s found to notify"
+                ];
+            }
+
+            Log::info('Recipients identified for honor approval notification', [
+                'role' => $role,
+                'recipient_count' => count($recipients),
+                'recipients' => $recipients
+            ]);
+
+            // Create notification record
+            $notification = Notification::create([
+                'type' => Notification::TYPE_PENDING_HONOR_APPROVAL,
+                'title' => 'Pending Honor Results for Approval',
+                'message' => "{$honorCount} honor results for {$academicLevel->name} ({$schoolYear}) are pending your approval",
+                'recipients' => $recipients,
+                'status' => Notification::STATUS_PENDING,
+                'metadata' => [
+                    'academic_level_id' => $academicLevel->id,
+                    'academic_level_name' => $academicLevel->name,
+                    'academic_level_key' => $academicLevel->key,
+                    'school_year' => $schoolYear,
+                    'honor_count' => $honorCount,
+                    'approver_role' => $role,
+                ],
+                'email_subject' => "Pending Honor Results - {$academicLevel->name} - {$schoolYear}",
+                'email_body' => "{$honorCount} honor results are pending your approval.",
+            ]);
+
+            Log::info('Honor approval notification record created', [
+                'notification_id' => $notification->id,
+                'recipient_count' => count($recipients)
+            ]);
+
+            $successCount = 0;
+            $failedCount = 0;
+
+            // Send emails to each recipient
+            foreach ($recipients as $recipientEmail) {
+                try {
+                    Log::info('Sending honor approval notification email', [
+                        'notification_id' => $notification->id,
+                        'email' => $recipientEmail,
+                        'role' => $role
+                    ]);
+
+                    $recipient = User::where('email', $recipientEmail)->first();
+                    Mail::to($recipientEmail)->send(
+                        new \App\Mail\PendingHonorApprovalEmail($recipient, $academicLevel, $schoolYear, $honorCount)
+                    );
+
+                    $successCount++;
+
+                    Log::info('Honor approval email sent successfully', [
+                        'notification_id' => $notification->id,
+                        'recipient' => $recipientEmail,
+                        'role' => $role
+                    ]);
+                } catch (\Exception $e) {
+                    $failedCount++;
+
+                    Log::error('Failed to send honor approval email', [
+                        'notification_id' => $notification->id,
+                        'recipient' => $recipientEmail,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+
+            // Update notification status based on results
+            if ($failedCount === 0) {
+                $notification->markAsSent();
+            } elseif ($successCount > 0) {
+                $notification->update(['status' => 'partial_sent']);
+            } else {
+                $notification->markAsFailed();
+            }
+
+            Log::info('Honor approval notifications completed', [
+                'notification_id' => $notification->id,
+                'academic_level' => $academicLevel->name,
+                'role' => $role,
+                'total_recipients' => count($recipients),
+                'success_count' => $successCount,
+                'failed_count' => $failedCount
+            ]);
+
+            return [
+                'success' => true,
+                'message' => "Honor approval notification sent to {$role}(s) successfully! {$successCount} sent, {$failedCount} failed.",
+                'notification_id' => $notification->id,
+                'success_count' => $successCount,
+                'failed_count' => $failedCount
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Error creating honor approval notification', [
+                'academic_level' => $academicLevel->name ?? 'unknown',
+                'school_year' => $schoolYear,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'Error sending honor approval notification: ' . $e->getMessage()
+            ];
+        }
     }
 }
