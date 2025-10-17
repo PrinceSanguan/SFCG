@@ -251,9 +251,25 @@ class AcademicController extends Controller
             ->orderBy('name')
             ->get()
             ->map(function ($subject) {
-                // Add grading periods collection to each subject
+                // Add grading periods and semesters collection to each subject
                 $subjectArray = $subject->toArray();
                 $subjectArray['grading_periods'] = $subject->gradingPeriods()->toArray();
+                $subjectArray['semesters'] = $subject->semesters()->toArray();
+
+                // Log college subject data for debugging
+                if ($subject->academic_level_id && $subject->academicLevel->key === 'college') {
+                    \Log::info('College Subject Data:', [
+                        'id' => $subject->id,
+                        'name' => $subject->name,
+                        'code' => $subject->code,
+                        'college_year_level' => $subject->college_year_level,
+                        'semester_ids' => $subject->semester_ids,
+                        'grading_period_ids' => $subject->grading_period_ids,
+                        'semesters_count' => count($subjectArray['semesters']),
+                        'grading_periods_count' => count($subjectArray['grading_periods']),
+                    ]);
+                }
+
                 return $subjectArray;
             });
 
@@ -266,6 +282,11 @@ class AcademicController extends Controller
         $tracks = Track::orderBy('name')->get();
         $strands = Strand::orderBy('name')->get();
         $sections = Section::with(['academicLevel'])->orderBy('academic_level_id')->orderBy('specific_year_level')->orderBy('name')->get();
+
+        \Log::info('Subjects page loaded:', [
+            'total_subjects' => $subjects->count(),
+            'college_subjects' => $subjects->filter(function($s) { return $s['academic_level']['key'] === 'college'; })->count(),
+        ]);
 
         return Inertia::render('Admin/Academic/Subjects', [
             'user' => $this->sharedUser(),
@@ -1536,6 +1557,8 @@ class AcademicController extends Controller
             'selected_grade_level' => 'nullable|string|in:grade_1,grade_2,grade_3,grade_4,grade_5,grade_6',
             'grading_period_ids' => 'nullable|array',
             'grading_period_ids.*' => 'exists:grading_periods,id',
+            'semester_ids' => 'nullable|array',
+            'semester_ids.*' => 'exists:grading_periods,id',
             'course_id' => 'nullable|exists:courses,id',
             'units' => 'nullable|numeric|min:0',
             'hours_per_week' => 'nullable|integer|min:0',
@@ -1579,9 +1602,11 @@ class AcademicController extends Controller
                 'strand_id' => $request->strand_id,
                 'shs_year_level' => $request->shs_year_level,
                 'jhs_year_level' => $request->jhs_year_level,
+                'college_year_level' => $request->college_year_level,
                 'grade_levels' => $request->grade_levels,
                 'grading_period_id' => null, // Keep for backward compatibility
                 'grading_period_ids' => $request->grading_period_ids, // Store multiple grading periods
+                'semester_ids' => $request->semester_ids, // Store multiple semesters
                 'course_id' => $request->course_id,
                 'section_id' => $request->section_id,
                 'units' => $request->units ?? 0,
@@ -1590,7 +1615,10 @@ class AcademicController extends Controller
                 'is_active' => $request->is_active ?? true,
             ];
             $subject = Subject::create($data);
-            Log::info('Subject created successfully:', $subject->toArray());
+            Log::info('Subject created successfully:', array_merge($subject->toArray(), [
+                'semester_ids' => $subject->semester_ids,
+                'college_year_level' => $subject->college_year_level,
+            ]));
         } catch (\Exception $e) {
             Log::error('Subject creation failed:', [
                 'error' => $e->getMessage(),
@@ -1668,6 +1696,11 @@ class AcademicController extends Controller
 
     public function updateSubject(Request $request, Subject $subject)
     {
+        Log::info('Subject update request received:', [
+            'subject_id' => $subject->id,
+            'request_data' => $request->all()
+        ]);
+
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:100',
             'code' => 'required|string|max:20|unique:subjects,code,' . $subject->id,
@@ -1681,6 +1714,8 @@ class AcademicController extends Controller
             'grade_levels.*' => 'string|in:grade_1,grade_2,grade_3,grade_4,grade_5,grade_6',
             'grading_period_ids' => 'nullable|array',
             'grading_period_ids.*' => 'exists:grading_periods,id',
+            'semester_ids' => 'nullable|array',
+            'semester_ids.*' => 'exists:grading_periods,id',
             'course_id' => 'nullable|exists:courses,id',
             'units' => 'nullable|numeric|min:0',
             'hours_per_week' => 'nullable|integer|min:0',
@@ -1689,6 +1724,7 @@ class AcademicController extends Controller
         ]);
 
         if ($validator->fails()) {
+            Log::error('Subject update validation failed:', $validator->errors()->toArray());
             return back()->withErrors($validator)->withInput();
         }
 
@@ -1706,9 +1742,11 @@ class AcademicController extends Controller
             'strand_id' => $request->strand_id,
             'shs_year_level' => $request->shs_year_level,
             'jhs_year_level' => $request->jhs_year_level,
+            'college_year_level' => $request->college_year_level,
             'grade_levels' => $request->grade_levels,
             'grading_period_id' => null, // Keep for backward compatibility
             'grading_period_ids' => $request->grading_period_ids,
+            'semester_ids' => $request->semester_ids,
             'course_id' => $request->course_id,
             'section_id' => $request->section_id,
             'units' => $request->units ?? 0,
@@ -1716,6 +1754,11 @@ class AcademicController extends Controller
             'is_core' => $request->is_core ?? false,
             'is_active' => $request->is_active ?? true,
         ]);
+
+        Log::info('Subject updated successfully:', array_merge($subject->toArray(), [
+            'semester_ids' => $subject->semester_ids,
+            'college_year_level' => $subject->college_year_level,
+        ]));
 
         // Log activity
         ActivityLog::create([

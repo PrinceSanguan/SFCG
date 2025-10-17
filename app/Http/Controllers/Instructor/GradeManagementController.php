@@ -183,7 +183,19 @@ class GradeManagementController extends Controller
                 ->where('school_year', $assignment->school_year)
                 ->where('is_active', true)
                 ->get();
-            
+
+            // Get the subject's grading_period_ids and semester_ids
+            $subject = $assignment->subject;
+            $gradingPeriodIds = $subject->grading_period_ids ?? [];
+            $semesterIds = $subject->semester_ids ?? [];
+
+            \Log::info('Assignment subject grading periods:', [
+                'subject_id' => $subject->id,
+                'subject_name' => $subject->name,
+                'grading_period_ids' => $gradingPeriodIds,
+                'semester_ids' => $semesterIds
+            ]);
+
             return [
                 'id' => $assignment->id,
                 'subject_id' => $assignment->subject_id,
@@ -191,6 +203,8 @@ class GradeManagementController extends Controller
                     'id' => $assignment->subject->id,
                     'name' => $assignment->subject->name,
                     'code' => $assignment->subject->code,
+                    'grading_period_ids' => $gradingPeriodIds,
+                    'semester_ids' => $semesterIds,
                     'course' => $assignment->subject->course ? [
                         'id' => $assignment->subject->course->id,
                         'name' => $assignment->subject->course->name,
@@ -206,6 +220,8 @@ class GradeManagementController extends Controller
                     'id' => $assignment->gradingPeriod->id,
                     'name' => $assignment->gradingPeriod->name,
                 ] : null,
+                'grading_period_ids' => $gradingPeriodIds,
+                'semester_ids' => $semesterIds,
                 'school_year' => $assignment->school_year,
                 'is_active' => $assignment->is_active,
                 'enrolled_students' => $enrolledStudents->map(function($enrollment) {

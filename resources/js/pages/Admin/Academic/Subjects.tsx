@@ -317,19 +317,29 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
             academic_level_id: subject.academic_level_id,
             grade_levels: subject.grade_levels || [],
             grading_period_ids: subject.grading_period_ids || [],
+            semester_ids: subject.semester_ids || [],
+            shs_year_level: subject.shs_year_level || null,
+            jhs_year_level: subject.jhs_year_level || null,
+            college_year_level: subject.college_year_level || null,
+            strand_id: subject.strand_id || null,
             course_id: subject.course_id || '',
             units: subject.units,
             hours_per_week: subject.hours_per_week,
             is_core: subject.is_core,
             is_active: subject.is_active
         };
+
+        console.log('Updating subject with data:', data);
+
         router.put(route('admin.academic.subjects.update', subject.id), data, {
             preserveScroll: true,
             onSuccess: () => {
+                console.log('Subject updated successfully');
                 addToast("Subject updated successfully!", "success");
                 setEditModal(false);
             },
-            onError: () => {
+            onError: (errors) => {
+                console.error('Subject update failed:', errors);
                 addToast("Failed to update subject. Please check the form and try again.", "error");
             },
         });
@@ -1074,16 +1084,27 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                     return null;
                                                 })()}
 
-                                                {/* Section field for Senior High School - show after Track and Strand are selected */}
+                                                {/* Section field for Senior High School - show after Track, Strand, and Year Level are selected */}
                                                 {(() => {
                                                     const selectedLevel = academicLevels.find(level => level.id.toString() === subjectForm.academic_level_id);
-                                                    if (selectedLevel?.key !== 'senior_highschool' || !subjectForm.track_id || !subjectForm.strand_id) return null;
-                                                    
+
+                                                    // Don't show if not SHS or if track, strand, or year level not selected
+                                                    if (selectedLevel?.key !== 'senior_highschool' || !subjectForm.track_id || !subjectForm.strand_id || !subjectForm.shs_year_level) {
+                                                        console.log('SHS Section field hidden:', {
+                                                            is_shs: selectedLevel?.key === 'senior_highschool',
+                                                            track_id: subjectForm.track_id,
+                                                            strand_id: subjectForm.strand_id,
+                                                            shs_year_level: subjectForm.shs_year_level,
+                                                            reason: !subjectForm.track_id ? 'No track' : !subjectForm.strand_id ? 'No strand' : !subjectForm.shs_year_level ? 'No year level' : 'Not SHS'
+                                                        });
+                                                        return null;
+                                                    }
+
                                                     return (
                                                         <div>
                                                             <Label htmlFor="section_id">Section *</Label>
-                                                            <Select 
-                                                                value={subjectForm.section_id} 
+                                                            <Select
+                                                                value={subjectForm.section_id}
                                                                 onValueChange={(value) => setSubjectForm({...subjectForm, section_id: value})}
                                                                 required
                                                             >
@@ -1092,15 +1113,43 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                                 </SelectTrigger>
                                                                 <SelectContent>
                                                                     {(() => {
+                                                                        console.log('=== SHS Section Filtering ===');
+                                                                        console.log('Form values:', {
+                                                                            track_id: subjectForm.track_id,
+                                                                            strand_id: subjectForm.strand_id,
+                                                                            shs_year_level: subjectForm.shs_year_level
+                                                                        });
+                                                                        console.log('Total sections available:', sections.length);
+
                                                                         // Filter sections by senior high school level, track, strand, and grade level
                                                                         const shsSections = sections.filter(section => {
                                                                             const level = academicLevels.find(l => l.id === section.academic_level_id);
-                                                                            return level?.key === 'senior_highschool' && 
-                                                                                   section.track_id?.toString() === subjectForm.track_id &&
-                                                                                   section.strand_id?.toString() === subjectForm.strand_id &&
-                                                                                   section.specific_year_level === subjectForm.shs_year_level;
+                                                                            const isShs = level?.key === 'senior_highschool';
+                                                                            const matchesTrack = section.track_id?.toString() === subjectForm.track_id;
+                                                                            const matchesStrand = section.strand_id?.toString() === subjectForm.strand_id;
+                                                                            const matchesYearLevel = section.specific_year_level === subjectForm.shs_year_level;
+
+                                                                            console.log(`Section ${section.id} (${section.name}):`, {
+                                                                                track_id: section.track_id,
+                                                                                strand_id: section.strand_id,
+                                                                                specific_year_level: section.specific_year_level,
+                                                                                isShs,
+                                                                                matchesTrack,
+                                                                                matchesStrand,
+                                                                                matchesYearLevel,
+                                                                                included: isShs && matchesTrack && matchesStrand && matchesYearLevel
+                                                                            });
+
+                                                                            return isShs && matchesTrack && matchesStrand && matchesYearLevel;
                                                                         });
-                                                                        
+
+                                                                        console.log('Filtered SHS sections count:', shsSections.length);
+                                                                        console.log('Filtered SHS sections:', shsSections.map(s => ({ id: s.id, name: s.name, year_level: s.specific_year_level })));
+
+                                                                        if (shsSections.length === 0) {
+                                                                            return <SelectItem value="no-sections" disabled>No sections available for this combination</SelectItem>;
+                                                                        }
+
                                                                         return shsSections.map((section) => (
                                                                             <SelectItem key={section.id} value={section.id.toString()}>
                                                                                 {section.name}
@@ -1115,7 +1164,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                                 </Alert>
                                                             )}
                                                             <p className="text-xs text-gray-500 mt-1">
-                                                                Select a specific section for this subject (required)
+                                                                Select a specific section for this subject (required). Make sure Track, Strand, and Year Level are selected above.
                                                             </p>
                                                         </div>
                                                     );

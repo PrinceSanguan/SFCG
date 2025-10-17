@@ -46,6 +46,7 @@ interface Subject {
     };
     shs_year_level?: string | null;
     jhs_year_level?: string | null;
+    college_year_level?: string | null;
     selected_grade_level?: string | null;
 }
 
@@ -140,21 +141,59 @@ export default function AssignInstructorsSubjects({
         if (formData.subject_id) {
             const selectedSubject = subjects.find(s => s.id.toString() === formData.subject_id);
             if (selectedSubject && selectedSubject.course_id) {
-                // Determine the year level to filter by
+                // Determine the year level to filter by based on academic level
                 const yearLevel = selectedSubject.shs_year_level || selectedSubject.jhs_year_level || selectedSubject.selected_grade_level;
+
+                console.log('Filtering sections for subject:', {
+                    subjectId: selectedSubject.id,
+                    subjectName: selectedSubject.name,
+                    courseId: selectedSubject.course_id,
+                    yearLevel: yearLevel,
+                    academicLevel: selectedSubject.academicLevel?.key
+                });
 
                 const filtered = sections.filter(section => {
                     const matchesCourse = section.course_id === selectedSubject.course_id;
 
-                    // If subject has year level and section has year level, they must match
-                    if (yearLevel && section.specific_year_level) {
-                        return matchesCourse && section.specific_year_level === yearLevel;
+                    // For college subjects, filter by college_year_level
+                    if (selectedSubject.academicLevel?.key === 'college') {
+                        const collegeYearLevel = (selectedSubject as any).college_year_level;
+                        if (collegeYearLevel && section.specific_year_level) {
+                            const matches = matchesCourse && section.specific_year_level === collegeYearLevel;
+                            console.log('College section check:', {
+                                sectionId: section.id,
+                                sectionName: section.name,
+                                sectionYearLevel: section.specific_year_level,
+                                subjectYearLevel: collegeYearLevel,
+                                matchesCourse,
+                                matches
+                            });
+                            return matches;
+                        }
+                        // If no year level on section or subject, only match by course
+                        return matchesCourse;
                     }
 
-                    // Otherwise, just filter by course
+                    // For other academic levels (SHS, JHS, Elementary)
+                    if (yearLevel) {
+                        // Only return sections that match BOTH course AND year level
+                        const matches = matchesCourse && section.specific_year_level === yearLevel;
+                        console.log('Section check:', {
+                            sectionId: section.id,
+                            sectionName: section.name,
+                            sectionYearLevel: section.specific_year_level,
+                            subjectYearLevel: yearLevel,
+                            matchesCourse,
+                            matches
+                        });
+                        return matches;
+                    }
+
+                    // If subject has no year level, filter only by course
                     return matchesCourse;
                 });
 
+                console.log('Filtered sections:', filtered.length, filtered.map(s => ({ id: s.id, name: s.name, yearLevel: s.specific_year_level })));
                 setFilteredSections(filtered);
             } else {
                 setFilteredSections([]);

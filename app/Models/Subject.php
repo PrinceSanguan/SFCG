@@ -20,6 +20,7 @@ class Subject extends Model
         'grade_levels',
         'grading_period_id',
         'grading_period_ids',
+        'semester_ids',
         'course_id',
         'shs_year_level',
         'jhs_year_level',
@@ -39,6 +40,7 @@ class Subject extends Model
         'hours_per_week' => 'integer',
         'grade_levels' => 'array',
         'grading_period_ids' => 'array',
+        'semester_ids' => 'array',
         'shs_year_level' => 'string',
         'jhs_year_level' => 'string',
     ];
@@ -68,6 +70,18 @@ class Subject extends Model
             return collect([]);
         }
         return GradingPeriod::whereIn('id', $this->grading_period_ids)->get();
+    }
+
+    /**
+     * Get all semesters for this subject.
+     * Returns a collection of GradingPeriod models (where type is semester).
+     */
+    public function semesters()
+    {
+        if (!$this->semester_ids || empty($this->semester_ids)) {
+            return collect([]);
+        }
+        return GradingPeriod::whereIn('id', $this->semester_ids)->get();
     }
 
     public function course(): BelongsTo

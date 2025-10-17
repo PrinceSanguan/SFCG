@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { Head, useForm, Link } from '@inertiajs/react';
 import { Upload as UploadIcon, Download, FileText, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,7 +40,22 @@ interface Subject {
 interface AssignedSubject {
     id: number;
     subject_id: number;
-    subject: Subject;
+    subject: {
+        id: number;
+        name: string;
+        code: string;
+        grading_period_ids?: number[];
+        semester_ids?: number[];
+        course?: {
+            id: number;
+            name: string;
+            code: string;
+        };
+        academicLevel: AcademicLevel;
+        gradingPeriod: GradingPeriod;
+    };
+    grading_period_ids?: number[];
+    semester_ids?: number[];
     academicLevel: AcademicLevel;
     gradingPeriod: GradingPeriod;
     school_year: string;
@@ -151,6 +166,40 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
     };
 
     const isCollegeLevel = getCurrentAcademicLevelKey() === 'college';
+
+    // Filter grading periods based on selected subject
+    const allowedGradingPeriods = useMemo(() => {
+        if (!data.subject_id) {
+            console.log('Upload: No subject selected, returning all periods');
+            return gradingPeriods;
+        }
+
+        const selectedAssignment = assignedSubjects.find(
+            s => s.subject_id.toString() === data.subject_id
+        );
+
+        if (!selectedAssignment) {
+            console.log('Upload: No assignment found for subject_id:', data.subject_id);
+            return gradingPeriods;
+        }
+
+        const gradingPeriodIds = selectedAssignment.grading_period_ids || selectedAssignment.subject?.grading_period_ids || [];
+
+        console.log('=== Upload Grading Period Filtering ===');
+        console.log('Selected subject:', selectedAssignment.subject?.name);
+        console.log('Assignment grading_period_ids:', gradingPeriodIds);
+        console.log('All grading periods:', gradingPeriods.length);
+
+        if (gradingPeriodIds.length === 0) {
+            console.log('Upload: No grading_period_ids assigned, showing all periods');
+            return gradingPeriods;
+        }
+
+        const filtered = gradingPeriods.filter(period => gradingPeriodIds.includes(period.id));
+        console.log('Upload: Filtered grading periods:', filtered.length, filtered.map(p => ({ id: p.id, name: p.name })));
+
+        return filtered;
+    }, [data.subject_id, assignedSubjects, gradingPeriods]);
 
     return (
         <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
@@ -265,9 +314,9 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
                                             <SelectContent>
                                                 <SelectItem value="0">No Period</SelectItem>
                                                 {(() => {
-                                                    // Filter periods for the current academic level
+                                                    // Filter periods for the current academic level AND subject assignment
                                                     const currentLevel = academicLevels.find(l => l.id.toString() === data.academic_level_id);
-                                                    const filteredPeriods = gradingPeriods.filter(period =>
+                                                    const filteredPeriods = allowedGradingPeriods.filter(period =>
                                                         period.academic_level_id.toString() === data.academic_level_id
                                                     );
 

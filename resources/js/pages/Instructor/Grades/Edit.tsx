@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { Head, useForm, Link } from '@inertiajs/react';
 import { ArrowLeft, Save, Edit as EditIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -69,8 +69,12 @@ interface AssignedSubject {
         id: number;
         name: string;
         code: string;
+        grading_period_ids?: number[];
+        semester_ids?: number[];
         course?: { id: number; name: string; code: string; };
     };
+    grading_period_ids?: number[];
+    semester_ids?: number[];
     academicLevel: { id: number; name: string; key: string; };
     gradingPeriod?: { id: number; name: string; };
     school_year: string;
@@ -126,6 +130,40 @@ export default function Edit({ user, grade, gradingPeriods, assignedSubjects }: 
         assignedSemesters.some(s => s.includes('2nd') || s.includes('second')),
         [assignedSemesters]
     );
+
+    // Filter grading periods based on the current grade's subject
+    const allowedGradingPeriods = useMemo(() => {
+        const currentSubjectId = grade.subject_id;
+
+        console.log('=== Edit Grading Period Filtering ===');
+        console.log('Current grade subject_id:', currentSubjectId);
+        console.log('Current grade subject:', grade.subject?.name);
+
+        // Find the assignment for this subject
+        const assignment = assignedSubjects.find(
+            s => s.subject.id === currentSubjectId
+        );
+
+        if (!assignment) {
+            console.log('Edit: No assignment found for current subject, showing all periods');
+            return gradingPeriods;
+        }
+
+        const gradingPeriodIds = assignment.grading_period_ids || assignment.subject?.grading_period_ids || [];
+
+        console.log('Assignment grading_period_ids:', gradingPeriodIds);
+        console.log('All grading periods:', gradingPeriods.length);
+
+        if (gradingPeriodIds.length === 0) {
+            console.log('Edit: No grading_period_ids assigned, showing all periods');
+            return gradingPeriods;
+        }
+
+        const filtered = gradingPeriods.filter(period => gradingPeriodIds.includes(period.id));
+        console.log('Edit: Filtered grading periods:', filtered.length, filtered.map(p => ({ id: p.id, name: p.name })));
+
+        return filtered;
+    }, [grade.subject_id, assignedSubjects, gradingPeriods]);
 
     // Get current academic level key for grade validation
     const getCurrentAcademicLevelKey = () => {
@@ -298,13 +336,13 @@ export default function Edit({ user, grade, gradingPeriods, assignedSubjects }: 
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="0">No Period</SelectItem>
-                                                    {gradingPeriods && gradingPeriods.length > 0 ? (
+                                                    {allowedGradingPeriods && allowedGradingPeriods.length > 0 ? (
                                                         <>
                                                             {/* First Semester - Only show if instructor teaches it */}
                                                             {teachesFirstSemester && (
                                                                 <SelectGroup>
                                                                     <SelectLabel>First Semester</SelectLabel>
-                                                                    {gradingPeriods
+                                                                    {allowedGradingPeriods
                                                                         .filter(period => period.code.startsWith('COL_S1_') && !period.code.includes('_FA'))
                                                                         .sort((a, b) => a.sort_order - b.sort_order)
                                                                         .map((period) => (
@@ -320,7 +358,7 @@ export default function Edit({ user, grade, gradingPeriods, assignedSubjects }: 
                                                             {teachesSecondSemester && (
                                                                 <SelectGroup>
                                                                     <SelectLabel>Second Semester</SelectLabel>
-                                                                    {gradingPeriods
+                                                                    {allowedGradingPeriods
                                                                         .filter(period => period.code.startsWith('COL_S2_') && !period.code.includes('_FA'))
                                                                         .sort((a, b) => a.sort_order - b.sort_order)
                                                                         .map((period) => (
@@ -333,7 +371,7 @@ export default function Edit({ user, grade, gradingPeriods, assignedSubjects }: 
                                                             )}
                                                         </>
                                                     ) : (
-                                                        <SelectItem value="none" disabled>No grading periods available</SelectItem>
+                                                        <SelectItem value="none" disabled>No grading periods assigned to this subject</SelectItem>
                                                     )}
                                                 </SelectContent>
                                             </Select>

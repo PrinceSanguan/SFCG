@@ -24,6 +24,8 @@ interface AssignedSubject {
         id: number;
         name: string;
         code: string;
+        grading_period_ids?: number[];
+        semester_ids?: number[];
         course?: {
             id: number;
             name: string;
@@ -39,6 +41,8 @@ interface AssignedSubject {
         id: number;
         name: string;
     };
+    grading_period_ids?: number[];
+    semester_ids?: number[];
     school_year: string;
     is_active: boolean;
     enrolled_students: Array<{
@@ -108,11 +112,44 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
     
     const [isInitialized, setIsInitialized] = useState(false);
 
-    // Extract unique semesters from grading periods available in the system
-    // Check which semesters have grading periods defined (not based on student enrollment)
+    // Get allowed grading periods for the selected subject
+    const allowedGradingPeriods = useMemo(() => {
+        if (!data.subject_id) {
+            console.log('No subject selected, returning all periods');
+            return gradingPeriods;
+        }
+
+        const selectedAssignment = assignedSubjects.find(
+            s => s.subject.id.toString() === data.subject_id
+        );
+
+        if (!selectedAssignment) {
+            console.log('No assignment found for subject_id:', data.subject_id);
+            return gradingPeriods;
+        }
+
+        const gradingPeriodIds = selectedAssignment.grading_period_ids || selectedAssignment.subject?.grading_period_ids || [];
+
+        console.log('=== Grading Period Filtering ===');
+        console.log('Selected subject:', selectedAssignment.subject?.name);
+        console.log('Assignment grading_period_ids:', gradingPeriodIds);
+        console.log('All grading periods:', gradingPeriods.length);
+
+        if (gradingPeriodIds.length === 0) {
+            console.log('No grading_period_ids assigned, showing all periods');
+            return gradingPeriods;
+        }
+
+        const filtered = gradingPeriods.filter(period => gradingPeriodIds.includes(period.id));
+        console.log('Filtered grading periods:', filtered.length, filtered.map(p => ({ id: p.id, name: p.name })));
+
+        return filtered;
+    }, [data.subject_id, assignedSubjects, gradingPeriods]);
+
+    // Extract unique semesters from allowed grading periods
     const availableSemesters = useMemo(() => {
         const semesters = new Set<string>();
-        gradingPeriods.forEach(period => {
+        allowedGradingPeriods.forEach(period => {
             if (period.code.includes('_S1_')) {
                 semesters.add('first');
             }
@@ -120,8 +157,9 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                 semesters.add('second');
             }
         });
+        console.log('Available semesters:', Array.from(semesters));
         return Array.from(semesters);
-    }, [gradingPeriods]);
+    }, [allowedGradingPeriods]);
 
     // Check if grading periods exist for first or second semester
     const hasFirstSemesterPeriods = useMemo(() =>
@@ -391,13 +429,13 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                                     </SelectTrigger>
                                                     <SelectContent>
                                                         <SelectItem value="0">No Period</SelectItem>
-                                                        {gradingPeriods && gradingPeriods.length > 0 ? (
+                                                        {allowedGradingPeriods && allowedGradingPeriods.length > 0 ? (
                                                             <>
                                                                 {/* First Semester - Show if grading periods exist */}
                                                                 {hasFirstSemesterPeriods && (
                                                                     <SelectGroup>
                                                                         <SelectLabel>First Semester</SelectLabel>
-                                                                        {gradingPeriods
+                                                                        {allowedGradingPeriods
                                                                             .filter(period => period.code.startsWith('COL_S1_') && !period.code.includes('_FA'))
                                                                             .sort((a, b) => a.sort_order - b.sort_order)
                                                                             .map((period) => (
@@ -413,7 +451,7 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                                                 {hasSecondSemesterPeriods && (
                                                                     <SelectGroup>
                                                                         <SelectLabel>Second Semester</SelectLabel>
-                                                                        {gradingPeriods
+                                                                        {allowedGradingPeriods
                                                                             .filter(period => period.code.startsWith('COL_S2_') && !period.code.includes('_FA'))
                                                                             .sort((a, b) => a.sort_order - b.sort_order)
                                                                             .map((period) => (
@@ -427,7 +465,7 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                                             </>
                                                         ) : (
                                                             <SelectItem value="debug" disabled>
-                                                                No grading periods available (Debug: {gradingPeriods?.length || 'undefined'})
+                                                                {data.subject_id ? 'No grading periods assigned to this subject' : 'Select a subject first'}
                                                             </SelectItem>
                                                         )}
                                                     </SelectContent>
@@ -529,13 +567,13 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="0">No Period</SelectItem>
-                                                    {gradingPeriods && gradingPeriods.length > 0 ? (
+                                                    {allowedGradingPeriods && allowedGradingPeriods.length > 0 ? (
                                                         <>
                                                             {/* First Semester - Show if grading periods exist */}
                                                             {hasFirstSemesterPeriods && (
                                                                 <SelectGroup>
                                                                     <SelectLabel>First Semester</SelectLabel>
-                                                                    {gradingPeriods
+                                                                    {allowedGradingPeriods
                                                                         .filter(period => period.code.startsWith('COL_S1_') && !period.code.includes('_FA'))
                                                                         .sort((a, b) => a.sort_order - b.sort_order)
                                                                         .map((period) => (
@@ -551,7 +589,7 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                                             {hasSecondSemesterPeriods && (
                                                                 <SelectGroup>
                                                                     <SelectLabel>Second Semester</SelectLabel>
-                                                                    {gradingPeriods
+                                                                    {allowedGradingPeriods
                                                                         .filter(period => period.code.startsWith('COL_S2_') && !period.code.includes('_FA'))
                                                                         .sort((a, b) => a.sort_order - b.sort_order)
                                                                         .map((period) => (
@@ -565,7 +603,7 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                                         </>
                                                     ) : (
                                                         <SelectItem value="debug" disabled>
-                                                            No grading periods available (Debug: {gradingPeriods?.length || 'undefined'})
+                                                            {data.subject_id ? 'No grading periods assigned to this subject' : 'Select a subject first'}
                                                         </SelectItem>
                                                     )}
                                                 </SelectContent>
