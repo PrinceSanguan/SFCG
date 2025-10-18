@@ -69,6 +69,10 @@ interface Subject {
         name: string;
         code: string;
     };
+    shs_year_level?: string | null;
+    jhs_year_level?: string | null;
+    college_year_level?: string | null;
+    selected_grade_level?: string | null;
 }
 
 interface InstructorCourseAssignment {
@@ -93,6 +97,7 @@ interface Section {
     name: string;
     code: string;
     course_id: number;
+    specific_year_level?: string | null;
 }
 
 interface Props {
@@ -159,13 +164,39 @@ export default function AssignInstructors({ user, assignments, instructors, depa
             setFilteredCourses(filtered);
         }
         if (assignmentForm.course_id) {
-            const filteredSubj = subjects.filter(s => s.course_id == null || s.course_id === parseInt(assignmentForm.course_id));
+            // Filter subjects by both course_id AND year level
+            const filteredSubj = subjects.filter(s => {
+                const matchesCourse = s.course_id == null || s.course_id === parseInt(assignmentForm.course_id);
+                const matchesYearLevel = !assignmentForm.year_level ||
+                    s.college_year_level === assignmentForm.year_level;
+                return matchesCourse && matchesYearLevel;
+            });
+            console.log('Filtering subjects:', {
+                selectedCourseId: assignmentForm.course_id,
+                selectedYearLevel: assignmentForm.year_level,
+                totalSubjects: subjects.length,
+                filteredSubjects: filteredSubj.length,
+                subjects: filteredSubj.map(s => ({ name: s.name, code: s.code, yearLevel: s.college_year_level }))
+            });
             setFilteredSubjects(filteredSubj);
 
-            const filteredSect = sections.filter(s => s.course_id === parseInt(assignmentForm.course_id));
+            // Filter sections by both course_id AND year level
+            const filteredSect = sections.filter(s => {
+                const matchesCourse = s.course_id === parseInt(assignmentForm.course_id);
+                const matchesYearLevel = !assignmentForm.year_level ||
+                    s.specific_year_level === assignmentForm.year_level;
+                return matchesCourse && matchesYearLevel;
+            });
+            console.log('Filtering sections:', {
+                selectedCourseId: assignmentForm.course_id,
+                selectedYearLevel: assignmentForm.year_level,
+                totalSections: sections.length,
+                filteredSections: filteredSect.length,
+                sections: filteredSect.map(s => ({ name: s.name, code: s.code, yearLevel: s.specific_year_level }))
+            });
             setFilteredSections(filteredSect);
         }
-    }, [assignmentForm.department_id, assignmentForm.course_id, courses, subjects, sections, departments]);
+    }, [assignmentForm.department_id, assignmentForm.course_id, assignmentForm.year_level, courses, subjects, sections, departments]);
     
     // Safety check: only proceed if we have valid level
     if (!collegeLevel) {
@@ -285,8 +316,13 @@ export default function AssignInstructors({ user, assignments, instructors, depa
         const selectedCourse = courses.find(c => c.id === assignment.course_id);
         const departmentId = selectedCourse?.department_id?.toString() || '';
 
-        // Filter subjects for this course
-        const filteredSubj = subjects.filter(s => s.course_id == null || s.course_id === assignment.course_id);
+        // Filter subjects for this course AND year level
+        const filteredSubj = subjects.filter(s => {
+            const matchesCourse = s.course_id == null || s.course_id === assignment.course_id;
+            const matchesYearLevel = !assignment.year_level ||
+                s.college_year_level === assignment.year_level;
+            return matchesCourse && matchesYearLevel;
+        });
         setFilteredSubjects(filteredSubj);
 
         // Filter courses for this department
@@ -341,6 +377,7 @@ export default function AssignInstructors({ user, assignments, instructors, depa
             year_level: '',
             department_id: '',
             course_id: '',
+            section_id: '',
             subject_id: '',
             academic_level_id: '',
             semester_ids: [],
@@ -351,6 +388,7 @@ export default function AssignInstructors({ user, assignments, instructors, depa
         });
         setFilteredCourses([]);
         setFilteredSubjects([]);
+        setFilteredSections([]);
     };
 
     // Helper functions for checkbox handling
@@ -552,7 +590,13 @@ export default function AssignInstructors({ user, assignments, instructors, depa
                                         value={assignmentForm.course_id}
                                         onValueChange={(value) => {
                                             setAssignmentForm({ ...assignmentForm, course_id: value, subject_id: '' });
-                                            const filtered = subjects.filter(s => s.course_id == null || s.course_id === parseInt(value));
+                                            // Filter subjects by both course_id AND year level
+                                            const filtered = subjects.filter(s => {
+                                                const matchesCourse = s.course_id == null || s.course_id === parseInt(value);
+                                                const matchesYearLevel = !assignmentForm.year_level ||
+                                                    s.college_year_level === assignmentForm.year_level;
+                                                return matchesCourse && matchesYearLevel;
+                                            });
                                             setFilteredSubjects(filtered);
                                         }}
                                         required
@@ -980,7 +1024,13 @@ export default function AssignInstructors({ user, assignments, instructors, depa
                                     value={assignmentForm.course_id}
                                     onValueChange={(value) => {
                                         setAssignmentForm({ ...assignmentForm, course_id: value, subject_id: '' });
-                                        const filtered = subjects.filter(s => s.course_id == null || s.course_id === parseInt(value));
+                                        // Filter subjects by both course_id AND year level
+                                        const filtered = subjects.filter(s => {
+                                            const matchesCourse = s.course_id == null || s.course_id === parseInt(value);
+                                            const matchesYearLevel = !assignmentForm.year_level ||
+                                                s.college_year_level === assignmentForm.year_level;
+                                            return matchesCourse && matchesYearLevel;
+                                        });
                                         setFilteredSubjects(filtered);
                                     }}
                                     required
