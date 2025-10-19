@@ -33,7 +33,24 @@ interface GradingPeriod {
   type: string;
 }
 interface HonorType { id: number; name: string; }
-interface Section { id: number; name: string; academic_level_id: number; specific_year_level: string; }
+interface Track { id: number; name: string; code: string; is_active: boolean; }
+interface Strand { id: number; name: string; code: string; track_id: number; track?: Track; }
+interface Department { id: number; name: string; code: string; is_active: boolean; }
+interface Course { id: number; name: string; code: string; department_id: number; is_active: boolean; department?: Department; }
+interface Section {
+  id: number;
+  name: string;
+  academic_level_id: number;
+  specific_year_level: string;
+  track_id?: number;
+  strand_id?: number;
+  department_id?: number;
+  course_id?: number;
+  track?: Track;
+  strand?: Strand;
+  department?: Department;
+  course?: Course;
+}
 
 interface Props {
   user: User;
@@ -43,6 +60,10 @@ interface Props {
   gradingPeriods: GradingPeriod[];
   honorTypes: HonorType[];
   sections: Section[];
+  tracks: Track[];
+  strands: Strand[];
+  departments: Department[];
+  courses: Course[];
   stats: {
     total_students: number;
     total_certificates: number;
@@ -52,12 +73,16 @@ interface Props {
   };
 }
 
-export default function ReportsIndex({ user, academicLevels, schoolYears, currentSchoolYear, gradingPeriods, honorTypes, sections, stats }: Props) {
+export default function ReportsIndex({ user, academicLevels, schoolYears, currentSchoolYear, gradingPeriods, honorTypes, sections, tracks, strands, departments, courses, stats }: Props) {
   const [activeTab, setActiveTab] = useState('honor-statistics');
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedSemester, setSelectedSemester] = useState<string>('');
   const [filteredGradingPeriods, setFilteredGradingPeriods] = useState<GradingPeriod[]>([]);
   const [filteredSections, setFilteredSections] = useState<Section[]>([]);
+  const [filteredTracks, setFilteredTracks] = useState<Track[]>([]);
+  const [filteredStrands, setFilteredStrands] = useState<Strand[]>([]);
+  const [filteredDepartments, setFilteredDepartments] = useState<Department[]>([]);
+  const [filteredCourses, setFilteredCourses] = useState<Course[]>([]);
 
   // Get CSRF token from Inertia page props
   const { props } = usePage();
@@ -94,6 +119,11 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
   // Class Section Report Form
   const { data: sectionData, setData: setSectionData, post: postSection, processing: sectionProcessing } = useForm({
     academic_level_id: '',
+    year_level: '',
+    track_id: '',
+    strand_id: '',
+    department_id: '',
+    course_id: '',
     section_id: 'all',
     school_year: currentSchoolYear || schoolYears[0] || '',
     include_grades: false,
@@ -121,16 +151,111 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
     }
   }, [gradeData.academic_level_id, selectedSemester, gradingPeriods]);
 
-  // Filter sections based on selected academic level
+  // Log initial data on mount for Class Section Report
   useEffect(() => {
-    if (sectionData.academic_level_id) {
-      const levelId = parseInt(sectionData.academic_level_id);
-      const filtered = sections.filter(section => section.academic_level_id === levelId);
-      setFilteredSections(filtered);
-    } else {
+    console.log('=== CLASS SECTION REPORT - PAGE LOADED ===');
+    console.log('Available Academic Levels:', academicLevels);
+    console.log('Available School Years:', schoolYears);
+    console.log('Current School Year:', currentSchoolYear);
+    console.log('Initial Section Data:', sectionData);
+    console.log('Available Sections:', sections);
+    console.log('Available Tracks:', tracks);
+    console.log('Available Strands:', strands);
+    console.log('Available Departments:', departments);
+    console.log('Available Courses:', courses);
+  }, []);
+
+  // Filter sections based on academic level and cascading filters
+  useEffect(() => {
+    console.log('=== CLASS SECTION FILTER TRIGGERED ===');
+    console.log('Academic Level ID:', sectionData.academic_level_id);
+    console.log('Year Level:', sectionData.year_level);
+    console.log('Track ID:', sectionData.track_id);
+    console.log('Strand ID:', sectionData.strand_id);
+    console.log('Department ID:', sectionData.department_id);
+    console.log('Course ID:', sectionData.course_id);
+
+    if (!sectionData.academic_level_id) {
       setFilteredSections([]);
+      setFilteredTracks([]);
+      setFilteredStrands([]);
+      setFilteredDepartments([]);
+      setFilteredCourses([]);
+      return;
     }
-  }, [sectionData.academic_level_id, sections]);
+
+    const levelId = parseInt(sectionData.academic_level_id);
+    const selectedLevel = academicLevels.find(level => level.id === levelId);
+
+    console.log('Selected Level:', selectedLevel);
+
+    if (!selectedLevel) {
+      setFilteredSections([]);
+      return;
+    }
+
+    // Filter sections based on academic level type
+    let filtered = sections.filter(section => section.academic_level_id === levelId);
+
+    console.log('Sections for level:', filtered);
+
+    // Apply year level filter for all levels
+    if (sectionData.year_level) {
+      filtered = filtered.filter(section => section.specific_year_level === sectionData.year_level);
+      console.log('After year level filter:', filtered);
+    }
+
+    // SHS-specific filtering
+    if (selectedLevel.key === 'senior_highschool') {
+      if (sectionData.track_id) {
+        filtered = filtered.filter(section => section.track_id?.toString() === sectionData.track_id);
+        console.log('After track filter:', filtered);
+      }
+      if (sectionData.strand_id) {
+        filtered = filtered.filter(section => section.strand_id?.toString() === sectionData.strand_id);
+        console.log('After strand filter:', filtered);
+      }
+    }
+
+    // College-specific filtering
+    if (selectedLevel.key === 'college') {
+      if (sectionData.department_id) {
+        filtered = filtered.filter(section => section.department_id?.toString() === sectionData.department_id);
+        console.log('After department filter:', filtered);
+      }
+      if (sectionData.course_id) {
+        filtered = filtered.filter(section => section.course_id?.toString() === sectionData.course_id);
+        console.log('After course filter:', filtered);
+      }
+    }
+
+    console.log('Final filtered sections:', filtered);
+    setFilteredSections(filtered);
+  }, [sectionData.academic_level_id, sectionData.year_level, sectionData.track_id, sectionData.strand_id, sectionData.department_id, sectionData.course_id, sections, academicLevels]);
+
+  // Filter strands based on selected track (for SHS)
+  useEffect(() => {
+    if (sectionData.track_id) {
+      const trackId = parseInt(sectionData.track_id);
+      const filtered = strands.filter(strand => strand.track_id === trackId);
+      console.log('Filtered Strands for Track:', filtered);
+      setFilteredStrands(filtered);
+    } else {
+      setFilteredStrands([]);
+    }
+  }, [sectionData.track_id, strands]);
+
+  // Filter courses based on selected department (for College)
+  useEffect(() => {
+    if (sectionData.department_id) {
+      const deptId = parseInt(sectionData.department_id);
+      const filtered = courses.filter(course => course.department_id === deptId);
+      console.log('Filtered Courses for Department:', filtered);
+      setFilteredCourses(filtered);
+    } else {
+      setFilteredCourses([]);
+    }
+  }, [sectionData.department_id, courses]);
 
   const handleGradeReport = (e: React.FormEvent) => {
     e.preventDefault();
@@ -297,14 +422,36 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
     setTimeout(() => setIsGenerating(false), 2000);
   };
 
+  // Get available year levels that have sections with data
+  const getAvailableYearLevels = (academicLevelId: string) => {
+    if (!academicLevelId) return [];
+
+    const levelId = parseInt(academicLevelId);
+    const levelSections = sections.filter(s => s.academic_level_id === levelId);
+
+    // Get unique year levels from sections
+    const uniqueYearLevels = [...new Set(levelSections.map(s => s.specific_year_level))].filter(Boolean);
+
+    console.log('Available year levels for academic level', academicLevelId, ':', uniqueYearLevels);
+
+    return uniqueYearLevels;
+  };
+
   const handleClassSectionReport = (e: React.FormEvent) => {
+    console.log('=== handleClassSectionReport CALLED ===');
     e.preventDefault();
+    e.stopPropagation();
+
+    console.log('=== CLASS SECTION REPORT FORM SUBMISSION ===');
+    console.log('Form Data:', sectionData);
 
     if (!csrfToken) {
       console.error('CSRF token not found');
       alert('Session expired. Please refresh the page and try again.');
       return;
     }
+
+    console.log('CSRF Token:', csrfToken);
 
     setIsGenerating(true);
 
@@ -315,6 +462,9 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
       iframe.id = 'download-iframe';
       iframe.style.display = 'none';
       document.body.appendChild(iframe);
+      console.log('Created download iframe');
+    } else {
+      console.log('Using existing download iframe');
     }
 
     // Create a temporary form for file download
@@ -323,6 +473,8 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
     form.action = route('admin.reports.class-section-report');
     form.target = 'download-iframe';
 
+    console.log('Form action URL:', form.action);
+
     // Add CSRF token
     const csrfInput = document.createElement('input');
     csrfInput.type = 'hidden';
@@ -330,7 +482,10 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
     csrfInput.value = csrfToken;
     form.appendChild(csrfInput);
 
+    console.log('Added CSRF token to form');
+
     // Add form data
+    const formDataEntries: Record<string, string> = {};
     Object.entries(sectionData).forEach(([key, value]) => {
       const input = document.createElement('input');
       input.type = 'hidden';
@@ -341,15 +496,38 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
       } else {
         input.value = value?.toString() || '';
       }
+      formDataEntries[key] = input.value;
       form.appendChild(input);
     });
 
+    console.log('Form data being submitted:', formDataEntries);
+
     document.body.appendChild(form);
+    console.log('Form appended to body, submitting...');
     form.submit();
+    console.log('Form submitted');
     document.body.removeChild(form);
+    console.log('Form removed from body');
+
+    // Add iframe load listener to detect errors
+    iframe.onload = () => {
+      console.log('Iframe loaded');
+      try {
+        const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (iframeDoc) {
+          const body = iframeDoc.body;
+          console.log('Iframe body content:', body?.textContent?.substring(0, 500));
+        }
+      } catch (e) {
+        console.log('Could not access iframe content (this is normal for successful downloads):', e);
+      }
+    };
 
     // Reset loading state after a delay
-    setTimeout(() => setIsGenerating(false), 2000);
+    setTimeout(() => {
+      console.log('Resetting loading state');
+      setIsGenerating(false);
+    }, 2000);
   };
 
   // Get semester options for College/SHS
@@ -675,45 +853,334 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                   </CardHeader>
                   <CardContent>
                     <form onSubmit={handleClassSectionReport} className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label>Academic Level *</Label>
-                          <Select
-                            value={sectionData.academic_level_id}
-                            onValueChange={(v) => {
-                              setSectionData('academic_level_id', v);
-                              setSectionData('section_id', 'all');
-                            }}
-                          >
-                            <SelectTrigger><SelectValue placeholder="Select level" /></SelectTrigger>
-                            <SelectContent>
-                              {academicLevels.map(level => (
-                                <SelectItem key={level.id} value={level.id.toString()}>{level.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <p className="text-xs text-gray-500 mt-1">Academic level is required for class section reports</p>
-                        </div>
-                        <div>
-                          <Label>Section</Label>
-                          <Select
-                            value={sectionData.section_id}
-                            onValueChange={(v) => setSectionData('section_id', v)}
-                            disabled={!sectionData.academic_level_id}
-                          >
-                            <SelectTrigger><SelectValue placeholder={sectionData.academic_level_id ? "All sections" : "Select level first"} /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All Sections</SelectItem>
-                              {filteredSections.map(section => (
-                                <SelectItem key={section.id} value={section.id.toString()}>
-                                  {section.name} {section.specific_year_level ? `(${section.specific_year_level})` : ''}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <p className="text-xs text-gray-500 mt-1">Leave empty to generate for all sections</p>
-                        </div>
+                      {/* Academic Level Selection */}
+                      <div>
+                        <Label>Academic Level *</Label>
+                        <Select
+                          value={sectionData.academic_level_id}
+                          onValueChange={(v) => {
+                            console.log('Academic Level Changed:', v);
+                            setSectionData({
+                              ...sectionData,
+                              academic_level_id: v,
+                              year_level: '',
+                              track_id: '',
+                              strand_id: '',
+                              department_id: '',
+                              course_id: '',
+                              section_id: 'all',
+                            });
+                          }}
+                        >
+                          <SelectTrigger><SelectValue placeholder="Select level" /></SelectTrigger>
+                          <SelectContent>
+                            {academicLevels.map(level => (
+                              <SelectItem key={level.id} value={level.id.toString()}>{level.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-gray-500 mt-1">Academic level is required for class section reports</p>
                       </div>
+
+                      {/* Conditional Filters based on Academic Level */}
+                      {(() => {
+                        if (!sectionData.academic_level_id) return null;
+
+                        const selectedLevel = academicLevels.find(l => l.id.toString() === sectionData.academic_level_id);
+                        if (!selectedLevel) return null;
+
+                        const isElementary = selectedLevel.key === 'elementary';
+                        const isJHS = selectedLevel.key === 'junior_highschool';
+                        const isSHS = selectedLevel.key === 'senior_highschool';
+                        const isCollege = selectedLevel.key === 'college';
+
+                        // Elementary and JHS: Year Level → Section
+                        if (isElementary || isJHS) {
+                          const allYearLevelOptions = isElementary
+                            ? [
+                                { value: 'grade_1', label: 'Grade 1' },
+                                { value: 'grade_2', label: 'Grade 2' },
+                                { value: 'grade_3', label: 'Grade 3' },
+                                { value: 'grade_4', label: 'Grade 4' },
+                                { value: 'grade_5', label: 'Grade 5' },
+                                { value: 'grade_6', label: 'Grade 6' },
+                              ]
+                            : [
+                                { value: 'grade_7', label: 'Grade 7' },
+                                { value: 'grade_8', label: 'Grade 8' },
+                                { value: 'grade_9', label: 'Grade 9' },
+                                { value: 'grade_10', label: 'Grade 10' },
+                              ];
+
+                          // Filter to only show year levels that have sections with data
+                          const availableYearLevels = getAvailableYearLevels(sectionData.academic_level_id);
+                          const yearLevelOptions = allYearLevelOptions.filter(opt =>
+                            availableYearLevels.includes(opt.value)
+                          );
+
+                          return (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <Label>Year Level</Label>
+                                <Select
+                                  value={sectionData.year_level}
+                                  onValueChange={(v) => {
+                                    console.log('Year Level Changed:', v);
+                                    setSectionData({ ...sectionData, year_level: v, section_id: 'all' });
+                                  }}
+                                >
+                                  <SelectTrigger><SelectValue placeholder="Select year level" /></SelectTrigger>
+                                  <SelectContent>
+                                    {yearLevelOptions.length === 0 ? (
+                                      <SelectItem value="no-data" disabled>No data available</SelectItem>
+                                    ) : (
+                                      yearLevelOptions.map(opt => (
+                                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                      ))
+                                    )}
+                                  </SelectContent>
+                                </Select>
+                                <p className="text-xs text-gray-500 mt-1">Filter by year level</p>
+                              </div>
+
+                              <div>
+                                <Label>Section</Label>
+                                <Select
+                                  value={sectionData.section_id}
+                                  onValueChange={(v) => setSectionData({ ...sectionData, section_id: v })}
+                                >
+                                  <SelectTrigger><SelectValue placeholder="All sections" /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="all">All Sections</SelectItem>
+                                    {filteredSections.map(section => (
+                                      <SelectItem key={section.id} value={section.id.toString()}>
+                                        {section.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <p className="text-xs text-gray-500 mt-1">Leave as "All" for all sections</p>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        // SHS: Year Level → Track → Strand → Section
+                        if (isSHS) {
+                          const allShsYearOptions = [
+                            { value: 'grade_11', label: 'Grade 11' },
+                            { value: 'grade_12', label: 'Grade 12' },
+                          ];
+
+                          const availableYearLevels = getAvailableYearLevels(sectionData.academic_level_id);
+                          const shsYearOptions = allShsYearOptions.filter(opt =>
+                            availableYearLevels.includes(opt.value)
+                          );
+
+                          return (
+                            <div className="space-y-4">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <Label>Year Level</Label>
+                                  <Select
+                                    value={sectionData.year_level}
+                                    onValueChange={(v) => {
+                                      console.log('Year Level Changed:', v);
+                                      setSectionData({ ...sectionData, year_level: v, track_id: '', strand_id: '', section_id: 'all' });
+                                    }}
+                                  >
+                                    <SelectTrigger><SelectValue placeholder="Select year level" /></SelectTrigger>
+                                    <SelectContent>
+                                      {shsYearOptions.length === 0 ? (
+                                        <SelectItem value="no-data" disabled>No data available</SelectItem>
+                                      ) : (
+                                        shsYearOptions.map(opt => (
+                                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                        ))
+                                      )}
+                                    </SelectContent>
+                                  </Select>
+                                  <p className="text-xs text-gray-500 mt-1">Select year level</p>
+                                </div>
+
+                                <div>
+                                  <Label>Track</Label>
+                                  <Select
+                                    value={sectionData.track_id}
+                                    onValueChange={(v) => {
+                                      console.log('Track Changed:', v);
+                                      setSectionData({ ...sectionData, track_id: v, strand_id: '', section_id: 'all' });
+                                    }}
+                                  >
+                                    <SelectTrigger><SelectValue placeholder="Select track" /></SelectTrigger>
+                                    <SelectContent>
+                                      {tracks.map(track => (
+                                        <SelectItem key={track.id} value={track.id.toString()}>
+                                          {track.name} ({track.code})
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <p className="text-xs text-gray-500 mt-1">Select track</p>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <Label>Strand</Label>
+                                  <Select
+                                    value={sectionData.strand_id}
+                                    onValueChange={(v) => {
+                                      console.log('Strand Changed:', v);
+                                      setSectionData({ ...sectionData, strand_id: v, section_id: 'all' });
+                                    }}
+                                    disabled={!sectionData.track_id}
+                                  >
+                                    <SelectTrigger><SelectValue placeholder={sectionData.track_id ? "Select strand" : "Select track first"} /></SelectTrigger>
+                                    <SelectContent>
+                                      {filteredStrands.map(strand => (
+                                        <SelectItem key={strand.id} value={strand.id.toString()}>
+                                          {strand.name} ({strand.code})
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <p className="text-xs text-gray-500 mt-1">Select strand</p>
+                                </div>
+
+                                <div>
+                                  <Label>Section</Label>
+                                  <Select
+                                    value={sectionData.section_id}
+                                    onValueChange={(v) => setSectionData({ ...sectionData, section_id: v })}
+                                  >
+                                    <SelectTrigger><SelectValue placeholder="All sections" /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="all">All Sections</SelectItem>
+                                      {filteredSections.map(section => (
+                                        <SelectItem key={section.id} value={section.id.toString()}>
+                                          {section.name}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <p className="text-xs text-gray-500 mt-1">Leave as "All" for all sections</p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        // College: Year Level → Department → Course → Section
+                        if (isCollege) {
+                          const allCollegeYearOptions = [
+                            { value: '1st_year', label: '1st Year' },
+                            { value: '2nd_year', label: '2nd Year' },
+                            { value: '3rd_year', label: '3rd Year' },
+                            { value: '4th_year', label: '4th Year' },
+                          ];
+
+                          const availableYearLevels = getAvailableYearLevels(sectionData.academic_level_id);
+                          const collegeYearOptions = allCollegeYearOptions.filter(opt =>
+                            availableYearLevels.includes(opt.value)
+                          );
+
+                          return (
+                            <div className="space-y-4">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <Label>Year Level</Label>
+                                  <Select
+                                    value={sectionData.year_level}
+                                    onValueChange={(v) => {
+                                      console.log('Year Level Changed:', v);
+                                      setSectionData({ ...sectionData, year_level: v, department_id: '', course_id: '', section_id: 'all' });
+                                    }}
+                                  >
+                                    <SelectTrigger><SelectValue placeholder="Select year level" /></SelectTrigger>
+                                    <SelectContent>
+                                      {collegeYearOptions.length === 0 ? (
+                                        <SelectItem value="no-data" disabled>No data available</SelectItem>
+                                      ) : (
+                                        collegeYearOptions.map(opt => (
+                                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                        ))
+                                      )}
+                                    </SelectContent>
+                                  </Select>
+                                  <p className="text-xs text-gray-500 mt-1">Select year level</p>
+                                </div>
+
+                                <div>
+                                  <Label>Department</Label>
+                                  <Select
+                                    value={sectionData.department_id}
+                                    onValueChange={(v) => {
+                                      console.log('Department Changed:', v);
+                                      setSectionData({ ...sectionData, department_id: v, course_id: '', section_id: 'all' });
+                                    }}
+                                  >
+                                    <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
+                                    <SelectContent>
+                                      {departments.map(dept => (
+                                        <SelectItem key={dept.id} value={dept.id.toString()}>
+                                          {dept.name} ({dept.code})
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <p className="text-xs text-gray-500 mt-1">Select department</p>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <Label>Course</Label>
+                                  <Select
+                                    value={sectionData.course_id}
+                                    onValueChange={(v) => {
+                                      console.log('Course Changed:', v);
+                                      setSectionData({ ...sectionData, course_id: v, section_id: 'all' });
+                                    }}
+                                    disabled={!sectionData.department_id}
+                                  >
+                                    <SelectTrigger><SelectValue placeholder={sectionData.department_id ? "Select course" : "Select department first"} /></SelectTrigger>
+                                    <SelectContent>
+                                      {filteredCourses.map(course => (
+                                        <SelectItem key={course.id} value={course.id.toString()}>
+                                          {course.name} ({course.code})
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <p className="text-xs text-gray-500 mt-1">Select course</p>
+                                </div>
+
+                                <div>
+                                  <Label>Section</Label>
+                                  <Select
+                                    value={sectionData.section_id}
+                                    onValueChange={(v) => setSectionData({ ...sectionData, section_id: v })}
+                                  >
+                                    <SelectTrigger><SelectValue placeholder="All sections" /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="all">All Sections</SelectItem>
+                                      {filteredSections.map(section => (
+                                        <SelectItem key={section.id} value={section.id.toString()}>
+                                          {section.name}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <p className="text-xs text-gray-500 mt-1">Leave as "All" for all sections</p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        return null;
+                      })()}
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
@@ -763,6 +1230,15 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                         />
                         <Label htmlFor="include_grades_section">Include student average grades in the report</Label>
                       </div>
+
+                      {/* Show validation message if button is disabled */}
+                      {(!sectionData.academic_level_id || !sectionData.school_year) && (
+                        <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                          <p className="text-sm text-yellow-800">
+                            <strong>Required:</strong> Please select Academic Level and School Year to generate the report.
+                          </p>
+                        </div>
+                      )}
 
                       <Button
                         type="submit"
