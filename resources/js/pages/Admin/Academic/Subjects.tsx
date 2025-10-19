@@ -360,17 +360,24 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
     };
 
     const openEditModal = (subject: Subject) => {
+        console.log('=== OPENING EDIT MODAL ===');
+        console.log('Subject data:', subject);
+
         // Get department from course if not directly available
         const selectedCourse = subject.course_id ? courses.find(c => c.id === subject.course_id) : null;
         const departmentId = subject.department_id || (selectedCourse?.department_id);
 
+        // Normalize semester_ids and grading_period_ids to ensure they're number arrays
+        const normalizedSemesterIds = (subject.semester_ids || []).map(id => typeof id === 'number' ? id : parseInt(id));
+        const normalizedGradingPeriodIds = (subject.grading_period_ids || []).map(id => typeof id === 'number' ? id : parseInt(id));
+
         // Properly initialize all fields with correct types for Select components
-        setEditSubject({
+        const editData = {
             ...subject,
             track_id: subject.track_id?.toString() || '',
             strand_id: subject.strand_id?.toString() || '',
-            semester_ids: subject.semester_ids || [],
-            grading_period_ids: subject.grading_period_ids || [],
+            semester_ids: normalizedSemesterIds,
+            grading_period_ids: normalizedGradingPeriodIds,
             section_id: subject.section_id || undefined,
             jhs_year_level: subject.jhs_year_level || '',
             shs_year_level: subject.shs_year_level || '',
@@ -378,7 +385,20 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
             department_id: departmentId,   // Get from course if not available
             course_id: subject.course_id,           // Keep as number
             grade_levels: subject.grade_levels || [], // Elementary grade levels
+        };
+
+        console.log('Edit data prepared:', {
+            track_id: editData.track_id,
+            strand_id: editData.strand_id,
+            semester_ids: editData.semester_ids,
+            grading_period_ids: editData.grading_period_ids,
+            section_id: editData.section_id,
+            shs_year_level: editData.shs_year_level,
+            jhs_year_level: editData.jhs_year_level,
+            grade_levels: editData.grade_levels,
         });
+
+        setEditSubject(editData);
         setEditModal(true);
     };
 
@@ -1837,6 +1857,9 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                     if (selectedLevel?.key !== 'elementary') return null;
 
                                     const currentGradeLevel = editSubject.grade_levels?.[0] || '';
+                                    console.log('Elementary Edit Modal - Grade Level:', currentGradeLevel);
+                                    console.log('Elementary Edit Modal - Section ID:', editSubject.section_id);
+
                                     if (!currentGradeLevel) return null;
 
                                     return (
@@ -1844,7 +1867,10 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                             <Label htmlFor="edit-elem-section">Section *</Label>
                                             <Select
                                                 value={editSubject.section_id?.toString() || ''}
-                                                onValueChange={(value) => setEditSubject({ ...editSubject, section_id: parseInt(value) })}
+                                                onValueChange={(value) => {
+                                                    console.log('Elementary Section Changed:', value);
+                                                    setEditSubject({ ...editSubject, section_id: parseInt(value) });
+                                                }}
                                             >
                                                 <SelectTrigger>
                                                     <SelectValue placeholder="Select section" />
@@ -1857,6 +1883,9 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                             return level?.key === 'elementary' &&
                                                                    section.specific_year_level === currentGradeLevel;
                                                         });
+
+                                                        console.log('Available Elementary Sections:', elemSections);
+                                                        console.log('Looking for section with ID:', editSubject.section_id);
 
                                                         if (elemSections.length === 0) {
                                                             return <SelectItem value="no-sections" disabled>No sections available</SelectItem>;
@@ -1909,12 +1938,18 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                     const selectedLevel = academicLevels.find(level => level.id === editSubject.academic_level_id);
                                     if (selectedLevel?.key !== 'junior_highschool' || !editSubject.jhs_year_level) return null;
 
+                                    console.log('JHS Edit Modal - Year Level:', editSubject.jhs_year_level);
+                                    console.log('JHS Edit Modal - Section ID:', editSubject.section_id);
+
                                     return (
                                         <div>
                                             <Label htmlFor="edit-jhs-section">Section *</Label>
                                             <Select
                                                 value={editSubject.section_id?.toString() || ''}
-                                                onValueChange={(value) => setEditSubject({ ...editSubject, section_id: parseInt(value) })}
+                                                onValueChange={(value) => {
+                                                    console.log('JHS Section Changed:', value);
+                                                    setEditSubject({ ...editSubject, section_id: parseInt(value) });
+                                                }}
                                             >
                                                 <SelectTrigger>
                                                     <SelectValue placeholder="Select section" />
@@ -1927,6 +1962,9 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                             return level?.key === 'junior_highschool' &&
                                                                    section.specific_year_level === editSubject.jhs_year_level;
                                                         });
+
+                                                        console.log('Available JHS Sections:', jhsSections);
+                                                        console.log('Looking for section with ID:', editSubject.section_id);
 
                                                         if (jhsSections.length === 0) {
                                                             return <SelectItem value="no-sections" disabled>No sections available</SelectItem>;
@@ -2025,12 +2063,20 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                     const selectedLevel = academicLevels.find(level => level.id === editSubject.academic_level_id);
                                     if (selectedLevel?.key !== 'senior_highschool' || !editSubject.track_id || !editSubject.strand_id || !editSubject.shs_year_level) return null;
 
+                                    console.log('SHS Edit Modal - Track ID:', editSubject.track_id);
+                                    console.log('SHS Edit Modal - Strand ID:', editSubject.strand_id);
+                                    console.log('SHS Edit Modal - Year Level:', editSubject.shs_year_level);
+                                    console.log('SHS Edit Modal - Section ID:', editSubject.section_id);
+
                                     return (
                                         <div>
                                             <Label htmlFor="edit-shs-section">Section *</Label>
                                             <Select
                                                 value={editSubject.section_id?.toString() || ''}
-                                                onValueChange={(value) => setEditSubject({ ...editSubject, section_id: parseInt(value) })}
+                                                onValueChange={(value) => {
+                                                    console.log('SHS Section Changed:', value);
+                                                    setEditSubject({ ...editSubject, section_id: parseInt(value) });
+                                                }}
                                             >
                                                 <SelectTrigger>
                                                     <SelectValue placeholder="Select section" />
@@ -2045,6 +2091,9 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                                    section.strand_id?.toString() === editSubject.strand_id &&
                                                                    section.specific_year_level === editSubject.shs_year_level;
                                                         });
+
+                                                        console.log('Available SHS Sections:', shsSections);
+                                                        console.log('Looking for section with ID:', editSubject.section_id);
 
                                                         if (shsSections.length === 0) {
                                                             return <SelectItem value="no-sections" disabled>No sections available</SelectItem>;

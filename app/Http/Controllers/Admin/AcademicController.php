@@ -298,6 +298,11 @@ class AcademicController extends Controller
                 $subjectArray['grading_periods'] = $subject->gradingPeriods()->toArray();
                 $subjectArray['semesters'] = $subject->semesters()->toArray();
 
+                // Add track_id directly if strand exists (for SHS subjects)
+                if ($subject->strand && $subject->strand->track) {
+                    $subjectArray['track_id'] = $subject->strand->track->id;
+                }
+
                 // Log college subject data for debugging
                 if ($subject->academic_level_id && $subject->academicLevel->key === 'college') {
                     \Log::info('College Subject Data:', [
@@ -309,6 +314,20 @@ class AcademicController extends Controller
                         'grading_period_ids' => $subject->grading_period_ids,
                         'semesters_count' => count($subjectArray['semesters']),
                         'grading_periods_count' => count($subjectArray['grading_periods']),
+                    ]);
+                }
+
+                // Log SHS subject data for debugging
+                if ($subject->academic_level_id && $subject->academicLevel->key === 'senior_highschool') {
+                    \Log::info('SHS Subject Data:', [
+                        'id' => $subject->id,
+                        'name' => $subject->name,
+                        'code' => $subject->code,
+                        'track_id' => $subjectArray['track_id'] ?? null,
+                        'strand_id' => $subject->strand_id,
+                        'shs_year_level' => $subject->shs_year_level,
+                        'semester_ids' => $subject->semester_ids,
+                        'grading_period_ids' => $subject->grading_period_ids,
                     ]);
                 }
 
