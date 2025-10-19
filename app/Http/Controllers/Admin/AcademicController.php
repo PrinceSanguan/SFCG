@@ -149,22 +149,64 @@ class AcademicController extends Controller
     {
         // Get Senior High School level ID
         $shsLevel = AcademicLevel::where('key', 'senior_highschool')->first();
-        
+
+        \Log::info('AssignTeachers - Loading data for SHS', [
+            'shs_level_id' => $shsLevel->id,
+            'shs_level_name' => $shsLevel->name,
+        ]);
+
         $assignments = TeacherSubjectAssignment::with([
-            'teacher', 
-            'subject', 
-            'academicLevel', 
+            'teacher',
+            'subject',
+            'academicLevel',
             'gradingPeriod',
             'track',
             'strand'
         ])->where('academic_level_id', $shsLevel->id)
           ->orderBy('school_year', 'desc')->get();
-        
+
         $teachers = User::where('user_role', 'teacher')->orderBy('name')->get();
-        $subjects = Subject::where('academic_level_id', $shsLevel->id)->orderBy('name')->get();
+
+        // Load subjects with their related data
+        $subjects = Subject::with(['strand.track', 'section'])
+            ->where('academic_level_id', $shsLevel->id)
+            ->orderBy('name')
+            ->get();
+
+        \Log::info('AssignTeachers - Subjects loaded', [
+            'total_subjects' => $subjects->count(),
+            'subjects_breakdown' => $subjects->map(function($subject) {
+                return [
+                    'id' => $subject->id,
+                    'name' => $subject->name,
+                    'code' => $subject->code,
+                    'strand_id' => $subject->strand_id,
+                    'strand_name' => $subject->strand ? $subject->strand->name : null,
+                    'track_id' => $subject->strand && $subject->strand->track ? $subject->strand->track->id : null,
+                    'track_name' => $subject->strand && $subject->strand->track ? $subject->strand->track->name : null,
+                    'shs_year_level' => $subject->shs_year_level,
+                    'section_id' => $subject->section_id,
+                ];
+            })->toArray()
+        ]);
+
         $academicLevels = AcademicLevel::orderBy('sort_order')->get();
         $gradingPeriods = GradingPeriod::where('academic_level_id', $shsLevel->id)->orderBy('sort_order')->get();
-        $strands = Strand::where('academic_level_id', $shsLevel->id)->orderBy('name')->get();
+        $strands = Strand::with('track')->where('academic_level_id', $shsLevel->id)->orderBy('name')->get();
+
+        \Log::info('AssignTeachers - Strands loaded', [
+            'total_strands' => $strands->count(),
+            'strands_breakdown' => $strands->map(function($strand) {
+                return [
+                    'id' => $strand->id,
+                    'name' => $strand->name,
+                    'code' => $strand->code,
+                    'track_id' => $strand->track_id,
+                    'track_name' => $strand->track ? $strand->track->name : null,
+                ];
+            })->toArray()
+        ]);
+
         $tracks = Track::where('is_active', true)->orderBy('name')->get();
         $departments = Department::where('is_active', true)->orderBy('name')->get();
         $courses = Course::where('is_active', true)->with('department')->orderBy('name')->get();

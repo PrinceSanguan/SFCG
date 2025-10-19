@@ -35,6 +35,12 @@ interface GradingPeriod {
     type: string;
 }
 
+interface Track {
+    id: number;
+    name: string;
+    code: string;
+}
+
 interface Subject {
     id: number;
     name: string;
@@ -46,7 +52,16 @@ interface Subject {
     is_active: boolean;
     academic_level_id: number;
     strand_id?: number;
+    shs_year_level?: string;
+    section_id?: number;
     academicLevel: AcademicLevel;
+    strand?: {
+        id: number;
+        name: string;
+        code: string;
+        track_id?: number;
+        track?: Track;
+    };
 }
 
 interface Strand {
@@ -55,14 +70,7 @@ interface Strand {
     code: string;
     academic_level_id: number;
     track_id?: number;
-}
-
-interface Track {
-    id: number;
-    name: string;
-    code: string;
-    description?: string;
-    is_active?: boolean;
+    track?: Track;
 }
 
 interface TeacherSubjectAssignment {
@@ -135,6 +143,16 @@ interface Course {
 export default function AssignTeachers({ user, assignments, teachers, subjects, gradingPeriods, academicLevels, strands, tracks = [], departments = [], courses = [], sections = [] }: Props) {
     const { addToast } = useToast();
     const { props } = usePage<any>();
+
+    // Log initial data on component mount
+    useEffect(() => {
+        console.log('=== ASSIGN TEACHERS PAGE LOADED ===');
+        console.log('All Subjects:', subjects);
+        console.log('All Strands:', strands);
+        console.log('All Tracks:', tracks);
+        console.log('All Sections:', sections);
+        console.log('Academic Levels:', academicLevels);
+    }, []);
 
     // Handle flash messages
     useEffect(() => {
@@ -482,6 +500,8 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                                         <Select
                                             value={assignmentForm.grade_level}
                                             onValueChange={(value) => {
+                                                console.log('=== GRADE LEVEL CHANGED ===');
+                                                console.log('Selected Grade Level:', value);
                                                 setAssignmentForm({ ...assignmentForm, grade_level: value, track_id: '', strand_id: '', subject_id: '' });
                                                 setFilteredStrands([]);
                                                 setFilteredSubjects([]);
@@ -503,8 +523,12 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                                         <Select
                                             value={assignmentForm.track_id}
                                             onValueChange={(value) => {
+                                                console.log('=== TRACK CHANGED ===');
+                                                console.log('Selected Track ID:', value);
+                                                console.log('All Strands:', strands);
                                                 setAssignmentForm({ ...assignmentForm, track_id: value, strand_id: '', subject_id: '' });
                                                 const filtered = strands.filter(s => s.track_id === parseInt(value));
+                                                console.log('Filtered Strands for Track:', filtered);
                                                 setFilteredStrands(filtered);
                                                 setFilteredSubjects([]);
                                             }}
@@ -528,15 +552,24 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                                         <Select
                                             value={assignmentForm.strand_id}
                                             onValueChange={(value) => {
+                                                console.log('=== STRAND CHANGED ===');
+                                                console.log('Selected Strand ID:', value);
+                                                console.log('Current Grade Level:', assignmentForm.grade_level);
+                                                console.log('Current Track ID:', assignmentForm.track_id);
+
                                                 setAssignmentForm({ ...assignmentForm, strand_id: value, section_id: '', subject_id: '' });
+
                                                 // Filter sections by SHS level, track, strand, and grade level
-                                                const filtered = sections.filter(s =>
+                                                const filteredSectionsResult = sections.filter(s =>
                                                     s.academic_level_id === shsLevel?.id &&
                                                     s.track_id?.toString() === assignmentForm.track_id &&
                                                     s.strand_id?.toString() === value &&
                                                     s.specific_year_level === assignmentForm.grade_level
                                                 );
-                                                setFilteredSections(filtered);
+                                                console.log('Filtered Sections:', filteredSectionsResult);
+                                                setFilteredSections(filteredSectionsResult);
+
+                                                // Clear subjects - they will be filtered when section is selected
                                                 setFilteredSubjects([]);
                                             }}
                                             disabled={!assignmentForm.track_id}
@@ -559,14 +592,43 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                                         <Select
                                             value={assignmentForm.section_id}
                                             onValueChange={(value) => {
+                                                console.log('=== SECTION CHANGED ===');
+                                                console.log('Selected Section ID:', value);
+                                                console.log('Current Strand ID:', assignmentForm.strand_id);
+                                                console.log('Current Grade Level:', assignmentForm.grade_level);
+
                                                 setAssignmentForm({ ...assignmentForm, section_id: value, subject_id: '' });
-                                                // Filter subjects by strand
-                                                const filtered = subjects.filter(s => {
+
+                                                // Filter subjects by grade level, strand, and section
+                                                console.log('All subjects:', subjects);
+                                                const filteredSubjectsResult = subjects.filter(s => {
+                                                    // Match by strand (specific to the strand)
                                                     const matchesStrand = s.strand_id === parseInt(assignmentForm.strand_id);
+                                                    // Or general subjects (no strand specified)
                                                     const isGeneral = s.strand_id == null;
-                                                    return matchesStrand || isGeneral;
+                                                    // Match by grade level if specified on subject
+                                                    const matchesGradeLevel = !s.shs_year_level || s.shs_year_level === assignmentForm.grade_level;
+                                                    // Match by section if specified on subject
+                                                    const matchesSection = !s.section_id || s.section_id === parseInt(value);
+
+                                                    console.log(`Subject: ${s.name} (${s.code})`, {
+                                                        subject_strand_id: s.strand_id,
+                                                        selected_strand_id: parseInt(assignmentForm.strand_id),
+                                                        matchesStrand,
+                                                        isGeneral,
+                                                        shs_year_level: s.shs_year_level,
+                                                        selected_grade_level: assignmentForm.grade_level,
+                                                        matchesGradeLevel,
+                                                        subject_section_id: s.section_id,
+                                                        selected_section_id: parseInt(value),
+                                                        matchesSection,
+                                                        passes: (matchesStrand || isGeneral) && matchesGradeLevel && matchesSection
+                                                    });
+
+                                                    return (matchesStrand || isGeneral) && matchesGradeLevel && matchesSection;
                                                 });
-                                                setFilteredSubjects(filtered);
+                                                console.log('Filtered Subjects after Section selection:', filteredSubjectsResult);
+                                                setFilteredSubjects(filteredSubjectsResult);
                                             }}
                                             disabled={!assignmentForm.strand_id}
                                         >
@@ -587,7 +649,13 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                                         <Label htmlFor="subject_id">Subject</Label>
                                         <Select
                                             value={assignmentForm.subject_id}
-                                            onValueChange={(value) => setAssignmentForm({ ...assignmentForm, subject_id: value })}
+                                            onValueChange={(value) => {
+                                                console.log('=== SUBJECT CHANGED ===');
+                                                console.log('Selected Subject ID:', value);
+                                                const selectedSubject = filteredSubjects.find(s => s.id.toString() === value);
+                                                console.log('Selected Subject:', selectedSubject);
+                                                setAssignmentForm({ ...assignmentForm, subject_id: value });
+                                            }}
                                             required
                                             disabled={!assignmentForm.section_id}
                                         >
@@ -595,11 +663,15 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                                                 <SelectValue placeholder="Select subject" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {filteredSubjects.map((subject) => (
-                                                    <SelectItem key={subject.id} value={subject.id.toString()}>
-                                                        {subject.name} ({subject.code})
-                                                    </SelectItem>
-                                                ))}
+                                                {filteredSubjects.length === 0 ? (
+                                                    <SelectItem value="no-subjects" disabled>No subjects available for this selection</SelectItem>
+                                                ) : (
+                                                    filteredSubjects.map((subject) => (
+                                                        <SelectItem key={subject.id} value={subject.id.toString()}>
+                                                            {subject.name} ({subject.code})
+                                                        </SelectItem>
+                                                    ))
+                                                )}
                                             </SelectContent>
                                         </Select>
                                     </div>
