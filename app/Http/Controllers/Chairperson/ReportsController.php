@@ -20,95 +20,231 @@ class ReportsController extends Controller
 {
     public function index()
     {
-        $user = Auth::user();
-        $departmentId = $user->department_id;
-        
-        if (!$departmentId) {
+        try {
+            Log::info('[Chairperson Reports] Index - Start', ['timestamp' => now()]);
+
+            $user = Auth::user();
+            Log::info('[Chairperson Reports] User loaded', ['user_id' => $user->id, 'department_id' => $user->department_id]);
+
+            $departmentId = $user->department_id;
+
+            if (!$departmentId) {
+                Log::warning('[Chairperson Reports] No department assigned', ['user_id' => $user->id]);
+                return Inertia::render('Chairperson/Reports/Index', [
+                    'user' => $user,
+                    'department' => null,
+                    'stats' => [
+                        'total_students' => 0,
+                        'total_courses' => 0,
+                        'total_instructors' => 0,
+                        'average_gpa' => 0,
+                    ],
+                    'recentData' => [
+                        'recent_grades' => [],
+                        'recent_honors' => [],
+                    ],
+                ]);
+            }
+
+            $department = Department::find($departmentId);
+            Log::info('[Chairperson Reports] Department loaded', ['department' => $department->name ?? 'N/A']);
+
+            $stats = $this->getDepartmentStats($user);
+            Log::info('[Chairperson Reports] Stats calculated', ['stats' => $stats]);
+
+            $recentData = $this->getRecentData($user);
+            Log::info('[Chairperson Reports] Recent data loaded', [
+                'grades_count' => count($recentData['recent_grades'] ?? []),
+                'honors_count' => count($recentData['recent_honors'] ?? [])
+            ]);
+
+            Log::info('[Chairperson Reports] Index - Success');
+
             return Inertia::render('Chairperson/Reports/Index', [
                 'user' => $user,
+                'department' => $department,
+                'stats' => $stats,
+                'recentData' => $recentData,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('[Chairperson Reports] Index - Error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return Inertia::render('Chairperson/Reports/Index', [
+                'user' => $user ?? Auth::user(),
                 'department' => null,
-                'stats' => [],
-                'recentData' => [],
+                'stats' => [
+                    'total_students' => 0,
+                    'total_courses' => 0,
+                    'total_instructors' => 0,
+                    'average_gpa' => 0,
+                ],
+                'recentData' => [
+                    'recent_grades' => [],
+                    'recent_honors' => [],
+                ],
             ]);
         }
-        
-        $department = Department::find($departmentId);
-        $stats = $this->getDepartmentStats($user);
-        $recentData = $this->getRecentData($user);
-        
-        return Inertia::render('Chairperson/Reports/Index', [
-            'user' => $user,
-            'department' => $department,
-            'stats' => $stats,
-            'recentData' => $recentData,
-        ]);
     }
     
     public function academicPerformance(Request $request)
     {
-        $user = Auth::user();
-        $departmentId = $user->department_id;
+        try {
+            Log::info('[Chairperson Reports] Academic Performance - Start', ['method' => $request->method()]);
 
-        if (!$departmentId) {
-            return back()->withErrors(['department' => 'No department assigned.']);
-        }
+            $user = Auth::user();
+            $departmentId = $user->department_id;
 
-        // Set default filters
-        $defaultSchoolYear = date('Y') . '-' . (date('Y') + 1);
+            Log::info('[Chairperson Reports] Academic Performance - User loaded', [
+                'user_id' => $user->id,
+                'department_id' => $departmentId
+            ]);
 
-        // Get College academic level (Chairperson only handles College)
-        $collegeLevel = AcademicLevel::where('key', 'college')->first();
+            if (!$departmentId) {
+                Log::warning('[Chairperson Reports] Academic Performance - No department assigned');
+                return back()->withErrors(['department' => 'No department assigned.']);
+            }
 
-        // Get dropdown options
-        $academicLevels = AcademicLevel::where('is_active', true)
-            ->where('key', 'college')
-            ->orderBy('sort_order')
-            ->get(['id', 'name', 'key']);
+            // Set default filters
+            $defaultSchoolYear = date('Y') . '-' . (date('Y') + 1);
 
-        $gradingPeriods = [];
-        if ($collegeLevel) {
-            $gradingPeriods = \App\Models\GradingPeriod::where('academic_level_id', $collegeLevel->id)
-                ->where('is_active', true)
-                ->orderBy('sort_order')
+            // Get College academic level (Chairperson only handles College)
+            $collegeLevel = AcademicLevel::where('key', 'college')->first();
+            Log::info('[Chairperson Reports] Academic Performance - College level loaded', [
+                'college_level_id' => $collegeLevel->id ?? 'not found'
+            ]);
+
+            // Get courses from chairperson's department instead of academic levels
+            $courses = Course::where('department_id', $departmentId)
+                ->orderBy('name')
                 ->get(['id', 'name', 'code']);
-        }
 
-        // Get available school years from database
-        $availableSchoolYears = StudentGrade::whereHas('subject.course', function ($query) use ($departmentId) {
-                $query->where('department_id', $departmentId);
-            })
-            ->distinct()
-            ->pluck('school_year')
-            ->sort()
-            ->values()
-            ->toArray();
+            Log::info('[Chairperson Reports] Academic Performance - Courses loaded', [
+                'courses_count' => $courses->count()
+            ]);
 
-        // If no school years in database, provide current and nearby years
-        if (empty($availableSchoolYears)) {
-            $currentYear = date('Y');
-            $availableSchoolYears = [
-                ($currentYear - 1) . '-' . $currentYear,
-                $currentYear . '-' . ($currentYear + 1),
-                ($currentYear + 1) . '-' . ($currentYear + 2),
-            ];
-        }
+            $gradingPeriods = [];
+            if ($collegeLevel) {
+                $gradingPeriods = \App\Models\GradingPeriod::where('academic_level_id', $collegeLevel->id)
+                    ->where('is_active', true)
+                    ->orderBy('sort_order')
+                    ->get(['id', 'name', 'code']);
 
-        // Handle GET request (show form with actual data using current school year)
-        if ($request->isMethod('get')) {
-            $defaultFilters = [
-                'school_year' => $defaultSchoolYear,
-                'academic_level_id' => '',
-                'grading_period_id' => '',
-            ];
+                Log::info('[Chairperson Reports] Academic Performance - Grading periods loaded', [
+                    'periods_count' => $gradingPeriods->count()
+                ]);
+            }
 
-            // Load actual data for current school year on initial GET
+            // Get available school years from database
+            $availableSchoolYears = StudentGrade::whereHas('subject.course', function ($query) use ($departmentId) {
+                    $query->where('department_id', $departmentId);
+                })
+                ->distinct()
+                ->pluck('school_year')
+                ->sort()
+                ->values()
+                ->toArray();
+
+            // If no school years in database, provide current and nearby years
+            if (empty($availableSchoolYears)) {
+                $currentYear = date('Y');
+                $availableSchoolYears = [
+                    ($currentYear - 1) . '-' . $currentYear,
+                    $currentYear . '-' . ($currentYear + 1),
+                    ($currentYear + 1) . '-' . ($currentYear + 2),
+                ];
+            }
+
+            Log::info('[Chairperson Reports] Academic Performance - School years loaded', [
+                'years_count' => count($availableSchoolYears)
+            ]);
+
+            // Handle GET request (show form with actual data using current school year)
+            if ($request->isMethod('get')) {
+                Log::info('[Chairperson Reports] Academic Performance - GET request');
+
+                $defaultFilters = [
+                    'school_year' => $defaultSchoolYear,
+                    'course_id' => '',
+                    'grading_period_id' => '',
+                ];
+
+                // Load actual data for current school year on initial GET
+                $query = StudentGrade::whereHas('subject.course', function ($query) use ($departmentId) {
+                        $query->where('department_id', $departmentId);
+                    })
+                    ->where('school_year', $defaultSchoolYear);
+
+                $grades = $query->with(['student', 'subject', 'academicLevel', 'gradingPeriod'])
+                    ->get();
+
+                Log::info('[Chairperson Reports] Academic Performance - Grades loaded', [
+                    'grades_count' => $grades->count()
+                ]);
+
+                $performance = [
+                    'total_grades' => $grades->count(),
+                    'average_grade' => round($grades->avg('grade') ?? 0, 2),
+                    'grade_distribution' => $this->getGradeDistribution($grades),
+                    'subject_performance' => $this->getSubjectPerformance($grades),
+                    'student_performance' => $this->getStudentPerformance($grades),
+                ];
+
+                Log::info('[Chairperson Reports] Academic Performance - Performance calculated', [
+                    'total_grades' => $performance['total_grades'],
+                    'average_grade' => $performance['average_grade']
+                ]);
+
+                return Inertia::render('Chairperson/Reports/AcademicPerformance', [
+                    'user' => $user,
+                    'performance' => $performance,
+                    'filters' => $defaultFilters,
+                    'courses' => $courses,
+                    'gradingPeriods' => $gradingPeriods,
+                    'availableSchoolYears' => $availableSchoolYears,
+                ]);
+            }
+
+            // Handle POST request (process form and show results)
+            Log::info('[Chairperson Reports] Academic Performance - POST request');
+
+            $validated = $request->validate([
+                'school_year' => 'required|string',
+                'course_id' => 'nullable|exists:courses,id',
+                'grading_period_id' => 'nullable|exists:grading_periods,id',
+            ]);
+
+            Log::info('[Chairperson Reports] Academic Performance - Filters validated', $validated);
+
             $query = StudentGrade::whereHas('subject.course', function ($query) use ($departmentId) {
                     $query->where('department_id', $departmentId);
                 })
-                ->where('school_year', $defaultSchoolYear);
+                ->where('school_year', $validated['school_year']);
+
+            if (!empty($validated['course_id'])) {
+                $query->whereHas('subject.course', function ($q) use ($validated) {
+                    $q->where('id', $validated['course_id']);
+                });
+                Log::info('[Chairperson Reports] Academic Performance - Filtering by course', [
+                    'course_id' => $validated['course_id']
+                ]);
+            }
+
+            if (!empty($validated['grading_period_id'])) {
+                $query->where('grading_period_id', $validated['grading_period_id']);
+                Log::info('[Chairperson Reports] Academic Performance - Filtering by grading period', [
+                    'grading_period_id' => $validated['grading_period_id']
+                ]);
+            }
 
             $grades = $query->with(['student', 'subject', 'academicLevel', 'gradingPeriod'])
                 ->get();
+
+            Log::info('[Chairperson Reports] Academic Performance - Filtered grades loaded', [
+                'grades_count' => $grades->count()
+            ]);
 
             $performance = [
                 'total_grades' => $grades->count(),
@@ -118,83 +254,151 @@ class ReportsController extends Controller
                 'student_performance' => $this->getStudentPerformance($grades),
             ];
 
+            Log::info('[Chairperson Reports] Academic Performance - Performance calculated', [
+                'total_grades' => $performance['total_grades'],
+                'average_grade' => $performance['average_grade']
+            ]);
+
+            Log::info('[Chairperson Reports] Academic Performance - Success');
+
             return Inertia::render('Chairperson/Reports/AcademicPerformance', [
                 'user' => $user,
                 'performance' => $performance,
-                'filters' => $defaultFilters,
-                'academicLevels' => $academicLevels,
+                'filters' => $validated,
+                'courses' => $courses,
                 'gradingPeriods' => $gradingPeriods,
                 'availableSchoolYears' => $availableSchoolYears,
             ]);
+        } catch (\Exception $e) {
+            Log::error('[Chairperson Reports] Academic Performance - Error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return back()->withErrors(['error' => 'Failed to load academic performance report.']);
         }
-
-        // Handle POST request (process form and show results)
-        $validated = $request->validate([
-            'school_year' => 'required|string',
-            'academic_level_id' => 'nullable|exists:academic_levels,id',
-            'grading_period_id' => 'nullable|exists:grading_periods,id',
-        ]);
-
-        $query = StudentGrade::whereHas('subject.course', function ($query) use ($departmentId) {
-                $query->where('department_id', $departmentId);
-            })
-            ->where('school_year', $validated['school_year']);
-
-        if ($validated['academic_level_id']) {
-            $query->where('academic_level_id', $validated['academic_level_id']);
-        }
-
-        if ($validated['grading_period_id']) {
-            $query->where('grading_period_id', $validated['grading_period_id']);
-        }
-
-        $grades = $query->with(['student', 'subject', 'academicLevel', 'gradingPeriod'])
-            ->get();
-
-        $performance = [
-            'total_grades' => $grades->count(),
-            'average_grade' => round($grades->avg('grade') ?? 0, 2),
-            'grade_distribution' => $this->getGradeDistribution($grades),
-            'subject_performance' => $this->getSubjectPerformance($grades),
-            'student_performance' => $this->getStudentPerformance($grades),
-        ];
-
-        return Inertia::render('Chairperson/Reports/AcademicPerformance', [
-            'user' => $user,
-            'performance' => $performance,
-            'filters' => $validated,
-            'academicLevels' => $academicLevels,
-            'gradingPeriods' => $gradingPeriods,
-            'availableSchoolYears' => $availableSchoolYears,
-        ]);
     }
     
     public function departmentAnalysis(Request $request)
     {
-        $user = Auth::user();
-        $departmentId = $user->department_id;
-        
-        if (!$departmentId) {
-            return back()->withErrors(['department' => 'No department assigned.']);
-        }
-        
-        $department = Department::find($departmentId);
-        
-        // Handle GET request (show form with default data)
-        if ($request->isMethod('get')) {
-            $defaultFilters = [
-                'school_year' => date('Y') . '-' . (date('Y') + 1),
-                'course_id' => '',
+        try {
+            Log::info('[Chairperson Reports] Department Analysis - Start', ['method' => $request->method()]);
+
+            $user = Auth::user();
+            $departmentId = $user->department_id;
+
+            Log::info('[Chairperson Reports] Department Analysis - User loaded', [
+                'user_id' => $user->id,
+                'department_id' => $departmentId
+            ]);
+
+            if (!$departmentId) {
+                Log::warning('[Chairperson Reports] Department Analysis - No department assigned');
+                return back()->withErrors(['department' => 'No department assigned.']);
+            }
+
+            $department = Department::find($departmentId);
+            Log::info('[Chairperson Reports] Department Analysis - Department loaded', [
+                'department_name' => $department->name ?? 'N/A'
+            ]);
+
+            // Handle GET request (show form with default data)
+            if ($request->isMethod('get')) {
+                Log::info('[Chairperson Reports] Department Analysis - GET request');
+
+                $defaultFilters = [
+                    'school_year' => date('Y') . '-' . (date('Y') + 1),
+                    'course_id' => '',
+                ];
+
+                // Get available school years from the database
+                $availableSchoolYears = StudentGrade::distinct()
+                    ->pluck('school_year')
+                    ->sort()
+                    ->values()
+                    ->toArray();
+
+                // If no school years in database, provide current and next year
+                if (empty($availableSchoolYears)) {
+                    $currentYear = date('Y');
+                    $availableSchoolYears = [
+                        ($currentYear - 1) . '-' . $currentYear,
+                        $currentYear . '-' . ($currentYear + 1),
+                        ($currentYear + 1) . '-' . ($currentYear + 2),
+                    ];
+                }
+
+                Log::info('[Chairperson Reports] Department Analysis - School years loaded', [
+                    'years_count' => count($availableSchoolYears)
+                ]);
+
+                // Get courses from the chairperson's department
+                $courses = Course::where('department_id', $departmentId)
+                    ->orderBy('name')
+                    ->get(['id', 'name', 'code']);
+
+                Log::info('[Chairperson Reports] Department Analysis - Courses loaded', [
+                    'courses_count' => $courses->count()
+                ]);
+
+                $stats = [
+                    'total_students' => 0,
+                    'total_courses' => 0,
+                    'total_instructors' => 0,
+                    'average_gpa' => 0,
+                    'student_enrollment' => [],
+                    'course_performance' => [],
+                    'instructor_performance' => [],
+                    'honor_statistics' => [],
+                    'performance_trends' => [],
+                ];
+
+                Log::info('[Chairperson Reports] Department Analysis - Rendering with default data');
+
+                return Inertia::render('Chairperson/Reports/DepartmentAnalysis', [
+                    'user' => $user,
+                    'department' => $department,
+                    'stats' => $stats,
+                    'filters' => $defaultFilters,
+                    'availableSchoolYears' => $availableSchoolYears,
+                    'courses' => $courses,
+                ]);
+            }
+
+            // Handle POST request (process form and show results)
+            Log::info('[Chairperson Reports] Department Analysis - POST request');
+
+            $validated = $request->validate([
+                'school_year' => 'required|string',
+                'course_id' => 'nullable|exists:courses,id',
+            ]);
+
+            Log::info('[Chairperson Reports] Department Analysis - Filters validated', $validated);
+
+            $departmentStats = $this->getDepartmentStats($user);
+            Log::info('[Chairperson Reports] Department Analysis - Department stats loaded', $departmentStats);
+
+            $stats = [
+                'total_students' => $departmentStats['total_students'] ?? 0,
+                'total_courses' => $departmentStats['total_courses'] ?? 0,
+                'total_instructors' => $departmentStats['total_instructors'] ?? 0,
+                'average_gpa' => $departmentStats['average_gpa'] ?? 0,
+                'student_enrollment' => $this->getStudentEnrollment($departmentId),
+                'course_performance' => $this->getCoursePerformance($departmentId),
+                'instructor_performance' => $this->getInstructorPerformance($departmentId),
+                'honor_statistics' => $this->getHonorStatistics($departmentId),
+                'performance_trends' => $this->getPerformanceTrends($departmentId),
             ];
 
-            // Get available school years from the database
+            Log::info('[Chairperson Reports] Department Analysis - All stats calculated');
+
+            // Get available school years and courses for the form
             $availableSchoolYears = StudentGrade::distinct()
                 ->pluck('school_year')
                 ->sort()
                 ->values()
                 ->toArray();
 
-            // If no school years in database, provide current and next year
             if (empty($availableSchoolYears)) {
                 $currentYear = date('Y');
                 $availableSchoolYears = [
@@ -208,77 +412,25 @@ class ReportsController extends Controller
             $courses = Course::where('department_id', $departmentId)
                 ->orderBy('name')
                 ->get(['id', 'name', 'code']);
-            
-            $stats = [
-                'total_students' => 0,
-                'total_courses' => 0,
-                'total_instructors' => 0,
-                'average_gpa' => 0,
-                'student_enrollment' => [],
-                'course_performance' => [],
-                'instructor_performance' => [],
-                'honor_statistics' => [],
-                'performance_trends' => [],
-            ];
-            
+
+            Log::info('[Chairperson Reports] Department Analysis - Success');
+
             return Inertia::render('Chairperson/Reports/DepartmentAnalysis', [
                 'user' => $user,
                 'department' => $department,
                 'stats' => $stats,
-                'filters' => $defaultFilters,
+                'filters' => $validated,
                 'availableSchoolYears' => $availableSchoolYears,
                 'courses' => $courses,
             ]);
+        } catch (\Exception $e) {
+            Log::error('[Chairperson Reports] Department Analysis - Error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return back()->withErrors(['error' => 'Failed to load department analysis report.']);
         }
-        
-        // Handle POST request (process form and show results)
-        $validated = $request->validate([
-            'school_year' => 'required|string',
-            'course_id' => 'nullable|exists:courses,id',
-        ]);
-        
-        $departmentStats = $this->getDepartmentStats($user);
-        $stats = [
-            'total_students' => $departmentStats['total_students'] ?? 0,
-            'total_courses' => $departmentStats['total_courses'] ?? 0,
-            'total_instructors' => $departmentStats['total_instructors'] ?? 0,
-            'average_gpa' => $departmentStats['average_gpa'] ?? 0,
-            'student_enrollment' => $this->getStudentEnrollment($departmentId),
-            'course_performance' => $this->getCoursePerformance($departmentId),
-            'instructor_performance' => $this->getInstructorPerformance($departmentId),
-            'honor_statistics' => $this->getHonorStatistics($departmentId),
-            'performance_trends' => $this->getPerformanceTrends($departmentId),
-        ];
-        
-        // Get available school years and courses for the form
-        $availableSchoolYears = StudentGrade::distinct()
-            ->pluck('school_year')
-            ->sort()
-            ->values()
-            ->toArray();
-
-        if (empty($availableSchoolYears)) {
-            $currentYear = date('Y');
-            $availableSchoolYears = [
-                ($currentYear - 1) . '-' . $currentYear,
-                $currentYear . '-' . ($currentYear + 1),
-                ($currentYear + 1) . '-' . ($currentYear + 2),
-            ];
-        }
-
-        // Get courses from the chairperson's department
-        $courses = Course::where('department_id', $departmentId)
-            ->orderBy('name')
-            ->get(['id', 'name', 'code']);
-
-        return Inertia::render('Chairperson/Reports/DepartmentAnalysis', [
-            'user' => $user,
-            'department' => $department,
-            'stats' => $stats,
-            'filters' => $validated,
-            'availableSchoolYears' => $availableSchoolYears,
-            'courses' => $courses,
-        ]);
     }
     
     public function export($type)

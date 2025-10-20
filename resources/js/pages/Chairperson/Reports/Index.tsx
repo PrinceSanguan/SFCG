@@ -45,9 +45,24 @@ export default function ReportsIndex({
     stats,
     recentData
 }: ReportsIndexProps) {
+    console.log('[Chairperson Reports] Index - Component loaded', {
+        user_id: user?.id,
+        department: department?.name,
+        stats,
+        recentData
+    });
+
     if (!user) {
         return <div>Loading...</div>;
     }
+
+    // Ensure recentData has proper structure with null-safe fallback
+    const safeRecentData = {
+        recent_grades: recentData?.recent_grades || [],
+        recent_honors: recentData?.recent_honors || []
+    };
+
+    console.log('[Chairperson Reports] Index - Safe recent data', safeRecentData);
 
     return (
         <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
@@ -162,18 +177,23 @@ export default function ReportsIndex({
                                         Analyze student performance trends, grade distributions, and subject performance across different academic levels and grading periods.
                                     </p>
                                     <div className="flex gap-2">
-                                        <Button asChild>
-                                            <Link href={route('chairperson.reports.academic-performance')}>
+                                        <Link href={route('chairperson.reports.academic-performance')}>
+                                            <Button
+                                                onClick={() => console.log('[Chairperson Reports] Navigating to Academic Performance')}
+                                            >
                                                 <TrendingUp className="mr-2 h-4 w-4" />
                                                 View Report
-                                            </Link>
-                                        </Button>
-                                        <Button asChild variant="outline">
-                                            <Link href={route('chairperson.reports.export', 'academic-performance')}>
+                                            </Button>
+                                        </Link>
+                                        <Link href={route('chairperson.reports.export', 'academic-performance')}>
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => console.log('[Chairperson Reports] Exporting Academic Performance')}
+                                            >
                                                 <Download className="mr-2 h-4 w-4" />
                                                 Export
-                                            </Link>
-                                        </Button>
+                                            </Button>
+                                        </Link>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -190,18 +210,23 @@ export default function ReportsIndex({
                                         Comprehensive analysis of department performance, including student enrollment, course effectiveness, and instructor performance metrics.
                                     </p>
                                     <div className="flex gap-2">
-                                        <Button asChild>
-                                            <Link href={route('chairperson.reports.department-analysis')}>
+                                        <Link href={route('chairperson.reports.department-analysis')}>
+                                            <Button
+                                                onClick={() => console.log('[Chairperson Reports] Navigating to Department Analysis')}
+                                            >
                                                 <Building2 className="mr-2 h-4 w-4" />
                                                 View Report
-                                            </Link>
-                                        </Button>
-                                        <Button asChild variant="outline">
-                                            <Link href={route('chairperson.reports.export', 'department-analysis')}>
+                                            </Button>
+                                        </Link>
+                                        <Link href={route('chairperson.reports.export', 'department-analysis')}>
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => console.log('[Chairperson Reports] Exporting Department Analysis')}
+                                            >
                                                 <Download className="mr-2 h-4 w-4" />
                                                 Export
-                                            </Link>
-                                        </Button>
+                                            </Button>
+                                        </Link>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -216,11 +241,11 @@ export default function ReportsIndex({
                                 <div className="grid gap-4 md:grid-cols-2">
                                     <div>
                                         <h4 className="font-medium mb-2">Recent Grades</h4>
-                                        {recentData.recent_grades.length === 0 ? (
+                                        {safeRecentData.recent_grades.length === 0 ? (
                                             <p className="text-sm text-gray-500">No recent grades</p>
                                         ) : (
                                             <div className="space-y-2">
-                                                {recentData.recent_grades.slice(0, 5).map((grade) => (
+                                                {safeRecentData.recent_grades.slice(0, 5).map((grade) => (
                                                     <div key={grade.id} className="text-sm">
                                                         <span className="font-medium">{grade.student?.name}</span>
                                                         <span className="text-gray-500"> - {grade.subject?.name}</span>
@@ -232,11 +257,11 @@ export default function ReportsIndex({
                                     </div>
                                     <div>
                                         <h4 className="font-medium mb-2">Recent Honors</h4>
-                                        {recentData.recent_honors.length === 0 ? (
+                                        {safeRecentData.recent_honors.length === 0 ? (
                                             <p className="text-sm text-gray-500">No recent honors</p>
                                         ) : (
                                             <div className="space-y-2">
-                                                {recentData.recent_honors.slice(0, 5).map((honor) => (
+                                                {safeRecentData.recent_honors.slice(0, 5).map((honor) => (
                                                     <div key={honor.id} className="text-sm">
                                                         <span className="font-medium">{honor.student?.name}</span>
                                                         <span className="text-gray-500"> - {honor.honorType?.name}</span>

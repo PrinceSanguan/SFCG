@@ -24,14 +24,14 @@ interface Performance {
 
 interface Filters {
     school_year: string;
-    academic_level_id?: string;
+    course_id?: string;
     grading_period_id?: string;
 }
 
-interface AcademicLevel {
+interface Course {
     id: number;
     name: string;
-    key: string;
+    code: string;
 }
 
 interface GradingPeriod {
@@ -44,7 +44,7 @@ interface AcademicPerformanceProps {
     user: User;
     performance: Performance;
     filters: Filters;
-    academicLevels: AcademicLevel[];
+    courses: Course[];
     gradingPeriods: GradingPeriod[];
     availableSchoolYears: string[];
 }
@@ -53,7 +53,7 @@ export default function AcademicPerformance({
     user,
     performance,
     filters,
-    academicLevels,
+    courses,
     gradingPeriods,
     availableSchoolYears
 }: AcademicPerformanceProps) {
@@ -63,12 +63,13 @@ export default function AcademicPerformance({
 
     const { data, setData, post, processing } = useForm({
         school_year: filters.school_year || '',
-        academic_level_id: filters.academic_level_id || '',
+        course_id: filters.course_id || '',
         grading_period_id: filters.grading_period_id || '',
     });
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        console.log('[Chairperson Reports] Academic Performance - Submitting filters', data);
         post(route('chairperson.reports.academic-performance.post'));
     };
 
@@ -125,19 +126,19 @@ export default function AcademicPerformance({
                                         </Select>
                                     </div>
                                     <div>
-                                        <Label htmlFor="academic_level_id">Academic Level</Label>
+                                        <Label htmlFor="course_id">Course</Label>
                                         <Select
-                                            value={data.academic_level_id}
-                                            onValueChange={(value) => setData('academic_level_id', value)}
+                                            value={data.course_id}
+                                            onValueChange={(value) => setData('course_id', value)}
                                         >
                                             <SelectTrigger>
-                                                <SelectValue placeholder="All levels (optional)" />
+                                                <SelectValue placeholder="All courses (optional)" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="">All Levels</SelectItem>
-                                                {academicLevels.map((level) => (
-                                                    <SelectItem key={level.id} value={level.id.toString()}>
-                                                        {level.name}
+                                                <SelectItem value="">All Courses</SelectItem>
+                                                {courses.map((course) => (
+                                                    <SelectItem key={course.id} value={course.id.toString()}>
+                                                        {course.name} ({course.code})
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
