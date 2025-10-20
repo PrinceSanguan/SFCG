@@ -1,7 +1,7 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Link, usePage } from '@inertiajs/react';
-import { LayoutDashboard, Users, GraduationCap, ChevronDown, Settings, LogOut, BookOpen, Upload, Crown } from 'lucide-react';
+import { LayoutDashboard, GraduationCap, ChevronDown, Settings, LogOut, BookOpen, Upload, Crown } from 'lucide-react';
 
 interface UserProps { name?: string; email?: string }
 export function Sidebar({ user }: { user: UserProps }) {
@@ -76,7 +76,7 @@ export function Sidebar({ user }: { user: UserProps }) {
                 <Settings size={16} /> Settings
               </Button>
             </Link>
-            <Link href={route('auth.logout')} method="post" as="button" className="w-full">
+            <Link href={route('auth.logout')} className="w-full">
               <Button variant="ghost" className="flex w-full items-center justify-start gap-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20">
                 <LogOut size={16} /> Logout
               </Button>

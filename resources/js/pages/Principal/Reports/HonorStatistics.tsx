@@ -23,6 +23,7 @@ interface HonorType {
 interface AcademicLevel {
     id: number;
     name: string;
+    key?: string;
 }
 
 interface HonorResult {
@@ -60,23 +61,22 @@ interface HonorStatisticsProps {
         year?: string;
     };
     academicLevels: AcademicLevel[];
+    principalAcademicLevel?: AcademicLevel | null;
     honorTypes: HonorType[];
 }
 
-export default function HonorStatistics({ user, honors, stats, filters, academicLevels, honorTypes }: HonorStatisticsProps) {
+export default function HonorStatistics({ user, honors, stats, filters, principalAcademicLevel, honorTypes }: HonorStatisticsProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedType, setSelectedType] = useState(filters.honor_type_id || '');
-    const [selectedLevel, setSelectedLevel] = useState(filters.academic_level_id || '');
     const [selectedYear, setSelectedYear] = useState(filters.year || '');
 
     const filteredHonors = honors.data.filter(honor => {
         const matchesSearch = honor.student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             honor.honorType.name.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesType = !selectedType || selectedType === 'all' || honor.honorType.id.toString() === selectedType;
-        const matchesLevel = !selectedLevel || selectedLevel === 'all' || honor.academicLevel.id.toString() === selectedLevel;
         const matchesYear = !selectedYear || honor.school_year === selectedYear;
 
-        return matchesSearch && matchesType && matchesLevel && matchesYear;
+        return matchesSearch && matchesType && matchesYear;
     });
 
     const getHonorColor = (honorType: string) => {
@@ -266,19 +266,10 @@ export default function HonorStatistics({ user, honors, stats, filters, academic
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Academic Level</label>
-                            <Select value={selectedLevel} onValueChange={setSelectedLevel}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="All levels" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All levels</SelectItem>
-                                    {academicLevels.map((level) => (
-                                        <SelectItem key={level.id} value={level.id.toString()}>
-                                            {level.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <div className="flex h-10 w-full items-center rounded-md border border-input bg-gray-50 px-3 py-2 text-sm">
+                                {principalAcademicLevel?.name || 'Not Assigned'}
+                            </div>
+                            <p className="text-xs text-gray-500">Reports are filtered by your assigned academic level</p>
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium">School Year</label>

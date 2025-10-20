@@ -49,27 +49,27 @@ class ReportsController extends Controller
             }
 
             // Note: Removed manual academic_level_id filter since it's auto-set above
-            
+
             if (!empty($filters['course_id'])) {
                 $query->whereHas('subject.course', function ($q) use ($filters) {
                     $q->where('id', $filters['course_id']);
                 });
             }
-            
+
             if (!empty($filters['year'])) {
                 $query->where('school_year', $filters['year']);
             }
-            
+
             if (!empty($filters['period'])) {
                 $query->where('grading_period_id', $filters['period']);
             }
-            
+
             $grades = $query->paginate(20);
-            
+
             // Calculate performance statistics safely
             $totalGrades = $grades->total();
             $gradeValues = $grades->pluck('grade')->filter();
-            
+
             $stats = [
                 'total_grades' => $totalGrades,
                 'average_grade' => $gradeValues->count() > 0 ? $gradeValues->avg() : 0,
@@ -77,11 +77,18 @@ class ReportsController extends Controller
                 'lowest_grade' => $gradeValues->count() > 0 ? $gradeValues->min() : 0,
                 'passing_rate' => $gradeValues->count() > 0 ? ($gradeValues->where('>=', 75)->count() / $gradeValues->count() * 100) : 0,
             ];
-            
-            // Get additional data for filters (exclude College for Principal)
-            $academicLevels = AcademicLevel::whereNotIn('key', ['college'])->get();
-            $strands = \App\Models\Strand::with('academicLevel')->get();
-            $gradingPeriods = \App\Models\GradingPeriod::all();
+
+            // Only pass the principal's assigned academic level (not all levels)
+            $academicLevels = $principalAcademicLevel ? [$principalAcademicLevel] : [];
+            $strands = \App\Models\Strand::with('academicLevel')
+                ->when($principalAcademicLevel, function ($query) use ($principalAcademicLevel) {
+                    return $query->where('academic_level_id', $principalAcademicLevel->id);
+                })
+                ->get();
+            $gradingPeriods = \App\Models\GradingPeriod::when($principalAcademicLevel, function ($query) use ($principalAcademicLevel) {
+                    return $query->where('academic_level_id', $principalAcademicLevel->id);
+                })
+                ->get();
 
             return Inertia::render('Principal/Reports/AcademicPerformance', [
                 'user' => $user,
@@ -89,6 +96,7 @@ class ReportsController extends Controller
                 'stats' => $stats,
                 'filters' => $filters,
                 'academicLevels' => $academicLevels,
+                'principalAcademicLevel' => $principalAcademicLevel,
                 'strands' => $strands,
                 'gradingPeriods' => $gradingPeriods,
             ]);
@@ -96,7 +104,8 @@ class ReportsController extends Controller
         } catch (\Exception $e) {
             Log::error('Academic Performance Error: ' . $e->getMessage());
 
-            // Return empty data on error (exclude College for Principal)
+            // Return empty data on error - only principal's assigned level
+            $academicLevels = $principalAcademicLevel ? [$principalAcademicLevel] : [];
             return Inertia::render('Principal/Reports/AcademicPerformance', [
                 'user' => $user,
                 'grades' => new \Illuminate\Pagination\LengthAwarePaginator([], 0, 20),
@@ -108,9 +117,17 @@ class ReportsController extends Controller
                     'passing_rate' => 0,
                 ],
                 'filters' => $filters,
-                'academicLevels' => AcademicLevel::whereNotIn('key', ['college'])->get(),
-                'strands' => \App\Models\Strand::with('academicLevel')->get(),
-                'gradingPeriods' => \App\Models\GradingPeriod::all(),
+                'academicLevels' => $academicLevels,
+                'principalAcademicLevel' => $principalAcademicLevel,
+                'strands' => \App\Models\Strand::with('academicLevel')
+                    ->when($principalAcademicLevel, function ($query) use ($principalAcademicLevel) {
+                        return $query->where('academic_level_id', $principalAcademicLevel->id);
+                    })
+                    ->get(),
+                'gradingPeriods' => \App\Models\GradingPeriod::when($principalAcademicLevel, function ($query) use ($principalAcademicLevel) {
+                        return $query->where('academic_level_id', $principalAcademicLevel->id);
+                    })
+                    ->get(),
             ]);
         }
     }
@@ -130,17 +147,17 @@ class ReportsController extends Controller
             if ($principalAcademicLevel) {
                 $query->where('academic_level_id', $principalAcademicLevel->id);
             }
-            
+
             if (!empty($filters['course_id'])) {
                 $query->whereHas('subject.course', function ($q) use ($filters) {
                     $q->where('id', $filters['course_id']);
                 });
             }
-            
+
             if (!empty($filters['year'])) {
                 $query->where('school_year', $filters['year']);
             }
-            
+
             // Get trends by grading period
             $trends = $query->selectRaw('
                     grading_period_id,
@@ -151,17 +168,25 @@ class ReportsController extends Controller
                 ->groupBy('grading_period_id')
                 ->with('gradingPeriod')
                 ->get();
-            
-            // Get additional data for filters (exclude College for Principal)
-            $academicLevels = AcademicLevel::whereNotIn('key', ['college'])->get();
-            $strands = \App\Models\Strand::with('academicLevel')->get();
-            $gradingPeriods = \App\Models\GradingPeriod::all();
+
+            // Only pass the principal's assigned academic level
+            $academicLevels = $principalAcademicLevel ? [$principalAcademicLevel] : [];
+            $strands = \App\Models\Strand::with('academicLevel')
+                ->when($principalAcademicLevel, function ($query) use ($principalAcademicLevel) {
+                    return $query->where('academic_level_id', $principalAcademicLevel->id);
+                })
+                ->get();
+            $gradingPeriods = \App\Models\GradingPeriod::when($principalAcademicLevel, function ($query) use ($principalAcademicLevel) {
+                    return $query->where('academic_level_id', $principalAcademicLevel->id);
+                })
+                ->get();
 
             return Inertia::render('Principal/Reports/GradeTrends', [
                 'user' => $user,
                 'trends' => $trends,
                 'filters' => $filters,
                 'academicLevels' => $academicLevels,
+                'principalAcademicLevel' => $principalAcademicLevel,
                 'strands' => $strands,
                 'gradingPeriods' => $gradingPeriods,
             ]);
@@ -169,14 +194,23 @@ class ReportsController extends Controller
         } catch (\Exception $e) {
             Log::error('Grade Trends Error: ' . $e->getMessage());
 
-            // Return empty data on error (exclude College for Principal)
+            // Return empty data on error - only principal's assigned level
+            $academicLevels = $principalAcademicLevel ? [$principalAcademicLevel] : [];
             return Inertia::render('Principal/Reports/GradeTrends', [
                 'user' => $user,
                 'trends' => collect([]),
                 'filters' => $filters,
-                'academicLevels' => AcademicLevel::whereNotIn('key', ['college'])->get(),
-                'strands' => \App\Models\Strand::with('academicLevel')->get(),
-                'gradingPeriods' => \App\Models\GradingPeriod::all(),
+                'academicLevels' => $academicLevels,
+                'principalAcademicLevel' => $principalAcademicLevel,
+                'strands' => \App\Models\Strand::with('academicLevel')
+                    ->when($principalAcademicLevel, function ($query) use ($principalAcademicLevel) {
+                        return $query->where('academic_level_id', $principalAcademicLevel->id);
+                    })
+                    ->get(),
+                'gradingPeriods' => \App\Models\GradingPeriod::when($principalAcademicLevel, function ($query) use ($principalAcademicLevel) {
+                        return $query->where('academic_level_id', $principalAcademicLevel->id);
+                    })
+                    ->get(),
             ]);
         }
     }
@@ -196,30 +230,30 @@ class ReportsController extends Controller
             if ($principalAcademicLevel) {
                 $query->where('academic_level_id', $principalAcademicLevel->id);
             }
-            
+
             if (!empty($filters['honor_type_id'])) {
                 $query->where('honor_type_id', $filters['honor_type_id']);
             }
-            
+
             if (!empty($filters['year'])) {
                 $query->where('school_year', $filters['year']);
             }
-            
+
             $honors = $query->paginate(20);
-            
+
             // Calculate honor statistics safely
             $totalHonors = $honors->total();
             $gpaValues = $honors->pluck('gpa')->filter();
-            
+
             $stats = [
                 'total_honors' => $totalHonors,
                 'by_type' => $honors->groupBy('honorType.name')->map->count(),
                 'by_level' => $honors->groupBy('academicLevel.name')->map->count(),
                 'average_gpa' => $gpaValues->count() > 0 ? $gpaValues->avg() : 0,
             ];
-            
-            // Get additional data for filters (exclude College for Principal)
-            $academicLevels = AcademicLevel::whereNotIn('key', ['college'])->get();
+
+            // Only pass the principal's assigned academic level
+            $academicLevels = $principalAcademicLevel ? [$principalAcademicLevel] : [];
             $honorTypes = \App\Models\HonorType::all();
 
             return Inertia::render('Principal/Reports/HonorStatistics', [
@@ -228,13 +262,15 @@ class ReportsController extends Controller
                 'stats' => $stats,
                 'filters' => $filters,
                 'academicLevels' => $academicLevels,
+                'principalAcademicLevel' => $principalAcademicLevel,
                 'honorTypes' => $honorTypes,
             ]);
             
         } catch (\Exception $e) {
             Log::error('Honor Statistics Error: ' . $e->getMessage());
 
-            // Return empty data on error (exclude College for Principal)
+            // Return empty data on error - only principal's assigned level
+            $academicLevels = $principalAcademicLevel ? [$principalAcademicLevel] : [];
             return Inertia::render('Principal/Reports/HonorStatistics', [
                 'user' => $user,
                 'honors' => new \Illuminate\Pagination\LengthAwarePaginator([], 0, 20),
@@ -245,7 +281,8 @@ class ReportsController extends Controller
                     'average_gpa' => 0,
                 ],
                 'filters' => $filters,
-                'academicLevels' => AcademicLevel::whereNotIn('key', ['college'])->get(),
+                'academicLevels' => $academicLevels,
+                'principalAcademicLevel' => $principalAcademicLevel,
                 'honorTypes' => \App\Models\HonorType::all(),
             ]);
         }

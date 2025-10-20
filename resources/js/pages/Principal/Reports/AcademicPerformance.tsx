@@ -18,6 +18,7 @@ interface User {
 interface AcademicLevel {
     id: number;
     name: string;
+    key?: string;
 }
 
 interface Strand {
@@ -87,13 +88,13 @@ interface AcademicPerformanceProps {
         period?: string;
     };
     academicLevels: AcademicLevel[];
+    principalAcademicLevel?: AcademicLevel | null;
     strands: Strand[];
     gradingPeriods: GradingPeriod[];
 }
 
-export default function AcademicPerformance({ user, grades, stats, filters, academicLevels, strands, gradingPeriods }: AcademicPerformanceProps) {
+export default function AcademicPerformance({ user, grades, stats, filters, principalAcademicLevel, strands, gradingPeriods }: AcademicPerformanceProps) {
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedLevel, setSelectedLevel] = useState(filters.academic_level_id || '');
     const [selectedStrand, setSelectedStrand] = useState(filters.strand_id || '');
     const [selectedYear, setSelectedYear] = useState(filters.year || '');
     const [selectedPeriod, setSelectedPeriod] = useState(filters.period || '');
@@ -101,12 +102,11 @@ export default function AcademicPerformance({ user, grades, stats, filters, acad
     const filteredGrades = grades.data.filter(grade => {
         const matchesSearch = grade.student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             grade.subject.name.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesLevel = !selectedLevel || selectedLevel === 'all' || grade.academicLevel.id.toString() === selectedLevel;
         const matchesStrand = !selectedStrand || selectedStrand === 'all' || grade.subject.course.id.toString() === selectedStrand;
         const matchesYear = !selectedYear || grade.school_year === selectedYear;
         const matchesPeriod = !selectedPeriod || selectedPeriod === 'all' || grade.gradingPeriod.id.toString() === selectedPeriod;
 
-        return matchesSearch && matchesLevel && matchesStrand && matchesYear && matchesPeriod;
+        return matchesSearch && matchesStrand && matchesYear && matchesPeriod;
     });
 
     const getGradeColor = (grade: number) => {
@@ -232,19 +232,10 @@ export default function AcademicPerformance({ user, grades, stats, filters, acad
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Academic Level</label>
-                            <Select value={selectedLevel} onValueChange={setSelectedLevel}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="All levels" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All levels</SelectItem>
-                                    {academicLevels.map((level) => (
-                                        <SelectItem key={level.id} value={level.id.toString()}>
-                                            {level.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <div className="flex h-10 w-full items-center rounded-md border border-input bg-gray-50 px-3 py-2 text-sm">
+                                {principalAcademicLevel?.name || 'Not Assigned'}
+                            </div>
+                            <p className="text-xs text-gray-500">Reports are filtered by your assigned academic level</p>
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Strand</label>

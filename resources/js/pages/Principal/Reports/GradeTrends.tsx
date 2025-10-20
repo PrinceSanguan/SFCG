@@ -31,6 +31,7 @@ interface TrendData {
 interface AcademicLevel {
     id: number;
     name: string;
+    key?: string;
 }
 
 interface Strand {
@@ -52,12 +53,12 @@ interface GradeTrendsProps {
         year?: string;
     };
     academicLevels: AcademicLevel[];
+    principalAcademicLevel?: AcademicLevel | null;
     strands: Strand[];
     gradingPeriods: GradingPeriod[];
 }
 
-export default function GradeTrends({ user, trends, filters, academicLevels, strands, gradingPeriods }: GradeTrendsProps) {
-    const [selectedLevel, setSelectedLevel] = useState(filters.academic_level_id || '');
+export default function GradeTrends({ user, trends, filters, principalAcademicLevel, strands }: GradeTrendsProps) {
     const [selectedStrand, setSelectedStrand] = useState(filters.strand_id || '');
     const [selectedYear, setSelectedYear] = useState(filters.year || '');
 
@@ -158,19 +159,10 @@ export default function GradeTrends({ user, trends, filters, academicLevels, str
                     <div className="grid gap-4 md:grid-cols-3">
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Academic Level</label>
-                            <Select value={selectedLevel} onValueChange={setSelectedLevel}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="All levels" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All levels</SelectItem>
-                                    {academicLevels.map((level) => (
-                                        <SelectItem key={level.id} value={level.id.toString()}>
-                                            {level.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <div className="flex h-10 w-full items-center rounded-md border border-input bg-gray-50 px-3 py-2 text-sm">
+                                {principalAcademicLevel?.name || 'Not Assigned'}
+                            </div>
+                            <p className="text-xs text-gray-500">Reports are filtered by your assigned academic level</p>
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Strand</label>

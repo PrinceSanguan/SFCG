@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Link } from '@inertiajs/react';
-import { BarChart, TrendingUp, Award, FileText, Download, Filter, Calendar, Users, BookOpen } from 'lucide-react';
+import { BarChart, TrendingUp, Award, FileText, Download } from 'lucide-react';
 
 interface User {
     id: number;
