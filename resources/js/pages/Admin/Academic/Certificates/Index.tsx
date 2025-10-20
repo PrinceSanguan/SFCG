@@ -12,8 +12,8 @@ import { ArrowLeft, Download, GraduationCap, School, BookOpen, Users, FileText, 
 import { router } from '@inertiajs/react';
 
 interface User {
-    name?: string;
-    email?: string;
+    name: string;
+    email: string;
     user_role?: string;
 }
 
@@ -84,7 +84,7 @@ interface Props {
     generatedCertificates?: Certificate[];
     schoolYears: string[];
     currentSchoolYear?: string;
-    stats?: any;
+    stats?: Record<string, unknown>;
 }
 
 const CATEGORIES = [
@@ -121,42 +121,41 @@ const CATEGORIES = [
 export default function CertificatesIndex({
     user,
     academicLevels,
-    honorTypes = [],
     templates,
     allHonors = [],
     generatedCertificates = [],
     schoolYears,
     currentSchoolYear,
-    stats
 }: Props) {
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [schoolYear, setSchoolYear] = useState<string>(currentSchoolYear || schoolYears?.[0] || '2024-2025');
 
     const [selectedTemplate, setSelectedTemplate] = useState<string>('');
     const [selectedStudents, setSelectedStudents] = useState<number[]>([]);
-    const [selectedCertificates, setSelectedCertificates] = useState<number[]>([]);
-    const [showGeneratedCertificates, setShowGeneratedCertificates] = useState(false);
+
+    // Multi-category selection state
+    const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
     // Forms for certificate generation
-    const { data: generateData, setData: setGenerateData, post: postGenerate, processing: generating } = useForm({
+    const { setData: setGenerateData, post: postGenerate, processing: generating } = useForm({
         student_id: '',
         template_id: '',
         academic_level_id: '',
         school_year: schoolYear,
     });
 
-    const { data: bulkData, setData: setBulkData, post: postBulk, processing: bulkGenerating } = useForm({
+    const { setData: setBulkData, post: postBulk, processing: bulkGenerating } = useForm({
         student_ids: [] as number[],
         template_id: '',
         academic_level_id: '',
         school_year: schoolYear,
     });
 
-    const { data: bulkPrintData, setData: setBulkPrintData, post: postBulkPrint, processing: bulkPrinting } = useForm({
+    const { setData: setBulkPrintData, post: postBulkPrint, processing: bulkPrinting } = useForm({
         certificate_ids: [] as number[],
     });
 
-    const { data: bulkByLevelData, setData: setBulkByLevelData, post: postBulkByLevel, processing: bulkByLevelGenerating } = useForm({
+    const { setData: setBulkByLevelData, post: postBulkByLevel, processing: bulkByLevelGenerating } = useForm({
         academic_level_id: '',
         school_year: schoolYear,
         honor_type_id: '',
@@ -272,6 +271,49 @@ export default function CertificatesIndex({
         });
     };
 
+    // Handle multi-category selection
+    const handleCategoryToggle = (categoryKey: string, event: React.ChangeEvent<HTMLInputElement>) => {
+        event.stopPropagation();
+        setSelectedCategories(prev =>
+            prev.includes(categoryKey)
+                ? prev.filter(key => key !== categoryKey)
+                : [...prev, categoryKey]
+        );
+    };
+
+    // Handle batch download for selected categories
+    const handleBatchDownloadCategories = () => {
+        if (selectedCategories.length === 0) return;
+
+        // Get all certificate IDs for selected categories
+        const certificateIds: number[] = [];
+
+        selectedCategories.forEach(categoryKey => {
+            const categoryHonors = allHonors.filter(honor =>
+                honor?.academic_level?.key === categoryKey &&
+                honor.school_year === schoolYear
+            );
+
+            categoryHonors.forEach(honor => {
+                const cert = generatedCertificates?.find(c =>
+                    c.student.id === honor.student.id &&
+                    c.academic_level.id === honor.academic_level.id &&
+                    c.school_year === honor.school_year
+                );
+                if (cert) {
+                    certificateIds.push(cert.id);
+                }
+            });
+        });
+
+        if (certificateIds.length > 0) {
+            setBulkPrintData({ certificate_ids: certificateIds });
+            postBulkPrint(route('admin.academic.certificates.bulk-print-pdf'));
+        } else {
+            alert('No generated certificates found for selected categories. Please generate certificates first.');
+        }
+    };
+
     const selectedCategoryData = selectedCategory ? getCategoryStudents(selectedCategory) : [];
     const categoryTemplates = selectedCategory ? getCategoryTemplates(selectedCategory) : [];
 
@@ -326,42 +368,130 @@ export default function CertificatesIndex({
 
                         {!selectedCategory ? (
                             /* Category Selection */
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                {CATEGORIES.map((category) => {
-                                    const Icon = category.icon;
-                                    const categoryCount = allHonors.filter(honor =>
-                                        honor?.academic_level?.key === category.key &&
-                                        honor.school_year === schoolYear
-                                    ).length;
-
-                                    return (
-                                        <Card
-                                            key={category.key}
-                                            className="cursor-pointer transition-all hover:shadow-lg"
-                                            onClick={() => setSelectedCategory(category.key)}
-                                        >
-                                            <CardContent className="p-6">
-                                                <div className="flex flex-col items-center text-center space-y-4">
-                                                    <div className={`p-4 rounded-full bg-gray-100`}>
-                                                        <Icon className={`h-8 w-8 ${category.iconColor}`} />
-                                                    </div>
-                                                    <div>
-                                                        <h3 className="text-lg font-semibold text-gray-900">
-                                                            {category.name}
-                                                        </h3>
-                                                        <p className="text-sm text-gray-600">
-                                                            {categoryCount} honor students
-                                                        </p>
-                                                    </div>
-                                                    <Button className={`w-full ${category.color} text-white`}>
-                                                        View Students
+                            <>
+                                {/* Batch Actions Bar */}
+                                {selectedCategories.length > 0 && (
+                                    <Card className="bg-blue-50 border-blue-200">
+                                        <CardContent className="p-4">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <Package className="h-5 w-5 text-blue-600" />
+                                                    <span className="font-medium text-blue-900">
+                                                        {selectedCategories.length} {selectedCategories.length === 1 ? 'category' : 'categories'} selected
+                                                    </span>
+                                                    <Badge variant="secondary">
+                                                        {(() => {
+                                                            let totalCerts = 0;
+                                                            selectedCategories.forEach(categoryKey => {
+                                                                const categoryHonors = allHonors.filter(honor =>
+                                                                    honor?.academic_level?.key === categoryKey &&
+                                                                    honor.school_year === schoolYear
+                                                                );
+                                                                categoryHonors.forEach(honor => {
+                                                                    const cert = generatedCertificates?.find(c =>
+                                                                        c.student.id === honor.student.id &&
+                                                                        c.academic_level.id === honor.academic_level.id &&
+                                                                        c.school_year === honor.school_year
+                                                                    );
+                                                                    if (cert) totalCerts++;
+                                                                });
+                                                            });
+                                                            return `${totalCerts} certificates`;
+                                                        })()}
+                                                    </Badge>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => setSelectedCategories([])}
+                                                    >
+                                                        Clear Selection
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        onClick={handleBatchDownloadCategories}
+                                                        disabled={bulkPrinting}
+                                                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                                                    >
+                                                        <Download className="h-4 w-4 mr-2" />
+                                                        {bulkPrinting ? 'Preparing...' : 'Download Selected'}
                                                     </Button>
                                                 </div>
-                                            </CardContent>
-                                        </Card>
-                                    );
-                                })}
-                            </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                )}
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                    {CATEGORIES.map((category) => {
+                                        const Icon = category.icon;
+                                        const categoryCount = allHonors.filter(honor =>
+                                            honor?.academic_level?.key === category.key &&
+                                            honor.school_year === schoolYear
+                                        ).length;
+
+                                        const generatedCount = (() => {
+                                            const categoryHonors = allHonors.filter(honor =>
+                                                honor?.academic_level?.key === category.key &&
+                                                honor.school_year === schoolYear
+                                            );
+                                            return categoryHonors.filter(honor => {
+                                                return generatedCertificates?.some(cert =>
+                                                    cert.student.id === honor.student.id &&
+                                                    cert.academic_level.id === honor.academic_level.id &&
+                                                    cert.school_year === honor.school_year
+                                                );
+                                            }).length;
+                                        })();
+
+                                        const isSelected = selectedCategories.includes(category.key);
+
+                                        return (
+                                            <Card
+                                                key={category.key}
+                                                className={`cursor-pointer transition-all hover:shadow-lg ${
+                                                    isSelected ? 'ring-2 ring-blue-500 bg-blue-50' : ''
+                                                }`}
+                                                onClick={() => setSelectedCategory(category.key)}
+                                            >
+                                                <CardContent className="p-6">
+                                                    <div className="flex flex-col items-center text-center space-y-4">
+                                                        {/* Checkbox */}
+                                                        <div className="absolute top-3 right-3">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={isSelected}
+                                                                onChange={(e) => handleCategoryToggle(category.key, e)}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                                            />
+                                                        </div>
+
+                                                        <div className={`p-4 rounded-full bg-gray-100`}>
+                                                            <Icon className={`h-8 w-8 ${category.iconColor}`} />
+                                                        </div>
+                                                        <div>
+                                                            <h3 className="text-lg font-semibold text-gray-900">
+                                                                {category.name}
+                                                            </h3>
+                                                            <p className="text-sm text-gray-600">
+                                                                {categoryCount} honor students
+                                                            </p>
+                                                            <p className="text-xs text-gray-500 mt-1">
+                                                                {generatedCount} certificates generated
+                                                            </p>
+                                                        </div>
+                                                        <Button className={`w-full ${category.color} text-white`}>
+                                                            View Students
+                                                        </Button>
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        );
+                                    })}
+                                </div>
+                            </>
                         ) : (
                             /* Category Detail View */
                             <div className="space-y-6">
@@ -454,11 +584,11 @@ export default function CertificatesIndex({
                                                                     .map(honor => {
                                                                         const cert = generatedCertificates?.find(c =>
                                                                             c.student.id === honor.student.id &&
-                                                                            c.academicLevel.id === honor.academic_level.id
+                                                                            c.academic_level.id === honor.academic_level.id
                                                                         );
                                                                         return cert?.id;
                                                                     })
-                                                                    .filter(Boolean);
+                                                                    .filter((id): id is number => id !== undefined);
 
                                                                 if (certificateIds.length > 0) {
                                                                     setBulkPrintData({ certificate_ids: certificateIds });

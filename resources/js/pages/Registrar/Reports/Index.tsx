@@ -354,7 +354,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
     // Organize grading periods - remove duplicates and sort properly
     const getOrganizedGradingPeriods = () => {
         // Filter by academic level
-        let periods = gradingPeriods.filter(period =>
+        const periods = gradingPeriods.filter(period =>
             period.academic_level_id.toString() === gradeData.academic_level_id || gradeData.academic_level_id === 'all'
         );
 
