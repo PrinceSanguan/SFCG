@@ -90,37 +90,43 @@ class RegistrarAcademicController extends Controller
     {
         // Get College level ID
         $collegeLevel = AcademicLevel::where('key', 'college')->first();
-        
+
         $assignments = InstructorCourseAssignment::with([
-            'instructor', 
-            'course.department', 
-            'academicLevel', 
-            'gradingPeriod'
+            'instructor',
+            'course.department',
+            'section',
+            'academicLevel',
+            'gradingPeriod',
+            'subject'
         ])->where('academic_level_id', $collegeLevel->id)
           ->orderBy('school_year', 'desc')->get();
-        
+
         $instructors = User::where('user_role', 'instructor')->orderBy('name')->get();
+        $departments = Department::where('academic_level_id', $collegeLevel->id)->orderBy('name')->get();
         $courses = Course::whereHas('department', function($query) use ($collegeLevel) {
             $query->where('academic_level_id', $collegeLevel->id);
         })->orderBy('name')->get();
-        
+        $sections = \App\Models\Section::with('course')->where('is_active', true)->get();
+
         // Get subjects for college level
         $subjects = Subject::with(['course'])
             ->where('academic_level_id', $collegeLevel->id)
             ->orderBy('name')
             ->get();
-        
+
         $academicLevels = AcademicLevel::orderBy('sort_order')->get();
-        $gradingPeriods = GradingPeriod::orderBy('academic_level_id')->orderBy('sort_order')->get();
-        
+        $gradingPeriods = GradingPeriod::where('academic_level_id', $collegeLevel->id)->orderBy('sort_order')->get();
+
         // Get year level options for college
         $yearLevels = User::getSpecificYearLevels()['college'] ?? [];
-        
+
         return Inertia::render('Registrar/Academic/AssignInstructors', [
             'user' => $this->sharedUser(),
             'assignments' => $assignments,
             'instructors' => $instructors,
+            'departments' => $departments,
             'courses' => $courses,
+            'sections' => $sections,
             'subjects' => $subjects,
             'academicLevels' => $academicLevels,
             'gradingPeriods' => $gradingPeriods,

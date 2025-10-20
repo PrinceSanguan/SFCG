@@ -296,7 +296,7 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
     Route::get('/api/sections', [\App\Http\Controllers\Admin\SectionController::class, 'list'])->name('api.sections');
 
     // Modern Subject-Based Instructor Assignments (default)
-    Route::get('/assign-instructors', [InstructorSubjectAssignmentController::class, 'index'])->name('assign-instructors');
+    Route::get('/assign-instructors', [RegistrarAcademicController::class, 'assignInstructors'])->name('assign-instructors');
 
     // Alias route for backwards compatibility
     Route::get('/assign-instructors-subjects', [InstructorSubjectAssignmentController::class, 'index'])->name('assign-instructors-subjects');
