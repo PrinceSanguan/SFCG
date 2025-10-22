@@ -162,16 +162,32 @@ class RegistrarController extends Controller
     {
         $user = $request->user();
 
+        Log::info('[Registrar] Reports page loaded - fetching data');
+
         // Get data for reports
         $academicLevels = AcademicLevel::orderBy('name')->get();
         $gradingPeriods = GradingPeriod::with('academicLevel')->orderBy('name')->get();
         $honorTypes = HonorType::orderBy('name')->get();
-        $sections = \App\Models\Section::with('academicLevel')
+        $sections = \App\Models\Section::with(['academicLevel', 'track', 'strand', 'department', 'course'])
             ->where('is_active', true)
             ->orderBy('academic_level_id')
             ->orderBy('specific_year_level')
             ->orderBy('name')
             ->get();
+
+        // Load additional data for Class Section Report and Honor Statistics filtering
+        $tracks = \App\Models\Track::where('is_active', true)->orderBy('name')->get();
+        $strands = \App\Models\Strand::with('track')->orderBy('name')->get();
+        $departments = \App\Models\Department::where('is_active', true)->orderBy('name')->get();
+        $courses = \App\Models\Course::with('department')->where('is_active', true)->orderBy('name')->get();
+
+        Log::info('[Registrar] Loaded cascading filter data', [
+            'tracks_count' => $tracks->count(),
+            'strands_count' => $strands->count(),
+            'departments_count' => $departments->count(),
+            'courses_count' => $courses->count(),
+            'sections_count' => $sections->count(),
+        ]);
 
         // Generate school years (current year and 5 years back)
         $currentYear = date('Y');
@@ -190,6 +206,8 @@ class RegistrarController extends Controller
         $stats = $this->getReportsStats();
         $stats['active_sections'] = $sections->count();
 
+        Log::info('[Registrar] Rendering Reports page with all data');
+
         return Inertia::render('Registrar/Reports/Index', [
             'user' => $user,
             'academicLevels' => $academicLevels,
@@ -198,6 +216,10 @@ class RegistrarController extends Controller
             'gradingPeriods' => $gradingPeriods,
             'honorTypes' => $honorTypes,
             'sections' => $sections,
+            'tracks' => $tracks,
+            'strands' => $strands,
+            'departments' => $departments,
+            'courses' => $courses,
             'stats' => $stats,
         ]);
     }

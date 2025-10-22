@@ -152,37 +152,99 @@ class ReportsController extends Controller
     public function generateHonorStatistics(Request $request)
     {
         try {
+            Log::info('=== HONOR STATISTICS REQUEST RECEIVED ===');
+            Log::info('All request data:', $request->all());
+
             $validated = $request->validate([
                 'academic_level_id' => ['nullable', 'string'],
                 'school_year' => ['required', 'string'],
                 'honor_type_id' => ['nullable', 'string'],
+                'year_level' => ['nullable', 'string'],
+                'track_id' => ['nullable', 'exists:tracks,id'],
+                'strand_id' => ['nullable', 'exists:strands,id'],
+                'department_id' => ['nullable', 'exists:departments,id'],
+                'course_id' => ['nullable', 'exists:courses,id'],
+                'section_id' => ['nullable', 'string'],
                 'format' => ['required', 'in:pdf,excel,csv'],
             ]);
 
-            Log::info('Generating honor statistics', $validated);
+            Log::info('Validation passed - Generating honor statistics', $validated);
 
-            $query = HonorResult::with(['student', 'honorType', 'academicLevel'])
+            // Start with base query - include student.section relationship
+            $query = HonorResult::with(['student.section', 'honorType', 'academicLevel'])
                 ->where('school_year', $validated['school_year']);
 
+            // Filter by academic level
             if ($validated['academic_level_id'] && $validated['academic_level_id'] !== 'all') {
-                // Validate that the academic_level_id exists
                 if (!AcademicLevel::find($validated['academic_level_id'])) {
                     return back()->withErrors(['academic_level_id' => 'Invalid academic level selected.']);
                 }
                 $query->where('academic_level_id', $validated['academic_level_id']);
+                Log::info('Applied academic level filter:', ['academic_level_id' => $validated['academic_level_id']]);
             }
 
+            // Filter by honor type
             if ($validated['honor_type_id'] && $validated['honor_type_id'] !== 'all') {
-                // Validate that the honor_type_id exists
                 if (!HonorType::find($validated['honor_type_id'])) {
                     return back()->withErrors(['honor_type_id' => 'Invalid honor type selected.']);
                 }
                 $query->where('honor_type_id', $validated['honor_type_id']);
+                Log::info('Applied honor type filter:', ['honor_type_id' => $validated['honor_type_id']]);
+            }
+
+            // Filter by section-related fields (through student relationship)
+            $hasStudentFilters = !empty($validated['year_level']) ||
+                                !empty($validated['track_id']) ||
+                                !empty($validated['strand_id']) ||
+                                !empty($validated['department_id']) ||
+                                !empty($validated['course_id']) ||
+                                (!empty($validated['section_id']) && $validated['section_id'] !== 'all');
+
+            if ($hasStudentFilters) {
+                $query->whereHas('student', function ($q) use ($validated) {
+                    $q->whereHas('section', function ($sectionQuery) use ($validated) {
+                        // Filter by year level
+                        if (!empty($validated['year_level'])) {
+                            $sectionQuery->where('specific_year_level', $validated['year_level']);
+                            Log::info('Applied year level filter:', ['year_level' => $validated['year_level']]);
+                        }
+
+                        // Filter by track (SHS)
+                        if (!empty($validated['track_id'])) {
+                            $sectionQuery->where('track_id', $validated['track_id']);
+                            Log::info('Applied track filter:', ['track_id' => $validated['track_id']]);
+                        }
+
+                        // Filter by strand (SHS)
+                        if (!empty($validated['strand_id'])) {
+                            $sectionQuery->where('strand_id', $validated['strand_id']);
+                            Log::info('Applied strand filter:', ['strand_id' => $validated['strand_id']]);
+                        }
+
+                        // Filter by department (College)
+                        if (!empty($validated['department_id'])) {
+                            $sectionQuery->where('department_id', $validated['department_id']);
+                            Log::info('Applied department filter:', ['department_id' => $validated['department_id']]);
+                        }
+
+                        // Filter by course (College)
+                        if (!empty($validated['course_id'])) {
+                            $sectionQuery->where('course_id', $validated['course_id']);
+                            Log::info('Applied course filter:', ['course_id' => $validated['course_id']]);
+                        }
+
+                        // Filter by specific section
+                        if (!empty($validated['section_id']) && $validated['section_id'] !== 'all') {
+                            $sectionQuery->where('id', $validated['section_id']);
+                            Log::info('Applied section filter:', ['section_id' => $validated['section_id']]);
+                        }
+                    });
+                });
             }
 
             $honors = $query->orderBy('gpa', 'desc')->get();
 
-            Log::info('Found ' . $honors->count() . ' honor records');
+            Log::info('Found ' . $honors->count() . ' honor records after filtering');
 
             $statistics = $this->calculateHonorStatistics($honors);
 
@@ -202,6 +264,7 @@ class ReportsController extends Controller
             }
         } catch (\Exception $e) {
             Log::error('Honor statistics generation failed: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
             return back()->withErrors(['general' => 'Failed to generate honor statistics. Please try again.']);
         }
     }

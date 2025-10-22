@@ -78,11 +78,20 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedSemester, setSelectedSemester] = useState<string>('');
   const [filteredGradingPeriods, setFilteredGradingPeriods] = useState<GradingPeriod[]>([]);
+
+  // Class Section Reports filtering state
   const [filteredSections, setFilteredSections] = useState<Section[]>([]);
   const [filteredTracks, setFilteredTracks] = useState<Track[]>([]);
   const [filteredStrands, setFilteredStrands] = useState<Strand[]>([]);
   const [filteredDepartments, setFilteredDepartments] = useState<Department[]>([]);
   const [filteredCourses, setFilteredCourses] = useState<Course[]>([]);
+
+  // Honor Statistics filtering state
+  const [filteredSectionsHonor, setFilteredSectionsHonor] = useState<Section[]>([]);
+  const [filteredTracksHonor, setFilteredTracksHonor] = useState<Track[]>([]);
+  const [filteredStrandsHonor, setFilteredStrandsHonor] = useState<Strand[]>([]);
+  const [filteredDepartmentsHonor, setFilteredDepartmentsHonor] = useState<Department[]>([]);
+  const [filteredCoursesHonor, setFilteredCoursesHonor] = useState<Course[]>([]);
 
   // Get CSRF token from Inertia page props
   const { props } = usePage();
@@ -103,6 +112,12 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
     academic_level_id: 'all',
     school_year: currentSchoolYear || schoolYears[0] || '',
     honor_type_id: 'all',
+    year_level: '',
+    track_id: '',
+    strand_id: '',
+    department_id: '',
+    course_id: '',
+    section_id: 'all',
     format: 'pdf',
   });
 
@@ -256,6 +271,100 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
       setFilteredCourses([]);
     }
   }, [sectionData.department_id, courses]);
+
+  // ========== Honor Statistics Filtering useEffect Hooks ==========
+
+  // Filter sections for Honor Statistics based on academic level and cascading filters
+  useEffect(() => {
+    console.log('=== HONOR STATISTICS FILTER TRIGGERED ===');
+    console.log('[HONOR] Academic Level ID:', honorData.academic_level_id);
+    console.log('[HONOR] Year Level:', honorData.year_level);
+    console.log('[HONOR] Track ID:', honorData.track_id);
+    console.log('[HONOR] Strand ID:', honorData.strand_id);
+    console.log('[HONOR] Department ID:', honorData.department_id);
+    console.log('[HONOR] Course ID:', honorData.course_id);
+
+    if (!honorData.academic_level_id || honorData.academic_level_id === 'all') {
+      setFilteredSectionsHonor([]);
+      setFilteredTracksHonor([]);
+      setFilteredStrandsHonor([]);
+      setFilteredDepartmentsHonor([]);
+      setFilteredCoursesHonor([]);
+      return;
+    }
+
+    const levelId = parseInt(honorData.academic_level_id);
+    const selectedLevel = academicLevels.find(level => level.id === levelId);
+
+    console.log('[HONOR] Selected Level:', selectedLevel);
+
+    if (!selectedLevel) {
+      setFilteredSectionsHonor([]);
+      return;
+    }
+
+    // Filter sections based on academic level type
+    let filtered = sections.filter(section => section.academic_level_id === levelId);
+
+    console.log('[HONOR] Sections for level:', filtered);
+
+    // Apply year level filter for all levels
+    if (honorData.year_level) {
+      filtered = filtered.filter(section => section.specific_year_level === honorData.year_level);
+      console.log('[HONOR] After year level filter:', filtered);
+    }
+
+    // SHS-specific filtering
+    if (selectedLevel.key === 'senior_highschool') {
+      if (honorData.track_id) {
+        filtered = filtered.filter(section => section.track_id?.toString() === honorData.track_id);
+        console.log('[HONOR] After track filter:', filtered);
+      }
+      if (honorData.strand_id) {
+        filtered = filtered.filter(section => section.strand_id?.toString() === honorData.strand_id);
+        console.log('[HONOR] After strand filter:', filtered);
+      }
+    }
+
+    // College-specific filtering
+    if (selectedLevel.key === 'college') {
+      if (honorData.department_id) {
+        filtered = filtered.filter(section => section.department_id?.toString() === honorData.department_id);
+        console.log('[HONOR] After department filter:', filtered);
+      }
+      if (honorData.course_id) {
+        filtered = filtered.filter(section => section.course_id?.toString() === honorData.course_id);
+        console.log('[HONOR] After course filter:', filtered);
+      }
+    }
+
+    console.log('[HONOR] Final filtered sections:', filtered);
+    setFilteredSectionsHonor(filtered);
+  }, [honorData.academic_level_id, honorData.year_level, honorData.track_id, honorData.strand_id, honorData.department_id, honorData.course_id, sections, academicLevels]);
+
+  // Filter strands based on selected track (for Honor Statistics SHS)
+  useEffect(() => {
+    if (honorData.track_id) {
+      const trackId = parseInt(honorData.track_id);
+      const filtered = strands.filter(strand => strand.track_id === trackId);
+      console.log('[HONOR] Filtered Strands for Track:', filtered);
+      setFilteredStrandsHonor(filtered);
+    } else {
+      setFilteredStrandsHonor([]);
+    }
+  }, [honorData.track_id, strands]);
+
+  // Filter courses based on selected department (for Honor Statistics College)
+  useEffect(() => {
+    if (honorData.department_id) {
+      const deptId = parseInt(honorData.department_id);
+      const filtered = courses.filter(course => course.department_id === deptId);
+      console.log('[HONOR] Filtered Courses for Department:', filtered);
+      setFilteredCoursesHonor(filtered);
+    } else {
+      setFilteredCoursesHonor([]);
+    }
+  }, [honorData.department_id, courses]);
 
   const handleGradeReport = (e: React.FormEvent) => {
     e.preventDefault();
@@ -637,7 +746,19 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <Label>Academic Level</Label>
-                          <Select value={honorData.academic_level_id} onValueChange={(v) => setHonorData('academic_level_id', v)}>
+                          <Select value={honorData.academic_level_id} onValueChange={(v) => {
+                            console.log('[HONOR] Academic Level Changed:', v);
+                            setHonorData({
+                              ...honorData,
+                              academic_level_id: v,
+                              year_level: '',
+                              track_id: '',
+                              strand_id: '',
+                              department_id: '',
+                              course_id: '',
+                              section_id: 'all',
+                            });
+                          }}>
                             <SelectTrigger><SelectValue placeholder="All levels" /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="all">All Levels</SelectItem>
@@ -660,7 +781,248 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                           </Select>
                         </div>
                       </div>
-                      
+
+                      {/* Cascading Filters based on Academic Level */}
+                      {(() => {
+                        if (!honorData.academic_level_id || honorData.academic_level_id === 'all') return null;
+
+                        const selectedLevel = academicLevels.find(l => l.id.toString() === honorData.academic_level_id);
+                        if (!selectedLevel) return null;
+
+                        const isElementary = selectedLevel.key === 'elementary';
+                        const isJHS = selectedLevel.key === 'junior_highschool';
+                        const isSHS = selectedLevel.key === 'senior_highschool';
+                        const isCollege = selectedLevel.key === 'college';
+
+                        // Elementary and JHS: Year Level → Section
+                        if (isElementary || isJHS) {
+                          const yearLevelOptions = isElementary
+                            ? [
+                                { value: 'grade_1', label: 'Grade 1' },
+                                { value: 'grade_2', label: 'Grade 2' },
+                                { value: 'grade_3', label: 'Grade 3' },
+                                { value: 'grade_4', label: 'Grade 4' },
+                                { value: 'grade_5', label: 'Grade 5' },
+                                { value: 'grade_6', label: 'Grade 6' },
+                              ]
+                            : [
+                                { value: 'grade_7', label: 'Grade 7' },
+                                { value: 'grade_8', label: 'Grade 8' },
+                                { value: 'grade_9', label: 'Grade 9' },
+                                { value: 'grade_10', label: 'Grade 10' },
+                              ];
+
+                          return (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                              <div>
+                                <Label>Year Level</Label>
+                                <Select
+                                  value={honorData.year_level}
+                                  onValueChange={(v) => setHonorData({ ...honorData, year_level: v, section_id: 'all' })}
+                                >
+                                  <SelectTrigger><SelectValue placeholder="All year levels" /></SelectTrigger>
+                                  <SelectContent>
+                                    {yearLevelOptions.map(opt => (
+                                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              <div>
+                                <Label>Section</Label>
+                                <Select
+                                  value={honorData.section_id}
+                                  onValueChange={(v) => setHonorData({ ...honorData, section_id: v })}
+                                >
+                                  <SelectTrigger><SelectValue placeholder="All sections" /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="all">All Sections</SelectItem>
+                                    {filteredSectionsHonor.map(section => (
+                                      <SelectItem key={section.id} value={section.id.toString()}>
+                                        {section.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        // SHS: Year Level → Track → Strand → Section
+                        if (isSHS) {
+                          const shsYearOptions = [
+                            { value: 'grade_11', label: 'Grade 11' },
+                            { value: 'grade_12', label: 'Grade 12' },
+                          ];
+
+                          return (
+                            <div className="space-y-4 mt-4">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <Label>Year Level</Label>
+                                  <Select
+                                    value={honorData.year_level}
+                                    onValueChange={(v) => setHonorData({ ...honorData, year_level: v, track_id: '', strand_id: '', section_id: 'all' })}
+                                  >
+                                    <SelectTrigger><SelectValue placeholder="All year levels" /></SelectTrigger>
+                                    <SelectContent>
+                                      {shsYearOptions.map(opt => (
+                                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                <div>
+                                  <Label>Track</Label>
+                                  <Select
+                                    value={honorData.track_id}
+                                    onValueChange={(v) => setHonorData({ ...honorData, track_id: v, strand_id: '', section_id: 'all' })}
+                                  >
+                                    <SelectTrigger><SelectValue placeholder="All tracks" /></SelectTrigger>
+                                    <SelectContent>
+                                      {tracks.map(track => (
+                                        <SelectItem key={track.id} value={track.id.toString()}>
+                                          {track.name} ({track.code})
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <Label>Strand</Label>
+                                  <Select
+                                    value={honorData.strand_id}
+                                    onValueChange={(v) => setHonorData({ ...honorData, strand_id: v, section_id: 'all' })}
+                                    disabled={!honorData.track_id}
+                                  >
+                                    <SelectTrigger><SelectValue placeholder={honorData.track_id ? "All strands" : "Select track first"} /></SelectTrigger>
+                                    <SelectContent>
+                                      {filteredStrandsHonor.map(strand => (
+                                        <SelectItem key={strand.id} value={strand.id.toString()}>
+                                          {strand.name} ({strand.code})
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                <div>
+                                  <Label>Section</Label>
+                                  <Select
+                                    value={honorData.section_id}
+                                    onValueChange={(v) => setHonorData({ ...honorData, section_id: v })}
+                                  >
+                                    <SelectTrigger><SelectValue placeholder="All sections" /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="all">All Sections</SelectItem>
+                                      {filteredSectionsHonor.map(section => (
+                                        <SelectItem key={section.id} value={section.id.toString()}>
+                                          {section.name}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        // College: Year Level → Department → Course → Section
+                        if (isCollege) {
+                          const collegeYearOptions = [
+                            { value: '1st_year', label: '1st Year' },
+                            { value: '2nd_year', label: '2nd Year' },
+                            { value: '3rd_year', label: '3rd Year' },
+                            { value: '4th_year', label: '4th Year' },
+                          ];
+
+                          return (
+                            <div className="space-y-4 mt-4">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <Label>Year Level</Label>
+                                  <Select
+                                    value={honorData.year_level}
+                                    onValueChange={(v) => setHonorData({ ...honorData, year_level: v, department_id: '', course_id: '', section_id: 'all' })}
+                                  >
+                                    <SelectTrigger><SelectValue placeholder="All year levels" /></SelectTrigger>
+                                    <SelectContent>
+                                      {collegeYearOptions.map(opt => (
+                                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                <div>
+                                  <Label>Department</Label>
+                                  <Select
+                                    value={honorData.department_id}
+                                    onValueChange={(v) => setHonorData({ ...honorData, department_id: v, course_id: '', section_id: 'all' })}
+                                  >
+                                    <SelectTrigger><SelectValue placeholder="All departments" /></SelectTrigger>
+                                    <SelectContent>
+                                      {departments.map(dept => (
+                                        <SelectItem key={dept.id} value={dept.id.toString()}>
+                                          {dept.name} ({dept.code})
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <Label>Course</Label>
+                                  <Select
+                                    value={honorData.course_id}
+                                    onValueChange={(v) => setHonorData({ ...honorData, course_id: v, section_id: 'all' })}
+                                    disabled={!honorData.department_id}
+                                  >
+                                    <SelectTrigger><SelectValue placeholder={honorData.department_id ? "All courses" : "Select department first"} /></SelectTrigger>
+                                    <SelectContent>
+                                      {filteredCoursesHonor.map(course => (
+                                        <SelectItem key={course.id} value={course.id.toString()}>
+                                          {course.name} ({course.code})
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                <div>
+                                  <Label>Section</Label>
+                                  <Select
+                                    value={honorData.section_id}
+                                    onValueChange={(v) => setHonorData({ ...honorData, section_id: v })}
+                                  >
+                                    <SelectTrigger><SelectValue placeholder="All sections" /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="all">All Sections</SelectItem>
+                                      {filteredSectionsHonor.map(section => (
+                                        <SelectItem key={section.id} value={section.id.toString()}>
+                                          {section.name}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        return null;
+                      })()}
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <Label>School Year</Label>
