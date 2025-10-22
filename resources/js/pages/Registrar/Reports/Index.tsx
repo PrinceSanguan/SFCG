@@ -136,6 +136,13 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
     const [filteredDepartmentsGrade, setFilteredDepartmentsGrade] = useState<Department[]>([]);
     const [filteredCoursesGrade, setFilteredCoursesGrade] = useState<Course[]>([]);
 
+    // Archive filtering state (separate to avoid conflicts)
+    const [filteredSectionsArchive, setFilteredSectionsArchive] = useState<Section[]>([]);
+    const [filteredTracksArchive, setFilteredTracksArchive] = useState<Track[]>([]);
+    const [filteredStrandsArchive, setFilteredStrandsArchive] = useState<Strand[]>([]);
+    const [filteredDepartmentsArchive, setFilteredDepartmentsArchive] = useState<Department[]>([]);
+    const [filteredCoursesArchive, setFilteredCoursesArchive] = useState<Course[]>([]);
+
     // Get CSRF token from Inertia page props
     const { props } = usePage();
     const csrfToken = (props as any).csrf_token || document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '';
@@ -174,6 +181,12 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
     const { data: archiveData, setData: setArchiveData, processing: archiveProcessing } = useForm({
         academic_level_id: '',
         school_year: schoolYears[0] || '',
+        year_level: '',
+        track_id: '',
+        strand_id: '',
+        department_id: '',
+        course_id: '',
+        section_id: 'all',
         include_grades: '1',
         include_honors: '1',
         include_certificates: '1',
@@ -449,6 +462,112 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
             setFilteredCoursesGrade([]);
         }
     }, [gradeData.department_id, courses]);
+
+    // ===== Archive Records Filtering =====
+
+    // Filter sections, tracks, departments for Archive based on academic level
+    useEffect(() => {
+        console.log('=== [REGISTRAR] ARCHIVE FILTER TRIGGERED ===');
+        console.log('[REGISTRAR ARCHIVE] Academic Level ID:', archiveData.academic_level_id);
+
+        if (!archiveData.academic_level_id) {
+            setFilteredSectionsArchive([]);
+            setFilteredTracksArchive([]);
+            setFilteredStrandsArchive([]);
+            setFilteredDepartmentsArchive([]);
+            setFilteredCoursesArchive([]);
+            return;
+        }
+
+        const levelId = parseInt(archiveData.academic_level_id);
+        const selectedLevel = academicLevels.find(level => level.id === levelId);
+
+        if (!selectedLevel) {
+            console.log('[REGISTRAR ARCHIVE] Selected level not found');
+            return;
+        }
+
+        console.log('[REGISTRAR ARCHIVE] Selected Level:', selectedLevel.name, selectedLevel.key);
+
+        // Filter sections by academic level first
+        let filtered = sections.filter(section => section.academic_level_id === levelId);
+        console.log('[REGISTRAR ARCHIVE] Sections for level:', filtered.length);
+
+        // Apply cascading filters based on academic level type
+        if (selectedLevel.key === 'senior_highschool') {
+            console.log('[REGISTRAR ARCHIVE] Processing SHS filters');
+            setFilteredTracksArchive(tracks);
+
+            if (archiveData.track_id) {
+                console.log('[REGISTRAR ARCHIVE] Filtering by Track ID:', archiveData.track_id);
+                filtered = filtered.filter(section => section.track_id?.toString() === archiveData.track_id);
+            }
+
+            if (archiveData.strand_id) {
+                console.log('[REGISTRAR ARCHIVE] Filtering by Strand ID:', archiveData.strand_id);
+                filtered = filtered.filter(section => section.strand_id?.toString() === archiveData.strand_id);
+            }
+
+            if (archiveData.year_level) {
+                console.log('[REGISTRAR ARCHIVE] Filtering by Year Level:', archiveData.year_level);
+                filtered = filtered.filter(section => section.specific_year_level === archiveData.year_level);
+            }
+        }
+
+        if (selectedLevel.key === 'college') {
+            console.log('[REGISTRAR ARCHIVE] Processing College filters');
+            setFilteredDepartmentsArchive(departments);
+
+            if (archiveData.department_id) {
+                console.log('[REGISTRAR ARCHIVE] Filtering by Department ID:', archiveData.department_id);
+                filtered = filtered.filter(section => section.department_id?.toString() === archiveData.department_id);
+            }
+
+            if (archiveData.course_id) {
+                console.log('[REGISTRAR ARCHIVE] Filtering by Course ID:', archiveData.course_id);
+                filtered = filtered.filter(section => section.course_id?.toString() === archiveData.course_id);
+            }
+
+            if (archiveData.year_level) {
+                console.log('[REGISTRAR ARCHIVE] Filtering by Year Level:', archiveData.year_level);
+                filtered = filtered.filter(section => section.specific_year_level === archiveData.year_level);
+            }
+        }
+
+        if (selectedLevel.key === 'elementary' || selectedLevel.key === 'junior_highschool') {
+            console.log('[REGISTRAR ARCHIVE] Processing Elementary/JHS filters');
+
+            if (archiveData.year_level) {
+                console.log('[REGISTRAR ARCHIVE] Filtering by Year Level:', archiveData.year_level);
+                filtered = filtered.filter(section => section.specific_year_level === archiveData.year_level);
+            }
+        }
+
+        console.log('[REGISTRAR ARCHIVE] Final filtered sections:', filtered.length);
+        setFilteredSectionsArchive(filtered);
+    }, [archiveData.academic_level_id, archiveData.year_level, archiveData.track_id, archiveData.strand_id, archiveData.department_id, archiveData.course_id, sections, academicLevels, tracks, departments]);
+
+    // Filter strands based on selected track (for Archive SHS)
+    useEffect(() => {
+        if (archiveData.track_id) {
+            const trackId = parseInt(archiveData.track_id);
+            const filtered = strands.filter(strand => strand.track_id === trackId);
+            setFilteredStrandsArchive(filtered);
+        } else {
+            setFilteredStrandsArchive([]);
+        }
+    }, [archiveData.track_id, strands]);
+
+    // Filter courses based on selected department (for Archive College)
+    useEffect(() => {
+        if (archiveData.department_id) {
+            const deptId = parseInt(archiveData.department_id);
+            const filtered = courses.filter(course => course.department_id === deptId);
+            setFilteredCoursesArchive(filtered);
+        } else {
+            setFilteredCoursesArchive([]);
+        }
+    }, [archiveData.department_id, courses]);
 
     const handleGradeReport = (e: React.FormEvent) => {
         e.preventDefault();
@@ -1506,7 +1625,19 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                     <Label htmlFor="archive_academic_level">Academic Level</Label>
                                                     <Select
                                                         value={archiveData.academic_level_id}
-                                                        onValueChange={(value) => setArchiveData('academic_level_id', value)}
+                                                        onValueChange={(value) => {
+                                                            console.log('[REGISTRAR ARCHIVE] Academic Level Changed:', value);
+                                                            setArchiveData({
+                                                                ...archiveData,
+                                                                academic_level_id: value,
+                                                                year_level: '',
+                                                                track_id: '',
+                                                                strand_id: '',
+                                                                department_id: '',
+                                                                course_id: '',
+                                                                section_id: 'all',
+                                                            });
+                                                        }}
                                                     >
                                                         <SelectTrigger>
                                                             <SelectValue placeholder="Select academic level" />
@@ -1540,6 +1671,324 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                     </Select>
                                                 </div>
                                             </div>
+
+                                            {/* Cascading Filters - Archive Records */}
+                                            {(() => {
+                                                if (!archiveData.academic_level_id) {
+                                                    return null;
+                                                }
+
+                                                const levelId = parseInt(archiveData.academic_level_id);
+                                                const selectedLevel = academicLevels.find(level => level.id === levelId);
+
+                                                if (!selectedLevel) return null;
+
+                                                const isElementary = selectedLevel.key === 'elementary';
+                                                const isJHS = selectedLevel.key === 'junior_highschool';
+                                                const isSHS = selectedLevel.key === 'senior_highschool';
+                                                const isCollege = selectedLevel.key === 'college';
+
+                                                console.log('[REGISTRAR ARCHIVE] Rendering cascading filters for:', selectedLevel.key);
+
+                                                // Elementary & JHS: Year Level → Section
+                                                if (isElementary || isJHS) {
+                                                    const yearLevelOptions = isElementary
+                                                        ? [
+                                                            { value: 'grade_1', label: 'Grade 1' },
+                                                            { value: 'grade_2', label: 'Grade 2' },
+                                                            { value: 'grade_3', label: 'Grade 3' },
+                                                            { value: 'grade_4', label: 'Grade 4' },
+                                                            { value: 'grade_5', label: 'Grade 5' },
+                                                            { value: 'grade_6', label: 'Grade 6' },
+                                                        ]
+                                                        : [
+                                                            { value: 'grade_7', label: 'Grade 7' },
+                                                            { value: 'grade_8', label: 'Grade 8' },
+                                                            { value: 'grade_9', label: 'Grade 9' },
+                                                            { value: 'grade_10', label: 'Grade 10' },
+                                                        ];
+
+                                                    return (
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                                            <div className="space-y-2">
+                                                                <Label>Year Level</Label>
+                                                                <Select
+                                                                    value={archiveData.year_level}
+                                                                    onValueChange={(value) => {
+                                                                        console.log('[REGISTRAR ARCHIVE] Year Level Changed:', value);
+                                                                        setArchiveData({
+                                                                            ...archiveData,
+                                                                            year_level: value,
+                                                                            section_id: 'all'
+                                                                        });
+                                                                    }}
+                                                                >
+                                                                    <SelectTrigger>
+                                                                        <SelectValue placeholder="All year levels" />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        <SelectItem value="">All Year Levels</SelectItem>
+                                                                        {yearLevelOptions.map(opt => (
+                                                                            <SelectItem key={opt.value} value={opt.value}>
+                                                                                {opt.label}
+                                                                            </SelectItem>
+                                                                        ))}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            </div>
+
+                                                            <div className="space-y-2">
+                                                                <Label>Section</Label>
+                                                                <Select
+                                                                    value={archiveData.section_id}
+                                                                    onValueChange={(value) => {
+                                                                        console.log('[REGISTRAR ARCHIVE] Section Changed:', value);
+                                                                        setArchiveData({ ...archiveData, section_id: value });
+                                                                    }}
+                                                                >
+                                                                    <SelectTrigger>
+                                                                        <SelectValue placeholder="All sections" />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        <SelectItem value="all">All Sections</SelectItem>
+                                                                        {filteredSectionsArchive.map(section => (
+                                                                            <SelectItem key={section.id} value={section.id.toString()}>
+                                                                                {section.name}
+                                                                            </SelectItem>
+                                                                        ))}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                // SHS: Year Level → Track → Strand → Section
+                                                if (isSHS) {
+                                                    return (
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                                            <div className="space-y-2">
+                                                                <Label>Year Level</Label>
+                                                                <Select
+                                                                    value={archiveData.year_level}
+                                                                    onValueChange={(value) => {
+                                                                        console.log('[REGISTRAR ARCHIVE] Year Level Changed:', value);
+                                                                        setArchiveData({
+                                                                            ...archiveData,
+                                                                            year_level: value,
+                                                                            track_id: '',
+                                                                            strand_id: '',
+                                                                            section_id: 'all'
+                                                                        });
+                                                                    }}
+                                                                >
+                                                                    <SelectTrigger>
+                                                                        <SelectValue placeholder="All year levels" />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        <SelectItem value="">All Year Levels</SelectItem>
+                                                                        <SelectItem value="grade_11">Grade 11</SelectItem>
+                                                                        <SelectItem value="grade_12">Grade 12</SelectItem>
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            </div>
+
+                                                            <div className="space-y-2">
+                                                                <Label>Track</Label>
+                                                                <Select
+                                                                    value={archiveData.track_id}
+                                                                    onValueChange={(value) => {
+                                                                        console.log('[REGISTRAR ARCHIVE] Track Changed:', value);
+                                                                        setArchiveData({
+                                                                            ...archiveData,
+                                                                            track_id: value,
+                                                                            strand_id: '',
+                                                                            section_id: 'all'
+                                                                        });
+                                                                    }}
+                                                                >
+                                                                    <SelectTrigger>
+                                                                        <SelectValue placeholder="All tracks" />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        <SelectItem value="">All Tracks</SelectItem>
+                                                                        {filteredTracksArchive.map(track => (
+                                                                            <SelectItem key={track.id} value={track.id.toString()}>
+                                                                                {track.name}
+                                                                            </SelectItem>
+                                                                        ))}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            </div>
+
+                                                            <div className="space-y-2">
+                                                                <Label>Strand</Label>
+                                                                <Select
+                                                                    value={archiveData.strand_id}
+                                                                    onValueChange={(value) => {
+                                                                        console.log('[REGISTRAR ARCHIVE] Strand Changed:', value);
+                                                                        setArchiveData({
+                                                                            ...archiveData,
+                                                                            strand_id: value,
+                                                                            section_id: 'all'
+                                                                        });
+                                                                    }}
+                                                                >
+                                                                    <SelectTrigger>
+                                                                        <SelectValue placeholder="All strands" />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        <SelectItem value="">All Strands</SelectItem>
+                                                                        {filteredStrandsArchive.map(strand => (
+                                                                            <SelectItem key={strand.id} value={strand.id.toString()}>
+                                                                                {strand.name}
+                                                                            </SelectItem>
+                                                                        ))}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            </div>
+
+                                                            <div className="space-y-2">
+                                                                <Label>Section</Label>
+                                                                <Select
+                                                                    value={archiveData.section_id}
+                                                                    onValueChange={(value) => {
+                                                                        console.log('[REGISTRAR ARCHIVE] Section Changed:', value);
+                                                                        setArchiveData({ ...archiveData, section_id: value });
+                                                                    }}
+                                                                >
+                                                                    <SelectTrigger>
+                                                                        <SelectValue placeholder="All sections" />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        <SelectItem value="all">All Sections</SelectItem>
+                                                                        {filteredSectionsArchive.map(section => (
+                                                                            <SelectItem key={section.id} value={section.id.toString()}>
+                                                                                {section.name}
+                                                                            </SelectItem>
+                                                                        ))}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                // College: Year Level → Department → Course → Section
+                                                if (isCollege) {
+                                                    return (
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                                            <div className="space-y-2">
+                                                                <Label>Year Level</Label>
+                                                                <Select
+                                                                    value={archiveData.year_level}
+                                                                    onValueChange={(value) => {
+                                                                        console.log('[REGISTRAR ARCHIVE] Year Level Changed:', value);
+                                                                        setArchiveData({
+                                                                            ...archiveData,
+                                                                            year_level: value,
+                                                                            department_id: '',
+                                                                            course_id: '',
+                                                                            section_id: 'all'
+                                                                        });
+                                                                    }}
+                                                                >
+                                                                    <SelectTrigger>
+                                                                        <SelectValue placeholder="All year levels" />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        <SelectItem value="">All Year Levels</SelectItem>
+                                                                        <SelectItem value="1st_year">1st Year</SelectItem>
+                                                                        <SelectItem value="2nd_year">2nd Year</SelectItem>
+                                                                        <SelectItem value="3rd_year">3rd Year</SelectItem>
+                                                                        <SelectItem value="4th_year">4th Year</SelectItem>
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            </div>
+
+                                                            <div className="space-y-2">
+                                                                <Label>Department</Label>
+                                                                <Select
+                                                                    value={archiveData.department_id}
+                                                                    onValueChange={(value) => {
+                                                                        console.log('[REGISTRAR ARCHIVE] Department Changed:', value);
+                                                                        setArchiveData({
+                                                                            ...archiveData,
+                                                                            department_id: value,
+                                                                            course_id: '',
+                                                                            section_id: 'all'
+                                                                        });
+                                                                    }}
+                                                                >
+                                                                    <SelectTrigger>
+                                                                        <SelectValue placeholder="All departments" />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        <SelectItem value="">All Departments</SelectItem>
+                                                                        {filteredDepartmentsArchive.map(dept => (
+                                                                            <SelectItem key={dept.id} value={dept.id.toString()}>
+                                                                                {dept.name}
+                                                                            </SelectItem>
+                                                                        ))}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            </div>
+
+                                                            <div className="space-y-2">
+                                                                <Label>Course</Label>
+                                                                <Select
+                                                                    value={archiveData.course_id}
+                                                                    onValueChange={(value) => {
+                                                                        console.log('[REGISTRAR ARCHIVE] Course Changed:', value);
+                                                                        setArchiveData({
+                                                                            ...archiveData,
+                                                                            course_id: value,
+                                                                            section_id: 'all'
+                                                                        });
+                                                                    }}
+                                                                >
+                                                                    <SelectTrigger>
+                                                                        <SelectValue placeholder="All courses" />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        <SelectItem value="">All Courses</SelectItem>
+                                                                        {filteredCoursesArchive.map(course => (
+                                                                            <SelectItem key={course.id} value={course.id.toString()}>
+                                                                                {course.name}
+                                                                            </SelectItem>
+                                                                        ))}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            </div>
+
+                                                            <div className="space-y-2">
+                                                                <Label>Section</Label>
+                                                                <Select
+                                                                    value={archiveData.section_id}
+                                                                    onValueChange={(value) => {
+                                                                        console.log('[REGISTRAR ARCHIVE] Section Changed:', value);
+                                                                        setArchiveData({ ...archiveData, section_id: value });
+                                                                    }}
+                                                                >
+                                                                    <SelectTrigger>
+                                                                        <SelectValue placeholder="All sections" />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        <SelectItem value="all">All Sections</SelectItem>
+                                                                        {filteredSectionsArchive.map(section => (
+                                                                            <SelectItem key={section.id} value={section.id.toString()}>
+                                                                                {section.name}
+                                                                            </SelectItem>
+                                                                        ))}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                return null;
+                                            })()}
 
                                             <div className="space-y-2">
                                                 <Label>Include in Archive</Label>
