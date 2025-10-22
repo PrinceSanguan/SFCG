@@ -28,7 +28,18 @@ class HonorTrackingController extends Controller
 
         $academicLevels = $assignments->pluck('academicLevel')->filter()->unique('id')->values();
         $academicLevelIds = $academicLevels->pluck('id');
-        $honorTypes = HonorType::all();
+
+        // Only show Basic Education honor types (With Honors, With High Honors, With Highest Honors)
+        // Filter OUT college-only honors (Dean's List, Cum Laude, Magna Cum Laude, Summa Cum Laude, College Honors)
+        $honorTypes = HonorType::where('scope', 'basic')->get();
+
+        Log::info('[Teacher] Honor Tracking Index - Honor Types Filtered', [
+            'total_honor_types' => $honorTypes->count(),
+            'honor_types' => $honorTypes->pluck('name', 'key')->toArray(),
+            'scope' => 'basic',
+            'user_id' => $user->id,
+            'user_role' => $user->user_role,
+        ]);
 
         // Get honor statistics for teacher's assigned academic levels
         $allHonorResults = HonorResult::with(['student', 'honorType', 'academicLevel'])
@@ -131,7 +142,19 @@ class HonorTrackingController extends Controller
         });
 
         $groupedResults = $transformedResults->groupBy('honorType.id');
-        $honorTypes = HonorType::all();
+
+        // Only show Basic Education honor types (With Honors, With High Honors, With Highest Honors)
+        // Filter OUT college-only honors (Dean's List, Cum Laude, Magna Cum Laude, Summa Cum Laude, College Honors)
+        $honorTypes = HonorType::where('scope', 'basic')->get();
+
+        Log::info('[Teacher] Honor Tracking ShowByLevel - Honor Types Filtered', [
+            'total_honor_types' => $honorTypes->count(),
+            'honor_types' => $honorTypes->pluck('name', 'key')->toArray(),
+            'scope' => 'basic',
+            'academic_level_id' => $academicLevel->id,
+            'academic_level_name' => $academicLevel->name,
+            'user_id' => $user->id,
+        ]);
 
         // Calculate statistics for this level
         $levelStats = [
