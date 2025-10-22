@@ -311,21 +311,38 @@ export default function Grading({ user, gradingPeriods, academicLevels, periodTy
                                     {/* Show parent semester selection for quarters - only for Senior High and College */}
                                     {data.type === 'quarter' && shouldShowSemesterSelection(parseInt(data.academic_level_id)) && (
                                         <div>
-                                            <Label htmlFor="parent_id">Which Semester?</Label>
-                                            <Select value={data.parent_id?.toString() || ''} onValueChange={(value) => setData('parent_id', value ? parseInt(value) : null)}>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select parent semester" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {getParentPeriodOptions(parseInt(data.academic_level_id)).map((option) => (
-                                                        <SelectItem key={option.value} value={option.value}>
-                                                            {option.label}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <Label htmlFor="parent_id">Which Semester? (Optional)</Label>
+                                            {(() => {
+                                                const semesterOptions = getParentPeriodOptions(parseInt(data.academic_level_id));
+                                                return semesterOptions.length > 0 ? (
+                                                    <>
+                                                        <Select value={data.parent_id?.toString() || ''} onValueChange={(value) => setData('parent_id', value ? parseInt(value) : null)}>
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder="Select parent semester" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {semesterOptions.map((option) => (
+                                                                    <SelectItem key={option.value} value={option.value}>
+                                                                        {option.label}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                        <p className="text-xs text-muted-foreground mt-1">
+                                                            Select a semester if this quarter belongs to one
+                                                        </p>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-md text-sm text-amber-800 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-200">
+                                                            <p className="font-medium">No semesters available</p>
+                                                            <p className="mt-1">To create quarters under a semester, you need to create a semester first. Change the "Type" to "Semester" to create one.</p>
+                                                        </div>
+                                                    </>
+                                                );
+                                            })()}
                                             {formErrors?.parent_id && (
-                                                <Alert variant="destructive">
+                                                <Alert variant="destructive" className="mt-2">
                                                     <AlertDescription>{formErrors.parent_id}</AlertDescription>
                                                 </Alert>
                                             )}

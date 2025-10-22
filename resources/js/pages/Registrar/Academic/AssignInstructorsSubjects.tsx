@@ -64,8 +64,16 @@ interface Section {
     id: number;
     name: string;
     code: string;
-    course_id: number;
+    course_id?: number | null;
     specific_year_level?: string | null;
+    academic_level_id?: number;
+    department_id?: number | null;
+    track_id?: number | null;
+    strand_id?: number | null;
+    department?: { id: number; name: string; code: string } | null;
+    course?: { id: number; name: string; code: string } | null;
+    track?: { id: number; name: string; code: string } | null;
+    strand?: { id: number; name: string; code: string } | null;
 }
 
 interface InstructorSubjectAssignment {
@@ -108,8 +116,15 @@ export default function AssignInstructorsSubjects({
 }: Props) {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedAcademicLevel, setSelectedAcademicLevel] = useState<string>('');
+    const [selectedYearLevel, setSelectedYearLevel] = useState<string>('');
+    const [selectedDepartmentOrTrack, setSelectedDepartmentOrTrack] = useState<string>('');
+    const [selectedCourseOrStrand, setSelectedCourseOrStrand] = useState<string>('');
     const [filteredSubjects, setFilteredSubjects] = useState<Subject[]>([]);
     const [filteredSections, setFilteredSections] = useState<Section[]>([]);
+    const [availableDepartments, setAvailableDepartments] = useState<any[]>([]);
+    const [availableCourses, setAvailableCourses] = useState<any[]>([]);
+    const [availableTracks, setAvailableTracks] = useState<any[]>([]);
+    const [availableStrands, setAvailableStrands] = useState<any[]>([]);
     const [showAssignmentModal, setShowAssignmentModal] = useState(false);
     const [editingAssignment, setEditingAssignment] = useState<InstructorSubjectAssignment | null>(null);
     const [formData, setFormData] = useState({
@@ -123,46 +138,212 @@ export default function AssignInstructorsSubjects({
         auto_enroll_students: true,
     });
 
-    // Filter subjects based on selected academic level
+    // Extract unique departments, courses, tracks, and strands based on academic level and year level
     useEffect(() => {
-        if (selectedAcademicLevel) {
-            const filtered = subjects.filter(subject =>
-                subject.academic_level_id.toString() === selectedAcademicLevel
-            );
-            setFilteredSubjects(filtered);
-        } else {
-            setFilteredSubjects([]);
+        if (!selectedAcademicLevel) {
+            setAvailableDepartments([]);
+            setAvailableCourses([]);
+            setAvailableTracks([]);
+            setAvailableStrands([]);
+            return;
         }
-    }, [selectedAcademicLevel, subjects]);
 
-    // Filter sections based on selected subject's course and year level
-    useEffect(() => {
-        if (formData.subject_id) {
-            const selectedSubject = subjects.find(s => s.id.toString() === formData.subject_id);
-            if (selectedSubject && selectedSubject.course_id) {
-                // Determine the year level to filter by
-                const yearLevel = selectedSubject.shs_year_level || selectedSubject.jhs_year_level || selectedSubject.selected_grade_level;
+        const academicLevelId = parseInt(selectedAcademicLevel);
+        const selectedLevel = academicLevels.find(level => level.id === academicLevelId);
 
-                const filtered = sections.filter(section => {
-                    const matchesCourse = section.course_id === selectedSubject.course_id;
+        if (!selectedLevel) return;
 
-                    // If subject has year level and section has year level, they must match
-                    if (yearLevel && section.specific_year_level) {
-                        return matchesCourse && section.specific_year_level === yearLevel;
-                    }
+        // Filter sections by academic level and optionally by year level
+        let relevantSections = sections.filter(section => section.academic_level_id === academicLevelId);
+        if (selectedYearLevel) {
+            relevantSections = relevantSections.filter(section => section.specific_year_level === selectedYearLevel);
+        }
 
-                    // Otherwise, just filter by course
-                    return matchesCourse;
-                });
+        // Extract unique values based on academic level type
+        if (selectedLevel.key === 'college') {
+            // Extract unique departments
+            const deptMap = new Map();
+            relevantSections.forEach(section => {
+                if (section.department && section.department_id) {
+                    deptMap.set(section.department_id, section.department);
+                }
+            });
+            setAvailableDepartments(Array.from(deptMap.values()));
 
-                setFilteredSections(filtered);
+            // Extract unique courses filtered by selected department
+            if (selectedDepartmentOrTrack) {
+                const courseMap = new Map();
+                relevantSections
+                    .filter(section => section.department_id?.toString() === selectedDepartmentOrTrack)
+                    .forEach(section => {
+                        if (section.course && section.course_id) {
+                            courseMap.set(section.course_id, section.course);
+                        }
+                    });
+                setAvailableCourses(Array.from(courseMap.values()));
             } else {
-                setFilteredSections([]);
+                setAvailableCourses([]);
             }
-        } else {
-            setFilteredSections([]);
+        } else if (selectedLevel.key === 'senior_highschool') {
+            // Extract unique tracks
+            const trackMap = new Map();
+            relevantSections.forEach(section => {
+                if (section.track && section.track_id) {
+                    trackMap.set(section.track_id, section.track);
+                }
+            });
+            setAvailableTracks(Array.from(trackMap.values()));
+
+            // Extract unique strands filtered by selected track
+            if (selectedDepartmentOrTrack) {
+                const strandMap = new Map();
+                relevantSections
+                    .filter(section => section.track_id?.toString() === selectedDepartmentOrTrack)
+                    .forEach(section => {
+                        if (section.strand && section.strand_id) {
+                            strandMap.set(section.strand_id, section.strand);
+                        }
+                    });
+                setAvailableStrands(Array.from(strandMap.values()));
+            } else {
+                setAvailableStrands([]);
+            }
         }
-    }, [formData.subject_id, subjects, sections]);
+    }, [selectedAcademicLevel, selectedYearLevel, selectedDepartmentOrTrack, sections, academicLevels]);
+
+    // Filter sections based on cascading selections: year level → department/track → course/strand
+    useEffect(() => {
+        if (!selectedAcademicLevel) {
+            setFilteredSections([]);
+            return;
+        }
+
+        const academicLevelId = parseInt(selectedAcademicLevel);
+        const selectedLevel = academicLevels.find(level => level.id === academicLevelId);
+
+        if (!selectedLevel) {
+            setFilteredSections([]);
+            return;
+        }
+
+        // Start with sections for the selected academic level
+        let filtered = sections.filter(section => section.academic_level_id === academicLevelId);
+
+        // Filter by year level if selected
+        if (selectedYearLevel) {
+            filtered = filtered.filter(section => section.specific_year_level === selectedYearLevel);
+        }
+
+        // For College: filter by department and course
+        if (selectedLevel.key === 'college') {
+            if (selectedDepartmentOrTrack) {
+                const deptId = parseInt(selectedDepartmentOrTrack);
+                filtered = filtered.filter(section => section.department_id === deptId);
+            }
+            if (selectedCourseOrStrand) {
+                const courseId = parseInt(selectedCourseOrStrand);
+                filtered = filtered.filter(section => section.course_id === courseId);
+            }
+        }
+
+        // For SHS: filter by track and strand
+        if (selectedLevel.key === 'senior_highschool') {
+            if (selectedDepartmentOrTrack) {
+                const trackId = parseInt(selectedDepartmentOrTrack);
+                filtered = filtered.filter(section => section.track_id === trackId);
+            }
+            if (selectedCourseOrStrand) {
+                const strandId = parseInt(selectedCourseOrStrand);
+                filtered = filtered.filter(section => section.strand_id === strandId);
+            }
+        }
+
+        console.log('Filtered sections:', filtered);
+        setFilteredSections(filtered);
+    }, [selectedAcademicLevel, selectedYearLevel, selectedDepartmentOrTrack, selectedCourseOrStrand, sections, academicLevels]);
+
+    // Filter subjects based on selected section (subjects should only show after section is selected)
+    useEffect(() => {
+        if (!formData.section_id || !selectedAcademicLevel) {
+            setFilteredSubjects([]);
+            return;
+        }
+
+        const selectedSection = sections.find(s => s.id.toString() === formData.section_id);
+        if (!selectedSection) {
+            setFilteredSubjects([]);
+            return;
+        }
+
+        const academicLevelId = parseInt(selectedAcademicLevel);
+        const selectedLevel = academicLevels.find(level => level.id === academicLevelId);
+
+        if (!selectedLevel) {
+            setFilteredSubjects([]);
+            return;
+        }
+
+        // Filter subjects based on the selected section's properties
+        let filtered = subjects.filter(subject =>
+            subject.academic_level_id === academicLevelId
+        );
+
+        // For College: filter by course and year level
+        if (selectedLevel.key === 'college' && selectedSection.course_id) {
+            filtered = filtered.filter(subject => {
+                const matchesCourse = subject.course_id === selectedSection.course_id;
+                const collegeYearLevel = (subject as any).college_year_level;
+
+                if (collegeYearLevel && selectedSection.specific_year_level) {
+                    return matchesCourse && collegeYearLevel === selectedSection.specific_year_level;
+                }
+
+                return matchesCourse;
+            });
+        }
+
+        // For SHS: filter by strand and year level
+        if (selectedLevel.key === 'senior_highschool') {
+            filtered = filtered.filter(subject => {
+                const subjectYearLevel = subject.shs_year_level;
+
+                if (subjectYearLevel && selectedSection.specific_year_level) {
+                    return subjectYearLevel === selectedSection.specific_year_level;
+                }
+
+                return true;
+            });
+        }
+
+        // For JHS: filter by year level
+        if (selectedLevel.key === 'junior_highschool') {
+            filtered = filtered.filter(subject => {
+                const subjectYearLevel = subject.jhs_year_level;
+
+                if (subjectYearLevel && selectedSection.specific_year_level) {
+                    return subjectYearLevel === selectedSection.specific_year_level;
+                }
+
+                return true;
+            });
+        }
+
+        // For Elementary: filter by year level
+        if (selectedLevel.key === 'elementary') {
+            filtered = filtered.filter(subject => {
+                const subjectYearLevel = subject.selected_grade_level;
+
+                if (subjectYearLevel && selectedSection.specific_year_level) {
+                    return subjectYearLevel === selectedSection.specific_year_level;
+                }
+
+                return true;
+            });
+        }
+
+        console.log('Filtered subjects:', filtered);
+        setFilteredSubjects(filtered);
+    }, [formData.section_id, selectedAcademicLevel, subjects, sections, academicLevels]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -187,6 +368,10 @@ export default function AssignInstructorsSubjects({
 
     const handleEdit = (assignment: InstructorSubjectAssignment) => {
         setEditingAssignment(assignment);
+
+        // Get the section to extract year level and other properties
+        const section = sections.find(s => s.id === assignment.section_id);
+
         setFormData({
             instructor_id: assignment.instructor_id.toString(),
             subject_id: assignment.subject_id.toString(),
@@ -198,6 +383,22 @@ export default function AssignInstructorsSubjects({
             auto_enroll_students: assignment.auto_enroll_students || true,
         });
         setSelectedAcademicLevel(assignment.academic_level_id.toString());
+
+        // Set the cascading selections based on the section
+        if (section) {
+            setSelectedYearLevel(section.specific_year_level || '');
+            if (section.department_id) {
+                setSelectedDepartmentOrTrack(section.department_id.toString());
+            } else if (section.track_id) {
+                setSelectedDepartmentOrTrack(section.track_id.toString());
+            }
+            if (section.course_id) {
+                setSelectedCourseOrStrand(section.course_id.toString());
+            } else if (section.strand_id) {
+                setSelectedCourseOrStrand(section.strand_id.toString());
+            }
+        }
+
         setShowAssignmentModal(true);
     };
 
@@ -219,7 +420,11 @@ export default function AssignInstructorsSubjects({
             auto_enroll_students: true,
         });
         setSelectedAcademicLevel('');
+        setSelectedYearLevel('');
+        setSelectedDepartmentOrTrack('');
+        setSelectedCourseOrStrand('');
         setFilteredSections([]);
+        setFilteredSubjects([]);
         setEditingAssignment(null);
     };
 

@@ -65,8 +65,16 @@ interface Section {
     id: number;
     name: string;
     code: string;
-    course_id: number;
+    course_id?: number | null;
     specific_year_level?: string | null;
+    academic_level_id?: number;
+    department_id?: number | null;
+    track_id?: number | null;
+    strand_id?: number | null;
+    department?: { id: number; name: string; code: string } | null;
+    course?: { id: number; name: string; code: string } | null;
+    track?: { id: number; name: string; code: string } | null;
+    strand?: { id: number; name: string; code: string } | null;
 }
 
 interface InstructorSubjectAssignment {
@@ -109,8 +117,15 @@ export default function AssignInstructorsSubjects({
 }: Props) {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedAcademicLevel, setSelectedAcademicLevel] = useState<string>('');
+    const [selectedYearLevel, setSelectedYearLevel] = useState<string>('');
+    const [selectedDepartmentOrTrack, setSelectedDepartmentOrTrack] = useState<string>('');
+    const [selectedCourseOrStrand, setSelectedCourseOrStrand] = useState<string>('');
     const [filteredSubjects, setFilteredSubjects] = useState<Subject[]>([]);
     const [filteredSections, setFilteredSections] = useState<Section[]>([]);
+    const [availableDepartments, setAvailableDepartments] = useState<any[]>([]);
+    const [availableCourses, setAvailableCourses] = useState<any[]>([]);
+    const [availableTracks, setAvailableTracks] = useState<any[]>([]);
+    const [availableStrands, setAvailableStrands] = useState<any[]>([]);
     const [showAssignmentModal, setShowAssignmentModal] = useState(false);
     const [editingAssignment, setEditingAssignment] = useState<InstructorSubjectAssignment | null>(null);
     const [formData, setFormData] = useState({
@@ -124,84 +139,212 @@ export default function AssignInstructorsSubjects({
         auto_enroll_students: true,
     });
 
-    // Filter subjects based on selected academic level
+    // Extract unique departments, courses, tracks, and strands based on academic level and year level
     useEffect(() => {
-        if (selectedAcademicLevel) {
-            const filtered = subjects.filter(subject =>
-                subject.academic_level_id.toString() === selectedAcademicLevel
-            );
-            setFilteredSubjects(filtered);
-        } else {
-            setFilteredSubjects([]);
+        if (!selectedAcademicLevel) {
+            setAvailableDepartments([]);
+            setAvailableCourses([]);
+            setAvailableTracks([]);
+            setAvailableStrands([]);
+            return;
         }
-    }, [selectedAcademicLevel, subjects]);
 
-    // Filter sections based on selected subject's course and year level
-    useEffect(() => {
-        if (formData.subject_id) {
-            const selectedSubject = subjects.find(s => s.id.toString() === formData.subject_id);
-            if (selectedSubject && selectedSubject.course_id) {
-                // Determine the year level to filter by based on academic level
-                const yearLevel = selectedSubject.shs_year_level || selectedSubject.jhs_year_level || selectedSubject.selected_grade_level;
+        const academicLevelId = parseInt(selectedAcademicLevel);
+        const selectedLevel = academicLevels.find(level => level.id === academicLevelId);
 
-                console.log('Filtering sections for subject:', {
-                    subjectId: selectedSubject.id,
-                    subjectName: selectedSubject.name,
-                    courseId: selectedSubject.course_id,
-                    yearLevel: yearLevel,
-                    academicLevel: selectedSubject.academicLevel?.key
-                });
+        if (!selectedLevel) return;
 
-                const filtered = sections.filter(section => {
-                    const matchesCourse = section.course_id === selectedSubject.course_id;
+        // Filter sections by academic level and optionally by year level
+        let relevantSections = sections.filter(section => section.academic_level_id === academicLevelId);
+        if (selectedYearLevel) {
+            relevantSections = relevantSections.filter(section => section.specific_year_level === selectedYearLevel);
+        }
 
-                    // For college subjects, filter by college_year_level
-                    if (selectedSubject.academicLevel?.key === 'college') {
-                        const collegeYearLevel = (selectedSubject as any).college_year_level;
-                        if (collegeYearLevel && section.specific_year_level) {
-                            const matches = matchesCourse && section.specific_year_level === collegeYearLevel;
-                            console.log('College section check:', {
-                                sectionId: section.id,
-                                sectionName: section.name,
-                                sectionYearLevel: section.specific_year_level,
-                                subjectYearLevel: collegeYearLevel,
-                                matchesCourse,
-                                matches
-                            });
-                            return matches;
+        // Extract unique values based on academic level type
+        if (selectedLevel.key === 'college') {
+            // Extract unique departments
+            const deptMap = new Map();
+            relevantSections.forEach(section => {
+                if (section.department && section.department_id) {
+                    deptMap.set(section.department_id, section.department);
+                }
+            });
+            setAvailableDepartments(Array.from(deptMap.values()));
+
+            // Extract unique courses filtered by selected department
+            if (selectedDepartmentOrTrack) {
+                const courseMap = new Map();
+                relevantSections
+                    .filter(section => section.department_id?.toString() === selectedDepartmentOrTrack)
+                    .forEach(section => {
+                        if (section.course && section.course_id) {
+                            courseMap.set(section.course_id, section.course);
                         }
-                        // If no year level on section or subject, only match by course
-                        return matchesCourse;
-                    }
-
-                    // For other academic levels (SHS, JHS, Elementary)
-                    if (yearLevel) {
-                        // Only return sections that match BOTH course AND year level
-                        const matches = matchesCourse && section.specific_year_level === yearLevel;
-                        console.log('Section check:', {
-                            sectionId: section.id,
-                            sectionName: section.name,
-                            sectionYearLevel: section.specific_year_level,
-                            subjectYearLevel: yearLevel,
-                            matchesCourse,
-                            matches
-                        });
-                        return matches;
-                    }
-
-                    // If subject has no year level, filter only by course
-                    return matchesCourse;
-                });
-
-                console.log('Filtered sections:', filtered.length, filtered.map(s => ({ id: s.id, name: s.name, yearLevel: s.specific_year_level })));
-                setFilteredSections(filtered);
+                    });
+                setAvailableCourses(Array.from(courseMap.values()));
             } else {
-                setFilteredSections([]);
+                setAvailableCourses([]);
             }
-        } else {
-            setFilteredSections([]);
+        } else if (selectedLevel.key === 'senior_highschool') {
+            // Extract unique tracks
+            const trackMap = new Map();
+            relevantSections.forEach(section => {
+                if (section.track && section.track_id) {
+                    trackMap.set(section.track_id, section.track);
+                }
+            });
+            setAvailableTracks(Array.from(trackMap.values()));
+
+            // Extract unique strands filtered by selected track
+            if (selectedDepartmentOrTrack) {
+                const strandMap = new Map();
+                relevantSections
+                    .filter(section => section.track_id?.toString() === selectedDepartmentOrTrack)
+                    .forEach(section => {
+                        if (section.strand && section.strand_id) {
+                            strandMap.set(section.strand_id, section.strand);
+                        }
+                    });
+                setAvailableStrands(Array.from(strandMap.values()));
+            } else {
+                setAvailableStrands([]);
+            }
         }
-    }, [formData.subject_id, subjects, sections]);
+    }, [selectedAcademicLevel, selectedYearLevel, selectedDepartmentOrTrack, sections, academicLevels]);
+
+    // Filter sections based on cascading selections: year level → department/track → course/strand
+    useEffect(() => {
+        if (!selectedAcademicLevel) {
+            setFilteredSections([]);
+            return;
+        }
+
+        const academicLevelId = parseInt(selectedAcademicLevel);
+        const selectedLevel = academicLevels.find(level => level.id === academicLevelId);
+
+        if (!selectedLevel) {
+            setFilteredSections([]);
+            return;
+        }
+
+        // Start with sections for the selected academic level
+        let filtered = sections.filter(section => section.academic_level_id === academicLevelId);
+
+        // Filter by year level if selected
+        if (selectedYearLevel) {
+            filtered = filtered.filter(section => section.specific_year_level === selectedYearLevel);
+        }
+
+        // For College: filter by department and course
+        if (selectedLevel.key === 'college') {
+            if (selectedDepartmentOrTrack) {
+                const deptId = parseInt(selectedDepartmentOrTrack);
+                filtered = filtered.filter(section => section.department_id === deptId);
+            }
+            if (selectedCourseOrStrand) {
+                const courseId = parseInt(selectedCourseOrStrand);
+                filtered = filtered.filter(section => section.course_id === courseId);
+            }
+        }
+
+        // For SHS: filter by track and strand
+        if (selectedLevel.key === 'senior_highschool') {
+            if (selectedDepartmentOrTrack) {
+                const trackId = parseInt(selectedDepartmentOrTrack);
+                filtered = filtered.filter(section => section.track_id === trackId);
+            }
+            if (selectedCourseOrStrand) {
+                const strandId = parseInt(selectedCourseOrStrand);
+                filtered = filtered.filter(section => section.strand_id === strandId);
+            }
+        }
+
+        console.log('Filtered sections:', filtered);
+        setFilteredSections(filtered);
+    }, [selectedAcademicLevel, selectedYearLevel, selectedDepartmentOrTrack, selectedCourseOrStrand, sections, academicLevels]);
+
+    // Filter subjects based on selected section (subjects should only show after section is selected)
+    useEffect(() => {
+        if (!formData.section_id || !selectedAcademicLevel) {
+            setFilteredSubjects([]);
+            return;
+        }
+
+        const selectedSection = sections.find(s => s.id.toString() === formData.section_id);
+        if (!selectedSection) {
+            setFilteredSubjects([]);
+            return;
+        }
+
+        const academicLevelId = parseInt(selectedAcademicLevel);
+        const selectedLevel = academicLevels.find(level => level.id === academicLevelId);
+
+        if (!selectedLevel) {
+            setFilteredSubjects([]);
+            return;
+        }
+
+        // Filter subjects based on the selected section's properties
+        let filtered = subjects.filter(subject =>
+            subject.academic_level_id === academicLevelId
+        );
+
+        // For College: filter by course and year level
+        if (selectedLevel.key === 'college' && selectedSection.course_id) {
+            filtered = filtered.filter(subject => {
+                const matchesCourse = subject.course_id === selectedSection.course_id;
+                const collegeYearLevel = (subject as any).college_year_level;
+
+                if (collegeYearLevel && selectedSection.specific_year_level) {
+                    return matchesCourse && collegeYearLevel === selectedSection.specific_year_level;
+                }
+
+                return matchesCourse;
+            });
+        }
+
+        // For SHS: filter by strand and year level
+        if (selectedLevel.key === 'senior_highschool') {
+            filtered = filtered.filter(subject => {
+                const subjectYearLevel = subject.shs_year_level;
+
+                if (subjectYearLevel && selectedSection.specific_year_level) {
+                    return subjectYearLevel === selectedSection.specific_year_level;
+                }
+
+                return true;
+            });
+        }
+
+        // For JHS: filter by year level
+        if (selectedLevel.key === 'junior_highschool') {
+            filtered = filtered.filter(subject => {
+                const subjectYearLevel = subject.jhs_year_level;
+
+                if (subjectYearLevel && selectedSection.specific_year_level) {
+                    return subjectYearLevel === selectedSection.specific_year_level;
+                }
+
+                return true;
+            });
+        }
+
+        // For Elementary: filter by year level
+        if (selectedLevel.key === 'elementary') {
+            filtered = filtered.filter(subject => {
+                const subjectYearLevel = subject.selected_grade_level;
+
+                if (subjectYearLevel && selectedSection.specific_year_level) {
+                    return subjectYearLevel === selectedSection.specific_year_level;
+                }
+
+                return true;
+            });
+        }
+
+        console.log('Filtered subjects:', filtered);
+        setFilteredSubjects(filtered);
+    }, [formData.section_id, selectedAcademicLevel, subjects, sections, academicLevels]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -226,6 +369,10 @@ export default function AssignInstructorsSubjects({
 
     const handleEdit = (assignment: InstructorSubjectAssignment) => {
         setEditingAssignment(assignment);
+
+        // Get the section to extract year level and other properties
+        const section = sections.find(s => s.id === assignment.section_id);
+
         setFormData({
             instructor_id: assignment.instructor_id.toString(),
             subject_id: assignment.subject_id.toString(),
@@ -237,6 +384,22 @@ export default function AssignInstructorsSubjects({
             auto_enroll_students: assignment.auto_enroll_students || true,
         });
         setSelectedAcademicLevel(assignment.academic_level_id.toString());
+
+        // Set the cascading selections based on the section
+        if (section) {
+            setSelectedYearLevel(section.specific_year_level || '');
+            if (section.department_id) {
+                setSelectedDepartmentOrTrack(section.department_id.toString());
+            } else if (section.track_id) {
+                setSelectedDepartmentOrTrack(section.track_id.toString());
+            }
+            if (section.course_id) {
+                setSelectedCourseOrStrand(section.course_id.toString());
+            } else if (section.strand_id) {
+                setSelectedCourseOrStrand(section.strand_id.toString());
+            }
+        }
+
         setShowAssignmentModal(true);
     };
 
@@ -258,7 +421,11 @@ export default function AssignInstructorsSubjects({
             auto_enroll_students: true,
         });
         setSelectedAcademicLevel('');
+        setSelectedYearLevel('');
+        setSelectedDepartmentOrTrack('');
+        setSelectedCourseOrStrand('');
         setFilteredSections([]);
+        setFilteredSubjects([]);
         setEditingAssignment(null);
     };
 
@@ -447,11 +614,12 @@ export default function AssignInstructorsSubjects({
                         </DialogTitle>
                     </DialogHeader>
                     <form onSubmit={handleSubmit} className="space-y-4">
+                        {/* Instructor and Academic Level */}
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <Label htmlFor="instructor_id">Instructor</Label>
-                                <Select 
-                                    value={formData.instructor_id} 
+                                <Label htmlFor="instructor_id">Instructor *</Label>
+                                <Select
+                                    value={formData.instructor_id}
                                     onValueChange={(value) => setFormData(prev => ({ ...prev, instructor_id: value }))}
                                     required
                                 >
@@ -468,12 +636,15 @@ export default function AssignInstructorsSubjects({
                                 </Select>
                             </div>
                             <div>
-                                <Label htmlFor="academic_level_id">Academic Level</Label>
-                                <Select 
-                                    value={formData.academic_level_id} 
+                                <Label htmlFor="academic_level_id">Academic Level *</Label>
+                                <Select
+                                    value={formData.academic_level_id}
                                     onValueChange={(value) => {
-                                        setFormData(prev => ({ ...prev, academic_level_id: value, subject_id: '' }));
+                                        setFormData(prev => ({ ...prev, academic_level_id: value, section_id: '', subject_id: '' }));
                                         setSelectedAcademicLevel(value);
+                                        setSelectedYearLevel('');
+                                        setSelectedDepartmentOrTrack('');
+                                        setSelectedCourseOrStrand('');
                                     }}
                                     required
                                 >
@@ -491,72 +662,260 @@ export default function AssignInstructorsSubjects({
                             </div>
                         </div>
 
-                        <div>
-                            <Label htmlFor="subject_id">Subject</Label>
-                            <Select
-                                value={formData.subject_id}
-                                onValueChange={(value) => {
-                                    const selectedSubject = subjects.find(s => s.id.toString() === value);
-                                    setFormData(prev => ({
-                                        ...prev,
-                                        subject_id: value,
-                                        section_id: '', // Reset section when subject changes
-                                        academic_level_id: selectedSubject ? selectedSubject.academic_level_id.toString() : prev.academic_level_id
-                                    }));
-                                }}
-                                disabled={!selectedAcademicLevel}
-                                required
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select subject" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {filteredSubjects.map((subject) => (
-                                        <SelectItem key={subject.id} value={subject.id.toString()}>
-                                            <div className="flex flex-col">
-                                                <span>{subject.name} ({subject.code})</span>
-                                                {subject.course && (
-                                                    <span className="text-xs text-muted-foreground">
-                                                        Course: {subject.course.name}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            {selectedAcademicLevel && filteredSubjects.length === 0 && (
-                                <p className="text-sm text-amber-600 mt-1">
-                                    No subjects found for this academic level. Please add subjects first.
-                                </p>
-                            )}
-                        </div>
+                        {/* Year Level - Show for all academic levels */}
+                        {selectedAcademicLevel && (() => {
+                            const selectedLevel = academicLevels.find(l => l.id.toString() === selectedAcademicLevel);
+                            if (!selectedLevel) return null;
 
-                        <div>
-                            <Label htmlFor="section_id">Section *</Label>
-                            <Select
-                                value={formData.section_id}
-                                onValueChange={(value) => setFormData(prev => ({ ...prev, section_id: value }))}
-                                disabled={!formData.subject_id || filteredSections.length === 0}
-                                required
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select section" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {filteredSections.map((section) => (
-                                        <SelectItem key={section.id} value={section.id.toString()}>
-                                            {section.name}{section.code ? ` (${section.code})` : ''}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            {formData.subject_id && filteredSections.length === 0 && (
-                                <p className="text-sm text-amber-600 mt-1">
-                                    No sections available for this subject's course. Please add sections first.
-                                </p>
-                            )}
-                        </div>
+                            let yearLevelOptions: { value: string; label: string }[] = [];
+
+                            if (selectedLevel.key === 'elementary') {
+                                yearLevelOptions = [
+                                    { value: 'grade_1', label: 'Grade 1' },
+                                    { value: 'grade_2', label: 'Grade 2' },
+                                    { value: 'grade_3', label: 'Grade 3' },
+                                    { value: 'grade_4', label: 'Grade 4' },
+                                    { value: 'grade_5', label: 'Grade 5' },
+                                    { value: 'grade_6', label: 'Grade 6' },
+                                ];
+                            } else if (selectedLevel.key === 'junior_highschool') {
+                                yearLevelOptions = [
+                                    { value: 'grade_7', label: 'Grade 7' },
+                                    { value: 'grade_8', label: 'Grade 8' },
+                                    { value: 'grade_9', label: 'Grade 9' },
+                                    { value: 'grade_10', label: 'Grade 10' },
+                                ];
+                            } else if (selectedLevel.key === 'senior_highschool') {
+                                yearLevelOptions = [
+                                    { value: 'grade_11', label: 'Grade 11' },
+                                    { value: 'grade_12', label: 'Grade 12' },
+                                ];
+                            } else if (selectedLevel.key === 'college') {
+                                yearLevelOptions = [
+                                    { value: '1st_year', label: '1st Year' },
+                                    { value: '2nd_year', label: '2nd Year' },
+                                    { value: '3rd_year', label: '3rd Year' },
+                                    { value: '4th_year', label: '4th Year' },
+                                ];
+                            }
+
+                            return (
+                                <div>
+                                    <Label htmlFor="year_level">Year Level *</Label>
+                                    <Select
+                                        value={selectedYearLevel}
+                                        onValueChange={(value) => {
+                                            setSelectedYearLevel(value);
+                                            setSelectedDepartmentOrTrack('');
+                                            setSelectedCourseOrStrand('');
+                                            setFormData(prev => ({ ...prev, section_id: '', subject_id: '' }));
+                                        }}
+                                        required
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select year level" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {yearLevelOptions.map((opt) => (
+                                                <SelectItem key={opt.value} value={opt.value}>
+                                                    {opt.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            );
+                        })()}
+
+                        {/* Department/Track and Course/Strand for College and SHS */}
+                        {selectedAcademicLevel && selectedYearLevel && (() => {
+                            const selectedLevel = academicLevels.find(l => l.id.toString() === selectedAcademicLevel);
+                            if (!selectedLevel) return null;
+
+                            if (selectedLevel.key === 'college') {
+                                return (
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <Label htmlFor="department">Department *</Label>
+                                            <Select
+                                                value={selectedDepartmentOrTrack}
+                                                onValueChange={(value) => {
+                                                    setSelectedDepartmentOrTrack(value);
+                                                    setSelectedCourseOrStrand('');
+                                                    setFormData(prev => ({ ...prev, section_id: '', subject_id: '' }));
+                                                }}
+                                                required
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select department" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {availableDepartments.map((dept) => (
+                                                        <SelectItem key={dept.id} value={dept.id.toString()}>
+                                                            {dept.name} ({dept.code})
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div>
+                                            <Label htmlFor="course">Course *</Label>
+                                            <Select
+                                                value={selectedCourseOrStrand}
+                                                onValueChange={(value) => {
+                                                    setSelectedCourseOrStrand(value);
+                                                    setFormData(prev => ({ ...prev, section_id: '', subject_id: '' }));
+                                                }}
+                                                disabled={!selectedDepartmentOrTrack || availableCourses.length === 0}
+                                                required
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder={selectedDepartmentOrTrack ? "Select course" : "Select department first"} />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {availableCourses.map((course) => (
+                                                        <SelectItem key={course.id} value={course.id.toString()}>
+                                                            {course.name} ({course.code})
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            if (selectedLevel.key === 'senior_highschool') {
+                                return (
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <Label htmlFor="track">Track *</Label>
+                                            <Select
+                                                value={selectedDepartmentOrTrack}
+                                                onValueChange={(value) => {
+                                                    setSelectedDepartmentOrTrack(value);
+                                                    setSelectedCourseOrStrand('');
+                                                    setFormData(prev => ({ ...prev, section_id: '', subject_id: '' }));
+                                                }}
+                                                required
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select track" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {availableTracks.map((track) => (
+                                                        <SelectItem key={track.id} value={track.id.toString()}>
+                                                            {track.name} ({track.code})
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div>
+                                            <Label htmlFor="strand">Strand *</Label>
+                                            <Select
+                                                value={selectedCourseOrStrand}
+                                                onValueChange={(value) => {
+                                                    setSelectedCourseOrStrand(value);
+                                                    setFormData(prev => ({ ...prev, section_id: '', subject_id: '' }));
+                                                }}
+                                                disabled={!selectedDepartmentOrTrack || availableStrands.length === 0}
+                                                required
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder={selectedDepartmentOrTrack ? "Select strand" : "Select track first"} />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {availableStrands.map((strand) => (
+                                                        <SelectItem key={strand.id} value={strand.id.toString()}>
+                                                            {strand.name} ({strand.code})
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            return null;
+                        })()}
+
+                        {/* Section - Show after year level (and department/course for College, track/strand for SHS) */}
+                        {selectedAcademicLevel && selectedYearLevel && (() => {
+                            const selectedLevel = academicLevels.find(l => l.id.toString() === selectedAcademicLevel);
+                            if (!selectedLevel) return null;
+
+                            // For College and SHS, require department/track and course/strand
+                            if ((selectedLevel.key === 'college' || selectedLevel.key === 'senior_highschool') &&
+                                (!selectedDepartmentOrTrack || !selectedCourseOrStrand)) {
+                                return null;
+                            }
+
+                            return (
+                                <div>
+                                    <Label htmlFor="section_id">Section *</Label>
+                                    <Select
+                                        value={formData.section_id}
+                                        onValueChange={(value) => setFormData(prev => ({ ...prev, section_id: value, subject_id: '' }))}
+                                        disabled={filteredSections.length === 0}
+                                        required
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select section" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {filteredSections.map((section) => (
+                                                <SelectItem key={section.id} value={section.id.toString()}>
+                                                    {section.name}{section.code ? ` (${section.code})` : ''}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {filteredSections.length === 0 && (
+                                        <p className="text-sm text-amber-600 mt-1">
+                                            No sections available. Please add sections first or adjust your selections.
+                                        </p>
+                                    )}
+                                </div>
+                            );
+                        })()}
+
+                        {/* Subject - Only show after section is selected */}
+                        {formData.section_id && (
+                            <div>
+                                <Label htmlFor="subject_id">Subject *</Label>
+                                <Select
+                                    value={formData.subject_id}
+                                    onValueChange={(value) => setFormData(prev => ({ ...prev, subject_id: value }))}
+                                    disabled={filteredSubjects.length === 0}
+                                    required
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select subject" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {filteredSubjects.map((subject) => (
+                                            <SelectItem key={subject.id} value={subject.id.toString()}>
+                                                <div className="flex flex-col">
+                                                    <span>{subject.name} ({subject.code})</span>
+                                                    {subject.course && (
+                                                        <span className="text-xs text-muted-foreground">
+                                                            Course: {subject.course.name}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                {filteredSubjects.length === 0 && (
+                                    <p className="text-sm text-amber-600 mt-1">
+                                        No subjects available for the selected section. Please add subjects first.
+                                    </p>
+                                )}
+                            </div>
+                        )}
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>

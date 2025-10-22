@@ -766,7 +766,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                             <Checkbox
                               id="include_grades"
                               checked={archiveData.include_grades}
-                              onCheckedChange={(checked) => setArchiveData('include_grades', checked === true)}
+                              onCheckedChange={(checked) => setArchiveData('include_grades', !!checked)}
                             />
                             <Label htmlFor="include_grades" className="flex items-center gap-2">
                               <GraduationCap className="h-4 w-4" />
@@ -777,7 +777,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                             <Checkbox
                               id="include_honors"
                               checked={archiveData.include_honors}
-                              onCheckedChange={(checked) => setArchiveData('include_honors', checked === true)}
+                              onCheckedChange={(checked) => setArchiveData('include_honors', !!checked)}
                             />
                             <Label htmlFor="include_honors" className="flex items-center gap-2">
                               <Award className="h-4 w-4" />
@@ -788,7 +788,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                             <Checkbox
                               id="include_certificates"
                               checked={archiveData.include_certificates}
-                              onCheckedChange={(checked) => setArchiveData('include_certificates', checked === true)}
+                              onCheckedChange={(checked) => setArchiveData('include_certificates', !!checked)}
                             />
                             <Label htmlFor="include_certificates" className="flex items-center gap-2">
                               <FileText className="h-4 w-4" />
@@ -896,7 +896,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
 
                         // Elementary and JHS: Year Level → Section
                         if (isElementary || isJHS) {
-                          const allYearLevelOptions = isElementary
+                          const yearLevelOptions = isElementary
                             ? [
                                 { value: 'grade_1', label: 'Grade 1' },
                                 { value: 'grade_2', label: 'Grade 2' },
@@ -912,12 +912,6 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                 { value: 'grade_10', label: 'Grade 10' },
                               ];
 
-                          // Filter to only show year levels that have sections with data
-                          const availableYearLevels = getAvailableYearLevels(sectionData.academic_level_id);
-                          const yearLevelOptions = allYearLevelOptions.filter(opt =>
-                            availableYearLevels.includes(opt.value)
-                          );
-
                           return (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               <div>
@@ -931,13 +925,9 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                 >
                                   <SelectTrigger><SelectValue placeholder="Select year level" /></SelectTrigger>
                                   <SelectContent>
-                                    {yearLevelOptions.length === 0 ? (
-                                      <SelectItem value="no-data" disabled>No data available</SelectItem>
-                                    ) : (
-                                      yearLevelOptions.map(opt => (
-                                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                                      ))
-                                    )}
+                                    {yearLevelOptions.map(opt => (
+                                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                    ))}
                                   </SelectContent>
                                 </Select>
                                 <p className="text-xs text-gray-500 mt-1">Filter by year level</p>
@@ -967,15 +957,10 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
 
                         // SHS: Year Level → Track → Strand → Section
                         if (isSHS) {
-                          const allShsYearOptions = [
+                          const shsYearOptions = [
                             { value: 'grade_11', label: 'Grade 11' },
                             { value: 'grade_12', label: 'Grade 12' },
                           ];
-
-                          const availableYearLevels = getAvailableYearLevels(sectionData.academic_level_id);
-                          const shsYearOptions = allShsYearOptions.filter(opt =>
-                            availableYearLevels.includes(opt.value)
-                          );
 
                           return (
                             <div className="space-y-4">
@@ -991,13 +976,9 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                   >
                                     <SelectTrigger><SelectValue placeholder="Select year level" /></SelectTrigger>
                                     <SelectContent>
-                                      {shsYearOptions.length === 0 ? (
-                                        <SelectItem value="no-data" disabled>No data available</SelectItem>
-                                      ) : (
-                                        shsYearOptions.map(opt => (
-                                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                                        ))
-                                      )}
+                                      {shsYearOptions.map(opt => (
+                                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                      ))}
                                     </SelectContent>
                                   </Select>
                                   <p className="text-xs text-gray-500 mt-1">Select year level</p>
@@ -1073,17 +1054,12 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
 
                         // College: Year Level → Department → Course → Section
                         if (isCollege) {
-                          const allCollegeYearOptions = [
+                          const collegeYearOptions = [
                             { value: '1st_year', label: '1st Year' },
                             { value: '2nd_year', label: '2nd Year' },
                             { value: '3rd_year', label: '3rd Year' },
                             { value: '4th_year', label: '4th Year' },
                           ];
-
-                          const availableYearLevels = getAvailableYearLevels(sectionData.academic_level_id);
-                          const collegeYearOptions = allCollegeYearOptions.filter(opt =>
-                            availableYearLevels.includes(opt.value)
-                          );
 
                           return (
                             <div className="space-y-4">
@@ -1099,13 +1075,9 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                   >
                                     <SelectTrigger><SelectValue placeholder="Select year level" /></SelectTrigger>
                                     <SelectContent>
-                                      {collegeYearOptions.length === 0 ? (
-                                        <SelectItem value="no-data" disabled>No data available</SelectItem>
-                                      ) : (
-                                        collegeYearOptions.map(opt => (
-                                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                                        ))
-                                      )}
+                                      {collegeYearOptions.map(opt => (
+                                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                      ))}
                                     </SelectContent>
                                   </Select>
                                   <p className="text-xs text-gray-500 mt-1">Select year level</p>
@@ -1226,7 +1198,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                         <Checkbox
                           id="include_grades_section"
                           checked={sectionData.include_grades}
-                          onCheckedChange={(checked) => setSectionData('include_grades', checked === true)}
+                          onCheckedChange={(checked) => setSectionData('include_grades', !!checked)}
                         />
                         <Label htmlFor="include_grades_section">Include student average grades in the report</Label>
                       </div>
