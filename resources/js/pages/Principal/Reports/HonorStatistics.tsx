@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Link } from '@inertiajs/react';
 import { ArrowLeft, Filter, Download, Award, TrendingUp, Users, BarChart } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 interface User {
     id: number;
@@ -69,6 +69,60 @@ export default function HonorStatistics({ user, honors, stats, filters, principa
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedType, setSelectedType] = useState(filters.honor_type_id || '');
     const [selectedYear, setSelectedYear] = useState(filters.year || '');
+
+    // College-only honor types that should ONLY appear for College level
+    const collegeOnlyHonorTypes = [
+        'dean\'s list',
+        'college honors',
+        'cum laude',
+        'magna cum laude',
+        'summa cum laude'
+    ];
+
+    // Filter honor types based on academic level
+    const filteredHonorTypes = useMemo(() => {
+        const isCollege = principalAcademicLevel?.key === 'college';
+
+        console.log('[Principal Reports] Honor Statistics - Filtering Honor Types', {
+            principalAcademicLevel: principalAcademicLevel,
+            academicLevelKey: principalAcademicLevel?.key,
+            academicLevelName: principalAcademicLevel?.name,
+            isCollege: isCollege,
+            allHonorTypesCount: honorTypes?.length || 0,
+        });
+
+        if (isCollege) {
+            // For College: show ALL honor types
+            console.log('[Principal Reports] Honor Statistics - College level detected, showing all honor types');
+            return honorTypes;
+        } else {
+            // For non-College (Elementary, JHS, SHS): filter OUT college-only honors
+            const filtered = honorTypes.filter(type => {
+                const isCollegeOnly = collegeOnlyHonorTypes.includes(type.name.toLowerCase());
+                return !isCollegeOnly;
+            });
+
+            console.log('[Principal Reports] Honor Statistics - Non-College level detected, filtering honor types', {
+                originalCount: honorTypes?.length || 0,
+                filteredCount: filtered.length,
+                filteredOutTypes: honorTypes.filter(type => collegeOnlyHonorTypes.includes(type.name.toLowerCase())).map(t => t.name),
+                remainingTypes: filtered.map(t => t.name),
+            });
+
+            return filtered;
+        }
+    }, [principalAcademicLevel, honorTypes]);
+
+    // Log component render for debugging
+    useEffect(() => {
+        console.log('[Principal Reports] Honor Statistics - Component Render', {
+            principalAcademicLevel: principalAcademicLevel,
+            academicLevelKey: principalAcademicLevel?.key,
+            academicLevelName: principalAcademicLevel?.name,
+            totalHonorTypes: honorTypes?.length || 0,
+            filteredHonorTypes: filteredHonorTypes.length,
+        });
+    }, [principalAcademicLevel, honorTypes, filteredHonorTypes]);
 
     const filteredHonors = honors.data.filter(honor => {
         const matchesSearch = honor.student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -256,11 +310,14 @@ export default function HonorStatistics({ user, honors, stats, filters, principa
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">All types</SelectItem>
-                                    {honorTypes.map((type) => (
+                                    {filteredHonorTypes.map((type) => (
                                         <SelectItem key={type.id} value={type.id.toString()}>
                                             {type.name}
                                         </SelectItem>
                                     ))}
+                                    {filteredHonorTypes.length === 0 && (
+                                        <SelectItem value="no-types" disabled>No honor types available</SelectItem>
+                                    )}
                                 </SelectContent>
                             </Select>
                         </div>

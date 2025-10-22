@@ -112,8 +112,15 @@ class ReportsController extends Controller
 
             // Get College academic level (Chairperson only handles College)
             $collegeLevel = AcademicLevel::where('key', 'college')->first();
+
+            if (!$collegeLevel) {
+                Log::error('[Chairperson Reports] Academic Performance - College level not found in database!');
+                return back()->withErrors(['error' => 'College academic level not found in the system. Please contact the administrator.']);
+            }
+
             Log::info('[Chairperson Reports] Academic Performance - College level loaded', [
-                'college_level_id' => $collegeLevel->id ?? 'not found'
+                'college_level_id' => $collegeLevel->id,
+                'college_level_name' => $collegeLevel->name
             ]);
 
             // Get courses from chairperson's department instead of academic levels
@@ -129,11 +136,17 @@ class ReportsController extends Controller
             if ($collegeLevel) {
                 $gradingPeriods = \App\Models\GradingPeriod::where('academic_level_id', $collegeLevel->id)
                     ->where('is_active', true)
+                    ->with('parent')  // Load parent relationship to show context
                     ->orderBy('sort_order')
-                    ->get(['id', 'name', 'code']);
+                    ->get(['id', 'name', 'code', 'parent_id', 'type']);
 
                 Log::info('[Chairperson Reports] Academic Performance - Grading periods loaded', [
-                    'periods_count' => $gradingPeriods->count()
+                    'periods_count' => $gradingPeriods->count(),
+                    'periods' => $gradingPeriods->map(fn($p) => [
+                        'id' => $p->id,
+                        'name' => $p->name,
+                        'parent' => $p->parent ? $p->parent->name : null
+                    ])
                 ]);
             }
 
@@ -167,8 +180,8 @@ class ReportsController extends Controller
 
                 $defaultFilters = [
                     'school_year' => $defaultSchoolYear,
-                    'course_id' => '',
-                    'grading_period_id' => '',
+                    'course_id' => 'all',
+                    'grading_period_id' => 'all',
                 ];
 
                 // Load actual data for current school year on initial GET
@@ -212,8 +225,8 @@ class ReportsController extends Controller
 
             $validated = $request->validate([
                 'school_year' => 'required|string',
-                'course_id' => 'nullable|exists:courses,id',
-                'grading_period_id' => 'nullable|exists:grading_periods,id',
+                'course_id' => 'nullable|string',
+                'grading_period_id' => 'nullable|string',
             ]);
 
             Log::info('[Chairperson Reports] Academic Performance - Filters validated', $validated);
@@ -223,7 +236,8 @@ class ReportsController extends Controller
                 })
                 ->where('school_year', $validated['school_year']);
 
-            if (!empty($validated['course_id'])) {
+            // Handle course filter - "all" means no filter
+            if (!empty($validated['course_id']) && $validated['course_id'] !== 'all') {
                 $query->whereHas('subject.course', function ($q) use ($validated) {
                     $q->where('id', $validated['course_id']);
                 });
@@ -232,7 +246,8 @@ class ReportsController extends Controller
                 ]);
             }
 
-            if (!empty($validated['grading_period_id'])) {
+            // Handle grading period filter - "all" means no filter
+            if (!empty($validated['grading_period_id']) && $validated['grading_period_id'] !== 'all') {
                 $query->where('grading_period_id', $validated['grading_period_id']);
                 Log::info('[Chairperson Reports] Academic Performance - Filtering by grading period', [
                     'grading_period_id' => $validated['grading_period_id']

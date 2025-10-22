@@ -20,11 +20,25 @@ class ChairpersonController extends Controller
     {
         $user = Auth::user();
         $academicLevelId = $request->get('academic_level_id');
-        
-        // Get all academic levels for the filter dropdown
+
+        // Log: Chairperson info
+        \Log::info('Chairperson Dashboard Access', [
+            'user_id' => $user->id,
+            'user_name' => $user->name,
+            'department_id' => $user->department_id ?? 'NOT SET',
+            'requested_academic_level_id' => $academicLevelId,
+        ]);
+
+        // Chairpersons ONLY manage College level - filter to show ONLY College
         $academicLevels = AcademicLevel::where('is_active', true)
+            ->where('key', 'college') // ONLY College for Chairpersons
             ->orderBy('sort_order')
             ->get();
+
+        \Log::info('Filtered Academic Levels for Chairperson', [
+            'count' => $academicLevels->count(),
+            'levels' => $academicLevels->pluck('name', 'id')->toArray(),
+        ]);
         
         // Get comprehensive statistics (not department-limited)
         $stats = $this->getChairpersonStats($academicLevelId);
@@ -46,11 +60,23 @@ class ChairpersonController extends Controller
         // Get recent system activities
         $systemActivities = $this->getSystemActivities($academicLevelId);
         
-        // Dynamic dashboard message based on selected academic level
-        $selectedLevel = $academicLevelId ? AcademicLevel::find($academicLevelId) : null;
-        $dashboardMessage = $selectedLevel 
-            ? "Welcome back, {$user->name}! Managing {$selectedLevel->name} academic oversight."
-            : "Welcome back, {$user->name}! Overseeing all academic levels.";
+        // Dynamic dashboard message for College-level chairperson
+        $department = $user->department_id ? \App\Models\Department::find($user->department_id) : null;
+
+        if ($department) {
+            $dashboardMessage = "Welcome back, {$user->name}! Managing College academic oversight for {$department->name} ({$department->code}).";
+            \Log::info('Chairperson Department Info', [
+                'department_id' => $department->id,
+                'department_name' => $department->name,
+                'department_code' => $department->code,
+            ]);
+        } else {
+            $dashboardMessage = "Welcome back, {$user->name}! Managing College academic oversight.";
+            \Log::warning('Chairperson has NO department assigned', [
+                'user_id' => $user->id,
+                'user_name' => $user->name,
+            ]);
+        }
         
         return Inertia::render('Chairperson/Dashboard', [
             'user' => $user,
@@ -65,6 +91,7 @@ class ChairpersonController extends Controller
             'dashboardMessage' => $dashboardMessage,
             'academicLevels' => $academicLevels,
             'selectedAcademicLevel' => $academicLevelId,
+            'department' => $department,  // Pass department data for UI display
         ]);
     }
     

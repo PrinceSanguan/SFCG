@@ -38,6 +38,13 @@ interface GradingPeriod {
     id: number;
     name: string;
     code: string;
+    parent_id?: number | null;
+    type?: string;
+    parent?: {
+        id: number;
+        name: string;
+        code: string;
+    } | null;
 }
 
 interface AcademicPerformanceProps {
@@ -57,14 +64,53 @@ export default function AcademicPerformance({
     gradingPeriods,
     availableSchoolYears
 }: AcademicPerformanceProps) {
+    // Log component render for debugging
+    console.log('[Chairperson Reports] Academic Performance Component Render', {
+        hasUser: !!user,
+        hasPerformance: !!performance,
+        hasFilters: !!filters,
+        coursesCount: courses?.length || 0,
+        gradingPeriodsCount: gradingPeriods?.length || 0,
+        schoolYearsCount: availableSchoolYears?.length || 0,
+        performance: performance,
+    });
+
+    // Early return with error message if user is not loaded
     if (!user) {
-        return <div>Loading...</div>;
+        console.error('[Chairperson Reports] Academic Performance - No user data');
+        return (
+            <div className="flex items-center justify-center h-screen">
+                <div className="text-center">
+                    <h2 className="text-xl font-semibold mb-2">Loading...</h2>
+                    <p className="text-gray-500">Please wait while we load your data.</p>
+                </div>
+            </div>
+        );
     }
 
+    // Provide safe defaults for all props
+    const safePerformance = performance || {
+        total_grades: 0,
+        average_grade: 0,
+        grade_distribution: {},
+        subject_performance: [],
+        student_performance: [],
+    };
+
+    const safeFilters = filters || {
+        school_year: '',
+        course_id: '',
+        grading_period_id: '',
+    };
+
+    const safeCourses = courses || [];
+    const safeGradingPeriods = gradingPeriods || [];
+    const safeSchoolYears = availableSchoolYears || [];
+
     const { data, setData, post, processing } = useForm({
-        school_year: filters.school_year || '',
-        course_id: filters.course_id || '',
-        grading_period_id: filters.grading_period_id || '',
+        school_year: safeFilters.school_year || '',
+        course_id: safeFilters.course_id || 'all',
+        grading_period_id: safeFilters.grading_period_id || 'all',
     });
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -72,6 +118,30 @@ export default function AcademicPerformance({
         console.log('[Chairperson Reports] Academic Performance - Submitting filters', data);
         post(route('chairperson.reports.academic-performance.post'));
     };
+
+    // Organize grading periods hierarchically: parent semesters followed by their child quarters
+    const organizeGradingPeriods = (periods: GradingPeriod[]) => {
+        const organized: Array<GradingPeriod & { isChild?: boolean }> = [];
+
+        // First, add all parent periods (semesters)
+        const parents = periods.filter(p => !p.parent_id);
+        const children = periods.filter(p => p.parent_id);
+
+        // For each parent, add it and then its children
+        parents.forEach(parent => {
+            organized.push(parent);
+
+            // Find and add all children of this parent
+            const parentChildren = children.filter(child => child.parent_id === parent.id);
+            parentChildren.forEach(child => {
+                organized.push({ ...child, isChild: true });
+            });
+        });
+
+        return organized;
+    };
+
+    const organizedPeriods = organizeGradingPeriods(safeGradingPeriods);
 
     return (
         <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
@@ -117,11 +187,15 @@ export default function AcademicPerformance({
                                                 <SelectValue placeholder="Select school year" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {availableSchoolYears.map((year) => (
-                                                    <SelectItem key={year} value={year}>
-                                                        {year}
-                                                    </SelectItem>
-                                                ))}
+                                                {safeSchoolYears.length > 0 ? (
+                                                    safeSchoolYears.map((year) => (
+                                                        <SelectItem key={year} value={year}>
+                                                            {year}
+                                                        </SelectItem>
+                                                    ))
+                                                ) : (
+                                                    <SelectItem value="no-data" disabled>No school years available</SelectItem>
+                                                )}
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -135,12 +209,15 @@ export default function AcademicPerformance({
                                                 <SelectValue placeholder="All courses (optional)" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="">All Courses</SelectItem>
-                                                {courses.map((course) => (
+                                                <SelectItem value="all">All Courses</SelectItem>
+                                                {safeCourses.map((course) => (
                                                     <SelectItem key={course.id} value={course.id.toString()}>
                                                         {course.name} ({course.code})
                                                     </SelectItem>
                                                 ))}
+                                                {safeCourses.length === 0 && (
+                                                    <SelectItem value="no-courses" disabled>No courses in your department</SelectItem>
+                                                )}
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -154,12 +231,19 @@ export default function AcademicPerformance({
                                                 <SelectValue placeholder="All periods (optional)" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="">All Periods</SelectItem>
-                                                {gradingPeriods.map((period) => (
-                                                    <SelectItem key={period.id} value={period.id.toString()}>
-                                                        {period.name}
+                                                <SelectItem value="all">All Periods</SelectItem>
+                                                {organizedPeriods.map((period) => (
+                                                    <SelectItem
+                                                        key={period.id}
+                                                        value={period.id.toString()}
+                                                        className={period.isChild ? 'pl-6' : ''}
+                                                    >
+                                                        {period.isChild ? `↳ ${period.name}` : period.name}
                                                     </SelectItem>
                                                 ))}
+                                                {organizedPeriods.length === 0 && (
+                                                    <SelectItem value="no-periods" disabled>No grading periods available</SelectItem>
+                                                )}
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -180,7 +264,7 @@ export default function AcademicPerformance({
                                     <BarChart className="h-4 w-4 text-muted-foreground" />
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="text-2xl font-bold">{performance.total_grades}</div>
+                                    <div className="text-2xl font-bold">{safePerformance.total_grades}</div>
                                     <p className="text-xs text-muted-foreground">
                                         Grades analyzed
                                     </p>
@@ -193,7 +277,7 @@ export default function AcademicPerformance({
                                     <TrendingUp className="h-4 w-4 text-muted-foreground" />
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="text-2xl font-bold">{performance.average_grade}</div>
+                                    <div className="text-2xl font-bold">{safePerformance.average_grade}</div>
                                     <p className="text-xs text-muted-foreground">
                                         Overall performance
                                     </p>
@@ -222,13 +306,13 @@ export default function AcademicPerformance({
                                 <CardTitle>Grade Distribution</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                {Object.keys(performance.grade_distribution).length === 0 ? (
+                                {Object.keys(safePerformance.grade_distribution).length === 0 ? (
                                     <p className="text-center text-gray-500 dark:text-gray-400 py-8">
                                         No grade distribution data available
                                     </p>
                                 ) : (
                                     <div className="space-y-3">
-                                        {Object.entries(performance.grade_distribution)
+                                        {Object.entries(safePerformance.grade_distribution)
                                             .sort(([a], [b]) => parseInt(a) - parseInt(b))
                                             .map(([grade, count]) => (
                                                 <div key={grade} className="flex items-center gap-4">
@@ -238,7 +322,7 @@ export default function AcademicPerformance({
                                                             <div
                                                                 className="bg-blue-600 h-2.5 rounded-full"
                                                                 style={{
-                                                                    width: `${(count / performance.total_grades) * 100}%`
+                                                                    width: `${(Number(count) / safePerformance.total_grades) * 100}%`
                                                                 }}
                                                             ></div>
                                                         </div>
@@ -257,7 +341,7 @@ export default function AcademicPerformance({
                                 <CardTitle>Subject Performance</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                {performance.subject_performance.length === 0 ? (
+                                {safePerformance.subject_performance.length === 0 ? (
                                     <p className="text-center text-gray-500 dark:text-gray-400 py-8">
                                         No subject performance data available
                                     </p>
@@ -272,7 +356,7 @@ export default function AcademicPerformance({
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {performance.subject_performance.map((subject, index) => (
+                                                {safePerformance.subject_performance.map((subject, index) => (
                                                     <tr key={index} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800">
                                                         <td className="p-2 font-medium">{subject.subject_name}</td>
                                                         <td className="p-2">{subject.average_grade}</td>
@@ -295,7 +379,7 @@ export default function AcademicPerformance({
                                 </p>
                             </CardHeader>
                             <CardContent>
-                                {performance.student_performance.length === 0 ? (
+                                {safePerformance.student_performance.length === 0 ? (
                                     <p className="text-center text-gray-500 dark:text-gray-400 py-8">
                                         No student performance data available
                                     </p>
@@ -311,7 +395,7 @@ export default function AcademicPerformance({
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {performance.student_performance.slice(0, 10).map((student, index) => {
+                                                {safePerformance.student_performance.slice(0, 10).map((student, index) => {
                                                     const getRankBadge = (rank: number) => {
                                                         if (rank === 1) return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">🥇 1st</span>;
                                                         if (rank === 2) return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">🥈 2nd</span>;

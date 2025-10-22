@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Link } from '@inertiajs/react';
 import { ArrowLeft, Search, Filter, Download, BarChart, TrendingUp, Users, BookOpen } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface User {
     id: number;
@@ -98,6 +98,21 @@ export default function AcademicPerformance({ user, grades, stats, filters, prin
     const [selectedStrand, setSelectedStrand] = useState(filters.strand_id || '');
     const [selectedYear, setSelectedYear] = useState(filters.year || '');
     const [selectedPeriod, setSelectedPeriod] = useState(filters.period || '');
+
+    // Log component render for debugging
+    useEffect(() => {
+        console.log('[Principal Reports] Academic Performance - Component Render', {
+            principalAcademicLevel: principalAcademicLevel,
+            academicLevelKey: principalAcademicLevel?.key,
+            academicLevelName: principalAcademicLevel?.name,
+            shouldShowStrand: principalAcademicLevel?.key === 'senior_highschool',
+            strandsCount: strands?.length || 0,
+        });
+    }, [principalAcademicLevel, strands]);
+
+    // Determine if strand filter should be shown (only for Senior High School)
+    // Database uses 'senior_highschool' key (no underscore between high and school)
+    const shouldShowStrandFilter = principalAcademicLevel?.key === 'senior_highschool';
 
     const filteredGrades = grades.data.filter(grade => {
         const matchesSearch = grade.student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -217,7 +232,7 @@ export default function AcademicPerformance({ user, grades, stats, filters, prin
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+                    <div className={`grid gap-4 ${shouldShowStrandFilter ? 'md:grid-cols-2 lg:grid-cols-5' : 'md:grid-cols-2 lg:grid-cols-4'}`}>
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Search</label>
                             <div className="relative">
@@ -237,22 +252,25 @@ export default function AcademicPerformance({ user, grades, stats, filters, prin
                             </div>
                             <p className="text-xs text-gray-500">Reports are filtered by your assigned academic level</p>
                         </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Strand</label>
-                            <Select value={selectedStrand} onValueChange={setSelectedStrand}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="All strands" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All strands</SelectItem>
-                                    {strands.map((strand) => (
-                                        <SelectItem key={strand.id} value={strand.id.toString()}>
-                                            {strand.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
+                        {/* Only show Strand filter for Senior High School */}
+                        {shouldShowStrandFilter && (
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Strand</label>
+                                <Select value={selectedStrand} onValueChange={setSelectedStrand}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="All strands" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All strands</SelectItem>
+                                        {strands.map((strand) => (
+                                            <SelectItem key={strand.id} value={strand.id.toString()}>
+                                                {strand.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
                         <div className="space-y-2">
                             <label className="text-sm font-medium">School Year</label>
                             <Input

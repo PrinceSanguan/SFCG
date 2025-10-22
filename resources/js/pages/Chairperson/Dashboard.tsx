@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Link, router } from '@inertiajs/react';
-import { Users, BookOpen, Award, TrendingUp, Clock, Filter, CheckCircle } from 'lucide-react';
+import { Users, BookOpen, Award, TrendingUp, Clock, Filter, CheckCircle, GraduationCap, Building2, Shield } from 'lucide-react';
 
 interface User {
     id: number;
@@ -102,12 +102,13 @@ interface DashboardProps {
     academicLevels: AcademicLevel[];
     selectedAcademicLevel: string | null;
     dashboardMessage: string;
+    department: Department | null;
 }
 
-export default function ChairpersonDashboard({ 
-    user, 
-    stats, 
-    recentActivities, 
+export default function ChairpersonDashboard({
+    user,
+    stats,
+    recentActivities,
     pendingGrades,
     pendingHonors,
     approvedHonors,
@@ -116,7 +117,8 @@ export default function ChairpersonDashboard({
     systemActivities,
     academicLevels,
     selectedAcademicLevel,
-    dashboardMessage
+    dashboardMessage,
+    department
 }: DashboardProps) {
     if (!user) {
         return <div>Loading...</div>;
@@ -155,31 +157,90 @@ export default function ChairpersonDashboard({
                             </p>
                         </div>
 
-                        {/* Academic Level Filter */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Filter className="h-5 w-5" />
-                                    Filter by Academic Level
+                        {/* Academic Level & Department Info - Enhanced UI */}
+                        <Card className="border-l-4 border-l-blue-600">
+                            <CardHeader className="pb-3">
+                                <CardTitle className="flex items-center gap-2 text-lg">
+                                    <Shield className="h-5 w-5 text-blue-600" />
+                                    Your Oversight Area
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent>
-                                <Select 
-                                    value={selectedAcademicLevel || 'all'} 
-                                    onValueChange={handleAcademicLevelChange}
-                                >
-                                    <SelectTrigger className="w-full md:w-64">
-                                        <SelectValue placeholder="Select academic level" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All Levels</SelectItem>
-                                        {safeAcademicLevels.map((level) => (
-                                            <SelectItem key={level.id} value={level.id.toString()}>
-                                                {level.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                            <CardContent className="space-y-4">
+                                {/* Academic Level Badge */}
+                                {safeAcademicLevels.length > 0 ? (
+                                    <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-100 dark:border-blue-900">
+                                        <div className="flex items-center justify-center w-10 h-10 bg-blue-600 rounded-lg">
+                                            <GraduationCap className="h-5 w-5 text-white" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2">
+                                                <Badge className="text-sm px-3 py-1 bg-blue-600 hover:bg-blue-700">
+                                                    {safeAcademicLevels[0].name}
+                                                </Badge>
+                                                <span className="text-xs text-blue-700 dark:text-blue-300 font-medium">
+                                                    Academic Level
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                                                You manage College-level academic oversight
+                                            </p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
+                                        <div className="flex items-center justify-center w-10 h-10 bg-gray-300 rounded-lg">
+                                            <GraduationCap className="h-5 w-5 text-gray-600" />
+                                        </div>
+                                        <p className="text-sm text-muted-foreground">
+                                            No academic level assigned
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* Department Info */}
+                                {department ? (
+                                    <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-950 rounded-lg border border-green-100 dark:border-green-900">
+                                        <div className="flex items-center justify-center w-10 h-10 bg-green-600 rounded-lg">
+                                            <Building2 className="h-5 w-5 text-white" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm font-semibold text-green-900 dark:text-green-100">
+                                                    {department.name}
+                                                </span>
+                                                <Badge variant="outline" className="text-xs px-2 py-0.5 border-green-300 text-green-700 dark:border-green-700 dark:text-green-300">
+                                                    {department.code}
+                                                </Badge>
+                                            </div>
+                                            <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                                                Your assigned department
+                                            </p>
+                                        </div>
+                                    </div>
+                                ) : user.department_id ? (
+                                    <div className="flex items-center gap-3 p-3 bg-amber-50 dark:bg-amber-950 rounded-lg border border-amber-100 dark:border-amber-900">
+                                        <div className="flex items-center justify-center w-10 h-10 bg-amber-500 rounded-lg">
+                                            <Building2 className="h-5 w-5 text-white" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                                                Department ID: {user.department_id}
+                                            </p>
+                                            <p className="text-xs text-amber-600 dark:text-amber-400">
+                                                Department details not loaded
+                                            </p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
+                                        <div className="flex items-center justify-center w-10 h-10 bg-gray-300 rounded-lg">
+                                            <Building2 className="h-5 w-5 text-gray-600" />
+                                        </div>
+                                        <p className="text-sm text-muted-foreground">
+                                            No department assigned
+                                        </p>
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
 

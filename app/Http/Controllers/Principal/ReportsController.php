@@ -37,6 +37,14 @@ class ReportsController extends Controller
         $user = Auth::user();
         $principalAcademicLevel = AcademicLevel::where('key', $user->year_level)->first();
 
+        Log::info('[Principal Reports] Academic Performance - Request', [
+            'user_id' => $user->id,
+            'user_year_level' => $user->year_level,
+            'principal_academic_level_id' => $principalAcademicLevel?->id,
+            'principal_academic_level_key' => $principalAcademicLevel?->key,
+            'principal_academic_level_name' => $principalAcademicLevel?->name,
+        ]);
+
         $filters = $request->only(['academic_level_id', 'course_id', 'year', 'period']);
 
         try {
@@ -90,6 +98,12 @@ class ReportsController extends Controller
                 })
                 ->get();
 
+            Log::info('[Principal Reports] Academic Performance - Data to Frontend', [
+                'strands_count' => $strands->count(),
+                'strands' => $strands->pluck('name', 'id')->toArray(),
+                'grading_periods_count' => $gradingPeriods->count(),
+            ]);
+
             return Inertia::render('Principal/Reports/AcademicPerformance', [
                 'user' => $user,
                 'grades' => $grades,
@@ -136,6 +150,14 @@ class ReportsController extends Controller
     {
         $user = Auth::user();
         $principalAcademicLevel = AcademicLevel::where('key', $user->year_level)->first();
+
+        Log::info('[Principal Reports] Grade Trends - Request', [
+            'user_id' => $user->id,
+            'user_year_level' => $user->year_level,
+            'principal_academic_level_id' => $principalAcademicLevel?->id,
+            'principal_academic_level_key' => $principalAcademicLevel?->key,
+            'principal_academic_level_name' => $principalAcademicLevel?->name,
+        ]);
 
         $filters = $request->only(['academic_level_id', 'course_id', 'year']);
 
@@ -220,6 +242,14 @@ class ReportsController extends Controller
         $user = Auth::user();
         $principalAcademicLevel = AcademicLevel::where('key', $user->year_level)->first();
 
+        Log::info('[Principal Reports] Honor Statistics - Request', [
+            'user_id' => $user->id,
+            'user_year_level' => $user->year_level,
+            'principal_academic_level_id' => $principalAcademicLevel?->id,
+            'principal_academic_level_key' => $principalAcademicLevel?->key,
+            'principal_academic_level_name' => $principalAcademicLevel?->name,
+        ]);
+
         $filters = $request->only(['academic_level_id', 'honor_type_id', 'year']);
 
         try {
@@ -255,6 +285,11 @@ class ReportsController extends Controller
             // Only pass the principal's assigned academic level
             $academicLevels = $principalAcademicLevel ? [$principalAcademicLevel] : [];
             $honorTypes = \App\Models\HonorType::all();
+
+            Log::info('[Principal Reports] Honor Statistics - Data to Frontend', [
+                'honor_types_count' => $honorTypes->count(),
+                'honor_types' => $honorTypes->pluck('name', 'id')->toArray(),
+            ]);
 
             return Inertia::render('Principal/Reports/HonorStatistics', [
                 'user' => $user,
