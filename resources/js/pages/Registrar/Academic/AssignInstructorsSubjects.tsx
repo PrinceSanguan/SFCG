@@ -38,6 +38,7 @@ interface Subject {
     units: number;
     course_id: number | null;
     academic_level_id: number;
+    section_id?: number | null;
     course: Course | null;
     academicLevel: {
         id: number;
@@ -46,6 +47,7 @@ interface Subject {
     };
     shs_year_level?: string | null;
     jhs_year_level?: string | null;
+    college_year_level?: string | null;
     selected_grade_level?: string | null;
 }
 
@@ -127,6 +129,7 @@ export default function AssignInstructorsSubjects({
     const [availableStrands, setAvailableStrands] = useState<any[]>([]);
     const [showAssignmentModal, setShowAssignmentModal] = useState(false);
     const [editingAssignment, setEditingAssignment] = useState<InstructorSubjectAssignment | null>(null);
+    const [sectionJustSelected, setSectionJustSelected] = useState(false);
     const [formData, setFormData] = useState({
         instructor_id: '',
         subject_id: '',
@@ -313,134 +316,25 @@ export default function AssignInstructorsSubjects({
             return;
         }
 
-        console.log('[REGISTRAR] Starting subject filtering with academic_level_id:', academicLevelId);
+        console.log('[REGISTRAR] Starting subject filtering for section:', selectedSection.id, selectedSection.name);
 
-        // Filter subjects based on the selected section's properties
-        let filtered = subjects.filter(subject =>
-            subject.academic_level_id === academicLevelId
-        );
-
-        console.log('[REGISTRAR] After academic level filter:', filtered.length, 'subjects');
-
-        // For College: filter by course and year level
-        if (selectedLevel.key === 'college' && selectedSection.course_id) {
-            console.log('[REGISTRAR] Applying College-specific filtering');
-            console.log('[REGISTRAR] Section course_id:', selectedSection.course_id);
-            console.log('[REGISTRAR] Section year level:', selectedSection.specific_year_level);
-
-            const beforeCollegeFilter = filtered.length;
-            filtered = filtered.filter(subject => {
-                const matchesCourse = subject.course_id === selectedSection.course_id;
-                const collegeYearLevel = (subject as any).college_year_level;
-
-                console.log(`[REGISTRAR] Subject "${subject.name}":`, {
-                    subject_course_id: subject.course_id,
-                    matchesCourse,
-                    college_year_level: collegeYearLevel,
-                    section_year_level: selectedSection.specific_year_level,
-                });
-
-                if (collegeYearLevel && selectedSection.specific_year_level) {
-                    const result = matchesCourse && collegeYearLevel === selectedSection.specific_year_level;
-                    console.log(`[REGISTRAR] Result (with year level): ${result}`);
-                    return result;
-                }
-
-                console.log(`[REGISTRAR] Result (course only): ${matchesCourse}`);
-                return matchesCourse;
-            });
-            console.log(`[REGISTRAR] After College filter: ${filtered.length} subjects (was ${beforeCollegeFilter})`);
-        }
-
-        // For SHS: filter by strand and year level
-        if (selectedLevel.key === 'senior_highschool') {
-            console.log('[REGISTRAR] Applying SHS-specific filtering');
-            console.log('[REGISTRAR] Section year level:', selectedSection.specific_year_level);
-
-            const beforeSHSFilter = filtered.length;
-            filtered = filtered.filter(subject => {
-                const subjectYearLevel = subject.shs_year_level;
-
-                console.log(`[REGISTRAR] Subject "${subject.name}":`, {
-                    shs_year_level: subjectYearLevel,
-                    section_year_level: selectedSection.specific_year_level,
-                });
-
-                if (subjectYearLevel && selectedSection.specific_year_level) {
-                    const result = subjectYearLevel === selectedSection.specific_year_level;
-                    console.log(`[REGISTRAR] Result: ${result}`);
-                    return result;
-                }
-
-                console.log(`[REGISTRAR] Result (no year level check): true`);
-                return true;
-            });
-            console.log(`[REGISTRAR] After SHS filter: ${filtered.length} subjects (was ${beforeSHSFilter})`);
-        }
-
-        // For JHS: filter by year level
-        if (selectedLevel.key === 'junior_highschool') {
-            console.log('[REGISTRAR] Applying JHS-specific filtering');
-            console.log('[REGISTRAR] Section year level:', selectedSection.specific_year_level);
-
-            const beforeJHSFilter = filtered.length;
-            filtered = filtered.filter(subject => {
-                const subjectYearLevel = subject.jhs_year_level;
-
-                console.log(`[REGISTRAR] Subject "${subject.name}":`, {
-                    jhs_year_level: subjectYearLevel,
-                    section_year_level: selectedSection.specific_year_level,
-                });
-
-                if (subjectYearLevel && selectedSection.specific_year_level) {
-                    const result = subjectYearLevel === selectedSection.specific_year_level;
-                    console.log(`[REGISTRAR] Result: ${result}`);
-                    return result;
-                }
-
-                console.log(`[REGISTRAR] Result (no year level check): true`);
-                return true;
-            });
-            console.log(`[REGISTRAR] After JHS filter: ${filtered.length} subjects (was ${beforeJHSFilter})`);
-        }
-
-        // For Elementary: filter by year level
-        if (selectedLevel.key === 'elementary') {
-            console.log('[REGISTRAR] Applying Elementary-specific filtering');
-            console.log('[REGISTRAR] Section year level:', selectedSection.specific_year_level);
-
-            const beforeElemFilter = filtered.length;
-            filtered = filtered.filter(subject => {
-                const subjectYearLevel = subject.selected_grade_level;
-
-                console.log(`[REGISTRAR] Subject "${subject.name}":`, {
-                    selected_grade_level: subjectYearLevel,
-                    section_year_level: selectedSection.specific_year_level,
-                });
-
-                if (subjectYearLevel && selectedSection.specific_year_level) {
-                    const result = subjectYearLevel === selectedSection.specific_year_level;
-                    console.log(`[REGISTRAR] Result: ${result}`);
-                    return result;
-                }
-
-                console.log(`[REGISTRAR] Result (no year level check): true`);
-                return true;
-            });
-            console.log(`[REGISTRAR] After Elementary filter: ${filtered.length} subjects (was ${beforeElemFilter})`);
-        }
+        // Filter subjects by section_id - show ONLY subjects assigned to this specific section
+        const filtered = subjects.filter(subject => {
+            return subject.section_id === selectedSection.id;
+        });
 
         console.log('[REGISTRAR] FINAL filtered subjects COUNT:', filtered.length);
         console.log('[REGISTRAR] FINAL filtered subjects:', filtered.map(s => ({
             id: s.id,
             name: s.name,
             code: s.code,
+            section_id: s.section_id,
             course_id: s.course_id,
             academic_level_id: s.academic_level_id,
         })));
         console.log('====== SUBJECT FILTERING END ======');
         setFilteredSubjects(filtered);
-    }, [formData.section_id, selectedAcademicLevel, subjects, sections, academicLevels]);
+    }, [formData.section_id, selectedAcademicLevel, subjects, sections, academicLevels, assignments]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -523,6 +417,8 @@ export default function AssignInstructorsSubjects({
         setFilteredSections([]);
         setFilteredSubjects([]);
         setEditingAssignment(null);
+        setSectionJustSelected(false);
+        console.log('[REGISTRAR] Form reset - sectionJustSelected set to false');
     };
 
     const filteredAssignments = assignments.filter(assignment => {
@@ -710,11 +606,12 @@ export default function AssignInstructorsSubjects({
                         </DialogTitle>
                     </DialogHeader>
                     <form onSubmit={handleSubmit} className="space-y-4">
+                        {/* Instructor and Academic Level */}
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <Label htmlFor="instructor_id">Instructor</Label>
-                                <Select 
-                                    value={formData.instructor_id} 
+                                <Label htmlFor="instructor_id">Instructor *</Label>
+                                <Select
+                                    value={formData.instructor_id}
                                     onValueChange={(value) => setFormData(prev => ({ ...prev, instructor_id: value }))}
                                     required
                                 >
@@ -731,14 +628,18 @@ export default function AssignInstructorsSubjects({
                                 </Select>
                             </div>
                             <div>
-                                <Label htmlFor="academic_level_id">Academic Level</Label>
+                                <Label htmlFor="academic_level_id">Academic Level *</Label>
                                 <Select
                                     value={formData.academic_level_id}
                                     onValueChange={(value) => {
                                         console.log('[REGISTRAR] Academic level changed to:', value);
-                                        setFilteredSubjects([]);
                                         setFormData(prev => ({ ...prev, academic_level_id: value, section_id: '', subject_id: '' }));
                                         setSelectedAcademicLevel(value);
+                                        setSelectedYearLevel('');
+                                        setSelectedDepartmentOrTrack('');
+                                        setSelectedCourseOrStrand('');
+                                        setSectionJustSelected(false);
+                                        console.log('[REGISTRAR] sectionJustSelected reset to false (academic level changed)');
                                     }}
                                     required
                                 >
@@ -756,39 +657,268 @@ export default function AssignInstructorsSubjects({
                             </div>
                         </div>
 
-                        <div>
-                            <Label htmlFor="section_id">Section *</Label>
-                            <Select
-                                value={formData.section_id}
-                                onValueChange={(value) => {
-                                    console.log('[REGISTRAR] Section changed to:', value);
-                                    console.log('[REGISTRAR] Immediately clearing filteredSubjects');
-                                    setFilteredSubjects([]);
-                                    setFormData(prev => ({ ...prev, section_id: value, subject_id: '' }));
-                                }}
-                                disabled={!selectedAcademicLevel || filteredSections.length === 0}
-                                required
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select section" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {filteredSections.map((section) => (
-                                        <SelectItem key={section.id} value={section.id.toString()}>
-                                            {section.name}{section.code ? ` (${section.code})` : ''}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            {selectedAcademicLevel && filteredSections.length === 0 && (
-                                <p className="text-sm text-amber-600 mt-1">
-                                    No sections available for this academic level. Please add sections first.
-                                </p>
-                            )}
-                        </div>
+                        {/* Year Level - Show for all academic levels */}
+                        {selectedAcademicLevel && (() => {
+                            const selectedLevel = academicLevels.find(l => l.id.toString() === selectedAcademicLevel);
+                            if (!selectedLevel) return null;
 
-                        {/* Subject - Only show after section is selected */}
-                        {formData.section_id && (
+                            let yearLevelOptions: { value: string; label: string }[] = [];
+
+                            if (selectedLevel.key === 'elementary') {
+                                yearLevelOptions = [
+                                    { value: 'grade_1', label: 'Grade 1' },
+                                    { value: 'grade_2', label: 'Grade 2' },
+                                    { value: 'grade_3', label: 'Grade 3' },
+                                    { value: 'grade_4', label: 'Grade 4' },
+                                    { value: 'grade_5', label: 'Grade 5' },
+                                    { value: 'grade_6', label: 'Grade 6' },
+                                ];
+                            } else if (selectedLevel.key === 'junior_highschool') {
+                                yearLevelOptions = [
+                                    { value: 'grade_7', label: 'Grade 7' },
+                                    { value: 'grade_8', label: 'Grade 8' },
+                                    { value: 'grade_9', label: 'Grade 9' },
+                                    { value: 'grade_10', label: 'Grade 10' },
+                                ];
+                            } else if (selectedLevel.key === 'senior_highschool') {
+                                yearLevelOptions = [
+                                    { value: 'grade_11', label: 'Grade 11' },
+                                    { value: 'grade_12', label: 'Grade 12' },
+                                ];
+                            } else if (selectedLevel.key === 'college') {
+                                yearLevelOptions = [
+                                    { value: '1st_year', label: '1st Year' },
+                                    { value: '2nd_year', label: '2nd Year' },
+                                    { value: '3rd_year', label: '3rd Year' },
+                                    { value: '4th_year', label: '4th Year' },
+                                ];
+                            }
+
+                            return (
+                                <div>
+                                    <Label htmlFor="year_level">Year Level *</Label>
+                                    <Select
+                                        value={selectedYearLevel}
+                                        onValueChange={(value) => {
+                                            console.log('[REGISTRAR] Year level changed to:', value);
+                                            setSelectedYearLevel(value);
+                                            setSelectedDepartmentOrTrack('');
+                                            setSelectedCourseOrStrand('');
+                                            setFilteredSubjects([]);
+                                            setFormData(prev => ({ ...prev, section_id: '', subject_id: '' }));
+                                            setSectionJustSelected(false);
+                                            console.log('[REGISTRAR] sectionJustSelected reset to false (year level changed)');
+                                        }}
+                                        required
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select year level" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {yearLevelOptions.map((opt) => (
+                                                <SelectItem key={opt.value} value={opt.value}>
+                                                    {opt.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            );
+                        })()}
+
+                        {/* Department/Track and Course/Strand for College and SHS */}
+                        {selectedAcademicLevel && selectedYearLevel && (() => {
+                            const selectedLevel = academicLevels.find(l => l.id.toString() === selectedAcademicLevel);
+                            if (!selectedLevel) return null;
+
+                            if (selectedLevel.key === 'college') {
+                                return (
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <Label htmlFor="department">Department *</Label>
+                                            <Select
+                                                value={selectedDepartmentOrTrack}
+                                                onValueChange={(value) => {
+                                                    console.log('[REGISTRAR] Department changed to:', value);
+                                                    setSelectedDepartmentOrTrack(value);
+                                                    setSelectedCourseOrStrand('');
+                                                    setFilteredSubjects([]);
+                                                    setFormData(prev => ({ ...prev, section_id: '', subject_id: '' }));
+                                                    setSectionJustSelected(false);
+                                                    console.log('[REGISTRAR] sectionJustSelected reset to false (department changed)');
+                                                }}
+                                                required
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select department" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {availableDepartments.map((dept) => (
+                                                        <SelectItem key={dept.id} value={dept.id.toString()}>
+                                                            {dept.name} ({dept.code})
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div>
+                                            <Label htmlFor="course">Course *</Label>
+                                            <Select
+                                                value={selectedCourseOrStrand}
+                                                onValueChange={(value) => {
+                                                    console.log('[REGISTRAR] Course changed to:', value);
+                                                    setSelectedCourseOrStrand(value);
+                                                    setFilteredSubjects([]);
+                                                    setFormData(prev => ({ ...prev, section_id: '', subject_id: '' }));
+                                                    setSectionJustSelected(false);
+                                                    console.log('[REGISTRAR] sectionJustSelected reset to false (course changed)');
+                                                }}
+                                                disabled={!selectedDepartmentOrTrack || availableCourses.length === 0}
+                                                required
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder={selectedDepartmentOrTrack ? "Select course" : "Select department first"} />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {availableCourses.map((course) => (
+                                                        <SelectItem key={course.id} value={course.id.toString()}>
+                                                            {course.name} ({course.code})
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            if (selectedLevel.key === 'senior_highschool') {
+                                return (
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <Label htmlFor="track">Track *</Label>
+                                            <Select
+                                                value={selectedDepartmentOrTrack}
+                                                onValueChange={(value) => {
+                                                    console.log('[REGISTRAR] Track changed to:', value);
+                                                    setSelectedDepartmentOrTrack(value);
+                                                    setSelectedCourseOrStrand('');
+                                                    setFilteredSubjects([]);
+                                                    setFormData(prev => ({ ...prev, section_id: '', subject_id: '' }));
+                                                    setSectionJustSelected(false);
+                                                    console.log('[REGISTRAR] sectionJustSelected reset to false (track changed)');
+                                                }}
+                                                required
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select track" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {availableTracks.map((track) => (
+                                                        <SelectItem key={track.id} value={track.id.toString()}>
+                                                            {track.name} ({track.code})
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div>
+                                            <Label htmlFor="strand">Strand *</Label>
+                                            <Select
+                                                value={selectedCourseOrStrand}
+                                                onValueChange={(value) => {
+                                                    console.log('[REGISTRAR] Strand changed to:', value);
+                                                    setSelectedCourseOrStrand(value);
+                                                    setFilteredSubjects([]);
+                                                    setFormData(prev => ({ ...prev, section_id: '', subject_id: '' }));
+                                                    setSectionJustSelected(false);
+                                                    console.log('[REGISTRAR] sectionJustSelected reset to false (strand changed)');
+                                                }}
+                                                disabled={!selectedDepartmentOrTrack || availableStrands.length === 0}
+                                                required
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder={selectedDepartmentOrTrack ? "Select strand" : "Select track first"} />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {availableStrands.map((strand) => (
+                                                        <SelectItem key={strand.id} value={strand.id.toString()}>
+                                                            {strand.name} ({strand.code})
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            return null;
+                        })()}
+
+                        {/* Section - Show after year level (and department/course for College, track/strand for SHS) */}
+                        {selectedAcademicLevel && selectedYearLevel && (() => {
+                            const selectedLevel = academicLevels.find(l => l.id.toString() === selectedAcademicLevel);
+                            if (!selectedLevel) return null;
+
+                            // For College and SHS, require department/track and course/strand
+                            if ((selectedLevel.key === 'college' || selectedLevel.key === 'senior_highschool') &&
+                                (!selectedDepartmentOrTrack || !selectedCourseOrStrand)) {
+                                return null;
+                            }
+
+                            return (
+                                <div>
+                                    <Label htmlFor="section_id">Section *</Label>
+                                    <Select
+                                        value={formData.section_id}
+                                        onValueChange={(value) => {
+                                            console.log('[REGISTRAR] ===== SECTION SELECTED =====');
+                                            console.log('[REGISTRAR] Section changed to:', value);
+                                            console.log('[REGISTRAR] Setting sectionJustSelected to TRUE');
+                                            setSectionJustSelected(true);
+                                            setFilteredSubjects([]);
+                                            setFormData(prev => ({ ...prev, section_id: value, subject_id: '' }));
+                                            console.log('[REGISTRAR] Section selection complete - Subject should now appear');
+                                        }}
+                                        disabled={filteredSections.length === 0}
+                                        required
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select section" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {filteredSections.map((section) => (
+                                                <SelectItem key={section.id} value={section.id.toString()}>
+                                                    {section.name}{section.code ? ` (${section.code})` : ''}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {filteredSections.length === 0 && (
+                                        <p className="text-sm text-amber-600 mt-1">
+                                            No sections available. Please add sections first or adjust your selections.
+                                        </p>
+                                    )}
+                                </div>
+                            );
+                        })()}
+
+                        {/* Subject - Only show after section is explicitly selected in this form session */}
+                        {(() => {
+                            const shouldShowSubject = sectionJustSelected &&
+                                                     formData.section_id &&
+                                                     filteredSections.some(s => s.id.toString() === formData.section_id);
+
+                            console.log('[REGISTRAR] Subject visibility check:', {
+                                sectionJustSelected,
+                                section_id: formData.section_id,
+                                sectionExistsInFiltered: formData.section_id ? filteredSections.some(s => s.id.toString() === formData.section_id) : false,
+                                shouldShowSubject
+                            });
+
+                            return shouldShowSubject;
+                        })() && (
                             <div>
                                 <Label htmlFor="subject_id">Subject *</Label>
                                 <Select

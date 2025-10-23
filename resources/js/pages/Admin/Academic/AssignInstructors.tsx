@@ -63,6 +63,7 @@ interface Subject {
     description: string;
     units: number;
     academic_level_id: number;
+    section_id?: number | null;
     course_id?: number;
     course?: {
         id: number;
@@ -148,6 +149,7 @@ export default function AssignInstructors({ user, assignments, instructors, depa
     const [filteredCourses, setFilteredCourses] = useState<Course[]>([]);
     const [filteredSections, setFilteredSections] = useState<Section[]>([]);
     const [filteredSubjects, setFilteredSubjects] = useState<Subject[]>([]);
+    const [sectionJustSelected, setSectionJustSelected] = useState(false);
 
     // Filter for College level only
     const collegeLevel = academicLevels.find(level => level.key === 'college');
@@ -164,22 +166,6 @@ export default function AssignInstructors({ user, assignments, instructors, depa
             setFilteredCourses(filtered);
         }
         if (assignmentForm.course_id) {
-            // Filter subjects by both course_id AND year level
-            const filteredSubj = subjects.filter(s => {
-                const matchesCourse = s.course_id == null || s.course_id === parseInt(assignmentForm.course_id);
-                const matchesYearLevel = !assignmentForm.year_level ||
-                    s.college_year_level === assignmentForm.year_level;
-                return matchesCourse && matchesYearLevel;
-            });
-            console.log('Filtering subjects:', {
-                selectedCourseId: assignmentForm.course_id,
-                selectedYearLevel: assignmentForm.year_level,
-                totalSubjects: subjects.length,
-                filteredSubjects: filteredSubj.length,
-                subjects: filteredSubj.map(s => ({ name: s.name, code: s.code, yearLevel: s.college_year_level }))
-            });
-            setFilteredSubjects(filteredSubj);
-
             // Filter sections by both course_id AND year level
             const filteredSect = sections.filter(s => {
                 const matchesCourse = s.course_id === parseInt(assignmentForm.course_id);
@@ -187,7 +173,7 @@ export default function AssignInstructors({ user, assignments, instructors, depa
                     s.specific_year_level === assignmentForm.year_level;
                 return matchesCourse && matchesYearLevel;
             });
-            console.log('Filtering sections:', {
+            console.log('[ADMIN] Filtering sections:', {
                 selectedCourseId: assignmentForm.course_id,
                 selectedYearLevel: assignmentForm.year_level,
                 totalSections: sections.length,
@@ -196,7 +182,30 @@ export default function AssignInstructors({ user, assignments, instructors, depa
             });
             setFilteredSections(filteredSect);
         }
-    }, [assignmentForm.department_id, assignmentForm.course_id, assignmentForm.year_level, courses, subjects, sections, departments]);
+
+        // Only filter subjects AFTER section is selected
+        if (assignmentForm.section_id && sectionJustSelected) {
+            const selectedSection = sections.find(s => s.id.toString() === assignmentForm.section_id);
+            if (selectedSection) {
+                // Filter subjects by section_id - show ONLY subjects assigned to this specific section
+                const filteredSubj = subjects.filter(s => {
+                    return s.section_id === selectedSection.id;
+                });
+                console.log('[ADMIN] Filtering subjects by section:', {
+                    selectedSectionId: assignmentForm.section_id,
+                    sectionCourseId: selectedSection.course_id,
+                    sectionYearLevel: selectedSection.specific_year_level,
+                    totalSubjects: subjects.length,
+                    filteredSubjects: filteredSubj.length,
+                    subjects: filteredSubj.map(s => ({ name: s.name, code: s.code, section_id: s.section_id, course_id: s.course_id, yearLevel: s.college_year_level }))
+                });
+                setFilteredSubjects(filteredSubj);
+            }
+        } else {
+            // Clear subjects if no section selected
+            setFilteredSubjects([]);
+        }
+    }, [assignmentForm.department_id, assignmentForm.course_id, assignmentForm.year_level, assignmentForm.section_id, sectionJustSelected, courses, subjects, sections, departments]);
     
     // Safety check: only proceed if we have valid level
     if (!collegeLevel) {
@@ -389,6 +398,8 @@ export default function AssignInstructors({ user, assignments, instructors, depa
         setFilteredCourses([]);
         setFilteredSubjects([]);
         setFilteredSections([]);
+        setSectionJustSelected(false);
+        console.log('[ADMIN] Form reset - sectionJustSelected set to false');
     };
 
     // Helper functions for checkbox handling
@@ -583,67 +594,45 @@ export default function AssignInstructors({ user, assignments, instructors, depa
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <Label htmlFor="course_id">Course *</Label>
-                                    <Select
-                                        value={assignmentForm.course_id}
-                                        onValueChange={(value) => {
-                                            setAssignmentForm({ ...assignmentForm, course_id: value, subject_id: '' });
-                                            // Filter subjects by both course_id AND year level
-                                            const filtered = subjects.filter(s => {
-                                                const matchesCourse = s.course_id == null || s.course_id === parseInt(value);
-                                                const matchesYearLevel = !assignmentForm.year_level ||
-                                                    s.college_year_level === assignmentForm.year_level;
-                                                return matchesCourse && matchesYearLevel;
-                                            });
-                                            setFilteredSubjects(filtered);
-                                        }}
-                                        required
-                                        disabled={!assignmentForm.department_id}
-                                    >
-                                        <SelectTrigger className="min-h-[48px] h-auto py-2 whitespace-normal text-left items-start">
-                                            <SelectValue placeholder="Select course" className="whitespace-normal text-left" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {filteredCourses.map((course) => (
-                                                <SelectItem key={course.id} value={course.id.toString()}>
-                                                    <span className="whitespace-normal break-words text-left inline-block">
-                                                        {course.name} ({course.code})
-                                                    </span>
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <div>
-                                    <Label htmlFor="subject_id">Subject *</Label>
-                                    <Select
-                                        value={assignmentForm.subject_id}
-                                        onValueChange={(value) => setAssignmentForm({ ...assignmentForm, subject_id: value })}
-                                        required
-                                        disabled={!assignmentForm.course_id}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder={assignmentForm.course_id ? "Select subject" : "Select course first"} />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {filteredSubjects.map((subject) => (
-                                                <SelectItem key={subject.id} value={subject.id.toString()}>
-                                                    {subject.name} ({subject.code})
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
+                            <div>
+                                <Label htmlFor="course_id">Course *</Label>
+                                <Select
+                                    value={assignmentForm.course_id}
+                                    onValueChange={(value) => {
+                                        console.log('[ADMIN] Course changed to:', value);
+                                        setAssignmentForm({ ...assignmentForm, course_id: value, section_id: '', subject_id: '' });
+                                        setSectionJustSelected(false);
+                                        console.log('[ADMIN] sectionJustSelected reset to false (course changed)');
+                                    }}
+                                    required
+                                    disabled={!assignmentForm.department_id}
+                                >
+                                    <SelectTrigger className="min-h-[48px] h-auto py-2 whitespace-normal text-left items-start">
+                                        <SelectValue placeholder="Select course" className="whitespace-normal text-left" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {filteredCourses.map((course) => (
+                                            <SelectItem key={course.id} value={course.id.toString()}>
+                                                <span className="whitespace-normal break-words text-left inline-block">
+                                                    {course.name} ({course.code})
+                                                </span>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
 
                             <div>
                                 <Label htmlFor="section_id">Section</Label>
                                 <Select
                                     value={assignmentForm.section_id}
-                                    onValueChange={(value) => setAssignmentForm({ ...assignmentForm, section_id: value })}
+                                    onValueChange={(value) => {
+                                        console.log('[ADMIN] ===== SECTION SELECTED =====');
+                                        console.log('[ADMIN] Section changed to:', value);
+                                        setAssignmentForm({ ...assignmentForm, section_id: value, subject_id: '' });
+                                        setSectionJustSelected(true);
+                                        console.log('[ADMIN] sectionJustSelected set to TRUE - Subject should now appear');
+                                    }}
                                     disabled={!assignmentForm.course_id || filteredSections.length === 0}
                                 >
                                     <SelectTrigger>
@@ -661,6 +650,30 @@ export default function AssignInstructors({ user, assignments, instructors, depa
                                     Optional: Select a section to assign this instructor to specific students
                                 </p>
                             </div>
+
+                            {/* Subject - Only show after section is selected */}
+                            {sectionJustSelected && assignmentForm.section_id && (
+                                <div>
+                                    <Label htmlFor="subject_id">Subject *</Label>
+                                    <Select
+                                        value={assignmentForm.subject_id}
+                                        onValueChange={(value) => setAssignmentForm({ ...assignmentForm, subject_id: value })}
+                                        required
+                                        disabled={filteredSubjects.length === 0}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder={filteredSubjects.length > 0 ? "Select subject" : "No subjects available"} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {filteredSubjects.map((subject) => (
+                                                <SelectItem key={subject.id} value={subject.id.toString()}>
+                                                    {subject.name} ({subject.code})
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
@@ -1023,15 +1036,10 @@ export default function AssignInstructors({ user, assignments, instructors, depa
                                 <Select
                                     value={assignmentForm.course_id}
                                     onValueChange={(value) => {
-                                        setAssignmentForm({ ...assignmentForm, course_id: value, subject_id: '' });
-                                        // Filter subjects by both course_id AND year level
-                                        const filtered = subjects.filter(s => {
-                                            const matchesCourse = s.course_id == null || s.course_id === parseInt(value);
-                                            const matchesYearLevel = !assignmentForm.year_level ||
-                                                s.college_year_level === assignmentForm.year_level;
-                                            return matchesCourse && matchesYearLevel;
-                                        });
-                                        setFilteredSubjects(filtered);
+                                        console.log('[ADMIN EDIT] Course changed to:', value);
+                                        setAssignmentForm({ ...assignmentForm, course_id: value, section_id: '', subject_id: '' });
+                                        setSectionJustSelected(false);
+                                        console.log('[ADMIN EDIT] sectionJustSelected reset to false (course changed)');
                                     }}
                                     required
                                     disabled={!assignmentForm.department_id}

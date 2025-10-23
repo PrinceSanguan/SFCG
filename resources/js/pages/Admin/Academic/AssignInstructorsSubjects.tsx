@@ -38,6 +38,7 @@ interface Subject {
     units: number;
     course_id: number | null;
     academic_level_id: number;
+    section_id?: number | null;
     course: Course | null;
     academicLevel: {
         id: number;
@@ -128,6 +129,7 @@ export default function AssignInstructorsSubjects({
     const [availableStrands, setAvailableStrands] = useState<any[]>([]);
     const [showAssignmentModal, setShowAssignmentModal] = useState(false);
     const [editingAssignment, setEditingAssignment] = useState<InstructorSubjectAssignment | null>(null);
+    const [sectionJustSelected, setSectionJustSelected] = useState(false);
     const [formData, setFormData] = useState({
         instructor_id: '',
         subject_id: '',
@@ -314,134 +316,25 @@ export default function AssignInstructorsSubjects({
             return;
         }
 
-        console.log('[ADMIN] Starting subject filtering with academic_level_id:', academicLevelId);
+        console.log('[ADMIN] Starting subject filtering for section:', selectedSection.id, selectedSection.name);
 
-        // Filter subjects based on the selected section's properties
-        let filtered = subjects.filter(subject =>
-            subject.academic_level_id === academicLevelId
-        );
-
-        console.log('[ADMIN] After academic level filter:', filtered.length, 'subjects');
-
-        // For College: filter by course and year level
-        if (selectedLevel.key === 'college' && selectedSection.course_id) {
-            console.log('[ADMIN] Applying College-specific filtering');
-            console.log('[ADMIN] Section course_id:', selectedSection.course_id);
-            console.log('[ADMIN] Section year level:', selectedSection.specific_year_level);
-
-            const beforeCollegeFilter = filtered.length;
-            filtered = filtered.filter(subject => {
-                const matchesCourse = subject.course_id === selectedSection.course_id;
-                const collegeYearLevel = (subject as any).college_year_level;
-
-                console.log(`[ADMIN] Subject "${subject.name}":`, {
-                    subject_course_id: subject.course_id,
-                    matchesCourse,
-                    college_year_level: collegeYearLevel,
-                    section_year_level: selectedSection.specific_year_level,
-                });
-
-                if (collegeYearLevel && selectedSection.specific_year_level) {
-                    const result = matchesCourse && collegeYearLevel === selectedSection.specific_year_level;
-                    console.log(`[ADMIN] Result (with year level): ${result}`);
-                    return result;
-                }
-
-                console.log(`[ADMIN] Result (course only): ${matchesCourse}`);
-                return matchesCourse;
-            });
-            console.log(`[ADMIN] After College filter: ${filtered.length} subjects (was ${beforeCollegeFilter})`);
-        }
-
-        // For SHS: filter by strand and year level
-        if (selectedLevel.key === 'senior_highschool') {
-            console.log('[ADMIN] Applying SHS-specific filtering');
-            console.log('[ADMIN] Section year level:', selectedSection.specific_year_level);
-
-            const beforeSHSFilter = filtered.length;
-            filtered = filtered.filter(subject => {
-                const subjectYearLevel = subject.shs_year_level;
-
-                console.log(`[ADMIN] Subject "${subject.name}":`, {
-                    shs_year_level: subjectYearLevel,
-                    section_year_level: selectedSection.specific_year_level,
-                });
-
-                if (subjectYearLevel && selectedSection.specific_year_level) {
-                    const result = subjectYearLevel === selectedSection.specific_year_level;
-                    console.log(`[ADMIN] Result: ${result}`);
-                    return result;
-                }
-
-                console.log(`[ADMIN] Result (no year level check): true`);
-                return true;
-            });
-            console.log(`[ADMIN] After SHS filter: ${filtered.length} subjects (was ${beforeSHSFilter})`);
-        }
-
-        // For JHS: filter by year level
-        if (selectedLevel.key === 'junior_highschool') {
-            console.log('[ADMIN] Applying JHS-specific filtering');
-            console.log('[ADMIN] Section year level:', selectedSection.specific_year_level);
-
-            const beforeJHSFilter = filtered.length;
-            filtered = filtered.filter(subject => {
-                const subjectYearLevel = subject.jhs_year_level;
-
-                console.log(`[ADMIN] Subject "${subject.name}":`, {
-                    jhs_year_level: subjectYearLevel,
-                    section_year_level: selectedSection.specific_year_level,
-                });
-
-                if (subjectYearLevel && selectedSection.specific_year_level) {
-                    const result = subjectYearLevel === selectedSection.specific_year_level;
-                    console.log(`[ADMIN] Result: ${result}`);
-                    return result;
-                }
-
-                console.log(`[ADMIN] Result (no year level check): true`);
-                return true;
-            });
-            console.log(`[ADMIN] After JHS filter: ${filtered.length} subjects (was ${beforeJHSFilter})`);
-        }
-
-        // For Elementary: filter by year level
-        if (selectedLevel.key === 'elementary') {
-            console.log('[ADMIN] Applying Elementary-specific filtering');
-            console.log('[ADMIN] Section year level:', selectedSection.specific_year_level);
-
-            const beforeElemFilter = filtered.length;
-            filtered = filtered.filter(subject => {
-                const subjectYearLevel = subject.selected_grade_level;
-
-                console.log(`[ADMIN] Subject "${subject.name}":`, {
-                    selected_grade_level: subjectYearLevel,
-                    section_year_level: selectedSection.specific_year_level,
-                });
-
-                if (subjectYearLevel && selectedSection.specific_year_level) {
-                    const result = subjectYearLevel === selectedSection.specific_year_level;
-                    console.log(`[ADMIN] Result: ${result}`);
-                    return result;
-                }
-
-                console.log(`[ADMIN] Result (no year level check): true`);
-                return true;
-            });
-            console.log(`[ADMIN] After Elementary filter: ${filtered.length} subjects (was ${beforeElemFilter})`);
-        }
+        // Filter subjects by section_id - show ONLY subjects assigned to this specific section
+        const filtered = subjects.filter(subject => {
+            return subject.section_id === selectedSection.id;
+        });
 
         console.log('[ADMIN] FINAL filtered subjects COUNT:', filtered.length);
         console.log('[ADMIN] FINAL filtered subjects:', filtered.map(s => ({
             id: s.id,
             name: s.name,
             code: s.code,
+            section_id: s.section_id,
             course_id: s.course_id,
             academic_level_id: s.academic_level_id,
         })));
         console.log('====== SUBJECT FILTERING END ======');
         setFilteredSubjects(filtered);
-    }, [formData.section_id, selectedAcademicLevel, subjects, sections, academicLevels]);
+    }, [formData.section_id, selectedAcademicLevel, subjects, sections, academicLevels, assignments]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -524,6 +417,8 @@ export default function AssignInstructorsSubjects({
         setFilteredSections([]);
         setFilteredSubjects([]);
         setEditingAssignment(null);
+        setSectionJustSelected(false);
+        console.log('[ADMIN] Form reset - sectionJustSelected set to false');
     };
 
     const filteredAssignments = assignments.filter(assignment => {
@@ -737,11 +632,14 @@ export default function AssignInstructorsSubjects({
                                 <Select
                                     value={formData.academic_level_id}
                                     onValueChange={(value) => {
+                                        console.log('[ADMIN] Academic level changed to:', value);
                                         setFormData(prev => ({ ...prev, academic_level_id: value, section_id: '', subject_id: '' }));
                                         setSelectedAcademicLevel(value);
                                         setSelectedYearLevel('');
                                         setSelectedDepartmentOrTrack('');
                                         setSelectedCourseOrStrand('');
+                                        setSectionJustSelected(false);
+                                        console.log('[ADMIN] sectionJustSelected reset to false (academic level changed)');
                                     }}
                                     required
                                 >
@@ -808,6 +706,8 @@ export default function AssignInstructorsSubjects({
                                             setSelectedCourseOrStrand('');
                                             setFilteredSubjects([]);
                                             setFormData(prev => ({ ...prev, section_id: '', subject_id: '' }));
+                                            setSectionJustSelected(false);
+                                            console.log('[ADMIN] sectionJustSelected reset to false (year level changed)');
                                         }}
                                         required
                                     >
@@ -844,6 +744,8 @@ export default function AssignInstructorsSubjects({
                                                     setSelectedCourseOrStrand('');
                                                     setFilteredSubjects([]);
                                                     setFormData(prev => ({ ...prev, section_id: '', subject_id: '' }));
+                                                    setSectionJustSelected(false);
+                                                    console.log('[ADMIN] sectionJustSelected reset to false (department changed)');
                                                 }}
                                                 required
                                             >
@@ -868,6 +770,8 @@ export default function AssignInstructorsSubjects({
                                                     setSelectedCourseOrStrand(value);
                                                     setFilteredSubjects([]);
                                                     setFormData(prev => ({ ...prev, section_id: '', subject_id: '' }));
+                                                    setSectionJustSelected(false);
+                                                    console.log('[ADMIN] sectionJustSelected reset to false (course changed)');
                                                 }}
                                                 disabled={!selectedDepartmentOrTrack || availableCourses.length === 0}
                                                 required
@@ -901,6 +805,8 @@ export default function AssignInstructorsSubjects({
                                                     setSelectedCourseOrStrand('');
                                                     setFilteredSubjects([]);
                                                     setFormData(prev => ({ ...prev, section_id: '', subject_id: '' }));
+                                                    setSectionJustSelected(false);
+                                                    console.log('[ADMIN] sectionJustSelected reset to false (track changed)');
                                                 }}
                                                 required
                                             >
@@ -925,6 +831,8 @@ export default function AssignInstructorsSubjects({
                                                     setSelectedCourseOrStrand(value);
                                                     setFilteredSubjects([]);
                                                     setFormData(prev => ({ ...prev, section_id: '', subject_id: '' }));
+                                                    setSectionJustSelected(false);
+                                                    console.log('[ADMIN] sectionJustSelected reset to false (strand changed)');
                                                 }}
                                                 disabled={!selectedDepartmentOrTrack || availableStrands.length === 0}
                                                 required
@@ -965,10 +873,13 @@ export default function AssignInstructorsSubjects({
                                     <Select
                                         value={formData.section_id}
                                         onValueChange={(value) => {
+                                            console.log('[ADMIN] ===== SECTION SELECTED =====');
                                             console.log('[ADMIN] Section changed to:', value);
-                                            console.log('[ADMIN] Immediately clearing filteredSubjects');
+                                            console.log('[ADMIN] Setting sectionJustSelected to TRUE');
+                                            setSectionJustSelected(true);
                                             setFilteredSubjects([]);
                                             setFormData(prev => ({ ...prev, section_id: value, subject_id: '' }));
+                                            console.log('[ADMIN] Section selection complete - Subject should now appear');
                                         }}
                                         disabled={filteredSections.length === 0}
                                         required
@@ -993,8 +904,21 @@ export default function AssignInstructorsSubjects({
                             );
                         })()}
 
-                        {/* Subject - Only show after section is selected */}
-                        {formData.section_id && (
+                        {/* Subject - Only show after section is explicitly selected in this form session */}
+                        {(() => {
+                            const shouldShowSubject = sectionJustSelected &&
+                                                     formData.section_id &&
+                                                     filteredSections.some(s => s.id.toString() === formData.section_id);
+
+                            console.log('[ADMIN] Subject visibility check:', {
+                                sectionJustSelected,
+                                section_id: formData.section_id,
+                                sectionExistsInFiltered: formData.section_id ? filteredSections.some(s => s.id.toString() === formData.section_id) : false,
+                                shouldShowSubject
+                            });
+
+                            return shouldShowSubject;
+                        })() && (
                             <div>
                                 <Label htmlFor="subject_id">Subject *</Label>
                                 <Select
