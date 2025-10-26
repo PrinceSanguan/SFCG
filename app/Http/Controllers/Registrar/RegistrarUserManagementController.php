@@ -1150,6 +1150,7 @@ class RegistrarUserManagementController extends Controller
                     $q->where('key', 'elementary');
                 })->first();
 
+                // Elementary uses simplified template with only specific_year_level
                 if ($academicLevel === 'elementary') {
                     fputcsv($handle, [
                         'Juan Dela Cruz',
@@ -1157,6 +1158,27 @@ class RegistrarUserManagementController extends Controller
                         'password123',
                         'elementary',
                         'grade_1',
+                        $elementarySection ? $elementarySection->name : '',
+                        'EL-2025-000001',
+                        '2018-01-15',
+                        'male',
+                        '09123456789',
+                        '123 Main Street, Barangay 1',
+                        'Pedro Dela Cruz',
+                        '09123456788',
+                        'father'
+                    ]);
+                } else {
+                    // When no specific academic level, use full template with empty fields
+                    fputcsv($handle, [
+                        'Juan Dela Cruz',
+                        'juan.delacruz@example.com',
+                        'password123',
+                        'elementary',
+                        'grade_1',
+                        '',
+                        '',
+                        '',
                         $elementarySection ? $elementarySection->name : '',
                         'EL-2025-000001',
                         '2018-01-15',
@@ -1175,6 +1197,7 @@ class RegistrarUserManagementController extends Controller
                     $q->where('key', 'junior_highschool');
                 })->first();
 
+                // JHS uses simplified template with only specific_year_level
                 if ($academicLevel === 'junior_highschool') {
                     fputcsv($handle, [
                         'Maria Santos',
@@ -1192,6 +1215,27 @@ class RegistrarUserManagementController extends Controller
                         '09123456791',
                         'father'
                     ]);
+                } else {
+                    // When no specific academic level, use full template with empty fields
+                    fputcsv($handle, [
+                        'Maria Santos',
+                        'maria.santos@example.com',
+                        'password123',
+                        'junior_highschool',
+                        'grade_7',
+                        '',
+                        '',
+                        '',
+                        $jhsSection ? $jhsSection->name : '',
+                        'JHS-2025-000002',
+                        '2010-05-20',
+                        'female',
+                        '09123456790',
+                        '456 Oak Avenue, Barangay 2',
+                        'Juan Santos',
+                        '09123456791',
+                        'father'
+                    ]);
                 }
             }
 
@@ -1199,29 +1243,28 @@ class RegistrarUserManagementController extends Controller
                 $shsSection = \App\Models\Section::whereHas('academicLevel', function($q) {
                     $q->where('key', 'senior_highschool');
                 })->first();
-                $strand = \App\Models\Strand::first();
+                $strand = \App\Models\Strand::with('track')->first();
                 $track = $strand ? $strand->track : null;
 
-                if ($academicLevel === 'senior_highschool') {
-                    fputcsv($handle, [
-                        'Pedro Garcia',
-                        'pedro.garcia@example.com',
-                        'password123',
-                        'senior_highschool',
-                        'grade_11',
-                        $strand ? $strand->name : '',
-                        $track ? $track->name : '',
-                        $shsSection ? $shsSection->name : '',
-                        'SHS-2025-000003',
-                        '2008-09-10',
-                        'male',
-                        '09123456792',
-                        '789 Pine Road, Barangay 3',
-                        'Miguel Garcia',
-                        '09123456793',
-                        'father'
-                    ]);
-                }
+                // Different columns for SHS: academic_strand, track (no department_name, course_name)
+                fputcsv($handle, [
+                    'Pedro Garcia',
+                    'pedro.garcia@example.com',
+                    'password123',
+                    'senior_highschool',
+                    'grade_11',
+                    $strand ? $strand->name : '',  // academic_strand
+                    $track ? $track->name : '',  // track
+                    $shsSection ? $shsSection->name : '',  // section_name
+                    'SHS-2025-000003',
+                    '2008-03-10',
+                    'male',
+                    '09123456792',
+                    '789 Pine Road, Barangay 3',
+                    'Ana Garcia',
+                    '09123456793',
+                    'mother'
+                ]);
             }
 
             if (!$academicLevel || $academicLevel === 'college') {
@@ -1229,28 +1272,27 @@ class RegistrarUserManagementController extends Controller
                     $q->where('key', 'college');
                 })->first();
                 $department = \App\Models\Department::first();
-                $course = $department ? $department->courses()->first() : null;
+                $course = \App\Models\Course::first();
 
-                if ($academicLevel === 'college') {
-                    fputcsv($handle, [
-                        'Ana Reyes',
-                        'ana.reyes@example.com',
-                        'password123',
-                        'college',
-                        'first_year',
-                        $department ? $department->name : '',
-                        $course ? $course->name : '',
-                        $collegeSection ? $collegeSection->name : '',
-                        'COL-2025-000004',
-                        '2006-03-25',
-                        'female',
-                        '09123456794',
-                        '321 Elm Street, Barangay 4',
-                        'Rosa Reyes',
-                        '09123456795',
-                        'mother'
-                    ]);
-                }
+                // College template: no strand_name, only department_name and course_name
+                fputcsv($handle, [
+                    'Ana Rodriguez',
+                    'ana.rodriguez@example.com',
+                    'password123',
+                    'college',
+                    'first_year',
+                    $department ? $department->name : '',
+                    $course ? $course->name : '',
+                    $collegeSection ? $collegeSection->name : '',
+                    'CO-2025-000004',
+                    '2005-12-25',
+                    'female',
+                    '09123456794',
+                    '321 Elm Street, Barangay 4',
+                    'Carlos Rodriguez',
+                    '09123456795',
+                    'father'
+                ]);
             }
 
             fclose($handle);

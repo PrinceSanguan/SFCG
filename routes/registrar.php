@@ -11,7 +11,7 @@ use App\Http\Controllers\Registrar\StudentSubjectController;
 use App\Http\Controllers\Registrar\InstructorSubjectAssignmentController;
 use App\Http\Controllers\Registrar\TeacherSubjectAssignmentController;
 use App\Http\Controllers\Registrar\RegistrarCertificateController;
-use App\Http\Controllers\Admin\ReportsController;
+use App\Http\Controllers\Registrar\ReportsController;
 
 
 /*
