@@ -104,6 +104,19 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
     });
 
     useEffect(() => {
+        // Log grading periods received from backend
+        console.log('Grading periods received from backend:', {
+            count: gradingPeriods.length,
+            periods: gradingPeriods.map(p => ({
+                id: p.id,
+                name: p.name,
+                code: p.code,
+                academic_level_id: p.academic_level_id,
+                type: p.type,
+                parent_id: p.parent_id
+            }))
+        });
+
         // Check for URL parameters first
         const urlParams = new URLSearchParams(window.location.search);
         const studentId = urlParams.get('student_id');
@@ -111,7 +124,7 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
         const academicLevelId = urlParams.get('academic_level_id');
         const academicLevelKey = urlParams.get('academic_level_key');
         const schoolYear = urlParams.get('school_year');
-        
+
         if (studentId && subjectId && academicLevelId) {
             // Auto-populate form from URL parameters
             setData('student_id', studentId);
@@ -120,7 +133,7 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
             setData('school_year', schoolYear || '2024-2025');
             setData('year_of_study', '');
             setData('grade', '');
-            
+
             // Store academic level key for grade validation
             if (academicLevelKey) {
                 // Find the academic level object to get the key
@@ -130,7 +143,13 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                     setData('academic_level_id', academicLevelId);
                 }
             }
-            
+
+            // Log available grading periods for auto-populated academic level
+            const availablePeriods = gradingPeriods.filter(
+                period => period.academic_level_id.toString() === academicLevelId
+            );
+            console.log('Available grading periods for auto-populated student:', availablePeriods);
+
             // Clear URL parameters after populating
             const newUrl = window.location.pathname;
             window.history.replaceState({}, '', newUrl);
@@ -143,7 +162,7 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
             setData('year_of_study', '');
             setData('grade', '');
         }
-    }, [selectedStudent, setData]);
+    }, [selectedStudent, setData, gradingPeriods, academicLevels]);
 
     // Function to get subject and academic level when student is selected
     const getStudentSubjectInfo = (studentId: string) => {
@@ -166,13 +185,27 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
     // Handle student selection
     const handleStudentChange = (studentId: string) => {
         setData('student_id', studentId);
-        
+
         if (studentId) {
             const subjectInfo = getStudentSubjectInfo(studentId);
             if (subjectInfo) {
+                console.log('Student selected:', {
+                    studentId,
+                    subjectId: subjectInfo.subjectId,
+                    academicLevelId: subjectInfo.academicLevelId,
+                    academicLevelKey: subjectInfo.academicLevelKey,
+                    schoolYear: subjectInfo.schoolYear
+                });
+
                 setData('subject_id', subjectInfo.subjectId.toString());
                 setData('academic_level_id', subjectInfo.academicLevelId.toString());
                 setData('school_year', subjectInfo.schoolYear);
+
+                // Log available grading periods for this academic level
+                const availablePeriods = gradingPeriods.filter(
+                    period => period.academic_level_id === subjectInfo.academicLevelId
+                );
+                console.log('Available grading periods for selected student:', availablePeriods);
             }
         } else {
             // Clear related fields if no student selected
@@ -323,11 +356,7 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                                                         period => period.academic_level_id === currentAcademicLevelId
                                                                     );
 
-                                                                    // Separate parent semesters and child periods
-                                                                    const parentSemesters = allRelevantPeriods.filter(p => p.parent_id === null && p.type === 'semester');
-                                                                    const childPeriods = allRelevantPeriods.filter(p => p.parent_id !== null && p.period_type !== 'final');
-
-                                                                    if (parentSemesters.length === 0 && childPeriods.length === 0) {
+                                                                    if (allRelevantPeriods.length === 0) {
                                                                         return (
                                                                             <SelectItem value="none" disabled>
                                                                                 No grading periods available for this academic level
@@ -335,30 +364,49 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                                                         );
                                                                     }
 
-                                                                    // Group child periods by parent
-                                                                    const groupedPeriods = parentSemesters
-                                                                        .sort((a, b) => a.sort_order - b.sort_order)
-                                                                        .map(parent => ({
-                                                                            parent,
-                                                                            children: childPeriods
-                                                                                .filter(child => child.parent_id === parent.id)
-                                                                                .sort((a, b) => a.sort_order - b.sort_order)
-                                                                        }));
+                                                                    // Separate parent semesters and child periods
+                                                                    const parentSemesters = allRelevantPeriods.filter(p => p.parent_id === null && p.type === 'semester');
+                                                                    const childPeriods = allRelevantPeriods.filter(p => p.parent_id !== null && p.period_type !== 'final');
 
+                                                                    // If we have parent semesters, group children by parents
+                                                                    if (parentSemesters.length > 0) {
+                                                                        const groupedPeriods = parentSemesters
+                                                                            .sort((a, b) => a.sort_order - b.sort_order)
+                                                                            .map(parent => ({
+                                                                                parent,
+                                                                                children: childPeriods
+                                                                                    .filter(child => child.parent_id === parent.id)
+                                                                                    .sort((a, b) => a.sort_order - b.sort_order)
+                                                                            }));
+
+                                                                        return (
+                                                                            <>
+                                                                                {groupedPeriods.map(({ parent, children }) => (
+                                                                                    children.length > 0 && (
+                                                                                        <SelectGroup key={parent.id}>
+                                                                                            <SelectLabel>{parent.name}</SelectLabel>
+                                                                                            {children.map((period) => (
+                                                                                                <SelectItem key={period.id} value={period.id.toString()}>
+                                                                                                    {period.name}
+                                                                                                </SelectItem>
+                                                                                            ))}
+                                                                                        </SelectGroup>
+                                                                                    )
+                                                                                ))}
+                                                                            </>
+                                                                        );
+                                                                    }
+
+                                                                    // No parent semesters - render all periods as flat list (standalone periods)
                                                                     return (
                                                                         <>
-                                                                            {groupedPeriods.map(({ parent, children }) => (
-                                                                                children.length > 0 && (
-                                                                                    <SelectGroup key={parent.id}>
-                                                                                        <SelectLabel>{parent.name}</SelectLabel>
-                                                                                        {children.map((period) => (
-                                                                                            <SelectItem key={period.id} value={period.id.toString()}>
-                                                                                                {period.name}
-                                                                                            </SelectItem>
-                                                                                        ))}
-                                                                                    </SelectGroup>
-                                                                                )
-                                                                            ))}
+                                                                            {allRelevantPeriods
+                                                                                .sort((a, b) => a.sort_order - b.sort_order)
+                                                                                .map((period) => (
+                                                                                    <SelectItem key={period.id} value={period.id.toString()}>
+                                                                                        {period.name}
+                                                                                    </SelectItem>
+                                                                                ))}
                                                                         </>
                                                                     );
                                                                 })()}
@@ -480,11 +528,7 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                                                     period => period.academic_level_id === currentAcademicLevelId
                                                                 );
 
-                                                                // Separate parent semesters and child periods
-                                                                const parentSemesters = allRelevantPeriods.filter(p => p.parent_id === null && p.type === 'semester');
-                                                                const childPeriods = allRelevantPeriods.filter(p => p.parent_id !== null && p.period_type !== 'final');
-
-                                                                if (parentSemesters.length === 0 && childPeriods.length === 0) {
+                                                                if (allRelevantPeriods.length === 0) {
                                                                     return (
                                                                         <SelectItem value="none" disabled>
                                                                             No grading periods available for this academic level
@@ -492,30 +536,49 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                                                     );
                                                                 }
 
-                                                                // Group child periods by parent
-                                                                const groupedPeriods = parentSemesters
-                                                                    .sort((a, b) => a.sort_order - b.sort_order)
-                                                                    .map(parent => ({
-                                                                        parent,
-                                                                        children: childPeriods
-                                                                            .filter(child => child.parent_id === parent.id)
-                                                                            .sort((a, b) => a.sort_order - b.sort_order)
-                                                                    }));
+                                                                // Separate parent semesters and child periods
+                                                                const parentSemesters = allRelevantPeriods.filter(p => p.parent_id === null && p.type === 'semester');
+                                                                const childPeriods = allRelevantPeriods.filter(p => p.parent_id !== null && p.period_type !== 'final');
 
+                                                                // If we have parent semesters, group children by parents
+                                                                if (parentSemesters.length > 0) {
+                                                                    const groupedPeriods = parentSemesters
+                                                                        .sort((a, b) => a.sort_order - b.sort_order)
+                                                                        .map(parent => ({
+                                                                            parent,
+                                                                            children: childPeriods
+                                                                                .filter(child => child.parent_id === parent.id)
+                                                                                .sort((a, b) => a.sort_order - b.sort_order)
+                                                                        }));
+
+                                                                    return (
+                                                                        <>
+                                                                            {groupedPeriods.map(({ parent, children }) => (
+                                                                                children.length > 0 && (
+                                                                                    <SelectGroup key={parent.id}>
+                                                                                        <SelectLabel>{parent.name}</SelectLabel>
+                                                                                        {children.map((period) => (
+                                                                                            <SelectItem key={period.id} value={period.id.toString()}>
+                                                                                                {period.name}
+                                                                                            </SelectItem>
+                                                                                        ))}
+                                                                                    </SelectGroup>
+                                                                                )
+                                                                            ))}
+                                                                        </>
+                                                                    );
+                                                                }
+
+                                                                // No parent semesters - render all periods as flat list (standalone periods)
                                                                 return (
                                                                     <>
-                                                                        {groupedPeriods.map(({ parent, children }) => (
-                                                                            children.length > 0 && (
-                                                                                <SelectGroup key={parent.id}>
-                                                                                    <SelectLabel>{parent.name}</SelectLabel>
-                                                                                    {children.map((period) => (
-                                                                                        <SelectItem key={period.id} value={period.id.toString()}>
-                                                                                            {period.name}
-                                                                                        </SelectItem>
-                                                                                    ))}
-                                                                                </SelectGroup>
-                                                                            )
-                                                                        ))}
+                                                                        {allRelevantPeriods
+                                                                            .sort((a, b) => a.sort_order - b.sort_order)
+                                                                            .map((period) => (
+                                                                                <SelectItem key={period.id} value={period.id.toString()}>
+                                                                                    {period.name}
+                                                                                </SelectItem>
+                                                                            ))}
                                                                     </>
                                                                 );
                                                             })()}

@@ -59,16 +59,70 @@ class CSVUploadController extends Controller
 
             // Get academic levels (SHS only)
             $academicLevels = \App\Models\AcademicLevel::where('key', 'senior_highschool')->get();
-            
-            // Get grading periods
-            $gradingPeriods = \App\Models\GradingPeriod::where('is_active', true)->get();
-            
-            Log::info('Teacher CSV upload form data prepared', [
-                'teacher_id' => $user->id,
-                'assigned_subjects_count' => $assignedSubjects->count(),
-                'academic_levels_count' => $academicLevels->count(),
-                'grading_periods_count' => $gradingPeriods->count()
-            ]);
+
+            // Get grading periods based on teacher's assignments
+            // First, try to get specific grading period IDs from teacher's assignments
+            $assignedGradingPeriodIds = \App\Models\TeacherSubjectAssignment::where('teacher_id', $user->id)
+                ->where('is_active', true)
+                ->whereNotNull('grading_period_id')
+                ->pluck('grading_period_id')
+                ->unique()
+                ->toArray();
+
+            if (!empty($assignedGradingPeriodIds)) {
+                // Teacher has specific grading period assignments - show ONLY those periods
+                $assignedPeriods = \App\Models\GradingPeriod::where('is_active', true)
+                    ->whereIn('id', $assignedGradingPeriodIds)
+                    ->orderBy('sort_order')
+                    ->get();
+
+                // Get unique parent IDs from assigned periods
+                $parentIds = $assignedPeriods->whereNotNull('parent_id')->pluck('parent_id')->unique()->toArray();
+
+                if (!empty($parentIds)) {
+                    // Fetch parent semesters to enable grouped display
+                    $parentSemesters = \App\Models\GradingPeriod::where('is_active', true)
+                        ->whereIn('id', $parentIds)
+                        ->get();
+
+                    // Merge parents and children, then sort by sort_order
+                    $gradingPeriods = $assignedPeriods->merge($parentSemesters)->sortBy('sort_order')->values();
+                } else {
+                    $gradingPeriods = $assignedPeriods;
+                }
+
+                Log::info('Teacher CSV upload - grading periods filtered by specific assignments', [
+                    'teacher_id' => $user->id,
+                    'assigned_subjects_count' => $assignedSubjects->count(),
+                    'academic_levels_count' => $academicLevels->count(),
+                    'assigned_grading_period_ids' => $assignedGradingPeriodIds,
+                    'parent_ids_included' => $parentIds,
+                    'grading_periods_count' => $gradingPeriods->count(),
+                    'grading_periods' => $gradingPeriods->pluck('name', 'id')->toArray()
+                ]);
+            } else {
+                // Fallback: No specific grading periods assigned, show all for teacher's academic levels
+                $assignedAcademicLevelIds = \App\Models\TeacherSubjectAssignment::where('teacher_id', $user->id)
+                    ->where('is_active', true)
+                    ->pluck('academic_level_id')
+                    ->unique()
+                    ->toArray();
+
+                $gradingPeriods = \App\Models\GradingPeriod::where('is_active', true)
+                    ->whereIn('academic_level_id', $assignedAcademicLevelIds)
+                    ->orderBy('sort_order')
+                    ->get();
+
+                Log::warning('Teacher CSV upload - no specific grading period assignments, showing all for academic level', [
+                    'teacher_id' => $user->id,
+                    'assigned_subjects_count' => $assignedSubjects->count(),
+                    'academic_levels_count' => $academicLevels->count(),
+                    'assigned_academic_level_ids' => $assignedAcademicLevelIds,
+                    'grading_periods_count' => $gradingPeriods->count(),
+                    'grading_periods' => $gradingPeriods->pluck('name', 'id')->toArray(),
+                    'note' => 'Admin should assign teacher to specific grading periods'
+                ]);
+            }
 
             return Inertia::render('Teacher/Grades/Upload', [
                 'user' => $user,
@@ -155,25 +209,48 @@ class CSVUploadController extends Controller
 
     public function downloadTemplate()
     {
+        // Get academic level from query parameter (defaults to senior_highschool)
+        $academicLevelKey = request()->get('academic_level', 'senior_highschool');
+
+        // Determine if using college grading scale (1.0-5.0) or standard scale (75-100)
+        $isCollegeScale = ($academicLevelKey === 'college');
+
+        Log::info('Teacher CSV template download', [
+            'user_id' => Auth::id(),
+            'academic_level' => $academicLevelKey,
+            'is_college_scale' => $isCollegeScale
+        ]);
+
         $headers = [
             'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="grades_template.csv"',
+            'Content-Disposition' => 'attachment; filename="grades_template_' . $academicLevelKey . '.csv"',
         ];
-        
-        $callback = function() {
+
+        $callback = function() use ($isCollegeScale, $academicLevelKey) {
             $file = fopen('php://output', 'w');
-            
+
             // Add headers
             fputcsv($file, ['Student ID', 'Student Name', 'Grade', 'Notes']);
-            
-            // Add sample data for both grading systems
-            fputcsv($file, ['SH-2024-001', 'John Doe', '95.5', 'Excellent performance']);
-            fputcsv($file, ['SH-2024-002', 'Jane Smith', '88.0', 'Good work']);
-            fputcsv($file, ['SH-2024-003', 'Mike Johnson', '78.5', 'Senior High grade example']);
-            
+
+            // Add sample data based on academic level
+            if ($isCollegeScale) {
+                // College: 1.0-5.0 scale (1.0 highest, 3.0 passing)
+                fputcsv($file, ['C-2024-001', 'John Doe', '1.25', 'Excellent performance']);
+                fputcsv($file, ['C-2024-002', 'Jane Smith', '2.0', 'Very good work']);
+                fputcsv($file, ['C-2024-003', 'Mike Johnson', '2.75', 'Good work']);
+                fputcsv($file, ['C-2024-004', 'Sarah Williams', '3.0', 'Passing grade']);
+            } else {
+                // Elementary/JHS/SHS: 75-100 scale (75 passing)
+                $levelPrefix = strtoupper(substr($academicLevelKey, 0, 2));
+                fputcsv($file, [$levelPrefix . '-2024-001', 'John Doe', '95.5', 'Excellent performance']);
+                fputcsv($file, [$levelPrefix . '-2024-002', 'Jane Smith', '88.0', 'Very good work']);
+                fputcsv($file, [$levelPrefix . '-2024-003', 'Mike Johnson', '82.5', 'Good work']);
+                fputcsv($file, [$levelPrefix . '-2024-004', 'Sarah Williams', '75.0', 'Passing grade']);
+            }
+
             fclose($file);
         };
-        
+
         return response()->stream($callback, 200, $headers);
     }
     

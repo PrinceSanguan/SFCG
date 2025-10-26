@@ -29,9 +29,10 @@ class GradeManagementController extends Controller
         
         try {
             // Get teacher's assigned subjects (Senior High School level only)
-            $assignedSubjects = \App\Models\TeacherSubjectAssignment::with([
-                'subject.course', 
-                'academicLevel', 
+            // Group by subject_id to avoid duplicate subjects when teacher has multiple grading period assignments
+            $assignments = \App\Models\TeacherSubjectAssignment::with([
+                'subject.course',
+                'academicLevel',
                 'gradingPeriod'
             ])
             ->where('teacher_id', $user->id)
@@ -40,34 +41,40 @@ class GradeManagementController extends Controller
                 $query->where('key', 'senior_highschool');
             })
             ->get();
-            
+
             Log::info('Teacher assigned subjects retrieved', [
                 'teacher_id' => $user->id,
-                'subjects_count' => $assignedSubjects->count(),
-                'subjects' => $assignedSubjects->pluck('subject.name')->toArray()
+                'assignments_count' => $assignments->count(),
+                'subjects' => $assignments->pluck('subject.name')->unique()->toArray()
             ]);
 
-            // Extract subject IDs before mapping
-            $subjectIds = $assignedSubjects->pluck('subject_id')->toArray();
+            // Extract unique subject IDs after grouping to avoid duplicates
+            $subjectIds = $assignments->pluck('subject_id')->unique()->toArray();
 
-            $assignedSubjects = $assignedSubjects->map(function ($assignment) {
+            // Group assignments by subject_id to avoid duplicate subject cards
+            $assignedSubjects = $assignments->groupBy('subject_id')->map(function ($subjectAssignments) {
+                // Take the first assignment for subject info
+                $firstAssignment = $subjectAssignments->first();
+
+                // Fetch students ONCE per subject (not per assignment)
                 $enrolledStudents = \App\Models\StudentSubjectAssignment::with(['student'])
-                    ->where('subject_id', $assignment->subject_id)
-                    ->where('school_year', $assignment->school_year)
+                    ->where('subject_id', $firstAssignment->subject_id)
+                    ->where('school_year', $firstAssignment->school_year)
                     ->where('is_active', true)
                     ->get();
 
                 return [
-                    'id' => $assignment->id,
-                    'subject' => $assignment->subject,
-                    'academicLevel' => $assignment->academicLevel,
-                    'gradingPeriod' => $assignment->gradingPeriod,
-                    'school_year' => $assignment->school_year,
-                    'is_active' => $assignment->is_active,
+                    'id' => $firstAssignment->id,
+                    'subject' => $firstAssignment->subject,
+                    'academicLevel' => $firstAssignment->academicLevel,
+                    'gradingPeriod' => $firstAssignment->gradingPeriod,
+                    'school_year' => $firstAssignment->school_year,
+                    'is_active' => $firstAssignment->is_active,
                     'enrolled_students' => $enrolledStudents,
                     'student_count' => $enrolledStudents->count(),
+                    'assignment_count' => $subjectAssignments->count(),  // Track how many grading period assignments
                 ];
-            });
+            })->values();  // Re-index the collection
 
             // Get recent grades using the subject IDs extracted before mapping
             $gradesQuery = \App\Models\StudentGrade::with(['student', 'subject', 'academicLevel', 'gradingPeriod'])
@@ -143,55 +150,142 @@ class GradeManagementController extends Controller
         
         try {
             // Get teacher's assigned subjects
-            $assignedSubjects = \App\Models\TeacherSubjectAssignment::with([
-                'subject.course', 
-                'academicLevel', 
+            // Group by subject_id to avoid duplicate students when teacher has multiple grading period assignments
+            $assignments = \App\Models\TeacherSubjectAssignment::with([
+                'subject.course',
+                'academicLevel',
                 'gradingPeriod'
             ])
             ->where('teacher_id', $user->id)
             ->where('is_active', true)
-            ->get()
-            ->map(function ($assignment) {
+            ->get();
+
+            // Group assignments by subject_id to fetch students only once per subject
+            $assignedSubjects = $assignments->groupBy('subject_id')->map(function ($subjectAssignments) {
+                // Take the first assignment for subject info
+                $firstAssignment = $subjectAssignments->first();
+
+                // Fetch students ONCE per subject (not per assignment)
                 $enrolledStudents = \App\Models\StudentSubjectAssignment::with(['student'])
-                    ->where('subject_id', $assignment->subject_id)
-                    ->where('school_year', $assignment->school_year)
+                    ->where('subject_id', $firstAssignment->subject_id)
+                    ->where('school_year', $firstAssignment->school_year)
                     ->where('is_active', true)
                     ->get();
-                
+
                 return [
-                    'id' => $assignment->id,
-                    'subject' => $assignment->subject,
-                    'academicLevel' => $assignment->academicLevel,
-                    'gradingPeriod' => $assignment->gradingPeriod,
-                    'school_year' => $assignment->school_year,
-                    'is_active' => $assignment->is_active,
+                    'id' => $firstAssignment->id,
+                    'subject' => $firstAssignment->subject,
+                    'academicLevel' => $firstAssignment->academicLevel,
+                    'gradingPeriod' => $firstAssignment->gradingPeriod,
+                    'school_year' => $firstAssignment->school_year,
+                    'is_active' => $firstAssignment->is_active,
                     'enrolled_students' => $enrolledStudents,
                     'student_count' => $enrolledStudents->count(),
+                    'assignment_count' => $subjectAssignments->count(),  // Track how many grading period assignments
                 ];
-            });
+            })->values();  // Re-index the collection
 
-            // Get academic levels that the teacher is assigned to
-            $teacherAcademicLevelIds = $assignedSubjects->pluck('academicLevel.id')->unique()->toArray();
+            // Get all academic levels
             $academicLevels = \App\Models\AcademicLevel::where('is_active', true)->get();
 
-            // Get grading periods only for the teacher's assigned academic levels
-            $gradingPeriods = \App\Models\GradingPeriod::where('is_active', true)
-                ->whereIn('academic_level_id', $teacherAcademicLevelIds)
-                ->orderBy('sort_order')
-                ->get([
-                    'id',
-                    'name',
-                    'code',
-                    'type',
-                    'period_type',
-                    'semester_number',
-                    'parent_id',
-                    'academic_level_id',
-                    'start_date',
-                    'end_date',
-                    'sort_order',
-                    'is_active'
+            // Get grading periods based on teacher's assignments
+            // First, try to get specific grading period IDs from teacher's assignments
+            $assignedGradingPeriodIds = \App\Models\TeacherSubjectAssignment::where('teacher_id', $user->id)
+                ->where('is_active', true)
+                ->whereNotNull('grading_period_id')
+                ->pluck('grading_period_id')
+                ->unique()
+                ->toArray();
+
+            if (!empty($assignedGradingPeriodIds)) {
+                // Teacher has specific grading period assignments - show ONLY those periods
+                $assignedPeriods = \App\Models\GradingPeriod::where('is_active', true)
+                    ->whereIn('id', $assignedGradingPeriodIds)
+                    ->orderBy('sort_order')
+                    ->get([
+                        'id',
+                        'name',
+                        'code',
+                        'type',
+                        'period_type',
+                        'semester_number',
+                        'parent_id',
+                        'academic_level_id',
+                        'start_date',
+                        'end_date',
+                        'sort_order',
+                        'is_active'
+                    ]);
+
+                // Get unique parent IDs from assigned periods
+                $parentIds = $assignedPeriods->whereNotNull('parent_id')->pluck('parent_id')->unique()->toArray();
+
+                if (!empty($parentIds)) {
+                    // Fetch parent semesters to enable grouped display
+                    $parentSemesters = \App\Models\GradingPeriod::where('is_active', true)
+                        ->whereIn('id', $parentIds)
+                        ->get([
+                            'id',
+                            'name',
+                            'code',
+                            'type',
+                            'period_type',
+                            'semester_number',
+                            'parent_id',
+                            'academic_level_id',
+                            'start_date',
+                            'end_date',
+                            'sort_order',
+                            'is_active'
+                        ]);
+
+                    // Merge parents and children, then sort by sort_order
+                    $gradingPeriods = $assignedPeriods->merge($parentSemesters)->sortBy('sort_order')->values();
+                } else {
+                    $gradingPeriods = $assignedPeriods;
+                }
+
+                Log::info('Teacher grading periods filtered by specific assignments', [
+                    'teacher_id' => $user->id,
+                    'assigned_grading_period_ids' => $assignedGradingPeriodIds,
+                    'parent_ids_included' => $parentIds,
+                    'grading_periods_count' => $gradingPeriods->count(),
+                    'grading_periods' => $gradingPeriods->pluck('name', 'id')->toArray()
                 ]);
+            } else {
+                // Fallback: No specific grading periods assigned, show all for teacher's academic levels
+                $assignedAcademicLevelIds = \App\Models\TeacherSubjectAssignment::where('teacher_id', $user->id)
+                    ->where('is_active', true)
+                    ->pluck('academic_level_id')
+                    ->unique()
+                    ->toArray();
+
+                $gradingPeriods = \App\Models\GradingPeriod::where('is_active', true)
+                    ->whereIn('academic_level_id', $assignedAcademicLevelIds)
+                    ->orderBy('sort_order')
+                    ->get([
+                        'id',
+                        'name',
+                        'code',
+                        'type',
+                        'period_type',
+                        'semester_number',
+                        'parent_id',
+                        'academic_level_id',
+                        'start_date',
+                        'end_date',
+                        'sort_order',
+                        'is_active'
+                    ]);
+
+                Log::warning('Teacher has no specific grading period assignments - showing all periods for academic level', [
+                    'teacher_id' => $user->id,
+                    'assigned_academic_level_ids' => $assignedAcademicLevelIds,
+                    'grading_periods_count' => $gradingPeriods->count(),
+                    'grading_periods' => $gradingPeriods->pluck('name', 'id')->toArray(),
+                    'note' => 'Admin should assign teacher to specific grading periods'
+                ]);
+            }
             
             // Check for selected student from query parameters
             $selectedStudent = null;
@@ -509,22 +603,107 @@ class GradeManagementController extends Controller
             
             // Get academic levels and grading periods for the form
             $academicLevels = AcademicLevel::where('is_active', true)->get();
-            $gradingPeriods = GradingPeriod::where('is_active', true)
-                ->orderBy('sort_order')
-                ->get([
-                    'id',
-                    'name',
-                    'code',
-                    'type',
-                    'period_type',
-                    'semester_number',
-                    'parent_id',
-                    'academic_level_id',
-                    'start_date',
-                    'end_date',
-                    'sort_order',
-                    'is_active'
+
+            // Get grading periods based on teacher's assignments
+            // First, try to get specific grading period IDs from teacher's assignments
+            $assignedGradingPeriodIds = TeacherSubjectAssignment::where('teacher_id', $user->id)
+                ->where('is_active', true)
+                ->whereNotNull('grading_period_id')
+                ->pluck('grading_period_id')
+                ->unique()
+                ->toArray();
+
+            if (!empty($assignedGradingPeriodIds)) {
+                // Teacher has specific grading period assignments - show ONLY those periods
+                $assignedPeriods = GradingPeriod::where('is_active', true)
+                    ->whereIn('id', $assignedGradingPeriodIds)
+                    ->orderBy('sort_order')
+                    ->get([
+                        'id',
+                        'name',
+                        'code',
+                        'type',
+                        'period_type',
+                        'semester_number',
+                        'parent_id',
+                        'academic_level_id',
+                        'start_date',
+                        'end_date',
+                        'sort_order',
+                        'is_active'
+                    ]);
+
+                // Get unique parent IDs from assigned periods
+                $parentIds = $assignedPeriods->whereNotNull('parent_id')->pluck('parent_id')->unique()->toArray();
+
+                if (!empty($parentIds)) {
+                    // Fetch parent semesters to enable grouped display
+                    $parentSemesters = GradingPeriod::where('is_active', true)
+                        ->whereIn('id', $parentIds)
+                        ->get([
+                            'id',
+                            'name',
+                            'code',
+                            'type',
+                            'period_type',
+                            'semester_number',
+                            'parent_id',
+                            'academic_level_id',
+                            'start_date',
+                            'end_date',
+                            'sort_order',
+                            'is_active'
+                        ]);
+
+                    // Merge parents and children, then sort by sort_order
+                    $gradingPeriods = $assignedPeriods->merge($parentSemesters)->sortBy('sort_order')->values();
+                } else {
+                    $gradingPeriods = $assignedPeriods;
+                }
+
+                Log::info('Teacher edit grade - grading periods filtered by specific assignments', [
+                    'teacher_id' => $user->id,
+                    'grade_id' => $grade,
+                    'assigned_grading_period_ids' => $assignedGradingPeriodIds,
+                    'parent_ids_included' => $parentIds,
+                    'grading_periods_count' => $gradingPeriods->count(),
+                    'grading_periods' => $gradingPeriods->pluck('name', 'id')->toArray()
                 ]);
+            } else {
+                // Fallback: No specific grading periods assigned, show all for teacher's academic levels
+                $assignedAcademicLevelIds = TeacherSubjectAssignment::where('teacher_id', $user->id)
+                    ->where('is_active', true)
+                    ->pluck('academic_level_id')
+                    ->unique()
+                    ->toArray();
+
+                $gradingPeriods = GradingPeriod::where('is_active', true)
+                    ->whereIn('academic_level_id', $assignedAcademicLevelIds)
+                    ->orderBy('sort_order')
+                    ->get([
+                        'id',
+                        'name',
+                        'code',
+                        'type',
+                        'period_type',
+                        'semester_number',
+                        'parent_id',
+                        'academic_level_id',
+                        'start_date',
+                        'end_date',
+                        'sort_order',
+                        'is_active'
+                    ]);
+
+                Log::warning('Teacher edit grade - no specific grading period assignments, showing all for academic level', [
+                    'teacher_id' => $user->id,
+                    'grade_id' => $grade,
+                    'assigned_academic_level_ids' => $assignedAcademicLevelIds,
+                    'grading_periods_count' => $gradingPeriods->count(),
+                    'grading_periods' => $gradingPeriods->pluck('name', 'id')->toArray(),
+                    'note' => 'Admin should assign teacher to specific grading periods'
+                ]);
+            }
             
             return Inertia::render('Teacher/Grades/Edit', [
                 'user' => $user,

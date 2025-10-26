@@ -33,6 +33,7 @@ interface GradingPeriod {
     semester_number: number | null;
     parent_id: number | null;
     type: string;
+    period_type?: string;
 }
 
 interface Track {
@@ -891,7 +892,9 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                                             <div className="space-y-4">
                                                 {assignmentForm.semester_ids.map((semesterId) => {
                                                     const semester = semesterOptions.find(s => s.id.toString() === semesterId);
-                                                    const periods = filteredGradingPeriods.filter(p => p.parent_id === parseInt(semesterId));
+                                                    const periods = filteredGradingPeriods.filter(
+                                                        p => p.parent_id === parseInt(semesterId) && p.period_type !== 'final'
+                                                    );
 
                                                     return periods.length > 0 ? (
                                                         <div key={semesterId}>
@@ -1145,39 +1148,67 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                         <div>
                             <Label htmlFor="edit_grading_periods">Grading Periods</Label>
                             <div className="border rounded-lg p-3">
-                                {filteredGradingPeriods.filter(p => p.parent_id !== null).length > 0 ? (
-                                    <div className="space-y-2">
-                                        {filteredGradingPeriods.filter(p => p.parent_id !== null).map((period) => (
-                                            <div key={period.id} className="flex items-center space-x-2">
-                                                <input
-                                                    type="checkbox"
-                                                    id={`edit-period-${period.id}`}
-                                                    checked={assignmentForm.grading_period_ids.includes(period.id.toString())}
-                                                    onChange={(e) => {
-                                                        const periodId = period.id.toString();
-                                                        if (e.target.checked) {
-                                                            setAssignmentForm({
-                                                                ...assignmentForm,
-                                                                grading_period_ids: [...assignmentForm.grading_period_ids, periodId]
-                                                            });
-                                                        } else {
-                                                            setAssignmentForm({
-                                                                ...assignmentForm,
-                                                                grading_period_ids: assignmentForm.grading_period_ids.filter(id => id !== periodId)
-                                                            });
-                                                        }
-                                                    }}
-                                                    className="w-4 h-4 rounded border-gray-300"
-                                                />
-                                                <Label htmlFor={`edit-period-${period.id}`} className="text-sm font-normal cursor-pointer">
-                                                    {period.name}
-                                                </Label>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <p className="text-sm text-gray-500">No grading periods available</p>
-                                )}
+                                {(() => {
+                                    // Filter out "Average" periods (auto-calculated)
+                                    const assignablePeriods = filteredGradingPeriods.filter(
+                                        p => p.parent_id !== null && p.period_type !== 'final'
+                                    );
+
+                                    // Get unique parent semester IDs from assignable periods
+                                    const uniqueParentIds = [...new Set(
+                                        assignablePeriods.map(p => p.parent_id).filter(id => id !== null)
+                                    )];
+
+                                    if (uniqueParentIds.length === 0) {
+                                        return <p className="text-sm text-gray-500">No grading periods available</p>;
+                                    }
+
+                                    return (
+                                        <div className="space-y-4">
+                                            {uniqueParentIds.map((parentId) => {
+                                                const semester = semesterOptions.find(s => s.id === parentId);
+                                                const periods = assignablePeriods.filter(p => p.parent_id === parentId);
+
+                                                return periods.length > 0 ? (
+                                                    <div key={parentId}>
+                                                        <div className="text-sm font-medium text-blue-600 mb-2 border-l-4 border-blue-600 pl-2">
+                                                            {semester?.name} Periods:
+                                                        </div>
+                                                        <div className="space-y-2 ml-2">
+                                                            {periods.map((period) => (
+                                                                <div key={period.id} className="flex items-center space-x-2">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        id={`edit-period-${period.id}`}
+                                                                        checked={assignmentForm.grading_period_ids.includes(period.id.toString())}
+                                                                        onChange={(e) => {
+                                                                            const periodId = period.id.toString();
+                                                                            if (e.target.checked) {
+                                                                                setAssignmentForm({
+                                                                                    ...assignmentForm,
+                                                                                    grading_period_ids: [...assignmentForm.grading_period_ids, periodId]
+                                                                                });
+                                                                            } else {
+                                                                                setAssignmentForm({
+                                                                                    ...assignmentForm,
+                                                                                    grading_period_ids: assignmentForm.grading_period_ids.filter(id => id !== periodId)
+                                                                                });
+                                                                            }
+                                                                        }}
+                                                                        className="w-4 h-4 rounded border-gray-300"
+                                                                    />
+                                                                    <Label htmlFor={`edit-period-${period.id}`} className="text-sm font-normal cursor-pointer">
+                                                                        {period.name}
+                                                                    </Label>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ) : null;
+                                            })}
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         </div>
 
