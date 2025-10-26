@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -20,6 +21,8 @@ return new class extends Migration
     {
         \Log::info('[SHS HONOR MIGRATION] === STARTING MIGRATION: Add grading_period_id to honor_results ===');
 
+        $driver = DB::connection()->getDriverName();
+
         Schema::table('honor_results', function (Blueprint $table) {
             // Add grading_period_id column (nullable for backwards compatibility)
             $table->foreignId('grading_period_id')
@@ -34,21 +37,43 @@ return new class extends Migration
             \Log::info('[SHS HONOR MIGRATION] Added grading_period_id column with foreign key and index');
         });
 
-        // Drop the old unique constraint that doesn't include grading_period_id
-        Schema::table('honor_results', function (Blueprint $table) {
-            $table->dropUnique('unique_student_honor_year');
-            \Log::info('[SHS HONOR MIGRATION] Dropped old unique constraint: unique_student_honor_year');
-        });
+        if ($driver === 'mysql') {
+            // For MySQL: Create separate indexes for foreign key columns first
+            // This ensures foreign keys have indexes after we drop the unique constraint
+            Schema::table('honor_results', function (Blueprint $table) {
+                $table->index('student_id', 'idx_student_id');
+                $table->index('honor_type_id', 'idx_honor_type_id');
+                $table->index('academic_level_id', 'idx_academic_level_id');
+                \Log::info('[SHS HONOR MIGRATION] Created individual indexes for foreign key columns (MySQL)');
+            });
 
-        // Add new unique constraint that includes grading_period_id
-        // This allows same student to have multiple honors in the same year (one per period)
-        Schema::table('honor_results', function (Blueprint $table) {
-            $table->unique(
-                ['student_id', 'honor_type_id', 'school_year', 'grading_period_id'],
-                'unique_student_honor_year_period'
-            );
-            \Log::info('[SHS HONOR MIGRATION] Added new unique constraint: unique_student_honor_year_period');
-        });
+            // Drop the old unique constraint that doesn't include grading_period_id
+            Schema::table('honor_results', function (Blueprint $table) {
+                $table->dropUnique('unique_student_honor_year');
+                \Log::info('[SHS HONOR MIGRATION] Dropped old unique constraint: unique_student_honor_year');
+            });
+
+            // Add new unique constraint that includes grading_period_id
+            Schema::table('honor_results', function (Blueprint $table) {
+                $table->unique(
+                    ['student_id', 'honor_type_id', 'school_year', 'grading_period_id'],
+                    'unique_student_honor_year_period'
+                );
+                \Log::info('[SHS HONOR MIGRATION] Added new unique constraint: unique_student_honor_year_period');
+            });
+        } else {
+            // For PostgreSQL and other databases: simpler approach
+            Schema::table('honor_results', function (Blueprint $table) {
+                $table->dropUnique('unique_student_honor_year');
+                \Log::info('[SHS HONOR MIGRATION] Dropped old unique constraint: unique_student_honor_year');
+
+                $table->unique(
+                    ['student_id', 'honor_type_id', 'school_year', 'grading_period_id'],
+                    'unique_student_honor_year_period'
+                );
+                \Log::info('[SHS HONOR MIGRATION] Added new unique constraint: unique_student_honor_year_period');
+            });
+        }
 
         \Log::info('[SHS HONOR MIGRATION] === MIGRATION COMPLETED SUCCESSFULLY ===');
     }
@@ -60,19 +85,40 @@ return new class extends Migration
     {
         \Log::info('[SHS HONOR MIGRATION] === ROLLING BACK MIGRATION: Remove grading_period_id from honor_results ===');
 
-        // Drop new unique constraint
-        Schema::table('honor_results', function (Blueprint $table) {
-            $table->dropUnique('unique_student_honor_year_period');
-            \Log::info('[SHS HONOR MIGRATION] Dropped unique constraint: unique_student_honor_year_period');
-        });
+        $driver = DB::connection()->getDriverName();
 
-        // Restore old unique constraint
-        Schema::table('honor_results', function (Blueprint $table) {
-            $table->unique(['student_id', 'honor_type_id', 'school_year'], 'unique_student_honor_year');
-            \Log::info('[SHS HONOR MIGRATION] Restored old unique constraint: unique_student_honor_year');
-        });
+        if ($driver === 'mysql') {
+            // Drop new unique constraint
+            Schema::table('honor_results', function (Blueprint $table) {
+                $table->dropUnique('unique_student_honor_year_period');
+                \Log::info('[SHS HONOR MIGRATION] Dropped unique constraint: unique_student_honor_year_period');
+            });
 
-        // Drop grading_period_id column
+            // Restore old unique constraint
+            Schema::table('honor_results', function (Blueprint $table) {
+                $table->unique(['student_id', 'honor_type_id', 'school_year'], 'unique_student_honor_year');
+                \Log::info('[SHS HONOR MIGRATION] Restored old unique constraint: unique_student_honor_year');
+            });
+
+            // Drop the individual indexes we created
+            Schema::table('honor_results', function (Blueprint $table) {
+                $table->dropIndex('idx_student_id');
+                $table->dropIndex('idx_honor_type_id');
+                $table->dropIndex('idx_academic_level_id');
+                \Log::info('[SHS HONOR MIGRATION] Dropped individual indexes for foreign key columns (MySQL)');
+            });
+        } else {
+            // For PostgreSQL and other databases
+            Schema::table('honor_results', function (Blueprint $table) {
+                $table->dropUnique('unique_student_honor_year_period');
+                \Log::info('[SHS HONOR MIGRATION] Dropped unique constraint: unique_student_honor_year_period');
+
+                $table->unique(['student_id', 'honor_type_id', 'school_year'], 'unique_student_honor_year');
+                \Log::info('[SHS HONOR MIGRATION] Restored old unique constraint: unique_student_honor_year');
+            });
+        }
+
+        // Drop grading_period_id column (same for all databases)
         Schema::table('honor_results', function (Blueprint $table) {
             $table->dropIndex('idx_honor_results_period');
             $table->dropForeign(['grading_period_id']);
