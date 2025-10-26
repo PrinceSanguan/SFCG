@@ -14,6 +14,7 @@ class HonorResult extends Model
         'student_id',
         'honor_type_id',
         'academic_level_id',
+        'grading_period_id', // Added for per-period honor tracking (SHS)
         'school_year',
         'gpa',
         'is_overridden',
@@ -52,6 +53,11 @@ class HonorResult extends Model
     public function academicLevel(): BelongsTo
     {
         return $this->belongsTo(AcademicLevel::class);
+    }
+
+    public function gradingPeriod(): BelongsTo
+    {
+        return $this->belongsTo(GradingPeriod::class);
     }
 
     public function approvedBy(): BelongsTo
