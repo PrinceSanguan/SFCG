@@ -49,6 +49,7 @@ Route::middleware(['auth', 'instructor'])->prefix('instructor')->name('instructo
         Route::get('/upload', [CSVUploadController::class, 'index'])->name('upload');
         Route::post('/upload', [CSVUploadController::class, 'upload'])->name('upload.store');
         Route::get('/template', [CSVUploadController::class, 'downloadTemplate'])->name('template');
+        Route::get('/subject-template', [CSVUploadController::class, 'downloadSubjectTemplate'])->name('subject-template');
         
         // API endpoints for AJAX calls
         Route::prefix('api')->name('api.')->group(function () {

@@ -160,6 +160,17 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
         window.open(route('instructor.grades.template'), '_blank');
     };
 
+    const downloadSubjectTemplate = () => {
+        if (!data.subject_id || !data.school_year) {
+            alert('Please select a subject and enter school year first');
+            return;
+        }
+
+        const url = route('instructor.grades.subject-template') +
+            `?subject_id=${data.subject_id}&school_year=${encodeURIComponent(data.school_year)}`;
+        window.open(url, '_blank');
+    };
+
     const getCurrentAcademicLevelKey = () => {
         const level = academicLevels.find(l => l.id.toString() === data.academic_level_id);
         return level?.key || 'college';
@@ -439,24 +450,43 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
                                     )}
 
                                     {/* Action Buttons */}
-                                    <div className="flex gap-4 pt-4">
+                                    <div className="space-y-3 pt-4">
                                         <Button
                                             type="submit"
                                             disabled={processing || isUploading || !selectedFile || !data.school_year}
-                                            className="flex-1"
+                                            className="w-full"
                                         >
                                             <UploadIcon className="h-4 w-4 mr-2" />
                                             {isUploading ? 'Uploading...' : 'Upload Grades'}
                                         </Button>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            onClick={downloadTemplate}
-                                            className="flex-1"
-                                        >
-                                            <Download className="h-4 w-4 mr-2" />
-                                            Download Multi-Subject Template
-                                        </Button>
+
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={downloadSubjectTemplate}
+                                                disabled={!data.subject_id || !data.school_year}
+                                                className="w-full"
+                                            >
+                                                <Download className="h-4 w-4 mr-2" />
+                                                Download Subject Template
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={downloadTemplate}
+                                                className="w-full"
+                                            >
+                                                <Download className="h-4 w-4 mr-2" />
+                                                Multi-Subject Template
+                                            </Button>
+                                        </div>
+
+                                        {data.subject_id && data.school_year && (
+                                            <p className="text-sm text-muted-foreground text-center">
+                                                Tip: Download the subject template to get a pre-filled CSV with your enrolled students!
+                                            </p>
+                                        )}
                                     </div>
                                 </form>
                             </CardContent>
@@ -470,7 +500,21 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
                             <CardContent className="space-y-4">
                                 <div className="space-y-4">
                                     <div>
-                                        <h4 className="font-medium mb-2">Multi-Subject CSV Format (Recommended):</h4>
+                                        <h4 className="font-medium mb-2 text-green-600">Subject-Specific Template (Recommended for College):</h4>
+                                        <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1 mb-3">
+                                            <li>• Select a subject and school year above</li>
+                                            <li>• Click "Download Subject Template" to get a pre-filled CSV with enrolled students</li>
+                                            <li>• Fill in <strong>MIDTERM</strong> and <strong>FINAL TERM</strong> grade columns</li>
+                                            <li>• Upload the completed CSV</li>
+                                            <li>• The system will create separate grade entries for midterm and final periods</li>
+                                        </ul>
+                                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                                            This format is perfect for uploading grades for a specific subject with all enrolled students already listed!
+                                        </p>
+                                    </div>
+
+                                    <div>
+                                        <h4 className="font-medium mb-2">Multi-Subject CSV Format:</h4>
                                         <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1 mb-3">
                                             <li>• <strong>Student ID:</strong> Student number or database ID</li>
                                             <li>• <strong>Student Name:</strong> Full name of student</li>
