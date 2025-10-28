@@ -26,6 +26,12 @@ interface AcademicLevel {
     key?: string;
 }
 
+interface GradingPeriod {
+    id: number;
+    name: string;
+    sort_order?: number;
+}
+
 interface HonorResult {
     id: number;
     gpa: number;
@@ -59,16 +65,19 @@ interface HonorStatisticsProps {
         academic_level_id?: string;
         honor_type_id?: string;
         year?: string;
+        period?: string;
     };
     academicLevels: AcademicLevel[];
     principalAcademicLevel?: AcademicLevel | null;
     honorTypes: HonorType[];
+    gradingPeriods: GradingPeriod[];
 }
 
-export default function HonorStatistics({ user, honors, stats, filters, principalAcademicLevel, honorTypes }: HonorStatisticsProps) {
+export default function HonorStatistics({ user, honors, stats, filters, principalAcademicLevel, honorTypes, gradingPeriods }: HonorStatisticsProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedType, setSelectedType] = useState(filters.honor_type_id || '');
     const [selectedYear, setSelectedYear] = useState(filters.year || '');
+    const [selectedPeriod, setSelectedPeriod] = useState(filters.period || '');
 
     // College-only honor types that should ONLY appear for College level
     const collegeOnlyHonorTypes = [
@@ -293,7 +302,7 @@ export default function HonorStatistics({ user, honors, stats, filters, principa
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Search</label>
                             <Input
@@ -318,6 +327,22 @@ export default function HonorStatistics({ user, honors, stats, filters, principa
                                     {filteredHonorTypes.length === 0 && (
                                         <SelectItem value="no-types" disabled>No honor types available</SelectItem>
                                     )}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Grading Period</label>
+                            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="All periods" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All periods</SelectItem>
+                                    {gradingPeriods.map((period) => (
+                                        <SelectItem key={period.id} value={period.id.toString()}>
+                                            {period.name}
+                                        </SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -350,15 +375,44 @@ export default function HonorStatistics({ user, honors, stats, filters, principa
                 </CardHeader>
                 <CardContent>
                     <div className="flex gap-4">
-                        <Button className="flex items-center gap-2">
+                        <Button
+                            className="flex items-center gap-2"
+                            onClick={() => {
+                                const params = new URLSearchParams();
+                                if (selectedType && selectedType !== 'all') params.append('honor_type_id', selectedType);
+                                if (selectedYear) params.append('year', selectedYear);
+                                if (selectedPeriod && selectedPeriod !== 'all') params.append('period', selectedPeriod);
+                                window.location.href = route('principal.reports.honor-statistics.export', { format: 'pdf' }) + '?' + params.toString();
+                            }}
+                        >
                             <Download className="h-4 w-4" />
                             Export to PDF
                         </Button>
-                        <Button variant="outline" className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            className="flex items-center gap-2"
+                            onClick={() => {
+                                const params = new URLSearchParams();
+                                if (selectedType && selectedType !== 'all') params.append('honor_type_id', selectedType);
+                                if (selectedYear) params.append('year', selectedYear);
+                                if (selectedPeriod && selectedPeriod !== 'all') params.append('period', selectedPeriod);
+                                window.location.href = route('principal.reports.honor-statistics.export', { format: 'excel' }) + '?' + params.toString();
+                            }}
+                        >
                             <Download className="h-4 w-4" />
                             Export to Excel
                         </Button>
-                        <Button variant="outline" className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            className="flex items-center gap-2"
+                            onClick={() => {
+                                const params = new URLSearchParams();
+                                if (selectedType && selectedType !== 'all') params.append('honor_type_id', selectedType);
+                                if (selectedYear) params.append('year', selectedYear);
+                                if (selectedPeriod && selectedPeriod !== 'all') params.append('period', selectedPeriod);
+                                window.location.href = route('principal.reports.honor-statistics.export', { format: 'csv' }) + '?' + params.toString();
+                            }}
+                        >
                             <Download className="h-4 w-4" />
                             Export to CSV
                         </Button>

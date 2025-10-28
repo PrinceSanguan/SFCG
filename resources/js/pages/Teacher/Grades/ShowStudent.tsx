@@ -76,8 +76,34 @@ interface TableGradingPeriod {
 }
 
 export default function ShowStudent({ user, student, subject, academicLevel, grades, gradingPeriods }: ShowStudentProps) {
-    // Debug logging
-    console.log('ShowStudent props:', { user, student, subject, academicLevel, grades, gradingPeriods });
+    // Enhanced debug logging
+    console.log('🔍 [COMPONENT INIT] ShowStudent Component Loaded');
+    console.log('🔍 [COMPONENT INIT] Student:', { id: student.id, name: student.name, student_number: student.student_number });
+    console.log('🔍 [COMPONENT INIT] Subject:', { id: subject.id, name: subject.name, code: subject.code });
+    console.log('🔍 [COMPONENT INIT] Academic Level:', { id: academicLevel.id, name: academicLevel.name, key: academicLevel.key });
+    console.log('🔍 [COMPONENT INIT] Grades:', {
+        count: grades.length,
+        grades: grades.map(g => ({
+            id: g.id,
+            grade: g.grade,
+            grading_period_id: g.grading_period_id,
+            period_name: g.gradingPeriod?.name,
+            period_parent_id: g.gradingPeriod?.parent_id,
+            school_year: g.school_year
+        }))
+    });
+    console.log('🔍 [COMPONENT INIT] Grading Periods:', {
+        count: gradingPeriods.length,
+        periods: gradingPeriods.map(p => ({
+            id: p.id,
+            name: p.name,
+            code: p.code,
+            parent_id: p.parent_id,
+            type: p.type,
+            period_type: p.period_type,
+            is_active: p.is_active
+        }))
+    });
 
     const getGradeColor = (grade: number, academicLevelKey: string) => {
         // SHS and College both use 1.0-5.0 scale (1.0 is highest, 5.0 is lowest, 3.0 is passing)
@@ -172,43 +198,63 @@ export default function ShowStudent({ user, student, subject, academicLevel, gra
         if (isSemesterBased) {
             // Group periods by parent_id (semester)
             const semesters: any = {};
+            const periodsWithoutParent: any[] = [];
 
             // First, identify all parent semesters
             const parentSemesters = relevantPeriods.filter(p => p.parent_id === null && p.type === 'semester');
 
-            console.log('🔍 Parent semesters found:', parentSemesters.map(p => ({ id: p.id, name: p.name })));
+            console.log('🔍 [FIXED] Parent semesters found:', parentSemesters.map(p => ({ id: p.id, name: p.name })));
 
             // Group child periods by their parent_id
             relevantPeriods.forEach(period => {
                 // Skip parent semesters themselves
                 if (period.parent_id === null && period.type === 'semester') {
+                    console.log(`🔍 [FIXED] Skipping parent semester: "${period.name}"`);
                     return;
                 }
 
                 // Skip final/average periods
                 const isFinalAverage = period.period_type === 'final' ||
-                                      period.name.toLowerCase().includes('average');
+                                      period.name.toLowerCase().includes('average') ||
+                                      period.name.toLowerCase().includes('final');
                 if (isFinalAverage) {
+                    console.log(`🔍 [FIXED] Skipping final/average period: "${period.name}"`);
                     return;
                 }
 
                 // Find the parent semester for this period
                 const parentId = period.parent_id;
+
+                // FIX: Handle periods without parent_id
                 if (!parentId) {
-                    console.log(`⚠️ Period "${period.name}" has no parent_id, skipping`);
+                    console.log(`✅ [FIXED] Period "${period.name}" has no parent_id, adding to flat list`);
+                    periodsWithoutParent.push({
+                        id: period.id,
+                        name: period.name,
+                        code: period.code,
+                        gradingPeriodId: period.id,
+                        originalPeriod: period
+                    });
                     return;
                 }
 
                 const parentSemester = parentSemesters.find(p => p.id === parentId);
                 if (!parentSemester) {
-                    console.log(`⚠️ No parent semester found for period "${period.name}" (parent_id: ${parentId})`);
+                    console.log(`⚠️ [FIXED] No parent semester found for period "${period.name}" (parent_id: ${parentId}), adding to flat list`);
+                    periodsWithoutParent.push({
+                        id: period.id,
+                        name: period.name,
+                        code: period.code,
+                        gradingPeriodId: period.id,
+                        originalPeriod: period
+                    });
                     return;
                 }
 
                 // Determine semester number based on parent
                 const semesterNum = parentSemesters.findIndex(p => p.id === parentId) + 1;
 
-                console.log(`🔍 Period "${period.name}" (${period.code}) assigned to Semester ${semesterNum} (parent: ${parentSemester.name})`);
+                console.log(`🔍 [FIXED] Period "${period.name}" (${period.code}) assigned to Semester ${semesterNum} (parent: ${parentSemester.name})`);
 
                 if (!semesters[semesterNum]) {
                     semesters[semesterNum] = {
@@ -225,31 +271,114 @@ export default function ShowStudent({ user, student, subject, academicLevel, gra
                 });
             });
 
+            console.log(`🔍 [FIXED] Periods without parent: ${periodsWithoutParent.length}`, periodsWithoutParent.map(p => ({ id: p.id, name: p.name })));
+
             let result = Object.keys(semesters).map(semNum => ({
                 semesterNumber: parseInt(semNum),
                 ...semesters[semNum]
             }));
 
-            // If no periods were grouped, create a fallback structure
-            if (result.length === 0 || result.every(sem => sem.periods.length === 0)) {
-                console.log('🔍 No periods grouped by semester, creating fallback structure');
+            // FIX: If we have periods without parent, group them into semesters
+            if (periodsWithoutParent.length > 0) {
+                console.log(`✅ [FIXED] Creating semester structure from ${periodsWithoutParent.length} flat periods`);
+
+                // If no hierarchical structure exists at all, create it from flat periods
+                if (result.length === 0 || result.every(sem => sem.periods.length === 0)) {
+                    console.log(`✅ [FIXED] No hierarchical structure, creating from flat periods`);
+
+                    // Split periods into semesters based on their names/codes or evenly
+                    const firstSemPeriods = periodsWithoutParent.filter(p =>
+                        p.name.toLowerCase().includes('first') ||
+                        p.code.toLowerCase().includes('1') ||
+                        p.code.toLowerCase().includes('q1') ||
+                        p.code.toLowerCase().includes('q2')
+                    );
+                    const secondSemPeriods = periodsWithoutParent.filter(p =>
+                        p.name.toLowerCase().includes('second') ||
+                        p.code.toLowerCase().includes('2') ||
+                        p.code.toLowerCase().includes('q3') ||
+                        p.code.toLowerCase().includes('q4')
+                    );
+
+                    // If can't determine from names, split evenly
+                    if (firstSemPeriods.length === 0 && secondSemPeriods.length === 0) {
+                        const mid = Math.ceil(periodsWithoutParent.length / 2);
+                        result = [];
+                        if (periodsWithoutParent.length > 1) {
+                            result.push({
+                                semesterNumber: 1,
+                                name: 'First Semester',
+                                periods: periodsWithoutParent.slice(0, mid)
+                            });
+                            result.push({
+                                semesterNumber: 2,
+                                name: 'Second Semester',
+                                periods: periodsWithoutParent.slice(mid)
+                            });
+                        } else {
+                            result.push({
+                                semesterNumber: 1,
+                                name: 'Semester',
+                                periods: periodsWithoutParent
+                            });
+                        }
+                    } else {
+                        result = [];
+                        if (firstSemPeriods.length > 0) {
+                            result.push({
+                                semesterNumber: 1,
+                                name: 'First Semester',
+                                periods: firstSemPeriods
+                            });
+                        }
+                        if (secondSemPeriods.length > 0) {
+                            result.push({
+                                semesterNumber: 2,
+                                name: 'Second Semester',
+                                periods: secondSemPeriods
+                            });
+                        }
+                    }
+
+                    console.log(`✅ [FIXED] Created structure:`, result.map(s => ({
+                        semester: s.name,
+                        periodCount: s.periods.length,
+                        periods: s.periods.map(p => p.name)
+                    })));
+                } else {
+                    // Add orphan periods to existing structure
+                    console.log(`✅ [FIXED] Adding ${periodsWithoutParent.length} orphan periods to existing structure`);
+                    if (result.length > 0) {
+                        result[0].periods.push(...periodsWithoutParent);
+                    }
+                }
+            }
+
+            let finalResult = result;
+
+            // If still no periods after all fixes, create final fallback structure
+            if (finalResult.length === 0 || finalResult.every(sem => sem.periods.length === 0)) {
+                console.log('⚠️ [FIXED] No periods in structure after fixes, creating final fallback');
                 const allInputPeriods = relevantPeriods.filter(period => {
                     const periodName = period.name.toLowerCase();
-                    const isParentSemester = periodName === 'first semester' || periodName === 'second semester';
+                    const isParentSemester = (period.parent_id === null && period.type === 'semester') ||
+                                            periodName === 'first semester' ||
+                                            periodName === 'second semester';
                     const isFinalAverage = period.name.toLowerCase().includes('final average') ||
+                                          period.name.toLowerCase().includes('final') ||
                                           period.code.includes('FA') ||
                                           period.code.toLowerCase().includes('_fa');
                     return !isParentSemester && !isFinalAverage;
                 });
 
-                console.log('🔍 All input periods for fallback:', allInputPeriods.map(p => ({ id: p.id, name: p.name, code: p.code })));
+                console.log('🔍 [FIXED] All input periods for final fallback:', allInputPeriods.map(p => ({ id: p.id, name: p.name, code: p.code, parent_id: p.parent_id })));
 
                 if (allInputPeriods.length > 0) {
                     // For semester-based systems, create meaningful semester grouping
                     if (allInputPeriods.length >= 2) {
                         // Split periods roughly in half for two semesters
                         const mid = Math.ceil(allInputPeriods.length / 2);
-                        result = [
+                        finalResult = [
                             {
                                 semesterNumber: 1,
                                 name: 'First Semester',
@@ -273,7 +402,7 @@ export default function ShowStudent({ user, student, subject, academicLevel, gra
                         ].filter(sem => sem.periods.length > 0);
                     } else {
                         // Single semester fallback
-                        result = [
+                        finalResult = [
                             {
                                 semesterNumber: 1,
                                 name: 'Semester',
@@ -289,8 +418,14 @@ export default function ShowStudent({ user, student, subject, academicLevel, gra
                 }
             }
 
-            console.log('🔍 Final semester structure (semester-based):', result);
-            return result;
+            console.log('✅ [FIXED] Final semester structure (semester-based):', finalResult.map(s => ({
+                semester: s.name,
+                semesterNum: s.semesterNumber,
+                periodCount: s.periods.length,
+                periods: s.periods.map(p => ({ id: p.id, name: p.name, gradingPeriodId: p.gradingPeriodId }))
+            })));
+
+            return finalResult;
         } else {
             // Quarter-based system (Elementary/Junior High)
             const quarterStructure = [{
@@ -628,12 +763,28 @@ export default function ShowStudent({ user, student, subject, academicLevel, gra
                                                 'bg-indigo-500 text-white'
                                             ];
 
+                                            // Add debug logging for grade matching
+                                            console.log('🔍 [GRADE MATCHING] Attempting to match grades to periods', {
+                                                allPeriodsCount: allPeriods.length,
+                                                allPeriods: allPeriods.map(p => ({ id: p.id, name: p.name, gradingPeriodId: p.gradingPeriodId })),
+                                                gradesCount: grades.length,
+                                                gradesPeriodIds: grades.map(g => ({ gradeId: g.id, periodId: g.grading_period_id, grade: g.grade }))
+                                            });
+
                                             return (
                                                 <div className="space-y-6">
                                                     {/* Individual Period Cards */}
                                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                                         {allPeriods.map((period: any, index: number) => {
                                                             const grade = grades.find(g => g.grading_period_id === period.gradingPeriodId);
+
+                                                            // Log each match attempt
+                                                            if (!grade) {
+                                                                console.log(`⚠️ [GRADE MATCHING] No grade found for period "${period.name}" (gradingPeriodId: ${period.gradingPeriodId})`);
+                                                            } else {
+                                                                console.log(`✅ [GRADE MATCHING] Grade found for period "${period.name}": ${grade.grade}`);
+                                                            }
+
                                                             const colorClass = cardColors[index % cardColors.length];
 
                                                             return (
@@ -753,6 +904,14 @@ export default function ShowStudent({ user, student, subject, academicLevel, gra
                                                                     </td>
                                                                     {semester.periods.map((period: any) => {
                                                                         const grade = grades.find(g => g.grading_period_id === period.gradingPeriodId);
+
+                                                                        // Log detailed matching for table
+                                                                        if (!grade) {
+                                                                            console.log(`⚠️ [TABLE] No grade for "${period.name}" (ID: ${period.gradingPeriodId}) - Available: [${grades.map(g => g.grading_period_id).join(', ')}]`);
+                                                                        } else {
+                                                                            console.log(`✅ [TABLE] Grade ${grade.grade} matched for "${period.name}" (ID: ${period.gradingPeriodId})`);
+                                                                        }
+
                                                                         return (
                                                                             <td key={period.id} className="p-3 border-r border-gray-200 text-center">
                                                                                 {grade ? (

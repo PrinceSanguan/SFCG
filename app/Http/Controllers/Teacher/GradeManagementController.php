@@ -535,8 +535,10 @@ class GradeManagementController extends Controller
                 });
 
             // Log the grading periods for debugging
-            Log::info('Grading periods for teacher showStudent', [
+            Log::info('[Teacher Grades] Grading Periods Retrieved', [
                 'teacher_id' => $user->id,
+                'student_id' => $student,
+                'subject_id' => $subject,
                 'academic_level' => $academicLevel->name,
                 'grading_periods_count' => $gradingPeriods->count(),
                 'grading_periods' => $gradingPeriods->map(function($p) {
@@ -545,9 +547,41 @@ class GradeManagementController extends Controller
                         'name' => $p['name'],
                         'code' => $p['code'],
                         'parent_id' => $p['parent_id'],
-                        'type' => $p['type']
+                        'type' => $p['type'],
+                        'period_type' => $p['period_type']
                     ];
                 })
+            ]);
+
+            // Log the student grades for debugging
+            Log::info('[Teacher Grades] Student Grades Retrieved', [
+                'teacher_id' => $user->id,
+                'student_id' => $student,
+                'subject_id' => $subject,
+                'grades_count' => $grades->count(),
+                'grades_summary' => $grades->map(function($g) {
+                    return [
+                        'id' => $g['id'],
+                        'grade' => $g['grade'],
+                        'grading_period_id' => $g['grading_period_id'],
+                        'grading_period_name' => $g['gradingPeriod'] ? $g['gradingPeriod']['name'] : 'N/A',
+                        'grading_period_parent_id' => $g['gradingPeriod'] ? $g['gradingPeriod']['parent_id'] : null,
+                        'school_year' => $g['school_year']
+                    ];
+                }),
+                'unique_period_ids' => $grades->pluck('grading_period_id')->unique()->values()->toArray()
+            ]);
+
+            // Log final data being sent to frontend
+            Log::info('[Teacher Grades] Data Being Sent to Frontend', [
+                'teacher_id' => $user->id,
+                'student_id' => $student,
+                'subject_id' => $subject,
+                'has_grades' => $grades->count() > 0,
+                'has_grading_periods' => $gradingPeriods->count() > 0,
+                'grades_period_ids' => $grades->pluck('grading_period_id')->unique()->sort()->values()->toArray(),
+                'available_period_ids' => $gradingPeriods->pluck('id')->sort()->values()->toArray(),
+                'period_ids_match' => $grades->pluck('grading_period_id')->unique()->diff($gradingPeriods->pluck('id'))->isEmpty()
             ]);
 
             return Inertia::render('Teacher/Grades/ShowStudent', [

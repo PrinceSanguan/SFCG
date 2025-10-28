@@ -232,16 +232,10 @@ export default function ReportsIndex({ user, academicLevels, strands }: ReportsI
                             </div>
                         </div>
                         <div className="flex gap-2">
-                            <Link href={route('principal.reports.export', 'grades')}>
+                            <Link href={route('principal.reports.academic-performance')}>
                                 <Button variant="outline" size="sm">
                                     <Download className="h-4 w-4 mr-1" />
-                                    Export Grades
-                                </Button>
-                            </Link>
-                            <Link href={route('principal.reports.export', 'honors')}>
-                                <Button variant="outline" size="sm">
-                                    <Download className="h-4 w-4 mr-1" />
-                                    Export Honors
+                                    View & Export
                                 </Button>
                             </Link>
                         </div>

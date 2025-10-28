@@ -40,7 +40,11 @@ Route::middleware(['auth', 'principal'])->prefix('principal')->name('principal.'
         Route::get('/academic-performance', [ReportsController::class, 'academicPerformance'])->name('academic-performance');
         Route::get('/grade-trends', [ReportsController::class, 'gradeTrends'])->name('grade-trends');
         Route::get('/honor-statistics', [ReportsController::class, 'honorStatistics'])->name('honor-statistics');
-        Route::get('/export/{type}', [ReportsController::class, 'export'])->name('export');
+
+        // Export routes for each report type and format
+        Route::get('/academic-performance/export/{format}', [ReportsController::class, 'exportAcademicPerformance'])->name('academic-performance.export');
+        Route::get('/grade-trends/export/{format}', [ReportsController::class, 'exportGradeTrends'])->name('grade-trends.export');
+        Route::get('/honor-statistics/export/{format}', [ReportsController::class, 'exportHonorStatistics'])->name('honor-statistics.export');
         
         // API endpoints for AJAX calls
         Route::prefix('api')->name('api.')->group(function () {

@@ -220,15 +220,41 @@ export default function GradeTrends({ user, trends, filters, principalAcademicLe
                 </CardHeader>
                 <CardContent>
                     <div className="flex gap-4">
-                        <Button className="flex items-center gap-2">
+                        <Button
+                            className="flex items-center gap-2"
+                            onClick={() => {
+                                const params = new URLSearchParams();
+                                if (selectedStrand && selectedStrand !== 'all') params.append('strand_id', selectedStrand);
+                                if (selectedYear) params.append('year', selectedYear);
+                                window.location.href = route('principal.reports.grade-trends.export', { format: 'pdf' }) + '?' + params.toString();
+                            }}
+                        >
                             <Download className="h-4 w-4" />
                             Export to PDF
                         </Button>
-                        <Button variant="outline" className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            className="flex items-center gap-2"
+                            onClick={() => {
+                                const params = new URLSearchParams();
+                                if (selectedStrand && selectedStrand !== 'all') params.append('strand_id', selectedStrand);
+                                if (selectedYear) params.append('year', selectedYear);
+                                window.location.href = route('principal.reports.grade-trends.export', { format: 'excel' }) + '?' + params.toString();
+                            }}
+                        >
                             <Download className="h-4 w-4" />
                             Export to Excel
                         </Button>
-                        <Button variant="outline" className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            className="flex items-center gap-2"
+                            onClick={() => {
+                                const params = new URLSearchParams();
+                                if (selectedStrand && selectedStrand !== 'all') params.append('strand_id', selectedStrand);
+                                if (selectedYear) params.append('year', selectedYear);
+                                window.location.href = route('principal.reports.grade-trends.export', { format: 'csv' }) + '?' + params.toString();
+                            }}
+                        >
                             <Download className="h-4 w-4" />
                             Export to CSV
                         </Button>
