@@ -358,6 +358,14 @@ export default function AssignInstructorsSubjects({
     };
 
     const handleEdit = (assignment: InstructorSubjectAssignment) => {
+        console.log('[REGISTRAR] Opening edit modal for instructor assignment:', {
+            id: assignment.id,
+            instructor_id: assignment.instructor_id,
+            subject_id: assignment.subject_id,
+            section_id: assignment.section_id,
+            grading_period_id: assignment.grading_period_id,
+        });
+
         setEditingAssignment(assignment);
 
         // Get the section to extract year level and other properties
@@ -389,6 +397,10 @@ export default function AssignInstructorsSubjects({
                 setSelectedCourseOrStrand(section.strand_id.toString());
             }
         }
+
+        // Set sectionJustSelected to true to make subject field visible when editing
+        setSectionJustSelected(true);
+        console.log('[REGISTRAR] Edit mode - sectionJustSelected set to TRUE to show subject and semester fields');
 
         setShowAssignmentModal(true);
     };

@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useForm, usePage } from '@inertiajs/react';
+import { route } from 'ziggy-js';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
-import { 
-    FileText, 
-    Award, 
-    Archive, 
-    Download, 
+import {
+    FileText,
+    Award,
+    Archive,
+    Download,
     GraduationCap,
     Users,
     FileSpreadsheet,
@@ -570,20 +571,24 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
     }, [archiveData.department_id, courses]);
 
     const handleGradeReport = (e: React.FormEvent) => {
+        console.log('[REGISTRAR] === GRADE REPORT SUBMISSION STARTED ===');
         e.preventDefault();
 
         if (!csrfToken) {
-            console.error('CSRF token not found');
+            console.error('[REGISTRAR] CSRF token not found');
             alert('Session expired. Please refresh the page and try again.');
             return;
         }
 
         // Validate required fields
         if (!gradeData.school_year) {
+            console.error('[REGISTRAR] School year not selected');
             alert('Please select a school year.');
             return;
         }
 
+        console.log('[REGISTRAR] Grade report data:', gradeData);
+        console.log('[REGISTRAR] Route URL:', route('registrar.reports.grade-report'));
         setIsGenerating(true);
 
         // Create a hidden iframe for download
@@ -629,14 +634,17 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
     };
 
     const handleHonorStatistics = (e: React.FormEvent) => {
+        console.log('[REGISTRAR] === HONOR STATISTICS SUBMISSION STARTED ===');
         e.preventDefault();
 
         if (!csrfToken) {
-            console.error('CSRF token not found');
+            console.error('[REGISTRAR] CSRF token not found');
             alert('Session expired. Please refresh the page and try again.');
             return;
         }
 
+        console.log('[REGISTRAR] Honor statistics data:', honorData);
+        console.log('[REGISTRAR] Route URL:', route('registrar.reports.honor-statistics'));
         setIsGenerating(true);
 
         // Create a hidden iframe for download
@@ -679,14 +687,17 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
     };
 
     const handleArchiveRecords = (e: React.FormEvent) => {
+        console.log('[REGISTRAR] === ARCHIVE RECORDS SUBMISSION STARTED ===');
         e.preventDefault();
 
         if (!csrfToken) {
-            console.error('CSRF token not found');
+            console.error('[REGISTRAR] CSRF token not found');
             alert('Session expired. Please refresh the page and try again.');
             return;
         }
 
+        console.log('[REGISTRAR] Archive data:', archiveData);
+        console.log('[REGISTRAR] Route URL:', route('registrar.reports.archive-records'));
         setIsGenerating(true);
 
         // Create a hidden iframe for download
@@ -757,6 +768,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
         }
 
         console.log('[REGISTRAR] Validation passed!');
+        console.log('[REGISTRAR] Route URL:', route('registrar.reports.class-section-report'));
 
         setIsGenerating(true);
 

@@ -613,19 +613,64 @@ class RegistrarUserManagementController extends Controller
             abort(403, 'Access denied. Cannot delete admin users.');
         }
 
-        // Log the deletion
-        ActivityLog::create([
-            'user_id' => Auth::id(),
-            'action' => 'deleted_user',
+        \Log::info('[REGISTRAR DELETE] Attempting to delete user', [
+            'registrar_id' => Auth::id(),
+            'registrar_name' => Auth::user()->name,
             'target_user_id' => $user->id,
-            'details' => "Deleted user: {$user->name} ({$user->email})",
-            'ip_address' => request()->ip(),
-            'user_agent' => request()->userAgent(),
+            'target_user_name' => $user->name,
+            'target_user_email' => $user->email,
+            'target_user_role' => $user->user_role,
         ]);
 
-        $user->delete();
+        try {
+            // Log the deletion before attempting
+            ActivityLog::create([
+                'user_id' => Auth::id(),
+                'action' => 'deleted_user',
+                'target_user_id' => $user->id,
+                'details' => "Deleted user: {$user->name} ({$user->email})",
+                'ip_address' => request()->ip(),
+                'user_agent' => request()->userAgent(),
+            ]);
 
-        return redirect()->back()->with('success', 'User deleted successfully.');
+            $user->delete();
+
+            \Log::info('[REGISTRAR DELETE] User deleted successfully', [
+                'user_id' => $user->id,
+                'user_name' => $user->name,
+            ]);
+
+            return redirect()->back()->with('success', 'User deleted successfully.');
+
+        } catch (\Illuminate\Database\QueryException $e) {
+            \Log::error('[REGISTRAR DELETE] Database error during deletion', [
+                'user_id' => $user->id,
+                'user_name' => $user->name,
+                'error_code' => $e->getCode(),
+                'error_message' => $e->getMessage(),
+                'sql_state' => $e->errorInfo[0] ?? null,
+            ]);
+
+            // Check if it's a foreign key constraint error
+            if ($e->getCode() === '23000' || str_contains($e->getMessage(), 'foreign key constraint')) {
+                return redirect()->back()->with('error',
+                    'Cannot delete this user because they have related records (grades, assignments, etc.). ' .
+                    'Please remove all related records first or contact an administrator.'
+                );
+            }
+
+            return redirect()->back()->with('error', 'Failed to delete user. Please try again or contact support.');
+
+        } catch (\Exception $e) {
+            \Log::error('[REGISTRAR DELETE] Unexpected error during deletion', [
+                'user_id' => $user->id,
+                'user_name' => $user->name,
+                'error_message' => $e->getMessage(),
+                'stack_trace' => $e->getTraceAsString(),
+            ]);
+
+            return redirect()->back()->with('error', 'An unexpected error occurred. Please try again or contact support.');
+        }
     }
 
     /**
@@ -638,19 +683,68 @@ class RegistrarUserManagementController extends Controller
             abort(403, 'Access denied. Cannot delete admin users.');
         }
 
-        // Log the deletion
-        ActivityLog::create([
-            'user_id' => Auth::id(),
-            'action' => 'deleted_user',
+        \Log::info('[REGISTRAR DELETE BY ROLE] Attempting to delete user', [
+            'registrar_id' => Auth::id(),
+            'registrar_name' => Auth::user()->name,
+            'target_role' => $role,
             'target_user_id' => $user->id,
-            'details' => "Deleted {$role}: {$user->name} ({$user->email})",
-            'ip_address' => request()->ip(),
-            'user_agent' => request()->userAgent(),
+            'target_user_name' => $user->name,
+            'target_user_email' => $user->email,
+            'target_user_role' => $user->user_role,
         ]);
 
-        $user->delete();
+        try {
+            // Log the deletion before attempting
+            ActivityLog::create([
+                'user_id' => Auth::id(),
+                'action' => 'deleted_user',
+                'target_user_id' => $user->id,
+                'details' => "Deleted {$role}: {$user->name} ({$user->email})",
+                'ip_address' => request()->ip(),
+                'user_agent' => request()->userAgent(),
+            ]);
 
-        return redirect()->back()->with('success', ucfirst($role) . ' deleted successfully.');
+            $user->delete();
+
+            \Log::info('[REGISTRAR DELETE BY ROLE] User deleted successfully', [
+                'user_id' => $user->id,
+                'user_name' => $user->name,
+                'role' => $role,
+            ]);
+
+            return redirect()->back()->with('success', ucfirst($role) . ' deleted successfully.');
+
+        } catch (\Illuminate\Database\QueryException $e) {
+            \Log::error('[REGISTRAR DELETE BY ROLE] Database error during deletion', [
+                'user_id' => $user->id,
+                'user_name' => $user->name,
+                'role' => $role,
+                'error_code' => $e->getCode(),
+                'error_message' => $e->getMessage(),
+                'sql_state' => $e->errorInfo[0] ?? null,
+            ]);
+
+            // Check if it's a foreign key constraint error
+            if ($e->getCode() === '23000' || str_contains($e->getMessage(), 'foreign key constraint')) {
+                return redirect()->back()->with('error',
+                    'Cannot delete this ' . $role . ' because they have related records (grades, assignments, etc.). ' .
+                    'Please remove all related records first or contact an administrator.'
+                );
+            }
+
+            return redirect()->back()->with('error', 'Failed to delete ' . $role . '. Please try again or contact support.');
+
+        } catch (\Exception $e) {
+            \Log::error('[REGISTRAR DELETE BY ROLE] Unexpected error during deletion', [
+                'user_id' => $user->id,
+                'user_name' => $user->name,
+                'role' => $role,
+                'error_message' => $e->getMessage(),
+                'stack_trace' => $e->getTraceAsString(),
+            ]);
+
+            return redirect()->back()->with('error', 'An unexpected error occurred. Please try again or contact support.');
+        }
     }
 
     /**

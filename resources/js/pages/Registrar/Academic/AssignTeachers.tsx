@@ -184,13 +184,41 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
             // If semesters are selected, filter by selected semesters
             if (assignmentForm.semester_ids.length > 0) {
                 const semesterIds = assignmentForm.semester_ids.map(id => parseInt(id));
-                filtered = filtered.filter(period =>
-                    period.parent_id &&
-                    semesterIds.includes(period.parent_id) &&
-                    !period.name.toLowerCase().includes('average') &&
-                    period.type !== 'final_average' &&
-                    period.type !== 'final'
-                );
+                filtered = filtered.filter(period => {
+                    const periodAny = period as any;
+                    const nameLower = period.name.toLowerCase();
+
+                    // Name-based checks for final/average keywords
+                    const hasFinal = nameLower.includes('final');
+                    const hasAverage = nameLower.includes('average');
+                    const hasGrade = nameLower.includes('grade') && !nameLower.includes('quarter');
+
+                    // Type-based checks (support both 'type' and 'period_type' properties)
+                    const isFinalType = period.type === 'final_average' ||
+                                       period.type === 'final' ||
+                                       period.type === 'average' ||
+                                       periodAny.period_type === 'final_average' ||
+                                       periodAny.period_type === 'final' ||
+                                       periodAny.period_type === 'average';
+
+                    console.log('[REGISTRAR] Filtering grading period:', {
+                        name: period.name,
+                        type: period.type,
+                        period_type: periodAny.period_type,
+                        hasFinal,
+                        hasAverage,
+                        hasGrade,
+                        isFinalType,
+                        willInclude: period.parent_id && semesterIds.includes(period.parent_id) && !hasFinal && !hasAverage && !hasGrade && !isFinalType
+                    });
+
+                    return period.parent_id &&
+                           semesterIds.includes(period.parent_id) &&
+                           !hasFinal &&
+                           !hasAverage &&
+                           !hasGrade &&
+                           !isFinalType;
+                });
             }
 
             setFilteredGradingPeriods(filtered);
