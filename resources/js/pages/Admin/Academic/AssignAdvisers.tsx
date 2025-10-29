@@ -66,6 +66,7 @@ interface ClassAdviserAssignment {
     academic_level_id: number;
     grade_level: string;
     section: string;
+    grading_period_ids: number[];
     school_year: string;
     notes: string | null;
     is_active: boolean;
@@ -262,6 +263,14 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
     };
 
     const openEditModal = (assignment: ClassAdviserAssignment) => {
+        console.log('Opening edit modal for adviser assignment:', {
+            id: assignment.id,
+            adviser: assignment.adviser?.name,
+            grading_period_ids: assignment.grading_period_ids,
+            section: assignment.section,
+            grade_level: assignment.grade_level,
+        });
+
         setEditAssignment(assignment);
         setAssignmentForm({
             adviser_id: assignment.adviser_id.toString(),
@@ -269,7 +278,7 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
             academic_level_id: assignment.academic_level_id.toString(),
             grade_level: assignment.grade_level,
             section_id: assignment.subject?.section_id?.toString() || '',
-            grading_period_ids: [],
+            grading_period_ids: assignment.grading_period_ids?.map(id => id.toString()) || [],
             school_year: assignment.school_year,
             notes: assignment.notes || '',
             is_active: assignment.is_active,

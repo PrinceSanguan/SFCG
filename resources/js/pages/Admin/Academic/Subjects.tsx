@@ -207,15 +207,56 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
         const semester = gradingPeriods.find(gp => gp.id.toString() === semesterId);
         if (!semester) return [];
 
+        console.log('[SUBJECTS] Filtering grading periods for semester:', {
+            semesterId,
+            semesterName: semester.name,
+            academicLevelId: semester.academic_level_id
+        });
+
         // Filter periods by parent_id and same academic level as the semester
-        // Exclude "Average" or "final" type periods
-        return gradingPeriods.filter(gp =>
-            gp.parent_id?.toString() === semesterId &&
-            gp.academic_level_id === semester.academic_level_id &&
-            !gp.name.toLowerCase().includes('average') &&
-            gp.type !== 'final_average' &&
-            gp.type !== 'final'
-        );
+        // Exclude "Average", "final", "Final Grade" and similar periods
+        // For SHS/Elementary/JHS, we only want quarters (1st, 2nd, 3rd, 4th Quarter)
+        const filtered = gradingPeriods.filter(gp => {
+            const nameLower = gp.name.toLowerCase();
+
+            // Must match parent and academic level
+            const matchesParent = gp.parent_id?.toString() === semesterId;
+            const matchesLevel = gp.academic_level_id === semester.academic_level_id;
+
+            // Exclude final/average periods by name
+            const hasFinal = nameLower.includes('final');
+            const hasAverage = nameLower.includes('average');
+            const hasGrade = nameLower.includes('grade') && !nameLower.includes('quarter');
+
+            // Exclude final/average periods by type
+            const isFinalType = gp.type === 'final_average' || gp.type === 'final' || gp.type === 'average';
+
+            // Only include if it matches parent/level AND doesn't have any final/average indicators
+            const shouldInclude = matchesParent && matchesLevel && !hasFinal && !hasAverage && !hasGrade && !isFinalType;
+
+            if (matchesParent) {
+                console.log('[SUBJECTS] Period filter result:', {
+                    periodId: gp.id,
+                    periodName: gp.name,
+                    periodType: gp.type,
+                    shouldInclude,
+                    reasons: {
+                        matchesParent,
+                        matchesLevel,
+                        hasFinal,
+                        hasAverage,
+                        hasGrade,
+                        isFinalType
+                    }
+                });
+            }
+
+            return shouldInclude;
+        });
+
+        console.log('[SUBJECTS] Filtered periods count:', filtered.length);
+
+        return filtered;
     };
 
     // Grade level options for elementary

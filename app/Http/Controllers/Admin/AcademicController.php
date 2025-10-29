@@ -255,12 +255,13 @@ class AcademicController extends Controller
         
         // Transform assignments to ensure academic level data is included
         $transformedAssignments = $assignments->map(function ($assignment) {
-            return [
+            $transformed = [
                 'id' => $assignment->id,
                 'adviser_id' => $assignment->adviser_id,
                 'academic_level_id' => $assignment->academic_level_id,
                 'grade_level' => $assignment->grade_level,
                 'section' => $assignment->section,
+                'grading_period_ids' => $assignment->grading_period_ids,
                 'school_year' => $assignment->school_year,
                 'notes' => $assignment->notes,
                 'is_active' => $assignment->is_active,
@@ -273,6 +274,17 @@ class AcademicController extends Controller
                 'academicLevel' => $assignment->academicLevel,
                 'subject' => $assignment->subject,
             ];
+
+            // Log adviser assignment data for debugging
+            \Log::info('Adviser Assignment Transformation:', [
+                'id' => $assignment->id,
+                'adviser' => $assignment->adviser?->name,
+                'grading_period_ids' => $assignment->grading_period_ids,
+                'section' => $assignment->section,
+                'grade_level' => $assignment->grade_level,
+            ]);
+
+            return $transformed;
         });
 
         return Inertia::render('Admin/Academic/AssignAdvisers', [
