@@ -835,7 +835,86 @@ class RegistrarUserManagementController extends Controller
             return back()->with('error', 'Invalid CSV format. Expected columns: ' . $expectedColumnsString);
         }
 
+        // FIRST PASS: Collect all emails and student numbers from CSV to detect internal duplicates
+        \Log::info('[CSV UPLOAD] Starting first pass to detect internal duplicates', [
+            'academic_level' => $expectedAcademicLevel,
+        ]);
+
+        $csvData = [];
+        $csvEmails = [];
+        $csvStudentNumbers = [];
+        $internalDuplicates = [];
+        $tempLineNumber = 1;
+
         while (($row = fgetcsv($handle)) !== false) {
+            $tempLineNumber++;
+
+            if (count($row) !== count($expected)) {
+                continue; // Will be caught in second pass
+            }
+
+            // Extract email and student_number based on academic level format
+            $email = isset($row[1]) ? trim($row[1]) : '';
+            $studentNumberIndex = ($expectedAcademicLevel === 'senior_highschool') ? 8 :
+                                  (($expectedAcademicLevel === 'college') ? 8 :
+                                  (($expectedAcademicLevel === 'elementary' || $expectedAcademicLevel === 'junior_highschool') ? 6 : 9));
+            $studentNumber = isset($row[$studentNumberIndex]) ? trim($row[$studentNumberIndex]) : '';
+
+            $csvData[] = $row;
+
+            // Check for duplicate emails within CSV
+            if (!empty($email)) {
+                if (isset($csvEmails[$email])) {
+                    $internalDuplicates[] = [
+                        'type' => 'email',
+                        'value' => $email,
+                        'first_line' => $csvEmails[$email],
+                        'duplicate_line' => $tempLineNumber,
+                    ];
+                } else {
+                    $csvEmails[$email] = $tempLineNumber;
+                }
+            }
+
+            // Check for duplicate student numbers within CSV
+            if (!empty($studentNumber)) {
+                if (isset($csvStudentNumbers[$studentNumber])) {
+                    $internalDuplicates[] = [
+                        'type' => 'student_number',
+                        'value' => $studentNumber,
+                        'first_line' => $csvStudentNumbers[$studentNumber],
+                        'duplicate_line' => $tempLineNumber,
+                    ];
+                } else {
+                    $csvStudentNumbers[$studentNumber] = $tempLineNumber;
+                }
+            }
+        }
+
+        // If internal duplicates found, return errors immediately
+        if (!empty($internalDuplicates)) {
+            fclose($handle);
+
+            $duplicateErrors = [];
+            foreach ($internalDuplicates as $dup) {
+                $duplicateErrors[] = "Row {$dup['duplicate_line']}: Duplicate {$dup['type']} '{$dup['value']}' (already appears on row {$dup['first_line']} in this CSV)";
+            }
+
+            \Log::error('[CSV UPLOAD] Internal duplicates found within CSV file', [
+                'duplicates' => $internalDuplicates,
+            ]);
+
+            return back()->with('error', 'CSV contains internal duplicates:<br>' . implode('<br>', $duplicateErrors));
+        }
+
+        \Log::info('[CSV UPLOAD] First pass complete - no internal duplicates found', [
+            'total_rows' => count($csvData),
+            'unique_emails' => count($csvEmails),
+            'unique_student_numbers' => count($csvStudentNumbers),
+        ]);
+
+        // SECOND PASS: Process each row with improved validation
+        foreach ($csvData as $index => $row) {
             $lineNumber++;
 
             // Check if row has correct number of columns
@@ -965,6 +1044,41 @@ class RegistrarUserManagementController extends Controller
                 $sectionId = $section->id;
             }
 
+            // Log row being processed
+            \Log::info('[CSV UPLOAD] Processing row', [
+                'line' => $lineNumber,
+                'name' => $name,
+                'email' => $email,
+                'student_number' => $studentNumber,
+                'academic_level' => $academicLevel,
+            ]);
+
+            // Check if email already exists in database
+            $existingEmailUser = \App\Models\User::where('email', $email)->first();
+            if ($existingEmailUser) {
+                \Log::warning('[CSV UPLOAD] Email already exists in database', [
+                    'line' => $lineNumber,
+                    'email' => $email,
+                    'existing_user_id' => $existingEmailUser->id,
+                    'existing_user_name' => $existingEmailUser->name,
+                    'existing_user_role' => $existingEmailUser->user_role,
+                ]);
+            }
+
+            // Check if student_number already exists in database
+            if (!empty($studentNumber)) {
+                $existingStudentNumberUser = \App\Models\User::where('student_number', $studentNumber)->first();
+                if ($existingStudentNumberUser) {
+                    \Log::warning('[CSV UPLOAD] Student number already exists in database', [
+                        'line' => $lineNumber,
+                        'student_number' => $studentNumber,
+                        'existing_user_id' => $existingStudentNumberUser->id,
+                        'existing_user_name' => $existingStudentNumberUser->name,
+                        'existing_user_email' => $existingStudentNumberUser->email,
+                    ]);
+                }
+            }
+
             $validator = Validator::make([
                 'name' => $name,
                 'email' => $email,
@@ -1004,10 +1118,31 @@ class RegistrarUserManagementController extends Controller
             ]);
 
             if ($validator->fails()) {
+                $validationErrors = $validator->errors()->all();
+
+                \Log::error('[CSV UPLOAD] Validation failed for row', [
+                    'line' => $lineNumber,
+                    'email' => $email,
+                    'student_number' => $studentNumber,
+                    'errors' => $validationErrors,
+                ]);
+
+                // Enhance error messages for unique constraint violations
+                $enhancedErrors = [];
+                foreach ($validationErrors as $error) {
+                    if (str_contains($error, 'email has already been taken')) {
+                        $enhancedErrors[] = $error . ' (Email "' . $email . '" already exists in the database. Please use a unique email address.)';
+                    } elseif (str_contains($error, 'student number has already been taken')) {
+                        $enhancedErrors[] = $error . ' (Student number "' . $studentNumber . '" already exists in the database. Please use a unique student number.)';
+                    } else {
+                        $enhancedErrors[] = $error;
+                    }
+                }
+
                 $errors[] = [
                     'line' => $lineNumber,
                     'email' => $email,
-                    'errors' => $validator->errors()->all(),
+                    'errors' => $enhancedErrors,
                 ];
                 continue;
             }
@@ -1032,6 +1167,15 @@ class RegistrarUserManagementController extends Controller
                     'emergency_contact_name' => $emergencyContactName ?: null,
                     'emergency_contact_phone' => $emergencyContactPhone ?: null,
                     'emergency_contact_relationship' => $emergencyContactRelationship ?: null,
+                ]);
+
+                \Log::info('[CSV UPLOAD] Student created successfully', [
+                    'line' => $lineNumber,
+                    'user_id' => $student->id,
+                    'name' => $student->name,
+                    'email' => $student->email,
+                    'student_number' => $student->student_number,
+                    'academic_level' => $student->year_level,
                 ]);
 
                 // Note: Automatic subject enrollment is handled by User model's boot method

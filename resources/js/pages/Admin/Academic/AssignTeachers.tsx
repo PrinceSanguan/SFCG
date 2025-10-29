@@ -270,6 +270,40 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
     const shsAssignments = assignments.filter(assignment =>
         shsLevel && assignment.academic_level_id === shsLevel.id
     );
+
+    // Group assignments by teacher+subject+school_year to combine multiple grading periods
+    const groupedAssignments = shsAssignments.reduce((groups: any[], assignment) => {
+        const key = `${assignment.teacher_id}-${assignment.subject_id}-${assignment.school_year}`;
+        const existingGroup = groups.find(g => g.key === key);
+
+        if (existingGroup) {
+            // Add this grading period to existing group
+            existingGroup.gradingPeriods.push(assignment.gradingPeriod);
+            existingGroup.assignmentIds.push(assignment.id);
+        } else {
+            // Create new group
+            groups.push({
+                key,
+                ...assignment,
+                gradingPeriods: assignment.gradingPeriod ? [assignment.gradingPeriod] : [],
+                assignmentIds: [assignment.id],
+                originalAssignment: assignment, // Keep reference to original for edit/delete
+            });
+        }
+
+        return groups;
+    }, []);
+
+    console.log('[ASSIGN TEACHERS] Grouped assignments:', {
+        total_assignments: shsAssignments.length,
+        grouped_count: groupedAssignments.length,
+        groups: groupedAssignments.map(g => ({
+            teacher: g.teacher.name,
+            subject: g.subject.name,
+            grading_periods: g.gradingPeriods.map((gp: any) => gp?.name || 'N/A'),
+        })),
+    });
+
     // Subjects are already filtered by SHS level in the backend
     const shsSubjects = subjects;
 
@@ -1000,46 +1034,43 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
             </div>
 
             {/* Assignments Table */}
-            {shsAssignments.length > 0 ? (
+            {groupedAssignments.length > 0 ? (
                 <div className="grid gap-4">
-                    {shsAssignments.map((assignment) => (
-                        <Card key={assignment.id}>
+                    {groupedAssignments.map((group) => (
+                        <Card key={group.key}>
                             <CardContent className="pt-6">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center space-x-4">
                                         <div className="flex items-center space-x-2">
                                             <User className="h-4 w-4 text-gray-500" />
-                                            <span className="font-medium">{assignment.teacher.name}</span>
+                                            <span className="font-medium">{group.teacher.name}</span>
                                         </div>
                                         <span className="text-gray-400">→</span>
                                         <div className="flex items-center space-x-2">
                                             <BookOpen className="h-4 w-4 text-gray-500" />
-                                            <span className="font-medium">{assignment.subject.name}</span>
-                                            <Badge variant="outline">{assignment.subject.code}</Badge>
-                                            {getCoreBadge(assignment.subject.is_core)}
+                                            <span className="font-medium">{group.subject.name}</span>
+                                            <Badge variant="outline">{group.subject.code}</Badge>
+                                            {getCoreBadge(group.subject.is_core)}
                                         </div>
                                     </div>
                                     <div className="flex items-center space-x-4">
                                         <div className="flex items-center space-x-2 text-sm text-gray-600">
                                             <Calendar className="h-4 w-4" />
-                                            <span>{assignment.school_year}</span>
+                                            <span>{group.school_year}</span>
                                         </div>
-                                        {assignment.gradingPeriod && (
-                                            <Badge variant="secondary">{assignment.gradingPeriod.name}</Badge>
-                                        )}
-                                        {getStatusBadge(assignment.is_active)}
+                                        {getStatusBadge(group.is_active)}
                                         <div className="flex items-center space-x-2">
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
-                                                onClick={() => openEditModal(assignment)}
+                                                onClick={() => openEditModal(group.originalAssignment)}
                                             >
                                                 <Edit className="h-4 w-4" />
                                             </Button>
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
-                                                onClick={() => destroyAssignment(assignment.id)}
+                                                onClick={() => destroyAssignment(group.id)}
                                                 className="text-red-600 hover:text-red-700"
                                             >
                                                 <Trash2 className="h-4 w-4" />
@@ -1048,11 +1079,22 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                                     </div>
                                 </div>
                                 <div className="flex items-center space-x-4 mt-2 text-sm text-gray-600">
-                                    <span>Units: {assignment.subject.units}</span>
-                                    <span>Hours/Week: {assignment.subject.hours_per_week}</span>
+                                    <span>Units: {group.subject.units}</span>
+                                    <span>Hours/Week: {group.subject.hours_per_week}</span>
                                 </div>
-                                {assignment.notes && (
-                                    <p className="text-sm text-gray-600 mt-2">{assignment.notes}</p>
+                                {/* Display Grading Periods as badges */}
+                                {group.gradingPeriods.length > 0 && (
+                                    <div className="flex items-center gap-2 mt-3">
+                                        <span className="text-sm font-medium text-gray-700">Grading Periods:</span>
+                                        <div className="flex flex-wrap gap-1">
+                                            {group.gradingPeriods.map((gp: any, index: number) => (
+                                                gp && <Badge key={index} variant="secondary" className="text-xs">{gp.name}</Badge>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                {group.notes && (
+                                    <p className="text-sm text-gray-600 mt-2">{group.notes}</p>
                                 )}
                             </CardContent>
                         </Card>

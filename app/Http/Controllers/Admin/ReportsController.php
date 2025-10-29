@@ -272,6 +272,9 @@ class ReportsController extends Controller
     public function archiveAcademicRecords(Request $request)
     {
         try {
+            Log::info('=== ARCHIVE RECORDS REQUEST RECEIVED ===');
+            Log::info('All request data:', $request->all());
+
             $validated = $request->validate([
                 'academic_level_id' => ['required', 'exists:academic_levels,id'],
                 'school_year' => ['required', 'string'],
@@ -281,13 +284,28 @@ class ReportsController extends Controller
                 'format' => ['required', 'in:excel,csv'],
             ]);
 
+            $academicLevel = AcademicLevel::find($validated['academic_level_id']);
+            Log::info('Archiving records for:', [
+                'academic_level' => $academicLevel->name,
+                'school_year' => $validated['school_year'],
+                'include_grades' => $validated['include_grades'] ?? '0',
+                'include_honors' => $validated['include_honors'] ?? '0',
+                'include_certificates' => $validated['include_certificates'] ?? '0',
+            ]);
+
             $data = [];
+            $totalRecords = 0;
 
             if (isset($validated['include_grades']) && $validated['include_grades'] === '1') {
                 $data['grades'] = StudentGrade::with(['student', 'subject', 'academicLevel', 'gradingPeriod'])
                     ->where('academic_level_id', $validated['academic_level_id'])
                     ->where('school_year', $validated['school_year'])
                     ->get();
+                $gradesCount = $data['grades']->count();
+                $totalRecords += $gradesCount;
+                Log::info('[ARCHIVE] Grades found:', ['count' => $gradesCount]);
+            } else {
+                Log::info('[ARCHIVE] Grades excluded from archive');
             }
 
             if (isset($validated['include_honors']) && $validated['include_honors'] === '1') {
@@ -295,6 +313,11 @@ class ReportsController extends Controller
                     ->where('academic_level_id', $validated['academic_level_id'])
                     ->where('school_year', $validated['school_year'])
                     ->get();
+                $honorsCount = $data['honors']->count();
+                $totalRecords += $honorsCount;
+                Log::info('[ARCHIVE] Honors found:', ['count' => $honorsCount]);
+            } else {
+                Log::info('[ARCHIVE] Honors excluded from archive');
             }
 
             if (isset($validated['include_certificates']) && $validated['include_certificates'] === '1') {
@@ -302,21 +325,35 @@ class ReportsController extends Controller
                     ->where('academic_level_id', $validated['academic_level_id'])
                     ->where('school_year', $validated['school_year'])
                     ->get();
+                $certificatesCount = $data['certificates']->count();
+                $totalRecords += $certificatesCount;
+                Log::info('[ARCHIVE] Certificates found:', ['count' => $certificatesCount]);
+            } else {
+                Log::info('[ARCHIVE] Certificates excluded from archive');
             }
 
-            $academicLevel = AcademicLevel::find($validated['academic_level_id']);
+            Log::info('[ARCHIVE] Total records to archive:', ['total' => $totalRecords]);
+
+            if ($totalRecords === 0) {
+                Log::warning('[ARCHIVE] No records found matching the criteria - will generate empty archive');
+            }
+
             $filename = 'academic_records_' . $academicLevel->key . '_' . $validated['school_year'] . '_' . now()->format('Y-m-d');
+            Log::info('[ARCHIVE] Generating ' . $validated['format'] . ' with filename: ' . $filename);
 
             switch ($validated['format']) {
                 case 'excel':
+                    Log::info('[ARCHIVE] Archive generation successful - downloading Excel file');
                     return Excel::download(new AcademicRecordsExport($data), $filename . '.xlsx');
                 case 'csv':
+                    Log::info('[ARCHIVE] Archive generation successful - downloading CSV file');
                     return Excel::download(new AcademicRecordsExport($data), $filename . '.csv');
                 default:
                     return back()->withErrors(['format' => 'Invalid format selected.']);
             }
         } catch (\Exception $e) {
-            Log::error('Academic records archive failed: ' . $e->getMessage());
+            Log::error('[ARCHIVE] Academic records archive failed: ' . $e->getMessage());
+            Log::error('[ARCHIVE] Stack trace: ' . $e->getTraceAsString());
             return back()->withErrors(['general' => 'Failed to create academic archive. Please try again.']);
         }
     }
