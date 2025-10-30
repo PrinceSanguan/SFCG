@@ -41,6 +41,10 @@ interface StudentGrade {
     is_submitted_for_validation: boolean;
     created_at: string;
     updated_at: string;
+    // Editability fields (5-day edit window)
+    is_editable?: boolean;
+    days_remaining?: number;
+    edit_status?: 'editable' | 'locked' | 'expired';
 }
 
 interface Parent {
@@ -789,13 +793,32 @@ export default function Show({ user, student, subject, academicLevel, grades, gr
                                             Input New Grade
                                         </Button>
                                     </Link>
-                                    {latestGrade && (
-                                        <Link href={route('instructor.grades.edit', latestGrade.id)} className="flex-1">
-                                            <Button variant="outline" className="w-full">
-                                                <EditIcon className="h-4 w-4 mr-2" />
-                                                Edit Current Grade
+                                    {latestGrade && latestGrade.is_editable && (
+                                        <div className="flex-1 flex flex-col gap-2">
+                                            <Link href={route('instructor.grades.edit', latestGrade.id)} className="w-full">
+                                                <Button variant="outline" className="w-full">
+                                                    <EditIcon className="h-4 w-4 mr-2" />
+                                                    Edit Current Grade
+                                                </Button>
+                                            </Link>
+                                            {latestGrade.days_remaining !== undefined && latestGrade.days_remaining < 3 && (
+                                                <p className="text-xs text-center text-muted-foreground">
+                                                    ⏰ Editable for {latestGrade.days_remaining} more {latestGrade.days_remaining === 1 ? 'day' : 'days'}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+                                    {latestGrade && !latestGrade.is_editable && (
+                                        <div className="flex-1">
+                                            <Button variant="outline" className="w-full" disabled>
+                                                {latestGrade.edit_status === 'locked' ? '🔒 Grade Locked' : '⏰ Edit Window Expired'}
                                             </Button>
-                                        </Link>
+                                            <p className="text-xs text-center text-muted-foreground mt-2">
+                                                {latestGrade.edit_status === 'locked'
+                                                    ? 'Grade submitted for validation'
+                                                    : '5-day edit period has ended'}
+                                            </p>
+                                        </div>
                                     )}
                                 </div>
                             </CardContent>

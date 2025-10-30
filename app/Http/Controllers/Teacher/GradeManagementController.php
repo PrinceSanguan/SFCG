@@ -82,7 +82,7 @@ class GradeManagementController extends Controller
                 ->latest()
                 ->paginate(15);
 
-            // Format grades data to ensure gradingPeriod has all fields
+            // Format grades data to ensure gradingPeriod has all fields and include editability info
             $grades = $gradesQuery->toArray();
             $grades['data'] = collect($gradesQuery->items())->map(function ($grade) {
                 return [
@@ -112,6 +112,10 @@ class GradeManagementController extends Controller
                     'is_submitted_for_validation' => $grade->is_submitted_for_validation,
                     'created_at' => $grade->created_at,
                     'updated_at' => $grade->updated_at,
+                    // Editability fields
+                    'is_editable' => $grade->isEditableByInstructor(),
+                    'days_remaining' => $grade->getDaysRemainingForEdit(),
+                    'edit_status' => $grade->getEditStatus(),
                 ];
             })->toArray();
 
@@ -484,7 +488,7 @@ class GradeManagementController extends Controller
 
             $academicLevel = $teacherAssignment ? $teacherAssignment->academicLevel : AcademicLevel::where('key', 'senior_highschool')->first();
 
-            // Get student's grades for this subject
+            // Get student's grades for this subject with editability info
             $grades = StudentGrade::with(['academicLevel', 'gradingPeriod'])
                 ->where('student_id', $student)
                 ->where('subject_id', $subject)
@@ -513,6 +517,10 @@ class GradeManagementController extends Controller
                         ] : null,
                         'created_at' => $grade->created_at,
                         'updated_at' => $grade->updated_at,
+                        // Editability fields
+                        'is_editable' => $grade->isEditableByInstructor(),
+                        'days_remaining' => $grade->getDaysRemainingForEdit(),
+                        'edit_status' => $grade->getEditStatus(),
                     ];
                 });
 
@@ -634,7 +642,26 @@ class GradeManagementController extends Controller
                 ]);
                 abort(403, 'You do not have permission to edit grades for this subject.');
             }
-            
+
+            // Check if grade is still editable (within 5-day window and not submitted)
+            if (!$gradeData->isEditableByInstructor()) {
+                $editStatus = $gradeData->getEditStatus();
+                $message = $editStatus === 'locked'
+                    ? 'This grade is locked because it has been submitted for validation.'
+                    : 'This grade can no longer be edited. The 5-day edit window has expired.';
+
+                Log::warning('Teacher attempted to edit grade outside edit window', [
+                    'teacher_id' => $user->id,
+                    'grade_id' => $grade,
+                    'edit_status' => $editStatus,
+                    'created_at' => $gradeData->created_at->toDateTimeString(),
+                    'is_submitted' => $gradeData->is_submitted_for_validation,
+                    'days_since_creation' => $gradeData->created_at->diffInDays(now())
+                ]);
+
+                abort(403, $message);
+            }
+
             // Get academic levels and grading periods for the form
             $academicLevels = AcademicLevel::where('is_active', true)->get();
 
@@ -787,7 +814,26 @@ class GradeManagementController extends Controller
                 ]);
                 abort(403, 'You do not have permission to update grades for this subject.');
             }
-            
+
+            // Check if grade is still editable (within 5-day window and not submitted)
+            if (!$gradeData->isEditableByInstructor()) {
+                $editStatus = $gradeData->getEditStatus();
+                $message = $editStatus === 'locked'
+                    ? 'This grade is locked because it has been submitted for validation.'
+                    : 'This grade can no longer be edited. The 5-day edit window has expired.';
+
+                Log::warning('Teacher attempted to update grade outside edit window', [
+                    'teacher_id' => $user->id,
+                    'grade_id' => $grade,
+                    'edit_status' => $editStatus,
+                    'created_at' => $gradeData->created_at->toDateTimeString(),
+                    'is_submitted' => $gradeData->is_submitted_for_validation,
+                    'days_since_creation' => $gradeData->created_at->diffInDays(now())
+                ]);
+
+                return back()->withErrors(['grade' => $message])->withInput();
+            }
+
             $validator = Validator::make($request->all(), [
                 'grade' => 'required|numeric',
                 'grading_period_id' => 'nullable',
@@ -862,7 +908,26 @@ class GradeManagementController extends Controller
                 ]);
                 abort(403, 'You do not have permission to delete grades for this subject.');
             }
-            
+
+            // Check if grade is still editable (within 5-day window and not submitted)
+            if (!$gradeData->isEditableByInstructor()) {
+                $editStatus = $gradeData->getEditStatus();
+                $message = $editStatus === 'locked'
+                    ? 'This grade is locked because it has been submitted for validation.'
+                    : 'This grade can no longer be deleted. The 5-day edit window has expired.';
+
+                Log::warning('Teacher attempted to delete grade outside edit window', [
+                    'teacher_id' => $user->id,
+                    'grade_id' => $grade,
+                    'edit_status' => $editStatus,
+                    'created_at' => $gradeData->created_at->toDateTimeString(),
+                    'is_submitted' => $gradeData->is_submitted_for_validation,
+                    'days_since_creation' => $gradeData->created_at->diffInDays(now())
+                ]);
+
+                return back()->withErrors(['grade' => $message]);
+            }
+
             // Delete the grade
             $gradeData->delete();
             

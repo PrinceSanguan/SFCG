@@ -52,6 +52,76 @@ class StudentGrade extends Model
     public function approvedBy(): BelongsTo { return $this->belongsTo(User::class, 'approved_by'); }
     public function returnedBy(): BelongsTo { return $this->belongsTo(User::class, 'returned_by'); }
 
+    /**
+     * Check if the grade is editable by teacher/instructor
+     * Edit window: 5 days from created_at AND not submitted for validation
+     */
+    public function isEditableByInstructor(): bool
+    {
+        // If grade is submitted for validation, it's locked
+        if ($this->is_submitted_for_validation) {
+            \Log::info('Grade edit check: Grade is locked (submitted for validation)', [
+                'grade_id' => $this->id,
+                'student_id' => $this->student_id,
+                'subject_id' => $this->subject_id,
+                'submitted_at' => $this->submitted_at,
+            ]);
+            return false;
+        }
+
+        // Check if within 5-day edit window from created_at
+        $createdDate = $this->created_at;
+        $fiveDaysAgo = now()->subDays(5);
+        $isWithinWindow = $createdDate->isAfter($fiveDaysAgo);
+
+        \Log::info('Grade edit check: Time window validation', [
+            'grade_id' => $this->id,
+            'student_id' => $this->student_id,
+            'subject_id' => $this->subject_id,
+            'created_at' => $createdDate->toDateTimeString(),
+            'five_days_ago' => $fiveDaysAgo->toDateTimeString(),
+            'is_within_window' => $isWithinWindow,
+            'days_since_creation' => $createdDate->diffInDays(now()),
+        ]);
+
+        return $isWithinWindow;
+    }
+
+    /**
+     * Get the number of days remaining for editing
+     * Returns 0 if edit window has expired or grade is submitted
+     */
+    public function getDaysRemainingForEdit(): int
+    {
+        if ($this->is_submitted_for_validation) {
+            return 0;
+        }
+
+        $createdDate = $this->created_at;
+        $expiryDate = $createdDate->copy()->addDays(5);
+        $daysRemaining = now()->diffInDays($expiryDate, false);
+
+        // Return 0 if negative (expired)
+        return max(0, (int) ceil($daysRemaining));
+    }
+
+    /**
+     * Get the edit status for frontend display
+     * Returns: 'editable', 'locked', or 'expired'
+     */
+    public function getEditStatus(): string
+    {
+        if ($this->is_submitted_for_validation) {
+            return 'locked';
+        }
+
+        if ($this->isEditableByInstructor()) {
+            return 'editable';
+        }
+
+        return 'expired';
+    }
+
     protected static function booted(): void
     {
         // Trigger honor calculation when a grade is approved

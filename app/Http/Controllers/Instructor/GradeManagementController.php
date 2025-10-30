@@ -95,7 +95,7 @@ class GradeManagementController extends Controller
         Log::info('Debug data structure: ' . json_encode($debugData->first()));
         
         // Get grades for assigned subjects
-        $grades = StudentGrade::with(['student', 'subject', 'academicLevel', 'gradingPeriod'])
+        $gradesQuery = StudentGrade::with(['student', 'subject', 'academicLevel', 'gradingPeriod'])
             ->whereHas('subject', function ($query) use ($assignedSubjects) {
                 // Get subjects that the instructor is assigned to
                 $query->whereIn('id', $assignedSubjects->pluck('subject_id'));
@@ -117,15 +117,26 @@ class GradeManagementController extends Controller
             ->latest()
             ->paginate(15)
             ->withQueryString();
-        
+
+        // Transform grades to include editability info
+        $grades = $gradesQuery->toArray();
+        $grades['data'] = collect($gradesQuery->items())->map(function ($grade) {
+            $gradeArray = $grade->toArray();
+            // Add editability fields
+            $gradeArray['is_editable'] = $grade->isEditableByInstructor();
+            $gradeArray['days_remaining'] = $grade->getDaysRemainingForEdit();
+            $gradeArray['edit_status'] = $grade->getEditStatus();
+            return $gradeArray;
+        })->toArray();
+
         // Debug logging
-        Log::info('Found grades: ' . $grades->count());
-        
+        Log::info('Found grades: ' . count($grades['data']));
+
         // Debug: Log the actual grades data
-        if ($grades->count() > 0) {
-            Log::info('Sample grade data: ' . json_encode($grades->first()));
+        if (count($grades['data']) > 0) {
+            Log::info('Sample grade data with editability: ' . json_encode($grades['data'][0]));
         }
-        
+
         return Inertia::render('Instructor/Grades/Index', [
             'user' => $user,
             'grades' => $grades,
@@ -504,15 +515,21 @@ class GradeManagementController extends Controller
         
         $academicLevel = $assignment->academicLevel;
         
-        // Get all grades for this student in this subject
+        // Get all grades for this student in this subject with editability info
         $grades = StudentGrade::with(['student:id,name,student_number', 'subject', 'academicLevel', 'gradingPeriod'])
             ->where('student_id', $studentId)
             ->where('subject_id', $subjectId)
             ->orderBy('created_at', 'desc')
-            ->get();
-        
+            ->get()
+            ->map(function ($grade) {
+                $gradeArray = $grade->toArray();
+                // Add editability fields
+                $gradeArray['is_editable'] = $grade->isEditableByInstructor();
+                $gradeArray['days_remaining'] = $grade->getDaysRemainingForEdit();
+                $gradeArray['edit_status'] = $grade->getEditStatus();
+                return $gradeArray;
+            });
 
-        
         // Get all grading periods for this academic level
         $gradingPeriods = \App\Models\GradingPeriod::where('academic_level_id', $academicLevel->id)
             ->where('is_active', true)
@@ -569,6 +586,25 @@ class GradeManagementController extends Controller
 
         if (!$isAssigned) {
             abort(403, 'You are not authorized to edit this grade.');
+        }
+
+        // Check if grade is still editable (within 5-day window and not submitted)
+        if (!$grade->isEditableByInstructor()) {
+            $editStatus = $grade->getEditStatus();
+            $message = $editStatus === 'locked'
+                ? 'This grade is locked because it has been submitted for validation.'
+                : 'This grade can no longer be edited. The 5-day edit window has expired.';
+
+            \Log::warning('Instructor attempted to edit grade outside edit window', [
+                'instructor_id' => $user->id,
+                'grade_id' => $grade->id,
+                'edit_status' => $editStatus,
+                'created_at' => $grade->created_at->toDateTimeString(),
+                'is_submitted' => $grade->is_submitted_for_validation,
+                'days_since_creation' => $grade->created_at->diffInDays(now())
+            ]);
+
+            abort(403, $message);
         }
 
         $grade->load(['student', 'subject', 'academicLevel', 'gradingPeriod']);
@@ -662,7 +698,26 @@ class GradeManagementController extends Controller
         if (!$isAssigned) {
             abort(403, 'You are not authorized to update this grade.');
         }
-        
+
+        // Check if grade is still editable (within 5-day window and not submitted)
+        if (!$grade->isEditableByInstructor()) {
+            $editStatus = $grade->getEditStatus();
+            $message = $editStatus === 'locked'
+                ? 'This grade is locked because it has been submitted for validation.'
+                : 'This grade can no longer be edited. The 5-day edit window has expired.';
+
+            \Log::warning('Instructor attempted to update grade outside edit window', [
+                'instructor_id' => $user->id,
+                'grade_id' => $grade->id,
+                'edit_status' => $editStatus,
+                'created_at' => $grade->created_at->toDateTimeString(),
+                'is_submitted' => $grade->is_submitted_for_validation,
+                'days_since_creation' => $grade->created_at->diffInDays(now())
+            ]);
+
+            return back()->withErrors(['grade' => $message])->withInput();
+        }
+
         $validator = Validator::make($request->all(), [
             'grade' => 'required|numeric',
             'grading_period_id' => 'nullable|exists:grading_periods,id',
@@ -717,7 +772,26 @@ class GradeManagementController extends Controller
         if (!$isAssigned) {
             abort(403, 'You are not authorized to delete this grade.');
         }
-        
+
+        // Check if grade is still editable (within 5-day window and not submitted)
+        if (!$grade->isEditableByInstructor()) {
+            $editStatus = $grade->getEditStatus();
+            $message = $editStatus === 'locked'
+                ? 'This grade is locked because it has been submitted for validation.'
+                : 'This grade can no longer be deleted. The 5-day edit window has expired.';
+
+            \Log::warning('Instructor attempted to delete grade outside edit window', [
+                'instructor_id' => $user->id,
+                'grade_id' => $grade->id,
+                'edit_status' => $editStatus,
+                'created_at' => $grade->created_at->toDateTimeString(),
+                'is_submitted' => $grade->is_submitted_for_validation,
+                'days_since_creation' => $grade->created_at->diffInDays(now())
+            ]);
+
+            return back()->withErrors(['grade' => $message]);
+        }
+
         $grade->delete();
         
         return redirect()->route('instructor.grades.index')

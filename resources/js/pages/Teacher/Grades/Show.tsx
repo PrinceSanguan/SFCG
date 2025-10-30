@@ -41,6 +41,10 @@ interface StudentGrade {
     is_submitted_for_validation: boolean;
     created_at: string;
     updated_at: string;
+    // Editability fields (5-day edit window)
+    is_editable?: boolean;
+    days_remaining?: number;
+    edit_status?: 'editable' | 'locked' | 'expired';
 }
 
 interface Parent {
@@ -509,15 +513,27 @@ export default function Show({ user, student, subject, academicLevel, grades, gr
                                                         })()}
                                                     </td>
                                                     <td className="p-3 border-r border-gray-200 dark:border-gray-600 text-center">
-                                                        <div className="flex justify-center gap-2">
-                                                            {/* Show edit button for the first grade, or create a general edit option */}
-                                                            {grades.length > 0 && (
+                                                        <div className="flex justify-center gap-2 items-center">
+                                                            {/* Show countdown badge if less than 3 days remaining */}
+                                                            {grades.length > 0 && grades[0].is_editable && grades[0].days_remaining !== undefined && grades[0].days_remaining < 3 && (
+                                                                <Badge variant="secondary" className="text-xs">
+                                                                    {grades[0].days_remaining} {grades[0].days_remaining === 1 ? 'day' : 'days'} left
+                                                                </Badge>
+                                                            )}
+                                                            {/* Show edit button only if editable */}
+                                                            {grades.length > 0 && grades[0].is_editable && (
                                                                 <Link href={route('teacher.grades.edit', grades[0].id)}>
                                                                     <Button size="sm" variant="outline">
                                                                         <EditIcon className="h-4 w-4 mr-2" />
                                                                         Edit
                                                                     </Button>
                                                                 </Link>
+                                                            )}
+                                                            {/* Show lock icon if not editable */}
+                                                            {grades.length > 0 && !grades[0].is_editable && (
+                                                                <Badge variant="outline" className="text-xs">
+                                                                    {grades[0].edit_status === 'locked' ? '🔒 Locked' : '⏰ Expired'}
+                                                                </Badge>
                                                             )}
                                                         </div>
                                                     </td>
@@ -532,20 +548,39 @@ export default function Show({ user, student, subject, academicLevel, grades, gr
                         {/* Action Buttons */}
                         <Card>
                             <CardContent className="pt-6">
-                                <div className="flex gap-4">
+                                <div className="flex gap-4 flex-col sm:flex-row">
                                     <Link href={route('teacher.grades.create')} className="flex-1">
                                         <Button className="w-full">
                                             <Plus className="h-4 w-4 mr-2" />
                                             Input New Grade
                                         </Button>
                                     </Link>
-                                    {latestGrade && (
-                                        <Link href={route('teacher.grades.edit', latestGrade.id)} className="flex-1">
-                                            <Button variant="outline" className="w-full">
-                                                                                            <EditIcon className="h-4 w-4 mr-2" />
-                                            Edit Current Grade
+                                    {latestGrade && latestGrade.is_editable && (
+                                        <div className="flex-1 flex flex-col gap-2">
+                                            <Link href={route('teacher.grades.edit', latestGrade.id)} className="w-full">
+                                                <Button variant="outline" className="w-full">
+                                                    <EditIcon className="h-4 w-4 mr-2" />
+                                                    Edit Current Grade
+                                                </Button>
+                                            </Link>
+                                            {latestGrade.days_remaining !== undefined && latestGrade.days_remaining < 3 && (
+                                                <p className="text-xs text-center text-muted-foreground">
+                                                    ⏰ Editable for {latestGrade.days_remaining} more {latestGrade.days_remaining === 1 ? 'day' : 'days'}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+                                    {latestGrade && !latestGrade.is_editable && (
+                                        <div className="flex-1">
+                                            <Button variant="outline" className="w-full" disabled>
+                                                {latestGrade.edit_status === 'locked' ? '🔒 Grade Locked' : '⏰ Edit Window Expired'}
                                             </Button>
-                                        </Link>
+                                            <p className="text-xs text-center text-muted-foreground mt-2">
+                                                {latestGrade.edit_status === 'locked'
+                                                    ? 'Grade submitted for validation'
+                                                    : '5-day edit period has ended'}
+                                            </p>
+                                        </div>
                                     )}
                                 </div>
                             </CardContent>

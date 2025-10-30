@@ -81,6 +81,10 @@ export interface Grade {
     teacher_name?: string | null;
     teacher_role?: string | null;
     gradingPeriod: GradingPeriod | null;
+    // Editability fields (5-day edit window)
+    is_editable?: boolean;
+    days_remaining?: number;
+    edit_status?: 'editable' | 'locked' | 'expired';
 }
 
 export interface Track {
