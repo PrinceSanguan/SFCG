@@ -83,7 +83,6 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
         csv_file: null as File | null,
         subject_id: '',
         academic_level_id: '',
-        grading_period_id: '',
         school_year: '',
         year_of_study: '',
     });
@@ -104,9 +103,6 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
         if (subject) {
             setData('academic_level_id', subject.academicLevel.id.toString());
             setData('school_year', subject.school_year);
-            if (subject.gradingPeriod) {
-                setData('grading_period_id', subject.gradingPeriod.id.toString());
-            }
         }
     };
 
@@ -312,77 +308,6 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
                                         </Select>
                                         {errors.academic_level_id && (
                                             <p className="text-sm text-red-500 mt-1">{errors.academic_level_id}</p>
-                                        )}
-                                    </div>
-
-                                    {/* Grading Period */}
-                                    <div>
-                                        <Label htmlFor="grading_period_id">Grading Period</Label>
-                                        <Select value={data.grading_period_id} onValueChange={(value) => setData('grading_period_id', value)}>
-                                            <SelectTrigger className={errors.grading_period_id ? 'border-red-500' : ''}>
-                                                <SelectValue placeholder="Select grading period (optional)" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="0">No Period</SelectItem>
-                                                {(() => {
-                                                    // Filter periods for the current academic level AND subject assignment
-                                                    const currentLevel = academicLevels.find(l => l.id.toString() === data.academic_level_id);
-                                                    const filteredPeriods = allowedGradingPeriods.filter(period =>
-                                                        period.academic_level_id.toString() === data.academic_level_id
-                                                    );
-
-                                                    // Group periods by semester for college level
-                                                    if (currentLevel?.key === 'college') {
-                                                        // Get main semesters (not sub-periods)
-                                                        const mainSemesters = filteredPeriods.filter(p =>
-                                                            (p.code === 'COL_S1' || p.code === 'COL_S2') && !p.code.includes('_')
-                                                        );
-
-                                                        return mainSemesters.map((semester) => {
-                                                            // Get sub-periods for this specific semester, excluding Final Average
-                                                            const subPeriods = filteredPeriods.filter(p =>
-                                                                p.code.startsWith(semester.code + '_') &&
-                                                                !p.code.includes('_FA') // Exclude Final Average
-                                                            ).sort((a, b) => a.sort_order - b.sort_order);
-
-                                                            return (
-                                                                <div key={semester.id}>
-                                                                    {/* Main semester - selectable */}
-                                                                    <SelectItem
-                                                                        value={semester.id.toString()}
-                                                                        className="font-semibold"
-                                                                    >
-                                                                        {semester.name}
-                                                                    </SelectItem>
-                                                                    {/* Sub-periods - quarters only */}
-                                                                    {subPeriods.map((period) => (
-                                                                        <SelectItem
-                                                                            key={period.id}
-                                                                            value={period.id.toString()}
-                                                                            className="pl-6 text-sm"
-                                                                        >
-                                                                            • {period.name}
-                                                                        </SelectItem>
-                                                                    ))}
-                                                                </div>
-                                                            );
-                                                        });
-                                                    } else {
-                                                        // For other academic levels, show regular list (excluding final averages)
-                                                        return filteredPeriods
-                                                            .filter(period => !period.name.toLowerCase().includes('final average'))
-                                                            .sort((a, b) => a.sort_order - b.sort_order)
-                                                            .map((period) => (
-                                                                <SelectItem key={period.id} value={period.id.toString()}>
-                                                                    {period.name}
-                                                                </SelectItem>
-                                                            ));
-                                                    }
-                                                })()}
-                                            </SelectContent>
-                                        </Select>
-                                        {errors.grading_period_id && (
-                                            <p className="text-sm text-red-500 mt-1">{errors.grading_period_id}</p>
                                         )}
                                     </div>
 

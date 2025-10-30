@@ -817,9 +817,19 @@ class GradeManagementController extends Controller
         if (!$isAssigned) {
             abort(403, 'You are not authorized to submit this grade.');
         }
-        
-        $grade->update(['is_submitted_for_validation' => true]);
-        
+
+        $grade->update([
+            'is_submitted_for_validation' => true,
+            'submitted_at' => now(),
+        ]);
+
+        \Log::info('Instructor submitted grade for validation', [
+            'instructor_id' => $user->id,
+            'grade_id' => $grade->id,
+            'student_id' => $grade->student_id,
+            'submitted_at' => now()->toDateTimeString(),
+        ]);
+
         return back()->with('success', 'Grade submitted for validation.');
     }
     
@@ -842,9 +852,18 @@ class GradeManagementController extends Controller
         if (!$isAssigned) {
             abort(403, 'You are not authorized to unsubmit this grade.');
         }
-        
-        $grade->update(['is_submitted_for_validation' => false]);
-        
+
+        $grade->update([
+            'is_submitted_for_validation' => false,
+            'submitted_at' => null,
+        ]);
+
+        \Log::info('Instructor unsubmitted grade from validation', [
+            'instructor_id' => $user->id,
+            'grade_id' => $grade->id,
+            'student_id' => $grade->student_id,
+        ]);
+
         return back()->with('success', 'Grade unsubmitted from validation.');
     }
     

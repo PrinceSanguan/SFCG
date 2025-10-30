@@ -498,7 +498,27 @@ class CSVUploadController extends Controller
                 ])->first();
 
                 if ($existingGrade) {
-                    // Update existing grade
+                    // Check if grade is still editable (5-day window and not submitted)
+                    if (!$existingGrade->isEditableByInstructor()) {
+                        $editStatus = $existingGrade->getEditStatus();
+                        $reason = $editStatus === 'locked'
+                            ? 'submitted for validation'
+                            : 'edit window expired (5 days)';
+
+                        Log::warning('CSV upload attempted to update non-editable grade', [
+                            'instructor_id' => $user->id,
+                            'grade_id' => $existingGrade->id,
+                            'student_id' => $student->id,
+                            'edit_status' => $editStatus,
+                            'reason' => $reason,
+                            'days_since_creation' => $existingGrade->created_at->diffInDays(now()),
+                        ]);
+
+                        $errors++;
+                        continue; // Skip this grade and move to next
+                    }
+
+                    // Update existing grade (only if editable)
                     $existingGrade->update([
                         'grade' => $grade,
                     ]);
@@ -509,6 +529,7 @@ class CSVUploadController extends Controller
                         'subject_id' => $subjectId,
                         'grade' => $grade,
                         'action' => 'update',
+                        'days_remaining' => $existingGrade->getDaysRemainingForEdit(),
                     ]);
                 } else {
                     // Create new grade
@@ -647,6 +668,18 @@ class CSVUploadController extends Controller
                     ])->first();
 
                     if ($existingGrade) {
+                        // Check if grade is still editable
+                        if (!$existingGrade->isEditableByInstructor()) {
+                            $editStatus = $existingGrade->getEditStatus();
+                            Log::warning('CSV upload attempted to update non-editable midterm grade', [
+                                'instructor_id' => $user->id,
+                                'grade_id' => $existingGrade->id,
+                                'edit_status' => $editStatus,
+                                'days_since_creation' => $existingGrade->created_at->diffInDays(now()),
+                            ]);
+                            $errors++;
+                            continue; // Skip this grade
+                        }
                         $existingGrade->update(['grade' => $midtermGrade]);
                     } else {
                         StudentGrade::create([
@@ -707,6 +740,18 @@ class CSVUploadController extends Controller
                     ])->first();
 
                     if ($existingGrade) {
+                        // Check if grade is still editable
+                        if (!$existingGrade->isEditableByInstructor()) {
+                            $editStatus = $existingGrade->getEditStatus();
+                            Log::warning('CSV upload attempted to update non-editable final grade', [
+                                'instructor_id' => $user->id,
+                                'grade_id' => $existingGrade->id,
+                                'edit_status' => $editStatus,
+                                'days_since_creation' => $existingGrade->created_at->diffInDays(now()),
+                            ]);
+                            $errors++;
+                            continue; // Skip this grade
+                        }
                         $existingGrade->update(['grade' => $finalGrade]);
                     } else {
                         StudentGrade::create([

@@ -72,7 +72,6 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
         csv_file: null as File | null,
         subject_id: '',
         academic_level_id: '',
-        grading_period_id: '',
         school_year: '',
         year_of_study: '',
     });
@@ -123,9 +122,6 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
 
             setData('academic_level_id', subject.academicLevel.id.toString());
             setData('school_year', subject.school_year);
-            if (subject.gradingPeriod) {
-                setData('grading_period_id', subject.gradingPeriod.id.toString());
-            }
 
             // Log available grading periods for this academic level
             const availablePeriods = gradingPeriods.filter(
@@ -150,7 +146,6 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
         formData.append('csv_file', selectedFile);
         formData.append('subject_id', data.subject_id);
         formData.append('academic_level_id', data.academic_level_id);
-        formData.append('grading_period_id', data.grading_period_id || '');
         formData.append('school_year', data.school_year);
         formData.append('year_of_study', data.year_of_study || '');
 
@@ -299,91 +294,6 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
                                         </Select>
                                         {errors.academic_level_id && (
                                             <p className="text-sm text-red-500 mt-1">{errors.academic_level_id}</p>
-                                        )}
-                                    </div>
-
-                                    {/* Grading Period */}
-                                    <div>
-                                        <Label htmlFor="grading_period_id">Grading Period</Label>
-                                        <Select value={data.grading_period_id} onValueChange={(value) => setData('grading_period_id', value)}>
-                                            <SelectTrigger className={errors.grading_period_id ? 'border-red-500' : ''}>
-                                                <SelectValue placeholder="Select grading period (optional)" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="0">No Period</SelectItem>
-                                                {gradingPeriods && gradingPeriods.length > 0 ? (
-                                                    <>
-                                                        {(() => {
-                                                            // Filter grading periods for the current academic level
-                                                            const currentAcademicLevelId = parseInt(data.academic_level_id);
-                                                            if (!currentAcademicLevelId) {
-                                                                return null;
-                                                            }
-
-                                                            const allRelevantPeriods = gradingPeriods.filter(
-                                                                period => period.academic_level_id === currentAcademicLevelId
-                                                            );
-
-                                                            if (allRelevantPeriods.length === 0) {
-                                                                return (
-                                                                    <SelectItem value="none" disabled>
-                                                                        No grading periods available for this academic level
-                                                                    </SelectItem>
-                                                                );
-                                                            }
-
-                                                            // Separate parent semesters and child periods
-                                                            const parentSemesters = allRelevantPeriods.filter(p => p.parent_id === null && p.type === 'semester');
-                                                            const childPeriods = allRelevantPeriods.filter(p => p.parent_id !== null && p.period_type !== 'final');
-
-                                                            // If we have parent semesters, group children by parents
-                                                            if (parentSemesters.length > 0) {
-                                                                const groupedPeriods = parentSemesters
-                                                                    .sort((a, b) => a.sort_order - b.sort_order)
-                                                                    .map(parent => ({
-                                                                        parent,
-                                                                        children: childPeriods
-                                                                            .filter(child => child.parent_id === parent.id)
-                                                                            .sort((a, b) => a.sort_order - b.sort_order)
-                                                                    }));
-
-                                                                return (
-                                                                    <>
-                                                                        {groupedPeriods.map(({ parent, children }) => (
-                                                                            children.length > 0 && (
-                                                                                <SelectGroup key={parent.id}>
-                                                                                    <SelectLabel>{parent.name}</SelectLabel>
-                                                                                    {children.map((period) => (
-                                                                                        <SelectItem key={period.id} value={period.id.toString()}>
-                                                                                            {period.name}
-                                                                                        </SelectItem>
-                                                                                    ))}
-                                                                                </SelectGroup>
-                                                                            )
-                                                                        ))}
-                                                                    </>
-                                                                );
-                                                            }
-
-                                                            // No parent semesters - render all periods as flat list (standalone periods)
-                                                            return (
-                                                                <>
-                                                                    {allRelevantPeriods
-                                                                        .sort((a, b) => a.sort_order - b.sort_order)
-                                                                        .map((period) => (
-                                                                            <SelectItem key={period.id} value={period.id.toString()}>
-                                                                                {period.name}
-                                                                            </SelectItem>
-                                                                        ))}
-                                                                </>
-                                                            );
-                                                        })()}
-                                                    </>
-                                                ) : null}
-                                            </SelectContent>
-                                        </Select>
-                                        {errors.grading_period_id && (
-                                            <p className="text-sm text-red-500 mt-1">{errors.grading_period_id}</p>
                                         )}
                                     </div>
 
