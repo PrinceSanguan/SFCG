@@ -126,8 +126,31 @@ class AcademicController extends Controller
         $sections = \App\Models\Section::with('course')->where('is_active', true)->get();
         $subjects = Subject::where('academic_level_id', $collegeLevel->id)->orderBy('name')->get();
         $academicLevels = AcademicLevel::orderBy('sort_order')->get();
-        $gradingPeriods = GradingPeriod::where('academic_level_id', $collegeLevel->id)->orderBy('sort_order')->get();
-        
+
+        // Fetch grading periods for college level, excluding final average periods (period_type = 'final')
+        $gradingPeriods = GradingPeriod::where('academic_level_id', $collegeLevel->id)
+            ->where(function ($query) {
+                $query->whereNull('period_type')
+                      ->orWhere('period_type', '!=', 'final');
+            })
+            ->orderBy('sort_order')
+            ->get();
+
+        // Log grading periods filtering for debugging
+        Log::info('[ASSIGN_INSTRUCTORS] Grading periods filtered for college', [
+            'college_level_id' => $collegeLevel->id,
+            'total_for_level' => GradingPeriod::where('academic_level_id', $collegeLevel->id)->count(),
+            'filtered_count' => $gradingPeriods->count(),
+            'excluded_final_periods' => GradingPeriod::where('academic_level_id', $collegeLevel->id)->where('period_type', 'final')->count(),
+            'period_details' => $gradingPeriods->map(function($gp) {
+                return [
+                    'id' => $gp->id,
+                    'name' => $gp->name,
+                    'period_type' => $gp->period_type
+                ];
+            })
+        ]);
+
         // Get year level options for college
         $yearLevels = User::getSpecificYearLevels()['college'] ?? [];
         
@@ -347,7 +370,31 @@ class AcademicController extends Controller
             });
 
         $academicLevels = AcademicLevel::orderBy('sort_order')->get();
-        $gradingPeriods = GradingPeriod::orderBy('academic_level_id')->orderBy('sort_order')->get();
+
+        // Fetch grading periods excluding final average periods (period_type = 'final')
+        $gradingPeriods = GradingPeriod::where(function ($query) {
+            $query->whereNull('period_type')
+                  ->orWhere('period_type', '!=', 'final');
+        })
+        ->orderBy('academic_level_id')
+        ->orderBy('sort_order')
+        ->get();
+
+        // Log grading periods filtering for debugging
+        Log::info('[SUBJECTS] Grading periods filtered', [
+            'total_in_db' => GradingPeriod::count(),
+            'filtered_count' => $gradingPeriods->count(),
+            'excluded_final_periods' => GradingPeriod::where('period_type', 'final')->count(),
+            'period_details' => $gradingPeriods->map(function($gp) {
+                return [
+                    'id' => $gp->id,
+                    'name' => $gp->name,
+                    'period_type' => $gp->period_type,
+                    'academic_level_id' => $gp->academic_level_id
+                ];
+            })
+        ]);
+
         $courses = Course::with('department')->orderBy('name')->get();
         $departments = Department::orderBy('name')->get();
         $yearLevels = \App\Models\User::getSpecificYearLevels()['college'] ?? [];

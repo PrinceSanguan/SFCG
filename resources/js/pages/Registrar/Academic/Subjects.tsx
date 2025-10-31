@@ -16,7 +16,7 @@ import { useToast } from '@/components/ui/toast';
 
 interface User { name: string; email: string; user_role: string }
 interface AcademicLevel { id: number; name: string; key: string; sort_order: number }
-interface GradingPeriod { id: number; name: string; code: string; academic_level_id: number; type?: string; parent_id?: number | null }
+interface GradingPeriod { id: number; name: string; code: string; academic_level_id: number; type?: string; parent_id?: number | null; period_type?: string }
 interface Course { id: number; name: string; code: string; department_id: number }
 interface Section { 
     id: number; 
@@ -194,8 +194,24 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
         );
     };
 
-    // Get grading periods by academic level
-    const getGradingPeriodsByLevel = (levelId: number) => gradingPeriods.filter(gp => gp.academic_level_id === levelId);
+    // Get grading periods by academic level (exclude final average periods)
+    const getGradingPeriodsByLevel = (levelId: number) => {
+        const filtered = gradingPeriods.filter(gp => {
+            const matchesLevel = gp.academic_level_id === levelId;
+            const isFinalPeriod = gp.period_type === 'final';
+            return matchesLevel && !isFinalPeriod;
+        });
+
+        console.log('[REGISTRAR_SUBJECTS] getGradingPeriodsByLevel - Filtering:', {
+            levelId,
+            totalPeriods: gradingPeriods.filter(gp => gp.academic_level_id === levelId).length,
+            filteredPeriods: filtered.length,
+            excludedFinalPeriods: gradingPeriods.filter(gp => gp.academic_level_id === levelId && gp.period_type === 'final').length,
+            periodNames: filtered.map(gp => ({ id: gp.id, name: gp.name, period_type: gp.period_type }))
+        });
+
+        return filtered;
+    };
     const getSemestersByLevel = (levelId: number) => gradingPeriods.filter(gp => gp.academic_level_id === levelId && (gp.parent_id == null) && ((gp.type === 'semester') || /semester/i.test(gp.name)));
     const getPeriodsBySemester = (semesterId?: string) => {
         if (!semesterId) return [];
@@ -204,15 +220,45 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
         const semester = gradingPeriods.find(gp => gp.id.toString() === semesterId);
         if (!semester) return [];
 
+        console.log('[REGISTRAR_SUBJECTS] Filtering grading periods for semester:', {
+            semesterId,
+            semesterName: semester.name,
+            academicLevelId: semester.academic_level_id
+        });
+
         // Filter periods by parent_id and same academic level as the semester
-        // Exclude "Average" or "final" type periods
-        return gradingPeriods.filter(gp =>
-            gp.parent_id?.toString() === semesterId &&
-            gp.academic_level_id === semester.academic_level_id &&
-            !gp.name.toLowerCase().includes('average') &&
-            gp.type !== 'final_average' &&
-            gp.type !== 'final'
-        );
+        // ONLY exclude periods where period_type === 'final' (Final Average calculated periods)
+        // DO NOT filter by name to allow "Pre-Final" periods to show
+        const filtered = gradingPeriods.filter(gp => {
+            const matchesParent = gp.parent_id?.toString() === semesterId;
+            const matchesLevel = gp.academic_level_id === semester.academic_level_id;
+            const isFinalPeriodType = gp.period_type === 'final';
+
+            const shouldInclude = matchesParent && matchesLevel && !isFinalPeriodType;
+
+            if (matchesParent) {
+                console.log('[REGISTRAR_SUBJECTS] Period filter result:', {
+                    periodId: gp.id,
+                    periodName: gp.name,
+                    period_type: gp.period_type,
+                    shouldInclude,
+                    explanation: isFinalPeriodType ? 'EXCLUDED: period_type is final' : 'INCLUDED: period_type is not final'
+                });
+            }
+
+            return shouldInclude;
+        });
+
+        console.log('[REGISTRAR_SUBJECTS] getPeriodsBySemester result:', {
+            semesterId,
+            semesterName: semester.name,
+            totalMatchingParent: gradingPeriods.filter(gp => gp.parent_id?.toString() === semesterId).length,
+            filteredCount: filtered.length,
+            excludedFinalAverage: gradingPeriods.filter(gp => gp.parent_id?.toString() === semesterId && gp.period_type === 'final').length,
+            includedPeriods: filtered.map(gp => ({ id: gp.id, name: gp.name, period_type: gp.period_type }))
+        });
+
+        return filtered;
     };
 
     // Grade level options for elementary

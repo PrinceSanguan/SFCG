@@ -667,6 +667,8 @@ class CSVUploadController extends Controller
                         'school_year' => $requestData['school_year'],
                     ])->first();
 
+                    $gradeProcessed = false;
+
                     if ($existingGrade) {
                         // Check if grade is still editable
                         if (!$existingGrade->isEditableByInstructor()) {
@@ -678,9 +680,10 @@ class CSVUploadController extends Controller
                                 'days_since_creation' => $existingGrade->created_at->diffInDays(now()),
                             ]);
                             $errors++;
-                            continue; // Skip this grade
+                        } else {
+                            $existingGrade->update(['grade' => $midtermGrade]);
+                            $gradeProcessed = true;
                         }
-                        $existingGrade->update(['grade' => $midtermGrade]);
                     } else {
                         StudentGrade::create([
                             'student_id' => $student->id,
@@ -691,18 +694,21 @@ class CSVUploadController extends Controller
                             'year_of_study' => $requestData['year_of_study'] ?? $row['course_year'],
                             'grade' => $midtermGrade,
                         ]);
+                        $gradeProcessed = true;
                     }
 
-                    Log::info('CSV upload: Midterm grade processed', [
-                        'row' => $rowIndex + 1,
-                        'student_id' => $student->id,
-                        'student_name' => $student->name,
-                        'subject_id' => $subjectId,
-                        'grade' => $midtermGrade,
-                        'period' => 'midterm',
-                    ]);
+                    if ($gradeProcessed) {
+                        Log::info('CSV upload: Midterm grade processed', [
+                            'row' => $rowIndex + 1,
+                            'student_id' => $student->id,
+                            'student_name' => $student->name,
+                            'subject_id' => $subjectId,
+                            'grade' => $midtermGrade,
+                            'period' => 'midterm',
+                        ]);
 
-                    $success++;
+                        $success++;
+                    }
                 } catch (\Exception $e) {
                     $errors++;
                     Log::error('CSV upload: Error processing midterm grade', [
@@ -739,6 +745,8 @@ class CSVUploadController extends Controller
                         'school_year' => $requestData['school_year'],
                     ])->first();
 
+                    $gradeProcessed = false;
+
                     if ($existingGrade) {
                         // Check if grade is still editable
                         if (!$existingGrade->isEditableByInstructor()) {
@@ -750,9 +758,10 @@ class CSVUploadController extends Controller
                                 'days_since_creation' => $existingGrade->created_at->diffInDays(now()),
                             ]);
                             $errors++;
-                            continue; // Skip this grade
+                        } else {
+                            $existingGrade->update(['grade' => $finalGrade]);
+                            $gradeProcessed = true;
                         }
-                        $existingGrade->update(['grade' => $finalGrade]);
                     } else {
                         StudentGrade::create([
                             'student_id' => $student->id,
@@ -763,18 +772,21 @@ class CSVUploadController extends Controller
                             'year_of_study' => $requestData['year_of_study'] ?? $row['course_year'],
                             'grade' => $finalGrade,
                         ]);
+                        $gradeProcessed = true;
                     }
 
-                    Log::info('CSV upload: Final grade processed', [
-                        'row' => $rowIndex + 1,
-                        'student_id' => $student->id,
-                        'student_name' => $student->name,
-                        'subject_id' => $subjectId,
-                        'grade' => $finalGrade,
-                        'period' => 'final',
-                    ]);
+                    if ($gradeProcessed) {
+                        Log::info('CSV upload: Final grade processed', [
+                            'row' => $rowIndex + 1,
+                            'student_id' => $student->id,
+                            'student_name' => $student->name,
+                            'subject_id' => $subjectId,
+                            'grade' => $finalGrade,
+                            'period' => 'final',
+                        ]);
 
-                    $success++;
+                        $success++;
+                    }
                 } catch (\Exception $e) {
                     $errors++;
                     Log::error('CSV upload: Error processing final grade', [

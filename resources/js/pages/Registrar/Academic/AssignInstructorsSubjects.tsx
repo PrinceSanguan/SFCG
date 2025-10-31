@@ -60,6 +60,8 @@ interface AcademicLevel {
 interface GradingPeriod {
     id: number;
     name: string;
+    period_type?: string;
+    academic_level_id?: number;
 }
 
 interface Section {
@@ -139,6 +141,20 @@ export default function AssignInstructorsSubjects({
         school_year: '2024-2025',
         notes: '',
         auto_enroll_students: true,
+    });
+
+    // Filter out final average periods from grading periods list
+    const filteredGradingPeriods = gradingPeriods.filter(gp => {
+        const isFinalPeriod = gp.period_type === 'final';
+        return !isFinalPeriod;
+    });
+
+    // Log filtering results for debugging
+    console.log('[REGISTRAR_ASSIGN_INSTRUCTORS] Grading periods filtering:', {
+        totalPeriods: gradingPeriods.length,
+        filteredPeriods: filteredGradingPeriods.length,
+        excludedFinalPeriods: gradingPeriods.filter(gp => gp.period_type === 'final').length,
+        periodDetails: filteredGradingPeriods.map(gp => ({ id: gp.id, name: gp.name, period_type: gp.period_type }))
     });
 
     // Extract unique departments, courses, tracks, and strands based on academic level and year level
@@ -977,7 +993,7 @@ export default function AssignInstructorsSubjects({
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="">No grading period</SelectItem>
-                                        {gradingPeriods.map((period) => (
+                                        {filteredGradingPeriods.map((period) => (
                                             <SelectItem key={period.id} value={period.id.toString()}>
                                                 {period.name}
                                             </SelectItem>

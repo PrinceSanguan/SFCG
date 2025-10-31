@@ -32,7 +32,27 @@ class InstructorSubjectAssignmentController extends Controller
         $subjects = Subject::with(['course', 'academicLevel'])->get();
         $sections = Section::with('course')->where('is_active', true)->get();
         $academicLevels = AcademicLevel::all();
-        $gradingPeriods = GradingPeriod::all();
+
+        // Fetch grading periods excluding final average periods (period_type = 'final')
+        $gradingPeriods = GradingPeriod::where(function ($query) {
+            $query->whereNull('period_type')
+                  ->orWhere('period_type', '!=', 'final');
+        })->get();
+
+        // Log grading periods filtering for debugging
+        \Illuminate\Support\Facades\Log::info('[INSTRUCTOR_SUBJECT_ASSIGNMENT] Grading periods filtered', [
+            'total_in_db' => GradingPeriod::count(),
+            'filtered_count' => $gradingPeriods->count(),
+            'excluded_final_periods' => GradingPeriod::where('period_type', 'final')->count(),
+            'period_details' => $gradingPeriods->map(function($gp) {
+                return [
+                    'id' => $gp->id,
+                    'name' => $gp->name,
+                    'period_type' => $gp->period_type,
+                    'academic_level_id' => $gp->academic_level_id
+                ];
+            })
+        ]);
 
         return Inertia::render('Admin/Academic/AssignInstructorsSubjects', [
             'user' => Auth::user(),
