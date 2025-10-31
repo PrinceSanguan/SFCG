@@ -34,6 +34,7 @@ interface GradingPeriod {
     type?: string;
     parent_id?: number | null;
     semester_number?: number | null;
+    period_type?: string;
 }
 
 interface Department {
@@ -319,11 +320,31 @@ export default function AssignInstructors({ user, assignments, instructors, depa
     };
 
     const openEditModal = (assignment: InstructorCourseAssignment) => {
+        console.log('[EDIT_MODAL] Opening edit modal for assignment:', {
+            id: assignment.id,
+            instructor_id: assignment.instructor_id,
+            instructor_name: assignment.instructor?.name,
+            course_id: assignment.course_id,
+            course_name: assignment.course?.name,
+            subject_id: assignment.subject?.id,
+            subject_name: assignment.subject?.name,
+            grading_period_id: assignment.grading_period_id,
+            grading_period_name: assignment.gradingPeriod?.name,
+            year_level: assignment.year_level,
+            school_year: assignment.school_year
+        });
+
         setEditAssignment(assignment);
 
         // Find the department for the selected course
         const selectedCourse = courses.find(c => c.id === assignment.course_id);
         const departmentId = selectedCourse?.department_id?.toString() || '';
+
+        console.log('[EDIT_MODAL] Selected course and department:', {
+            course_id: assignment.course_id,
+            course_name: selectedCourse?.name,
+            department_id: departmentId
+        });
 
         // Filter subjects for this course AND year level
         const filteredSubj = subjects.filter(s => {
@@ -332,6 +353,23 @@ export default function AssignInstructors({ user, assignments, instructors, depa
                 s.college_year_level === assignment.year_level;
             return matchesCourse && matchesYearLevel;
         });
+
+        // IMPORTANT: Ensure the currently assigned subject is included in the list
+        // even if it doesn't match the filter criteria
+        if (assignment.subject && !filteredSubj.find(s => s.id === assignment.subject!.id)) {
+            console.log('[EDIT_MODAL] Adding current subject to filtered list (not in initial filter):', {
+                subject_id: assignment.subject.id,
+                subject_name: assignment.subject.name,
+                subject_code: assignment.subject.code
+            });
+            filteredSubj.unshift(assignment.subject);
+        }
+
+        console.log('[EDIT_MODAL] Filtered subjects:', {
+            count: filteredSubj.length,
+            subjects: filteredSubj.map(s => ({ id: s.id, name: s.name, code: s.code, course_id: s.course_id }))
+        });
+
         setFilteredSubjects(filteredSubj);
 
         // Filter courses for this department
@@ -344,18 +382,41 @@ export default function AssignInstructors({ user, assignments, instructors, depa
         let semesterIds: string[] = [];
         let gradingPeriodIds: string[] = [];
 
+        console.log('[EDIT_MODAL] Processing grading period:', {
+            has_grading_period: !!assignment.gradingPeriod,
+            grading_period_id: assignment.grading_period_id,
+            grading_period_name: assignment.gradingPeriod?.name,
+            grading_period_code: assignment.gradingPeriod?.code,
+            parent_id: assignment.gradingPeriod?.parent_id,
+            type: assignment.gradingPeriod?.type
+        });
+
         if (assignment.gradingPeriod) {
             // If the grading period has a parent_id, it's a child period
             if (assignment.gradingPeriod.parent_id) {
                 semesterIds = [assignment.gradingPeriod.parent_id.toString()];
                 gradingPeriodIds = [assignment.grading_period_id!.toString()];
+                console.log('[EDIT_MODAL] Grading period has parent (child period):', {
+                    semester_ids: semesterIds,
+                    grading_period_ids: gradingPeriodIds
+                });
             } else {
                 // If no parent_id, the grading period itself IS the semester
                 semesterIds = [assignment.grading_period_id!.toString()];
+                console.log('[EDIT_MODAL] Grading period is a semester (no parent):', {
+                    semester_ids: semesterIds
+                });
             }
+        } else {
+            console.log('[EDIT_MODAL] No grading period assigned');
         }
 
-        setAssignmentForm({
+        console.log('[EDIT_MODAL] Final semester and grading period IDs:', {
+            semester_ids: semesterIds,
+            grading_period_ids: gradingPeriodIds
+        });
+
+        const formData = {
             instructor_id: assignment.instructor_id.toString(),
             year_level: assignment.year_level || '',
             department_id: departmentId,
@@ -368,8 +429,14 @@ export default function AssignInstructors({ user, assignments, instructors, depa
             school_year: assignment.school_year,
             notes: assignment.notes || '',
             is_active: assignment.is_active,
-        });
+        };
+
+        console.log('[EDIT_MODAL] Setting assignment form data:', formData);
+
+        setAssignmentForm(formData);
         setEditModal(true);
+
+        console.log('[EDIT_MODAL] Edit modal opened successfully');
     };
 
     const getStatusBadge = (isActive: boolean) => {
@@ -1104,17 +1171,34 @@ export default function AssignInstructors({ user, assignments, instructors, depa
                         <div>
                             <Label>Grading Periods</Label>
                             <div className="space-y-2 p-3 border rounded-md bg-gray-50 max-h-32 overflow-y-auto">
+                                {(() => {
+                                    console.log('[EDIT_MODAL_RENDER] Grading Periods Section:', {
+                                        semester_ids_count: assignmentForm.semester_ids.length,
+                                        semester_ids: assignmentForm.semester_ids,
+                                        grading_period_ids: assignmentForm.grading_period_ids
+                                    });
+                                    return null;
+                                })()}
                                 {assignmentForm.semester_ids.length === 0 ? (
                                     <p className="text-xs text-gray-500 italic">Select a semester first to see grading periods</p>
                                 ) : (
                                     assignmentForm.semester_ids.map((semesterId) => {
                                         const semester = collegeSemesters.find(s => s.id.toString() === semesterId);
+                                        // FIXED: Use period_type instead of name checking to filter out final average periods
                                         const periodsForSemester = allCollegeGradingPeriods
-                                            .filter(period =>
-                                                period.parent_id?.toString() === semesterId &&
-                                                !period.name.toLowerCase().includes('final average')
-                                            )
+                                            .filter(period => {
+                                                const matchesParent = period.parent_id?.toString() === semesterId;
+                                                const isFinalPeriod = (period as any).period_type === 'final';
+                                                return matchesParent && !isFinalPeriod;
+                                            })
                                             .filter((p, i, arr) => arr.findIndex(x => x.name.toLowerCase() === p.name.toLowerCase()) === i);
+
+                                        console.log('[EDIT_MODAL_RENDER] Periods for semester:', {
+                                            semester_id: semesterId,
+                                            semester_name: semester?.name,
+                                            periods_count: periodsForSemester.length,
+                                            periods: periodsForSemester.map(p => ({ id: p.id, name: p.name, period_type: (p as any).period_type }))
+                                        });
 
                                         return (
                                             <div key={semesterId} className="border-l-2 border-blue-300 pl-2">

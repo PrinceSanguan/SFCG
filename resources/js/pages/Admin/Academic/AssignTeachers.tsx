@@ -370,9 +370,40 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
         }
     };
 
-    const openEditModal = (assignment: TeacherSubjectAssignment) => {
+    const openEditModal = (assignmentOrGroup: any) => {
+        // Check if we received a grouped assignment (has gradingPeriods array) or single assignment
+        const isGrouped = assignmentOrGroup.gradingPeriods && Array.isArray(assignmentOrGroup.gradingPeriods);
+        const assignment = isGrouped ? assignmentOrGroup.originalAssignment : assignmentOrGroup;
+
+        console.log('[EDIT_TEACHER] Opening edit modal:', {
+            isGrouped,
+            teacher_id: assignment.teacher_id,
+            teacher_name: assignment.teacher?.name,
+            subject_id: assignment.subject_id,
+            subject_name: assignment.subject?.name,
+            grading_period_id_single: assignment.grading_period_id,
+            grading_periods_count: isGrouped ? assignmentOrGroup.gradingPeriods.length : 1,
+            all_grading_periods: isGrouped ? assignmentOrGroup.gradingPeriods.map((gp: any) => ({ id: gp?.id, name: gp?.name })) : [assignment.gradingPeriod]
+        });
+
+        // Extract ALL grading period IDs from the grouped assignment
+        let gradingPeriodIds: string[] = [];
+        if (isGrouped) {
+            // Get all grading period IDs from the group
+            gradingPeriodIds = assignmentOrGroup.gradingPeriods
+                .filter((gp: any) => gp && gp.id) // Filter out null/undefined
+                .map((gp: any) => gp.id.toString());
+
+            console.log('[EDIT_TEACHER] Extracted grading period IDs from group:', gradingPeriodIds);
+        } else {
+            // Single assignment - just use its grading period
+            gradingPeriodIds = assignment.grading_period_id ? [assignment.grading_period_id.toString()] : [];
+            console.log('[EDIT_TEACHER] Using single grading period ID:', gradingPeriodIds);
+        }
+
         setEditAssignment(assignment);
-        setAssignmentForm({
+
+        const formData = {
             teacher_id: assignment.teacher_id.toString(),
             subject_id: assignment.subject_id.toString(),
             academic_level_id: assignment.academic_level_id.toString(),
@@ -383,11 +414,15 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
             department_id: '',
             course_id: '',
             semester_ids: [],
-            grading_period_ids: assignment.grading_period_id ? [assignment.grading_period_id.toString()] : [],
+            grading_period_ids: gradingPeriodIds,
             school_year: assignment.school_year,
             notes: assignment.notes || '',
             is_active: assignment.is_active,
-        });
+        };
+
+        console.log('[EDIT_TEACHER] Setting form data:', formData);
+
+        setAssignmentForm(formData);
         setEditModal(true);
     };
 
@@ -1063,7 +1098,7 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
-                                                onClick={() => openEditModal(group.originalAssignment)}
+                                                onClick={() => openEditModal(group)}
                                             >
                                                 <Edit className="h-4 w-4" />
                                             </Button>
@@ -1191,10 +1226,20 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                             <Label htmlFor="edit_grading_periods">Grading Periods</Label>
                             <div className="border rounded-lg p-3">
                                 {(() => {
+                                    console.log('[EDIT_TEACHER_RENDER] Rendering grading periods:', {
+                                        grading_period_ids: assignmentForm.grading_period_ids,
+                                        filteredGradingPeriods_count: filteredGradingPeriods.length
+                                    });
+
                                     // Filter out "Average" periods (auto-calculated)
                                     const assignablePeriods = filteredGradingPeriods.filter(
                                         p => p.parent_id !== null && p.period_type !== 'final'
                                     );
+
+                                    console.log('[EDIT_TEACHER_RENDER] Assignable periods:', {
+                                        count: assignablePeriods.length,
+                                        periods: assignablePeriods.map(p => ({ id: p.id, name: p.name, parent_id: p.parent_id }))
+                                    });
 
                                     // Get unique parent semester IDs from assignable periods
                                     const uniqueParentIds = [...new Set(
