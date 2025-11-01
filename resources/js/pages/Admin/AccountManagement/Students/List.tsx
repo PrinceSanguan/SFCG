@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Link, router, usePage } from '@inertiajs/react';
 import { Search, Plus, Edit, Eye, Trash2, RotateCcw, Upload, Download } from 'lucide-react';
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useMemo } from 'react';
 import PasswordResetModal from '@/components/admin/PasswordResetModal';
 import { useToast } from '@/components/ui/toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -48,6 +48,8 @@ interface Section {
     specific_year_level?: string;
     track_id?: number;
     strand_id?: number;
+    department_id?: number;
+    course_id?: number;
 }
 
 interface Track {
@@ -65,6 +67,21 @@ interface Strand {
     track_id: number;
 }
 
+interface Department {
+    id: number;
+    name: string;
+    code?: string;
+    description?: string;
+}
+
+interface Course {
+    id: number;
+    name: string;
+    code?: string;
+    description?: string;
+    department_id: number;
+}
+
 interface ListProps {
     user: User;
     users: PaginatedUsers;
@@ -75,9 +92,11 @@ interface ListProps {
     specificYearLevels?: Record<string, string>;
     tracks?: Track[];
     strands?: Strand[];
+    departments?: Department[];
+    courses?: Course[];
 }
 
-export default function StudentsList({ user, users, filters, roles, currentAcademicLevel, sections = [], specificYearLevels = {}, tracks = [], strands = [] }: ListProps) {
+export default function StudentsList({ user, users, filters, roles, currentAcademicLevel, sections = [], specificYearLevels = {}, tracks = [], strands = [], departments = [], courses = [] }: ListProps) {
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
     const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
     const [csvModalOpen, setCsvModalOpen] = useState(false);
@@ -85,8 +104,8 @@ export default function StudentsList({ user, users, filters, roles, currentAcade
     const [selectedSection, setSelectedSection] = useState<string>('');
     const [selectedTrack, setSelectedTrack] = useState<string>('');
     const [selectedStrand, setSelectedStrand] = useState<string>('');
-    const [availableSections, setAvailableSections] = useState<Section[]>([]);
-    const [availableStrands, setAvailableStrands] = useState<Strand[]>([]);
+    const [selectedDepartment, setSelectedDepartment] = useState<string>('');
+    const [selectedCourse, setSelectedCourse] = useState<string>('');
     const { errors } = usePage().props;
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const { addToast } = useToast();
@@ -96,43 +115,96 @@ export default function StudentsList({ user, users, filters, roles, currentAcade
         return <div>Loading...</div>;
     }
 
-    // Filter sections based on selected year level (for Elementary/JHS)
-    useEffect(() => {
+    // Compute filtered strands based on selected track (for SHS)
+    const availableStrands = useMemo(() => {
+        if (currentAcademicLevel === 'senior_highschool' && selectedTrack) {
+            return strands.filter(strand => strand.track_id.toString() === selectedTrack);
+        }
+        return strands;
+    }, [currentAcademicLevel, selectedTrack, strands]);
+
+    // Compute filtered courses based on selected department (for College)
+    const availableCourses = useMemo(() => {
+        if (currentAcademicLevel === 'college' && selectedDepartment) {
+            return courses.filter(course => course.department_id.toString() === selectedDepartment);
+        }
+        return courses;
+    }, [currentAcademicLevel, selectedDepartment, courses]);
+
+    // Compute filtered sections based on academic level and selections
+    const availableSections = useMemo(() => {
+        // Elementary/JHS: Filter by year level
         if (currentAcademicLevel === 'elementary' || currentAcademicLevel === 'junior_highschool') {
             if (selectedYearLevel && sections.length > 0) {
-                const filtered = sections.filter(section => section.specific_year_level === selectedYearLevel);
-                setAvailableSections(filtered);
-                setSelectedSection(''); // Reset section when year level changes
-            } else {
-                setAvailableSections(sections);
+                return sections.filter(section => section.specific_year_level === selectedYearLevel);
             }
+            return sections;
         }
-    }, [selectedYearLevel, sections, currentAcademicLevel]);
 
-    // Filter strands based on selected track (for SHS)
-    useEffect(() => {
-        if (currentAcademicLevel === 'senior_highschool' && selectedTrack) {
-            const filtered = strands.filter(strand => strand.track_id.toString() === selectedTrack);
-            setAvailableStrands(filtered);
-            setSelectedStrand(''); // Reset strand when track changes
-            setSelectedSection(''); // Reset section when track changes
-        } else {
-            setAvailableStrands(strands);
+        // SHS: Filter by track, strand, and year level
+        if (currentAcademicLevel === 'senior_highschool') {
+            if (selectedTrack && selectedStrand && selectedYearLevel) {
+                return sections.filter(
+                    section =>
+                        section.track_id?.toString() === selectedTrack &&
+                        section.strand_id?.toString() === selectedStrand &&
+                        section.specific_year_level === selectedYearLevel
+                );
+            }
+            return [];
         }
-    }, [selectedTrack, strands, currentAcademicLevel]);
 
-    // Filter sections based on selected track and strand (for SHS)
-    useEffect(() => {
-        if (currentAcademicLevel === 'senior_highschool' && selectedTrack && selectedStrand) {
-            const filtered = sections.filter(
-                section => section.track_id?.toString() === selectedTrack && section.strand_id?.toString() === selectedStrand
-            );
-            setAvailableSections(filtered);
-            setSelectedSection(''); // Reset section when track/strand changes
-        } else if (currentAcademicLevel === 'senior_highschool') {
-            setAvailableSections([]);
+        // College: Filter by department, course, and year level
+        if (currentAcademicLevel === 'college') {
+            if (selectedDepartment && selectedCourse && selectedYearLevel) {
+                return sections.filter(
+                    section =>
+                        section.department_id?.toString() === selectedDepartment &&
+                        section.course_id?.toString() === selectedCourse &&
+                        section.specific_year_level === selectedYearLevel
+                );
+            }
+            return [];
         }
-    }, [selectedTrack, selectedStrand, sections, currentAcademicLevel]);
+
+        return sections;
+    }, [currentAcademicLevel, selectedYearLevel, selectedTrack, selectedStrand, selectedDepartment, selectedCourse, sections]);
+
+    // Reset dependent selections when parent selection changes
+    useEffect(() => {
+        // For SHS: Reset strand and section when track changes
+        if (currentAcademicLevel === 'senior_highschool') {
+            setSelectedStrand('');
+            setSelectedSection('');
+        }
+    }, [selectedTrack, currentAcademicLevel]);
+
+    useEffect(() => {
+        // For SHS: Reset section when strand changes
+        if (currentAcademicLevel === 'senior_highschool') {
+            setSelectedSection('');
+        }
+    }, [selectedStrand, currentAcademicLevel]);
+
+    useEffect(() => {
+        // For College: Reset course and section when department changes
+        if (currentAcademicLevel === 'college') {
+            setSelectedCourse('');
+            setSelectedSection('');
+        }
+    }, [selectedDepartment, currentAcademicLevel]);
+
+    useEffect(() => {
+        // For College: Reset section when course changes
+        if (currentAcademicLevel === 'college') {
+            setSelectedSection('');
+        }
+    }, [selectedCourse, currentAcademicLevel]);
+
+    useEffect(() => {
+        // Reset section when year level changes for all academic levels
+        setSelectedSection('');
+    }, [selectedYearLevel]);
 
     const handleSearch = () => {
         router.get(route('admin.students.index'), {
@@ -176,11 +248,11 @@ export default function StudentsList({ user, users, filters, roles, currentAcade
     };
 
     const handleCsvModalOpen = () => {
-        // For elementary, JHS, and SHS require section selection
-        if (currentAcademicLevel === 'elementary' || currentAcademicLevel === 'junior_highschool' || currentAcademicLevel === 'senior_highschool') {
+        // For elementary, JHS, SHS, and College require section selection
+        if (currentAcademicLevel === 'elementary' || currentAcademicLevel === 'junior_highschool' || currentAcademicLevel === 'senior_highschool' || currentAcademicLevel === 'college') {
             setCsvModalOpen(true);
         } else {
-            // For other levels (College), use old workflow
+            // For other levels (if any), use old workflow
             handleDownloadTemplateDirect();
         }
     };
@@ -196,11 +268,16 @@ export default function StudentsList({ user, users, filters, roles, currentAcade
             addToast('Please select track, strand, and section first.', 'error');
             return;
         }
+        // Validation for College
+        if (!selectedSection && currentAcademicLevel === 'college') {
+            addToast('Please select department, course, year level, and section first.', 'error');
+            return;
+        }
         const params: Record<string, string> = {};
         if (currentAcademicLevel) {
             params.academic_level = currentAcademicLevel;
         }
-        // For Elementary/JHS
+        // For Elementary/JHS/College (year level)
         if (selectedYearLevel) {
             params.specific_year_level = selectedYearLevel;
         }
@@ -210,6 +287,13 @@ export default function StudentsList({ user, users, filters, roles, currentAcade
         }
         if (selectedStrand) {
             params.strand_id = selectedStrand;
+        }
+        // For College
+        if (selectedDepartment) {
+            params.department_id = selectedDepartment;
+        }
+        if (selectedCourse) {
+            params.course_id = selectedCourse;
         }
         // For all
         if (selectedSection) {
@@ -236,6 +320,11 @@ export default function StudentsList({ user, users, filters, roles, currentAcade
             addToast('Please select track, strand, and section first.', 'error');
             return;
         }
+        // Validation for College
+        if (!selectedSection && currentAcademicLevel === 'college') {
+            addToast('Please select department, course, year level, and section first.', 'error');
+            return;
+        }
         fileInputRef.current?.click();
     };
 
@@ -248,7 +337,7 @@ export default function StudentsList({ user, users, filters, roles, currentAcade
         if (currentAcademicLevel) {
             formData.append('academic_level', currentAcademicLevel);
         }
-        // Pass section parameters for elementary/JHS
+        // Pass year level for elementary/JHS/College
         if (selectedYearLevel) {
             formData.append('specific_year_level', selectedYearLevel);
         }
@@ -258,6 +347,13 @@ export default function StudentsList({ user, users, filters, roles, currentAcade
         }
         if (selectedStrand) {
             formData.append('strand_id', selectedStrand);
+        }
+        // Pass department/course parameters for College
+        if (selectedDepartment) {
+            formData.append('department_id', selectedDepartment);
+        }
+        if (selectedCourse) {
+            formData.append('course_id', selectedCourse);
         }
         // For all
         if (selectedSection) {
@@ -272,6 +368,8 @@ export default function StudentsList({ user, users, filters, roles, currentAcade
                 setSelectedSection('');
                 setSelectedTrack('');
                 setSelectedStrand('');
+                setSelectedDepartment('');
+                setSelectedCourse('');
                 router.reload();
             },
             onError: (err) => {
@@ -359,9 +457,9 @@ export default function StudentsList({ user, users, filters, roles, currentAcade
                                         />
                                         <Button variant="outline" className="flex items-center gap-2" onClick={handleCsvModalOpen}>
                                             <Upload className="h-4 w-4" />
-                                            {currentAcademicLevel === 'elementary' || currentAcademicLevel === 'junior_highschool' || currentAcademicLevel === 'senior_highschool' ? 'CSV Upload Manager' : 'Upload CSV'}
+                                            {currentAcademicLevel === 'elementary' || currentAcademicLevel === 'junior_highschool' || currentAcademicLevel === 'senior_highschool' || currentAcademicLevel === 'college' ? 'CSV Upload Manager' : 'Upload CSV'}
                                         </Button>
-                                        {!(currentAcademicLevel === 'elementary' || currentAcademicLevel === 'junior_highschool' || currentAcademicLevel === 'senior_highschool') && (
+                                        {!(currentAcademicLevel === 'elementary' || currentAcademicLevel === 'junior_highschool' || currentAcademicLevel === 'senior_highschool' || currentAcademicLevel === 'college') && (
                                             <Button variant="outline" className="flex items-center gap-2" onClick={handleDownloadTemplateDirect}>
                                                 <Download className="h-4 w-4" />
                                                 Download Template
@@ -558,7 +656,9 @@ export default function StudentsList({ user, users, filters, roles, currentAcade
                         <DialogTitle>CSV Upload Manager</DialogTitle>
                         <DialogDescription>
                             {currentAcademicLevel === 'senior_highschool'
-                                ? 'Select the track, strand, and section first, then download the template and upload your CSV file.'
+                                ? 'Select the track, strand, year level, and section first, then download the template and upload your CSV file.'
+                                : currentAcademicLevel === 'college'
+                                ? 'Select the department, course, year level, and section first, then download the template and upload your CSV file.'
                                 : 'Select the grade level and section first, then download the template and upload your CSV file.'}
                         </DialogDescription>
                     </DialogHeader>
@@ -624,6 +724,97 @@ export default function StudentsList({ user, users, filters, roles, currentAcade
                             </div>
                         )}
 
+                        {/* For SHS: Year Level Selector */}
+                        {currentAcademicLevel === 'senior_highschool' && (
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Year Level</label>
+                                <Select
+                                    value={selectedYearLevel}
+                                    onValueChange={setSelectedYearLevel}
+                                    disabled={!selectedStrand}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder={selectedStrand ? "Select year level" : "Select strand first"} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {Object.entries(specificYearLevels).map(([key, label]) => (
+                                            <SelectItem key={key} value={key}>
+                                                {label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
+
+                        {/* For College: Department Selector */}
+                        {currentAcademicLevel === 'college' && (
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Department</label>
+                                <Select
+                                    value={selectedDepartment}
+                                    onValueChange={setSelectedDepartment}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select department" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {departments.map((department) => (
+                                            <SelectItem key={department.id} value={department.id.toString()}>
+                                                {department.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
+
+                        {/* For College: Course Selector */}
+                        {currentAcademicLevel === 'college' && (
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Course</label>
+                                <Select
+                                    value={selectedCourse}
+                                    onValueChange={setSelectedCourse}
+                                    disabled={!selectedDepartment}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder={selectedDepartment ? "Select course" : "Select department first"} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {availableCourses.map((course) => (
+                                            <SelectItem key={course.id} value={course.id.toString()}>
+                                                {course.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
+
+                        {/* For College: Year Level Selector */}
+                        {currentAcademicLevel === 'college' && (
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Year Level</label>
+                                <Select
+                                    value={selectedYearLevel}
+                                    onValueChange={setSelectedYearLevel}
+                                    disabled={!selectedCourse}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder={selectedCourse ? "Select year level" : "Select course first"} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {Object.entries(specificYearLevels).map(([key, label]) => (
+                                            <SelectItem key={key} value={key}>
+                                                {label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
+
                         {/* Section Selector (for all) */}
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Section</label>
@@ -633,14 +824,22 @@ export default function StudentsList({ user, users, filters, roles, currentAcade
                                 disabled={
                                     (currentAcademicLevel === 'elementary' || currentAcademicLevel === 'junior_highschool')
                                         ? !selectedYearLevel
-                                        : !selectedStrand
+                                        : (currentAcademicLevel === 'senior_highschool'
+                                            ? !selectedYearLevel
+                                            : (currentAcademicLevel === 'college'
+                                                ? !selectedYearLevel
+                                                : !selectedStrand))
                                 }
                             >
                                 <SelectTrigger>
                                     <SelectValue placeholder={
                                         (currentAcademicLevel === 'elementary' || currentAcademicLevel === 'junior_highschool')
                                             ? (selectedYearLevel ? "Select section" : "Select grade level first")
-                                            : (selectedStrand ? "Select section" : "Select track and strand first")
+                                            : (currentAcademicLevel === 'senior_highschool'
+                                                ? (selectedYearLevel ? "Select section" : "Select year level first")
+                                                : (currentAcademicLevel === 'college'
+                                                    ? (selectedYearLevel ? "Select section" : "Select year level first")
+                                                    : (selectedStrand ? "Select section" : "Select track and strand first")))
                                     } />
                                 </SelectTrigger>
                                 <SelectContent>

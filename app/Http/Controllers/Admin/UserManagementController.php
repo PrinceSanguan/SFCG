@@ -487,6 +487,33 @@ class UserManagementController extends Controller
                         ->where('is_active', true)
                         ->get(['id', 'name', 'code', 'academic_level_id', 'specific_year_level', 'track_id', 'strand_id']);
                 }
+
+                // Add specific year levels for SHS (Grade 11, Grade 12)
+                $allYearLevels = User::getSpecificYearLevels();
+                $data['specificYearLevels'] = $allYearLevels[$yearLevel] ?? [];
+            }
+
+            // Add departments, courses, and sections for CSV upload (College)
+            if ($yearLevel === 'college') {
+                // Get academic level ID
+                $academicLevel = \App\Models\AcademicLevel::where('key', $yearLevel)->first();
+
+                // Get all active departments
+                $data['departments'] = \App\Models\Department::where('is_active', true)->get(['id', 'name', 'code', 'description']);
+
+                // Get all active courses with department relationship
+                $data['courses'] = \App\Models\Course::where('is_active', true)->get(['id', 'name', 'code', 'description', 'department_id']);
+
+                if ($academicLevel) {
+                    // Get all sections for College with department and course
+                    $data['sections'] = \App\Models\Section::where('academic_level_id', $academicLevel->id)
+                        ->where('is_active', true)
+                        ->get(['id', 'name', 'code', 'academic_level_id', 'specific_year_level', 'department_id', 'course_id']);
+                }
+
+                // Add specific year levels for College (First Year, Second Year, Third Year, Fourth Year)
+                $allYearLevels = User::getSpecificYearLevels();
+                $data['specificYearLevels'] = $allYearLevels[$yearLevel] ?? [];
             }
         }
 
@@ -893,6 +920,8 @@ class UserManagementController extends Controller
         $specificYearLevel = $request->get('specific_year_level'); // Get specific year level if provided
         $trackId = $request->get('track_id'); // Get track ID for SHS
         $strandId = $request->get('strand_id'); // Get strand ID for SHS
+        $departmentId = $request->get('department_id'); // Get department ID for College
+        $courseId = $request->get('course_id'); // Get course ID for College
 
         $filename = $academicLevel
             ? strtolower(str_replace('_', '-', $academicLevel)) . '_students_template.csv'
@@ -914,7 +943,13 @@ class UserManagementController extends Controller
                 $columns = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'academic_strand', 'track', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
             }
         } elseif ($academicLevel === 'college') {
-            $columns = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'department_name', 'course_name', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
+            // New workflow: department/course/section provided separately, simplified format
+            if ($departmentId && $courseId && $sectionId) {
+                $columns = ['name', 'email', 'password', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
+            } else {
+                // Old workflow: include all columns for backward compatibility
+                $columns = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'department_name', 'course_name', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
+            }
         } elseif ($academicLevel === 'elementary' || $academicLevel === 'junior_highschool') {
             // Remove section_name if section_id is provided (new workflow)
             if ($sectionId) {
@@ -1181,6 +1216,8 @@ class UserManagementController extends Controller
             'specific_year_level' => 'nullable|string',
             'track_id' => 'nullable|exists:tracks,id',
             'strand_id' => 'nullable|exists:strands,id',
+            'department_id' => 'nullable|exists:departments,id',
+            'course_id' => 'nullable|exists:courses,id',
         ]);
 
         $expectedAcademicLevel = $request->get('academic_level'); // Get expected academic level
@@ -1188,6 +1225,8 @@ class UserManagementController extends Controller
         $providedYearLevel = $request->get('specific_year_level'); // Get provided year level
         $providedTrackId = $request->get('track_id'); // Get provided track ID for SHS
         $providedStrandId = $request->get('strand_id'); // Get provided strand ID for SHS
+        $providedDepartmentId = $request->get('department_id'); // Get provided department ID for College
+        $providedCourseId = $request->get('course_id'); // Get provided course ID for College
         $file = $request->file('file');
 
         // Check if file can be opened
@@ -1225,8 +1264,15 @@ class UserManagementController extends Controller
                 $expectedColumnsString = 'name,email,password,academic_level,specific_year_level,academic_strand,track,section_name,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship';
             }
         } elseif ($expectedAcademicLevel === 'college') {
-            $expected = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'department_name', 'course_name', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
-            $expectedColumnsString = 'name,email,password,academic_level,specific_year_level,department_name,course_name,section_name,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship';
+            // New workflow: department/course/section provided separately, simplified CSV format
+            if ($providedDepartmentId && $providedCourseId && $providedSectionId) {
+                $expected = ['name', 'email', 'password', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
+                $expectedColumnsString = 'name,email,password,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship';
+            } else {
+                // Old workflow: include all columns
+                $expected = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'department_name', 'course_name', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
+                $expectedColumnsString = 'name,email,password,academic_level,specific_year_level,department_name,course_name,section_name,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship';
+            }
         } elseif ($expectedAcademicLevel === 'elementary' || $expectedAcademicLevel === 'junior_highschool') {
             // New workflow: section provided separately, simplified CSV format
             if ($providedSectionId) {
@@ -1285,9 +1331,23 @@ class UserManagementController extends Controller
                     $courseName = '';
                 }
             } elseif ($expectedAcademicLevel === 'college') {
-                [$name, $email, $password, $academicLevel, $specificYearLevel, $departmentName, $courseName, $sectionName, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship] = $row;
-                $strandName = '';
-                $trackName = '';
+                // New workflow: simplified format without academic_level, specific_year_level, department_name, course_name, section_name
+                if ($providedDepartmentId && $providedCourseId && $providedSectionId) {
+                    [$name, $email, $password, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship] = $row;
+                    // Use provided values from request
+                    $academicLevel = $expectedAcademicLevel;
+                    $specificYearLevel = $providedYearLevel ?: '';
+                    $departmentName = ''; // Will use providedDepartmentId directly
+                    $courseName = ''; // Will use providedCourseId directly
+                    $sectionName = ''; // Will use providedSectionId directly
+                    $strandName = '';
+                    $trackName = '';
+                } else {
+                    // Old workflow: full format
+                    [$name, $email, $password, $academicLevel, $specificYearLevel, $departmentName, $courseName, $sectionName, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship] = $row;
+                    $strandName = '';
+                    $trackName = '';
+                }
             } elseif ($expectedAcademicLevel === 'elementary' || $expectedAcademicLevel === 'junior_highschool') {
                 // New workflow: simplified format without academic_level, specific_year_level, section_name
                 if ($providedSectionId) {
@@ -1373,7 +1433,10 @@ class UserManagementController extends Controller
                 }
             }
 
-            if (!empty($departmentName)) {
+            // Use provided department_id if available (new College workflow), otherwise lookup by name
+            if ($providedDepartmentId) {
+                $departmentId = $providedDepartmentId;
+            } elseif (!empty($departmentName)) {
                 $department = \App\Models\Department::where('name', $departmentName)->first();
                 if (!$department) {
                     $errors[] = [
@@ -1386,7 +1449,10 @@ class UserManagementController extends Controller
                 $departmentId = $department->id;
             }
 
-            if (!empty($courseName)) {
+            // Use provided course_id if available (new College workflow), otherwise lookup by name
+            if ($providedCourseId) {
+                $courseId = $providedCourseId;
+            } elseif (!empty($courseName)) {
                 $course = \App\Models\Course::where('name', $courseName)->first();
                 if (!$course) {
                     $errors[] = [
