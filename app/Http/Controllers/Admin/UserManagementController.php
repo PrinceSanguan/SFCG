@@ -1170,25 +1170,65 @@ class UserManagementController extends Controller
                 $q->where('key', 'college');
             })->first();
 
-            // College template: no strand_name, only department_name and course_name
-            $sampleRows[] = [
-                'Ana Rodriguez',
-                'ana.rodriguez@example.com',
-                'password123',
-                'college',
-                'first_year',
-                $department ? $department->name : '',
-                $course ? $course->name : '',
-                $collegeSection ? $collegeSection->name : '',
-                'CO-2025-000004',
-                '2005-12-25',
-                'female',
-                '09123456794',
-                '321 Elm Street, Barangay 4',
-                'Carlos Rodriguez',
-                '09123456795',
-                'father'
-            ];
+            // College template
+            if ($academicLevel === 'college') {
+                // New workflow: department/course/section provided separately, exclude from CSV
+                if ($departmentId && $courseId && $sectionId) {
+                    $sampleRows[] = [
+                        'Ana Rodriguez',
+                        'ana.rodriguez@example.com',
+                        'password123',
+                        'CO-2025-000004',
+                        '2005-12-25',
+                        'female',
+                        '09123456794',
+                        '321 Elm Street, Barangay 4',
+                        'Carlos Rodriguez',
+                        '09123456795',
+                        'father'
+                    ];
+                } else {
+                    // Old workflow: include all columns
+                    $sampleRows[] = [
+                        'Ana Rodriguez',
+                        'ana.rodriguez@example.com',
+                        'password123',
+                        'college',
+                        'first_year',
+                        $department ? $department->name : '',
+                        $course ? $course->name : '',
+                        $collegeSection ? $collegeSection->name : '',
+                        'CO-2025-000004',
+                        '2005-12-25',
+                        'female',
+                        '09123456794',
+                        '321 Elm Street, Barangay 4',
+                        'Carlos Rodriguez',
+                        '09123456795',
+                        'father'
+                    ];
+                }
+            } else {
+                // When no specific academic level, use full template
+                $sampleRows[] = [
+                    'Ana Rodriguez',
+                    'ana.rodriguez@example.com',
+                    'password123',
+                    'college',
+                    'first_year',
+                    $department ? $department->name : '',
+                    $course ? $course->name : '',
+                    $collegeSection ? $collegeSection->name : '',
+                    'CO-2025-000004',
+                    '2005-12-25',
+                    'female',
+                    '09123456794',
+                    '321 Elm Street, Barangay 4',
+                    'Carlos Rodriguez',
+                    '09123456795',
+                    'father'
+                ];
+            }
         }
 
         $callback = function () use ($columns, $sampleRows) {
@@ -1382,6 +1422,11 @@ class UserManagementController extends Controller
                     'errors' => ['Academic level mismatch. Expected "' . $expectedAcademicLevel . '" but got "' . $academicLevel . '". Please use the correct CSV template for this academic level.'],
                 ];
                 continue;
+            }
+
+            // Normalize gender to lowercase for case-insensitive validation
+            if (!empty($gender)) {
+                $gender = strtolower(trim($gender));
             }
 
             // Convert names to IDs

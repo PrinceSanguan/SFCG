@@ -106,7 +106,7 @@ export default function StudentsList({ user, users, filters, roles, currentAcade
     const [selectedStrand, setSelectedStrand] = useState<string>('');
     const [selectedDepartment, setSelectedDepartment] = useState<string>('');
     const [selectedCourse, setSelectedCourse] = useState<string>('');
-    const { errors } = usePage().props;
+    const { errors, flash } = usePage<{ errors: any; flash: { success?: string; warning?: string; error?: string } }>().props;
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const { addToast } = useToast();
 
@@ -114,6 +114,19 @@ export default function StudentsList({ user, users, filters, roles, currentAcade
     if (!user) {
         return <div>Loading...</div>;
     }
+
+    // Handle flash messages from backend
+    useEffect(() => {
+        if (flash?.success) {
+            addToast(flash.success, 'success');
+        }
+        if (flash?.warning) {
+            addToast(flash.warning, 'warning');
+        }
+        if (flash?.error) {
+            addToast(flash.error, 'error');
+        }
+    }, [flash]);
 
     // Compute filtered strands based on selected track (for SHS)
     const availableStrands = useMemo(() => {

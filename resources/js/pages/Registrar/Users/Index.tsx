@@ -6,9 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Link, useForm, router } from '@inertiajs/react';
 import { Search, Users, Eye, Edit, Trash2, Key, Upload, Download } from 'lucide-react';
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import PasswordResetModal from '@/components/registrar/PasswordResetModal';
 import { useToast } from '@/components/ui/toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface User {
     id: number;
@@ -17,6 +19,44 @@ interface User {
     user_role: string;
     year_level?: string;
     created_at: string;
+}
+
+interface Section {
+    id: number;
+    name: string;
+    code?: string;
+    academic_level_id: number;
+    specific_year_level?: string;
+    track_id?: number;
+    strand_id?: number;
+    department_id?: number;
+    course_id?: number;
+}
+
+interface Track {
+    id: number;
+    name: string;
+    code?: string;
+}
+
+interface Strand {
+    id: number;
+    name: string;
+    code?: string;
+    track_id: number;
+}
+
+interface Department {
+    id: number;
+    name: string;
+    code?: string;
+}
+
+interface Course {
+    id: number;
+    name: string;
+    code?: string;
+    department_id: number;
 }
 
 interface UsersIndexProps {
@@ -32,14 +72,94 @@ interface UsersIndexProps {
     roles: any;
     currentRole?: string;
     yearLevel?: string;
+    sections?: Section[];
+    specificYearLevels?: Record<string, string>;
+    tracks?: Track[];
+    strands?: Strand[];
+    departments?: Department[];
+    courses?: Course[];
 }
 
-export default function UsersIndex({ user, users, filters, roles, currentRole, yearLevel }: UsersIndexProps) {
+export default function UsersIndex({ user, users, filters, roles, currentRole, yearLevel, sections = [], specificYearLevels = {}, tracks = [], strands = [], departments = [], courses = [] }: UsersIndexProps) {
     const [userToDelete, setUserToDelete] = useState<User | null>(null);
     const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
+    const [csvModalOpen, setCsvModalOpen] = useState(false);
+    const [selectedUploadYearLevel, setSelectedUploadYearLevel] = useState<string>('');
+    const [selectedUploadSection, setSelectedUploadSection] = useState<string>('');
+    const [selectedUploadTrack, setSelectedUploadTrack] = useState<string>('');
+    const [selectedUploadStrand, setSelectedUploadStrand] = useState<string>('');
+    const [selectedUploadDepartment, setSelectedUploadDepartment] = useState<string>('');
+    const [selectedUploadCourse, setSelectedUploadCourse] = useState<string>('');
     const { delete: deleteUser } = useForm();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { addToast } = useToast();
+
+    // Compute filtered strands based on selected track (for SHS)
+    const availableStrands = useMemo(() => {
+        if (selectedUploadTrack && strands.length > 0) {
+            return strands.filter(strand => strand.track_id === parseInt(selectedUploadTrack));
+        }
+        return strands;
+    }, [selectedUploadTrack, strands]);
+
+    // Compute filtered courses based on selected department (for College)
+    const availableCourses = useMemo(() => {
+        if (selectedUploadDepartment && courses.length > 0) {
+            return courses.filter(course => course.department_id === parseInt(selectedUploadDepartment));
+        }
+        return courses;
+    }, [selectedUploadDepartment, courses]);
+
+    // Compute filtered sections based on selected criteria
+    const availableSections = useMemo(() => {
+        let filtered = sections;
+
+        // Filter by year level for Elementary/JHS
+        if (selectedUploadYearLevel && (yearLevel === 'elementary' || yearLevel === 'junior_highschool')) {
+            filtered = filtered.filter(section => section.specific_year_level === selectedUploadYearLevel);
+        }
+
+        // Filter by track/strand for SHS
+        if (yearLevel === 'senior_highschool') {
+            if (selectedUploadTrack) {
+                filtered = filtered.filter(section => section.track_id === parseInt(selectedUploadTrack));
+            }
+            if (selectedUploadStrand) {
+                filtered = filtered.filter(section => section.strand_id === parseInt(selectedUploadStrand));
+            }
+            if (selectedUploadYearLevel) {
+                filtered = filtered.filter(section => section.specific_year_level === selectedUploadYearLevel);
+            }
+        }
+
+        // Filter by department/course for College
+        if (yearLevel === 'college') {
+            if (selectedUploadDepartment) {
+                filtered = filtered.filter(section => section.department_id === parseInt(selectedUploadDepartment));
+            }
+            if (selectedUploadCourse) {
+                filtered = filtered.filter(section => section.course_id === parseInt(selectedUploadCourse));
+            }
+            if (selectedUploadYearLevel) {
+                filtered = filtered.filter(section => section.specific_year_level === selectedUploadYearLevel);
+            }
+        }
+
+        return filtered;
+    }, [selectedUploadYearLevel, selectedUploadTrack, selectedUploadStrand, selectedUploadDepartment, selectedUploadCourse, sections, yearLevel]);
+
+    // Reset dependent selections when parent changes
+    useEffect(() => {
+        setSelectedUploadSection('');
+    }, [selectedUploadYearLevel, selectedUploadTrack, selectedUploadStrand, selectedUploadDepartment, selectedUploadCourse]);
+
+    useEffect(() => {
+        setSelectedUploadStrand('');
+    }, [selectedUploadTrack]);
+
+    useEffect(() => {
+        setSelectedUploadCourse('');
+    }, [selectedUploadDepartment]);
 
     const handleDelete = (userItem: User) => {
         setUserToDelete(userItem);
@@ -50,13 +170,58 @@ export default function UsersIndex({ user, users, filters, roles, currentRole, y
     };
 
     const handleDownloadTemplate = () => {
-        // Pass academic level as query parameter if viewing a specific level
-        const params = yearLevel ? { academic_level: yearLevel } : {};
+        // Validation - require section selection
+        if (!selectedUploadSection && yearLevel) {
+            addToast('Please complete all selections first.', 'error');
+            return;
+        }
+
+        const params: Record<string, string> = {};
+        if (yearLevel) {
+            params.academic_level = yearLevel;
+        }
+        if (selectedUploadYearLevel) {
+            params.specific_year_level = selectedUploadYearLevel;
+        }
+        if (selectedUploadSection) {
+            params.section_id = selectedUploadSection;
+        }
+        // SHS params
+        if (selectedUploadTrack) {
+            params.track_id = selectedUploadTrack;
+        }
+        if (selectedUploadStrand) {
+            params.strand_id = selectedUploadStrand;
+        }
+        // College params
+        if (selectedUploadDepartment) {
+            params.department_id = selectedUploadDepartment;
+        }
+        if (selectedUploadCourse) {
+            params.course_id = selectedUploadCourse;
+        }
+
         window.location.href = route('registrar.students.template', params);
+        addToast('Downloading CSV template...', 'success');
     };
 
     const handleUploadClick = () => {
+        // Validation - require section selection
+        if (!selectedUploadSection && yearLevel) {
+            addToast('Please select a grade level and section first.', 'error');
+            return;
+        }
         fileInputRef.current?.click();
+    };
+
+    const handleCsvModalOpen = () => {
+        // For elementary/JHS, require section selection via modal
+        if (yearLevel) {
+            setCsvModalOpen(true);
+        } else {
+            // For non-student pages, use old workflow
+            fileInputRef.current?.click();
+        }
     };
 
     const handleFileSelected: React.ChangeEventHandler<HTMLInputElement> = (e) => {
@@ -64,25 +229,59 @@ export default function UsersIndex({ user, users, filters, roles, currentRole, y
         if (!file) return;
         const formData = new FormData();
         formData.append('file', file);
+
         // Pass academic level if viewing a specific level
         if (yearLevel) {
             formData.append('academic_level', yearLevel);
         }
+
+        // Pass year level (REQUIRED for proper student creation)
+        if (selectedUploadYearLevel) {
+            formData.append('specific_year_level', selectedUploadYearLevel);
+        }
+
+        // Pass section (REQUIRED for proper student creation)
+        if (selectedUploadSection) {
+            formData.append('section_id', selectedUploadSection);
+        }
+
+        // SHS params
+        if (selectedUploadTrack) {
+            formData.append('track_id', selectedUploadTrack);
+        }
+        if (selectedUploadStrand) {
+            formData.append('strand_id', selectedUploadStrand);
+        }
+
+        // College params
+        if (selectedUploadDepartment) {
+            formData.append('department_id', selectedUploadDepartment);
+        }
+        if (selectedUploadCourse) {
+            formData.append('course_id', selectedUploadCourse);
+        }
+
         router.post(route('registrar.students.upload'), formData, {
             forceFormData: true,
             onSuccess: () => {
                 addToast('Students CSV uploaded successfully.', 'success');
+                setCsvModalOpen(false);
+                setSelectedUploadYearLevel('');
+                setSelectedUploadSection('');
+                setSelectedUploadTrack('');
+                setSelectedUploadStrand('');
+                setSelectedUploadDepartment('');
+                setSelectedUploadCourse('');
                 router.reload();
             },
             onError: (err) => {
                 console.error('CSV upload failed:', err);
                 addToast('CSV upload failed. Please check the file format.', 'error');
-            }
+            },
+            preserveScroll: true,
         });
         // Reset the input
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
-        }
+        e.target.value = '';
     };
 
     const confirmDelete = () => {
@@ -160,13 +359,9 @@ export default function UsersIndex({ user, users, filters, roles, currentRole, y
                                                 className="hidden"
                                                 onChange={handleFileSelected}
                                             />
-                                            <Button variant="outline" className="flex items-center gap-2" onClick={handleUploadClick}>
+                                            <Button variant="outline" className="flex items-center gap-2" onClick={handleCsvModalOpen}>
                                                 <Upload className="h-4 w-4" />
-                                                Upload CSV
-                                            </Button>
-                                            <Button variant="outline" className="flex items-center gap-2" onClick={handleDownloadTemplate}>
-                                                <Download className="h-4 w-4" />
-                                                Download Template
+                                                CSV Upload Manager
                                             </Button>
                                         </div>
                                     )}
@@ -299,6 +494,182 @@ export default function UsersIndex({ user, users, filters, roles, currentRole, y
                     routeName={currentRole ? `registrar.${currentRole}s.reset-password` : 'registrar.users.reset-password'}
                 />
             )}
+
+            {/* CSV Upload Manager Modal */}
+            <Dialog open={csvModalOpen} onOpenChange={setCsvModalOpen}>
+                <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                        <DialogTitle>CSV Upload Manager</DialogTitle>
+                        <DialogDescription>
+                            Select the grade level and section first, then download the template and upload your CSV file.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        {/* SHS: Track and Strand Selectors */}
+                        {yearLevel === 'senior_highschool' && (
+                            <>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">Track</label>
+                                    <Select value={selectedUploadTrack} onValueChange={setSelectedUploadTrack}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select track" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {tracks.map((track) => (
+                                                <SelectItem key={track.id} value={track.id.toString()}>
+                                                    {track.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">Strand</label>
+                                    <Select
+                                        value={selectedUploadStrand}
+                                        onValueChange={setSelectedUploadStrand}
+                                        disabled={!selectedUploadTrack}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder={selectedUploadTrack ? "Select strand" : "Select track first"} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {availableStrands.map((strand) => (
+                                                <SelectItem key={strand.id} value={strand.id.toString()}>
+                                                    {strand.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </>
+                        )}
+
+                        {/* College: Department and Course Selectors */}
+                        {yearLevel === 'college' && (
+                            <>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">Department</label>
+                                    <Select value={selectedUploadDepartment} onValueChange={setSelectedUploadDepartment}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select department" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {departments.map((dept) => (
+                                                <SelectItem key={dept.id} value={dept.id.toString()}>
+                                                    {dept.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">Course</label>
+                                    <Select
+                                        value={selectedUploadCourse}
+                                        onValueChange={setSelectedUploadCourse}
+                                        disabled={!selectedUploadDepartment}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder={selectedUploadDepartment ? "Select course" : "Select department first"} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {availableCourses.map((course) => (
+                                                <SelectItem key={course.id} value={course.id.toString()}>
+                                                    {course.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </>
+                        )}
+
+                        {/* Grade/Year Level Selector (All levels) */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">
+                                {yearLevel === 'college' ? 'Year Level' : 'Grade Level'}
+                            </label>
+                            <Select
+                                value={selectedUploadYearLevel}
+                                onValueChange={setSelectedUploadYearLevel}
+                                disabled={yearLevel === 'senior_highschool' && !selectedUploadStrand}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder={
+                                        yearLevel === 'senior_highschool' && !selectedUploadStrand
+                                            ? "Select strand first"
+                                            : yearLevel === 'college' ? "Select year level" : "Select grade level"
+                                    } />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {Object.entries(specificYearLevels).map(([key, label]) => (
+                                        <SelectItem key={key} value={key}>
+                                            {label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Section Selector (All levels) */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Section</label>
+                            <Select
+                                value={selectedUploadSection}
+                                onValueChange={setSelectedUploadSection}
+                                disabled={
+                                    (yearLevel === 'senior_highschool' && (!selectedUploadStrand || !selectedUploadYearLevel)) ||
+                                    (yearLevel === 'college' && (!selectedUploadCourse || !selectedUploadYearLevel)) ||
+                                    ((yearLevel === 'elementary' || yearLevel === 'junior_highschool') && !selectedUploadYearLevel)
+                                }
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select section" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {availableSections.map((section) => (
+                                        <SelectItem key={section.id} value={section.id.toString()}>
+                                            {section.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Instructions */}
+                        {selectedUploadSection && (
+                            <div className="rounded-md bg-blue-50 p-3 text-sm text-blue-900 dark:bg-blue-950 dark:text-blue-100">
+                                <p className="font-medium mb-1">Next Steps:</p>
+                                <ol className="list-decimal list-inside space-y-1">
+                                    <li>Click "Download Template" to get the CSV file</li>
+                                    <li>Fill in student information (do NOT modify Student ID column)</li>
+                                    <li>Click "Upload CSV" to import the students</li>
+                                </ol>
+                            </div>
+                        )}
+                    </div>
+                    <DialogFooter className="flex gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={handleDownloadTemplate}
+                            disabled={!selectedUploadSection}
+                        >
+                            <Download className="h-4 w-4 mr-2" />
+                            Download Template
+                        </Button>
+                        <Button
+                            onClick={handleUploadClick}
+                            disabled={!selectedUploadSection}
+                        >
+                            <Upload className="h-4 w-4 mr-2" />
+                            Upload CSV
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
