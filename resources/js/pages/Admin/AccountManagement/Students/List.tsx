@@ -6,9 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Link, router, usePage } from '@inertiajs/react';
 import { Search, Plus, Edit, Eye, Trash2, RotateCcw, Upload, Download } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import PasswordResetModal from '@/components/admin/PasswordResetModal';
 import { useToast } from '@/components/ui/toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface User {
     id: number;
@@ -38,17 +40,31 @@ interface Filters {
     year_level?: string;
 }
 
+interface Section {
+    id: number;
+    name: string;
+    code?: string;
+    academic_level_id: number;
+    specific_year_level?: string;
+}
+
 interface ListProps {
     user: User;
     users: PaginatedUsers;
     filters: Filters;
     roles: Record<string, string>;
     currentAcademicLevel?: string;
+    sections?: Section[];
+    specificYearLevels?: Record<string, string>;
 }
 
-export default function StudentsList({ user, users, filters, roles, currentAcademicLevel }: ListProps) {
+export default function StudentsList({ user, users, filters, roles, currentAcademicLevel, sections = [], specificYearLevels = {} }: ListProps) {
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
     const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
+    const [csvModalOpen, setCsvModalOpen] = useState(false);
+    const [selectedYearLevel, setSelectedYearLevel] = useState<string>('');
+    const [selectedSection, setSelectedSection] = useState<string>('');
+    const [availableSections, setAvailableSections] = useState<Section[]>([]);
     const { errors } = usePage().props;
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const { addToast } = useToast();
@@ -57,6 +73,17 @@ export default function StudentsList({ user, users, filters, roles, currentAcade
     if (!user) {
         return <div>Loading...</div>;
     }
+
+    // Filter sections based on selected year level
+    useEffect(() => {
+        if (selectedYearLevel && sections.length > 0) {
+            const filtered = sections.filter(section => section.specific_year_level === selectedYearLevel);
+            setAvailableSections(filtered);
+            setSelectedSection(''); // Reset section when year level changes
+        } else {
+            setAvailableSections(sections);
+        }
+    }, [selectedYearLevel, sections]);
 
     const handleSearch = () => {
         router.get(route('admin.students.index'), {
@@ -99,13 +126,46 @@ export default function StudentsList({ user, users, filters, roles, currentAcade
         setResetPasswordUser(targetUser);
     };
 
+    const handleCsvModalOpen = () => {
+        // For elementary, require section selection
+        if (currentAcademicLevel === 'elementary' || currentAcademicLevel === 'junior_highschool') {
+            setCsvModalOpen(true);
+        } else {
+            // For other levels, use old workflow
+            handleDownloadTemplateDirect();
+        }
+    };
+
     const handleDownloadTemplate = () => {
-        // Pass academic level as query parameter if viewing a specific level
+        if (!selectedSection && (currentAcademicLevel === 'elementary' || currentAcademicLevel === 'junior_highschool')) {
+            addToast('Please select a grade level and section first.', 'error');
+            return;
+        }
+        const params: Record<string, string> = {};
+        if (currentAcademicLevel) {
+            params.academic_level = currentAcademicLevel;
+        }
+        if (selectedYearLevel) {
+            params.specific_year_level = selectedYearLevel;
+        }
+        if (selectedSection) {
+            params.section_id = selectedSection;
+        }
+        window.location.href = route('admin.students.template', params);
+        addToast('Downloading CSV template...', 'success');
+    };
+
+    const handleDownloadTemplateDirect = () => {
+        // Direct download without modal (for non-elementary levels)
         const params = currentAcademicLevel ? { academic_level: currentAcademicLevel } : {};
         window.location.href = route('admin.students.template', params);
     };
 
     const handleUploadClick = () => {
+        if (!selectedSection && (currentAcademicLevel === 'elementary' || currentAcademicLevel === 'junior_highschool')) {
+            addToast('Please select a grade level and section first.', 'error');
+            return;
+        }
         fileInputRef.current?.click();
     };
 
@@ -118,10 +178,20 @@ export default function StudentsList({ user, users, filters, roles, currentAcade
         if (currentAcademicLevel) {
             formData.append('academic_level', currentAcademicLevel);
         }
+        // Pass section parameters for elementary/JHS
+        if (selectedYearLevel) {
+            formData.append('specific_year_level', selectedYearLevel);
+        }
+        if (selectedSection) {
+            formData.append('section_id', selectedSection);
+        }
         router.post(route('admin.students.upload'), formData, {
             forceFormData: true,
             onSuccess: () => {
                 addToast('Students CSV uploaded successfully.', 'success');
+                setCsvModalOpen(false);
+                setSelectedYearLevel('');
+                setSelectedSection('');
                 router.reload();
             },
             onError: (err) => {
@@ -207,14 +277,16 @@ export default function StudentsList({ user, users, filters, roles, currentAcade
                                             className="hidden"
                                             onChange={handleFileSelected}
                                         />
-                                        <Button variant="outline" className="flex items-center gap-2" onClick={handleUploadClick}>
+                                        <Button variant="outline" className="flex items-center gap-2" onClick={handleCsvModalOpen}>
                                             <Upload className="h-4 w-4" />
-                                            Upload CSV
+                                            {currentAcademicLevel === 'elementary' || currentAcademicLevel === 'junior_highschool' ? 'CSV Upload Manager' : 'Upload CSV'}
                                         </Button>
-                                        <Button variant="outline" className="flex items-center gap-2" onClick={handleDownloadTemplate}>
-                                            <Download className="h-4 w-4" />
-                                            Download Template
-                                        </Button>
+                                        {!(currentAcademicLevel === 'elementary' || currentAcademicLevel === 'junior_highschool') && (
+                                            <Button variant="outline" className="flex items-center gap-2" onClick={handleDownloadTemplateDirect}>
+                                                <Download className="h-4 w-4" />
+                                                Download Template
+                                            </Button>
+                                        )}
                                     </div>
                                 </div>
                             </CardContent>
@@ -398,6 +470,86 @@ export default function StudentsList({ user, users, filters, roles, currentAcade
                     errors={errors as Record<string, string>}
                 />
             )}
+
+            {/* CSV Upload Manager Modal */}
+            <Dialog open={csvModalOpen} onOpenChange={setCsvModalOpen}>
+                <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                        <DialogTitle>CSV Upload Manager</DialogTitle>
+                        <DialogDescription>
+                            Select the grade level and section first, then download the template and upload your CSV file.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        {/* Grade Level Selector */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Grade Level</label>
+                            <Select value={selectedYearLevel} onValueChange={setSelectedYearLevel}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select grade level" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {Object.entries(specificYearLevels).map(([key, label]) => (
+                                        <SelectItem key={key} value={key}>
+                                            {label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Section Selector */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Section</label>
+                            <Select
+                                value={selectedSection}
+                                onValueChange={setSelectedSection}
+                                disabled={!selectedYearLevel}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder={selectedYearLevel ? "Select section" : "Select grade level first"} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {availableSections.map((section) => (
+                                        <SelectItem key={section.id} value={section.id.toString()}>
+                                            {section.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Instructions */}
+                        {selectedSection && (
+                            <div className="rounded-md bg-blue-50 p-3 text-sm text-blue-900 dark:bg-blue-950 dark:text-blue-100">
+                                <p className="font-medium mb-1">Next Steps:</p>
+                                <ol className="list-decimal list-inside space-y-1">
+                                    <li>Click "Download Template" to get the CSV file</li>
+                                    <li>Fill in student information (do NOT modify Student ID column)</li>
+                                    <li>Click "Upload CSV" to import the students</li>
+                                </ol>
+                            </div>
+                        )}
+                    </div>
+                    <DialogFooter className="flex gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={handleDownloadTemplate}
+                            disabled={!selectedSection}
+                        >
+                            <Download className="h-4 w-4 mr-2" />
+                            Download Template
+                        </Button>
+                        <Button
+                            onClick={handleUploadClick}
+                            disabled={!selectedSection}
+                        >
+                            <Upload className="h-4 w-4 mr-2" />
+                            Upload CSV
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

@@ -450,7 +450,25 @@ class UserManagementController extends Controller
 
         // Add current academic level for student pages
         if ($role === 'student' && $request->filled('year_level')) {
-            $data['currentAcademicLevel'] = $request->get('year_level');
+            $yearLevel = $request->get('year_level');
+            $data['currentAcademicLevel'] = $yearLevel;
+
+            // Add sections and specific year levels for CSV upload (elementary & JHS)
+            if (in_array($yearLevel, ['elementary', 'junior_highschool'])) {
+                // Get academic level ID
+                $academicLevel = \App\Models\AcademicLevel::where('key', $yearLevel)->first();
+
+                if ($academicLevel) {
+                    // Get all sections for this academic level
+                    $data['sections'] = \App\Models\Section::where('academic_level_id', $academicLevel->id)
+                        ->where('is_active', true)
+                        ->get(['id', 'name', 'code', 'academic_level_id', 'specific_year_level']);
+                }
+
+                // Add specific year levels for the current academic level only
+                $allYearLevels = User::getSpecificYearLevels();
+                $data['specificYearLevels'] = $allYearLevels[$yearLevel] ?? [];
+            }
         }
 
         return Inertia::render('Admin/AccountManagement/' . $folderName . '/List', $data);
@@ -852,6 +870,8 @@ class UserManagementController extends Controller
     public function downloadStudentsCsvTemplate(Request $request)
     {
         $academicLevel = $request->get('academic_level'); // Get academic level filter
+        $sectionId = $request->get('section_id'); // Get section ID if provided
+        $specificYearLevel = $request->get('specific_year_level'); // Get specific year level if provided
 
         $filename = $academicLevel
             ? strtolower(str_replace('_', '-', $academicLevel)) . '_students_template.csv'
@@ -863,12 +883,19 @@ class UserManagementController extends Controller
         ];
 
         // Use different columns based on academic level
+        // If section_id is provided for elementary/JHS, exclude section_name from template
         if ($academicLevel === 'senior_highschool') {
             $columns = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'academic_strand', 'track', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
         } elseif ($academicLevel === 'college') {
             $columns = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'department_name', 'course_name', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
         } elseif ($academicLevel === 'elementary' || $academicLevel === 'junior_highschool') {
-            $columns = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
+            // Remove section_name if section_id is provided (new workflow)
+            if ($sectionId) {
+                $columns = ['name', 'email', 'password', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
+            } else {
+                // Keep old format for backward compatibility
+                $columns = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
+            }
         } else {
             // Default for when no academic level is specified
             $columns = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'strand_name', 'department_name', 'course_name', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
@@ -884,22 +911,40 @@ class UserManagementController extends Controller
 
             // Elementary uses simplified template with only specific_year_level
             if ($academicLevel === 'elementary') {
-                $sampleRows[] = [
-                    'Juan Dela Cruz',
-                    'juan.delacruz@example.com',
-                    'password123',
-                    'elementary',
-                    'grade_1',
-                    $elementarySection ? $elementarySection->name : '',
-                    'EL-2025-000001',
-                    '2018-01-15',
-                    'male',
-                    '09123456789',
-                    '123 Main Street, Barangay 1',
-                    'Pedro Dela Cruz',
-                    '09123456788',
-                    'father'
-                ];
+                // New workflow: section is pre-selected, exclude section from CSV
+                if ($sectionId) {
+                    $sampleRows[] = [
+                        'Juan Dela Cruz',
+                        'juan.delacruz@example.com',
+                        'password123',
+                        'EL-2025-000001',
+                        '2018-01-15',
+                        'male',
+                        '09123456789',
+                        '123 Main Street, Barangay 1',
+                        'Pedro Dela Cruz',
+                        '09123456788',
+                        'father'
+                    ];
+                } else {
+                    // Old workflow: include section in CSV
+                    $sampleRows[] = [
+                        'Juan Dela Cruz',
+                        'juan.delacruz@example.com',
+                        'password123',
+                        'elementary',
+                        'grade_1',
+                        $elementarySection ? $elementarySection->name : '',
+                        'EL-2025-000001',
+                        '2018-01-15',
+                        'male',
+                        '09123456789',
+                        '123 Main Street, Barangay 1',
+                        'Pedro Dela Cruz',
+                        '09123456788',
+                        'father'
+                    ];
+                }
             } else {
                 // When no specific academic level, use full template with empty fields
                 $sampleRows[] = [
@@ -931,22 +976,40 @@ class UserManagementController extends Controller
 
             // JHS uses simplified template with only specific_year_level
             if ($academicLevel === 'junior_highschool') {
-                $sampleRows[] = [
-                    'Maria Santos',
-                    'maria.santos@example.com',
-                    'password123',
-                    'junior_highschool',
-                    'grade_7',
-                    $jhsSection ? $jhsSection->name : '',
-                    'JHS-2025-000002',
-                    '2010-05-20',
-                    'female',
-                    '09123456790',
-                    '456 Oak Avenue, Barangay 2',
-                    'Juan Santos',
-                    '09123456791',
-                    'father'
-                ];
+                // New workflow: section is pre-selected, exclude section from CSV
+                if ($sectionId) {
+                    $sampleRows[] = [
+                        'Maria Santos',
+                        'maria.santos@example.com',
+                        'password123',
+                        'JHS-2025-000002',
+                        '2010-05-20',
+                        'female',
+                        '09123456790',
+                        '456 Oak Avenue, Barangay 2',
+                        'Juan Santos',
+                        '09123456791',
+                        'father'
+                    ];
+                } else {
+                    // Old workflow: include section in CSV
+                    $sampleRows[] = [
+                        'Maria Santos',
+                        'maria.santos@example.com',
+                        'password123',
+                        'junior_highschool',
+                        'grade_7',
+                        $jhsSection ? $jhsSection->name : '',
+                        'JHS-2025-000002',
+                        '2010-05-20',
+                        'female',
+                        '09123456790',
+                        '456 Oak Avenue, Barangay 2',
+                        'Juan Santos',
+                        '09123456791',
+                        'father'
+                    ];
+                }
             } else {
                 // When no specific academic level, use full template with empty fields
                 $sampleRows[] = [
@@ -1047,9 +1110,13 @@ class UserManagementController extends Controller
         $request->validate([
             'file' => 'required|file|mimes:csv,txt|max:2048',
             'academic_level' => 'nullable|string|in:elementary,junior_highschool,senior_highschool,college',
+            'section_id' => 'nullable|exists:sections,id',
+            'specific_year_level' => 'nullable|string',
         ]);
 
         $expectedAcademicLevel = $request->get('academic_level'); // Get expected academic level
+        $providedSectionId = $request->get('section_id'); // Get provided section ID
+        $providedYearLevel = $request->get('specific_year_level'); // Get provided year level
         $file = $request->file('file');
 
         // Check if file can be opened
@@ -1067,7 +1134,15 @@ class UserManagementController extends Controller
         $errors = [];
         $lineNumber = 1; // Start at 1 since header is line 0
 
-        // Different expected columns based on academic level
+        // Remove UTF-8 BOM if present (Excel often adds this)
+        if ($header && isset($header[0])) {
+            $header[0] = preg_replace('/^\x{FEFF}/u', '', $header[0]);
+        }
+
+        // Trim and lowercase headers for comparison
+        $header = $header ? array_map('trim', array_map('strtolower', $header)) : [];
+
+        // Different expected columns based on academic level and section_id
         if ($expectedAcademicLevel === 'senior_highschool') {
             $expected = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'academic_strand', 'track', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
             $expectedColumnsString = 'name,email,password,academic_level,specific_year_level,academic_strand,track,section_name,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship';
@@ -1075,16 +1150,23 @@ class UserManagementController extends Controller
             $expected = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'department_name', 'course_name', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
             $expectedColumnsString = 'name,email,password,academic_level,specific_year_level,department_name,course_name,section_name,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship';
         } elseif ($expectedAcademicLevel === 'elementary' || $expectedAcademicLevel === 'junior_highschool') {
-            $expected = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
-            $expectedColumnsString = 'name,email,password,academic_level,specific_year_level,section_name,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship';
+            // New workflow: section provided separately, simplified CSV format
+            if ($providedSectionId) {
+                $expected = ['name', 'email', 'password', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
+                $expectedColumnsString = 'name,email,password,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship';
+            } else {
+                // Old workflow: section in CSV
+                $expected = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
+                $expectedColumnsString = 'name,email,password,academic_level,specific_year_level,section_name,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship';
+            }
         } else {
             // Default for when no academic level is specified
             $expected = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'strand_name', 'department_name', 'course_name', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
             $expectedColumnsString = 'name,email,password,academic_level,specific_year_level,strand_name,department_name,course_name,section_name,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship';
         }
 
-        // Validate header format
-        if (!$header || array_map('strtolower', $header) !== $expected) {
+        // Validate header format (now case-insensitive and trimmed)
+        if (!$header || $header !== $expected) {
             fclose($handle);
             return back()->with('error', 'Invalid CSV format. Expected columns: ' . $expectedColumnsString);
         }
@@ -1102,6 +1184,9 @@ class UserManagementController extends Controller
                 continue;
             }
 
+            // Trim all row values to handle extra whitespace
+            $row = array_map('trim', $row);
+
             // Parse row based on academic level
             if ($expectedAcademicLevel === 'senior_highschool') {
                 [$name, $email, $password, $academicLevel, $specificYearLevel, $strandName, $trackName, $sectionName, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship] = $row;
@@ -1112,11 +1197,25 @@ class UserManagementController extends Controller
                 $strandName = '';
                 $trackName = '';
             } elseif ($expectedAcademicLevel === 'elementary' || $expectedAcademicLevel === 'junior_highschool') {
-                [$name, $email, $password, $academicLevel, $specificYearLevel, $sectionName, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship] = $row;
-                $strandName = '';
-                $departmentName = '';
-                $courseName = '';
-                $trackName = '';
+                // New workflow: simplified format without academic_level, specific_year_level, section_name
+                if ($providedSectionId) {
+                    [$name, $email, $password, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship] = $row;
+                    // Use provided values from request
+                    $academicLevel = $expectedAcademicLevel;
+                    $specificYearLevel = $providedYearLevel ?: '';
+                    $sectionName = ''; // Will use providedSectionId directly
+                    $strandName = '';
+                    $departmentName = '';
+                    $courseName = '';
+                    $trackName = '';
+                } else {
+                    // Old workflow: full format
+                    [$name, $email, $password, $academicLevel, $specificYearLevel, $sectionName, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship] = $row;
+                    $strandName = '';
+                    $departmentName = '';
+                    $courseName = '';
+                    $trackName = '';
+                }
             } else {
                 // Default for when no academic level is specified
                 [$name, $email, $password, $academicLevel, $specificYearLevel, $strandName, $departmentName, $courseName, $sectionName, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship] = $row;
@@ -1206,7 +1305,10 @@ class UserManagementController extends Controller
                 $courseId = $course->id;
             }
 
-            if (!empty($sectionName)) {
+            // Use provided section_id if available (new workflow), otherwise lookup by name
+            if ($providedSectionId) {
+                $sectionId = $providedSectionId;
+            } elseif (!empty($sectionName)) {
                 $section = \App\Models\Section::where('name', $sectionName)->first();
                 if (!$section) {
                     $errors[] = [
