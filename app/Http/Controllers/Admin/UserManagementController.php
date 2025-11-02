@@ -1269,6 +1269,17 @@ class UserManagementController extends Controller
         $providedCourseId = $request->get('course_id'); // Get provided course ID for College
         $file = $request->file('file');
 
+        // Debug logging for CSV upload parameters
+        \Log::info('[CSV UPLOAD] Parameters received:', [
+            'academic_level' => $expectedAcademicLevel,
+            'section_id' => $providedSectionId,
+            'year_level' => $providedYearLevel,
+            'track_id' => $providedTrackId,
+            'strand_id' => $providedStrandId,
+            'department_id' => $providedDepartmentId,
+            'course_id' => $providedCourseId,
+        ]);
+
         // Check if file can be opened
         if (!$file->isValid()) {
             return back()->with('error', 'Invalid file. Please ensure the file is a valid CSV file.');
@@ -1295,7 +1306,7 @@ class UserManagementController extends Controller
         // Different expected columns based on academic level and section_id
         if ($expectedAcademicLevel === 'senior_highschool') {
             // New workflow: track/strand/section provided separately, simplified CSV format
-            if ($providedTrackId && $providedStrandId && $providedSectionId) {
+            if (!empty($providedTrackId) && !empty($providedStrandId) && !empty($providedSectionId)) {
                 $expected = ['name', 'email', 'password', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
                 $expectedColumnsString = 'name,email,password,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship';
             } else {
@@ -1305,7 +1316,7 @@ class UserManagementController extends Controller
             }
         } elseif ($expectedAcademicLevel === 'college') {
             // New workflow: department/course/section provided separately, simplified CSV format
-            if ($providedDepartmentId && $providedCourseId && $providedSectionId) {
+            if (!empty($providedDepartmentId) && !empty($providedCourseId) && !empty($providedSectionId)) {
                 $expected = ['name', 'email', 'password', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
                 $expectedColumnsString = 'name,email,password,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship';
             } else {
@@ -1315,7 +1326,7 @@ class UserManagementController extends Controller
             }
         } elseif ($expectedAcademicLevel === 'elementary' || $expectedAcademicLevel === 'junior_highschool') {
             // New workflow: section provided separately, simplified CSV format
-            if ($providedSectionId) {
+            if (!empty($providedSectionId)) {
                 $expected = ['name', 'email', 'password', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
                 $expectedColumnsString = 'name,email,password,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship';
             } else {
@@ -1329,9 +1340,31 @@ class UserManagementController extends Controller
             $expectedColumnsString = 'name,email,password,academic_level,specific_year_level,strand_name,department_name,course_name,section_name,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship';
         }
 
+        // Debug logging for header comparison
+        \Log::info('[CSV UPLOAD] Header validation check:', [
+            'academic_level' => $expectedAcademicLevel,
+            'received_header' => $header,
+            'expected_header' => $expected,
+            'track_id' => $providedTrackId,
+            'strand_id' => $providedStrandId,
+            'section_id' => $providedSectionId,
+        ]);
+
         // Validate header format (now case-insensitive and trimmed)
-        if (!$header || $header !== $expected) {
+        // Use value-based comparison instead of strict reference comparison
+        $headerValid = $header && count($header) === count($expected) && array_values($header) === array_values($expected);
+
+        if (!$headerValid) {
             fclose($handle);
+
+            // Debug logging for troubleshooting
+            \Log::error('[CSV UPLOAD] Header validation failed:', [
+                'received_header' => $header,
+                'expected_header' => $expected,
+                'header_count' => count($header ?? []),
+                'expected_count' => count($expected),
+            ]);
+
             return back()->with('error', 'Invalid CSV format. Expected columns: ' . $expectedColumnsString);
         }
 

@@ -1010,7 +1010,7 @@ class RegistrarUserManagementController extends Controller
         // Different expected columns based on academic level and section_id
         if ($expectedAcademicLevel === 'senior_highschool') {
             // New workflow: track/strand/section provided separately, simplified CSV format
-            if ($providedTrackId && $providedStrandId && $providedSectionId) {
+            if (!empty($providedTrackId) && !empty($providedStrandId) && !empty($providedSectionId)) {
                 $expected = ['name', 'email', 'password', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
                 $expectedColumnsString = 'name,email,password,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship';
             } else {
@@ -1020,7 +1020,7 @@ class RegistrarUserManagementController extends Controller
             }
         } elseif ($expectedAcademicLevel === 'college') {
             // New workflow: department/course/section provided separately, simplified CSV format
-            if ($providedDepartmentId && $providedCourseId && $providedSectionId) {
+            if (!empty($providedDepartmentId) && !empty($providedCourseId) && !empty($providedSectionId)) {
                 $expected = ['name', 'email', 'password', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
                 $expectedColumnsString = 'name,email,password,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship';
             } else {
@@ -1030,7 +1030,7 @@ class RegistrarUserManagementController extends Controller
             }
         } elseif ($expectedAcademicLevel === 'elementary' || $expectedAcademicLevel === 'junior_highschool') {
             // New workflow: section provided separately, simplified CSV format
-            if ($providedSectionId) {
+            if (!empty($providedSectionId)) {
                 $expected = ['name', 'email', 'password', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
                 $expectedColumnsString = 'name,email,password,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship';
             } else {
@@ -1048,14 +1048,22 @@ class RegistrarUserManagementController extends Controller
             'expected_columns' => $expected,
             'actual_header' => $header,
             'using_simplified_format' => $providedSectionId ? 'yes' : 'no',
+            'track_id' => $providedTrackId,
+            'strand_id' => $providedStrandId,
+            'section_id' => $providedSectionId,
         ]);
 
         // Validate header format (now case-insensitive and trimmed)
-        if (!$header || $header !== $expected) {
+        // Use value-based comparison instead of strict reference comparison
+        $headerValid = $header && count($header) === count($expected) && array_values($header) === array_values($expected);
+
+        if (!$headerValid) {
             fclose($handle);
             \Log::error('[REGISTRAR CSV UPLOAD] Header validation failed', [
                 'expected' => $expected,
                 'actual' => $header,
+                'header_count' => count($header ?? []),
+                'expected_count' => count($expected),
             ]);
             return back()->with('error', 'Invalid CSV format. Expected columns: ' . $expectedColumnsString);
         }
@@ -1173,7 +1181,7 @@ class RegistrarUserManagementController extends Controller
             // Parse row based on academic level and format (simplified vs old)
             if ($expectedAcademicLevel === 'senior_highschool') {
                 // Check if using simplified format
-                if ($providedTrackId && $providedStrandId && $providedSectionId) {
+                if (!empty($providedTrackId) && !empty($providedStrandId) && !empty($providedSectionId)) {
                     // Simplified format: name, email, password, student_number, birth_date...
                     [$name, $email, $password, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship] = $row;
                     // Use provided values from request
@@ -1192,7 +1200,7 @@ class RegistrarUserManagementController extends Controller
                 }
             } elseif ($expectedAcademicLevel === 'college') {
                 // Check if using simplified format
-                if ($providedDepartmentId && $providedCourseId && $providedSectionId) {
+                if (!empty($providedDepartmentId) && !empty($providedCourseId) && !empty($providedSectionId)) {
                     // Simplified format: name, email, password, student_number, birth_date...
                     [$name, $email, $password, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship] = $row;
                     // Use provided values from request
@@ -1211,7 +1219,7 @@ class RegistrarUserManagementController extends Controller
                 }
             } elseif ($expectedAcademicLevel === 'elementary' || $expectedAcademicLevel === 'junior_highschool') {
                 // Check if using simplified format
-                if ($providedSectionId) {
+                if (!empty($providedSectionId)) {
                     // Simplified format: name, email, password, student_number, birth_date...
                     [$name, $email, $password, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship] = $row;
                     // Use provided values from request

@@ -277,8 +277,10 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
         const existingGroup = groups.find(g => g.key === key);
 
         if (existingGroup) {
-            // Add this grading period to existing group
-            existingGroup.gradingPeriods.push(assignment.gradingPeriod);
+            // Add this grading period to existing group (only if it exists)
+            if (assignment.gradingPeriod) {
+                existingGroup.gradingPeriods.push(assignment.gradingPeriod);
+            }
             existingGroup.assignmentIds.push(assignment.id);
         } else {
             // Create new group
@@ -357,15 +359,25 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
         );
     };
 
-    const destroyAssignment = (id: number) => {
-        if (confirm('Are you sure you want to delete this assignment?')) {
-            router.delete(`/admin/academic/assign-teachers/${id}`, {
-                onSuccess: () => {
-                    // Flash message will be handled by useEffect
-                },
-                onError: (errors) => {
-                    console.error(errors);
-                },
+    const destroyAssignment = (ids: number | number[]) => {
+        const idsArray = Array.isArray(ids) ? ids : [ids];
+        const message = idsArray.length > 1
+            ? `Are you sure you want to delete this assignment? This will remove ${idsArray.length} grading period assignments.`
+            : 'Are you sure you want to delete this assignment?';
+
+        if (confirm(message)) {
+            // Delete each assignment ID sequentially
+            idsArray.forEach((id, index) => {
+                router.delete(`/admin/academic/assign-teachers/${id}`, {
+                    preserveScroll: true,
+                    preserveState: index < idsArray.length - 1, // Preserve state except for last deletion
+                    onSuccess: () => {
+                        // Flash message will be handled by useEffect on the last deletion
+                    },
+                    onError: (errors) => {
+                        console.error(`Error deleting assignment ${id}:`, errors);
+                    },
+                });
             });
         }
     };
@@ -401,6 +413,30 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
             console.log('[EDIT_TEACHER] Using single grading period ID:', gradingPeriodIds);
         }
 
+        // Extract semester IDs from the grading periods
+        let semesterIds: string[] = [];
+        if (gradingPeriodIds.length > 0) {
+            // Get the grading period objects that are assigned
+            const selectedPeriods = gradingPeriods.filter(gp =>
+                gradingPeriodIds.includes(gp.id.toString())
+            );
+
+            // Extract unique parent IDs (semester IDs) from the selected periods
+            const uniqueParentIds = [...new Set(
+                selectedPeriods
+                    .map(gp => gp.parent_id)
+                    .filter(pid => pid !== null)
+            )];
+
+            semesterIds = uniqueParentIds.map(id => id!.toString());
+
+            console.log('[EDIT_TEACHER] Extracted semester IDs from grading periods:', {
+                gradingPeriodIds,
+                selectedPeriods: selectedPeriods.map(p => ({ id: p.id, name: p.name, parent_id: p.parent_id })),
+                semesterIds
+            });
+        }
+
         setEditAssignment(assignment);
 
         const formData = {
@@ -413,7 +449,7 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
             section_id: '',
             department_id: '',
             course_id: '',
-            semester_ids: [],
+            semester_ids: semesterIds,
             grading_period_ids: gradingPeriodIds,
             school_year: assignment.school_year,
             notes: assignment.notes || '',
@@ -1105,7 +1141,7 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
-                                                onClick={() => destroyAssignment(group.id)}
+                                                onClick={() => destroyAssignment(group.assignmentIds)}
                                                 className="text-red-600 hover:text-red-700"
                                             >
                                                 <Trash2 className="h-4 w-4" />
@@ -1262,33 +1298,46 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                                                             {semester?.name} Periods:
                                                         </div>
                                                         <div className="space-y-2 ml-2">
-                                                            {periods.map((period) => (
-                                                                <div key={period.id} className="flex items-center space-x-2">
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        id={`edit-period-${period.id}`}
-                                                                        checked={assignmentForm.grading_period_ids.includes(period.id.toString())}
-                                                                        onChange={(e) => {
-                                                                            const periodId = period.id.toString();
-                                                                            if (e.target.checked) {
-                                                                                setAssignmentForm({
-                                                                                    ...assignmentForm,
-                                                                                    grading_period_ids: [...assignmentForm.grading_period_ids, periodId]
-                                                                                });
-                                                                            } else {
-                                                                                setAssignmentForm({
-                                                                                    ...assignmentForm,
-                                                                                    grading_period_ids: assignmentForm.grading_period_ids.filter(id => id !== periodId)
-                                                                                });
-                                                                            }
-                                                                        }}
-                                                                        className="w-4 h-4 rounded border-gray-300"
-                                                                    />
-                                                                    <Label htmlFor={`edit-period-${period.id}`} className="text-sm font-normal cursor-pointer">
-                                                                        {period.name}
-                                                                    </Label>
-                                                                </div>
-                                                            ))}
+                                                            {periods.map((period) => {
+                                                                const periodIdString = period.id.toString();
+                                                                const isChecked = assignmentForm.grading_period_ids.includes(periodIdString);
+
+                                                                console.log('[EDIT_TEACHER_CHECKBOX] Rendering checkbox:', {
+                                                                    period_id: period.id,
+                                                                    period_id_string: periodIdString,
+                                                                    period_name: period.name,
+                                                                    form_grading_period_ids: assignmentForm.grading_period_ids,
+                                                                    isChecked
+                                                                });
+
+                                                                return (
+                                                                    <div key={period.id} className="flex items-center space-x-2">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            id={`edit-period-${period.id}`}
+                                                                            checked={isChecked}
+                                                                            onChange={(e) => {
+                                                                                const periodId = period.id.toString();
+                                                                                if (e.target.checked) {
+                                                                                    setAssignmentForm({
+                                                                                        ...assignmentForm,
+                                                                                        grading_period_ids: [...assignmentForm.grading_period_ids, periodId]
+                                                                                    });
+                                                                                } else {
+                                                                                    setAssignmentForm({
+                                                                                        ...assignmentForm,
+                                                                                        grading_period_ids: assignmentForm.grading_period_ids.filter(id => id !== periodId)
+                                                                                    });
+                                                                                }
+                                                                            }}
+                                                                            className="w-4 h-4 rounded border-gray-300"
+                                                                        />
+                                                                        <Label htmlFor={`edit-period-${period.id}`} className="text-sm font-normal cursor-pointer">
+                                                                            {period.name}
+                                                                        </Label>
+                                                                    </div>
+                                                                );
+                                                            })}
                                                         </div>
                                                     </div>
                                                 ) : null;

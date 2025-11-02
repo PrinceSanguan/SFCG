@@ -202,11 +202,12 @@ export default function AssignInstructors({ user, assignments, instructors, depa
                 });
                 setFilteredSubjects(filteredSubj);
             }
-        } else {
-            // Clear subjects if no section selected
+        } else if (!editModal) {
+            // Only clear subjects if NOT in edit mode
+            // In edit mode, subjects are already set by openEditModal()
             setFilteredSubjects([]);
         }
-    }, [assignmentForm.department_id, assignmentForm.course_id, assignmentForm.year_level, assignmentForm.section_id, sectionJustSelected, courses, subjects, sections, departments]);
+    }, [assignmentForm.department_id, assignmentForm.course_id, assignmentForm.year_level, assignmentForm.section_id, sectionJustSelected, courses, subjects, sections, departments, editModal]);
     
     // Safety check: only proceed if we have valid level
     if (!collegeLevel) {
