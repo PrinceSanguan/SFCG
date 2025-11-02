@@ -10,7 +10,14 @@ export function Sidebar({ user }: { user: UserProps }) {
   return (
     <div className="hidden w-64 flex-col border-r bg-white md:flex dark:border-gray-700 dark:bg-gray-800">
       <div className="flex h-16 items-center border-b px-4 dark:border-gray-700">
-        <h2 className="text-lg font-semibold">Adviser Portal</h2>
+        <div className="flex items-center gap-3">
+          <img
+            src="/image/logo.jpg"
+            alt="School Logo"
+            className="h-8 w-8 object-contain rounded"
+          />
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Adviser Portal</h2>
+        </div>
       </div>
       <div className="flex-1 overflow-auto py-4">
         <nav className="grid items-start gap-1 px-2 text-sm font-medium">
