@@ -170,9 +170,19 @@ export default function UsersIndex({ user, users, filters, roles, currentRole, y
     };
 
     const handleDownloadTemplate = () => {
-        // Validation - require section selection
-        if (!selectedUploadSection && yearLevel) {
-            addToast('Please complete all selections first.', 'error');
+        // Validation for Elementary/JHS
+        if (!selectedUploadSection && (yearLevel === 'elementary' || yearLevel === 'junior_highschool')) {
+            addToast('Please select a grade level and section first.', 'error');
+            return;
+        }
+        // Validation for SHS
+        if (!selectedUploadSection && yearLevel === 'senior_highschool') {
+            addToast('Please select track, strand, and section first.', 'error');
+            return;
+        }
+        // Validation for College
+        if (!selectedUploadSection && yearLevel === 'college') {
+            addToast('Please select department, course, year level, and section first.', 'error');
             return;
         }
 
@@ -180,25 +190,27 @@ export default function UsersIndex({ user, users, filters, roles, currentRole, y
         if (yearLevel) {
             params.academic_level = yearLevel;
         }
+        // For Elementary/JHS/College (year level)
         if (selectedUploadYearLevel) {
             params.specific_year_level = selectedUploadYearLevel;
         }
-        if (selectedUploadSection) {
-            params.section_id = selectedUploadSection;
-        }
-        // SHS params
+        // For SHS
         if (selectedUploadTrack) {
             params.track_id = selectedUploadTrack;
         }
         if (selectedUploadStrand) {
             params.strand_id = selectedUploadStrand;
         }
-        // College params
+        // For College
         if (selectedUploadDepartment) {
             params.department_id = selectedUploadDepartment;
         }
         if (selectedUploadCourse) {
             params.course_id = selectedUploadCourse;
+        }
+        // For all
+        if (selectedUploadSection) {
+            params.section_id = selectedUploadSection;
         }
 
         window.location.href = route('registrar.students.template', params);
@@ -206,9 +218,19 @@ export default function UsersIndex({ user, users, filters, roles, currentRole, y
     };
 
     const handleUploadClick = () => {
-        // Validation - require section selection
-        if (!selectedUploadSection && yearLevel) {
+        // Validation for Elementary/JHS
+        if (!selectedUploadSection && (yearLevel === 'elementary' || yearLevel === 'junior_highschool')) {
             addToast('Please select a grade level and section first.', 'error');
+            return;
+        }
+        // Validation for SHS
+        if (!selectedUploadSection && yearLevel === 'senior_highschool') {
+            addToast('Please select track, strand, and section first.', 'error');
+            return;
+        }
+        // Validation for College
+        if (!selectedUploadSection && yearLevel === 'college') {
+            addToast('Please select department, course, year level, and section first.', 'error');
             return;
         }
         fileInputRef.current?.click();
@@ -229,38 +251,32 @@ export default function UsersIndex({ user, users, filters, roles, currentRole, y
         if (!file) return;
         const formData = new FormData();
         formData.append('file', file);
-
         // Pass academic level if viewing a specific level
         if (yearLevel) {
             formData.append('academic_level', yearLevel);
         }
-
-        // Pass year level (REQUIRED for proper student creation)
+        // Pass year level for elementary/JHS/College
         if (selectedUploadYearLevel) {
             formData.append('specific_year_level', selectedUploadYearLevel);
         }
-
-        // Pass section (REQUIRED for proper student creation)
-        if (selectedUploadSection) {
-            formData.append('section_id', selectedUploadSection);
-        }
-
-        // SHS params
+        // Pass track/strand parameters for SHS
         if (selectedUploadTrack) {
             formData.append('track_id', selectedUploadTrack);
         }
         if (selectedUploadStrand) {
             formData.append('strand_id', selectedUploadStrand);
         }
-
-        // College params
+        // Pass department/course parameters for College
         if (selectedUploadDepartment) {
             formData.append('department_id', selectedUploadDepartment);
         }
         if (selectedUploadCourse) {
             formData.append('course_id', selectedUploadCourse);
         }
-
+        // For all
+        if (selectedUploadSection) {
+            formData.append('section_id', selectedUploadSection);
+        }
         router.post(route('registrar.students.upload'), formData, {
             forceFormData: true,
             onSuccess: () => {
@@ -501,133 +517,192 @@ export default function UsersIndex({ user, users, filters, roles, currentRole, y
                     <DialogHeader>
                         <DialogTitle>CSV Upload Manager</DialogTitle>
                         <DialogDescription>
-                            Select the grade level and section first, then download the template and upload your CSV file.
+                            {yearLevel === 'senior_highschool'
+                                ? 'Select the track, strand, year level, and section first, then download the template and upload your CSV file.'
+                                : yearLevel === 'college'
+                                ? 'Select the department, course, year level, and section first, then download the template and upload your CSV file.'
+                                : 'Select the grade level and section first, then download the template and upload your CSV file.'}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
-                        {/* SHS: Track and Strand Selectors */}
+                        {/* For Elementary/JHS: Grade Level Selector */}
+                        {(yearLevel === 'elementary' || yearLevel === 'junior_highschool') && (
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Grade Level</label>
+                                <Select value={selectedUploadYearLevel} onValueChange={setSelectedUploadYearLevel}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select grade level" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {Object.entries(specificYearLevels).map(([key, label]) => (
+                                            <SelectItem key={key} value={key}>
+                                                {label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
+
+                        {/* For SHS: Track Selector */}
                         {yearLevel === 'senior_highschool' && (
-                            <>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Track</label>
-                                    <Select value={selectedUploadTrack} onValueChange={setSelectedUploadTrack}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select track" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {tracks.map((track) => (
-                                                <SelectItem key={track.id} value={track.id.toString()}>
-                                                    {track.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Strand</label>
-                                    <Select
-                                        value={selectedUploadStrand}
-                                        onValueChange={setSelectedUploadStrand}
-                                        disabled={!selectedUploadTrack}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder={selectedUploadTrack ? "Select strand" : "Select track first"} />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {availableStrands.map((strand) => (
-                                                <SelectItem key={strand.id} value={strand.id.toString()}>
-                                                    {strand.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Track</label>
+                                <Select value={selectedUploadTrack} onValueChange={setSelectedUploadTrack}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select track" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {tracks.map((track) => (
+                                            <SelectItem key={track.id} value={track.id.toString()}>
+                                                {track.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         )}
 
-                        {/* College: Department and Course Selectors */}
+                        {/* For SHS: Strand Selector */}
+                        {yearLevel === 'senior_highschool' && (
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Strand</label>
+                                <Select
+                                    value={selectedUploadStrand}
+                                    onValueChange={setSelectedUploadStrand}
+                                    disabled={!selectedUploadTrack}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder={selectedUploadTrack ? "Select strand" : "Select track first"} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {availableStrands.map((strand) => (
+                                            <SelectItem key={strand.id} value={strand.id.toString()}>
+                                                {strand.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
+
+                        {/* For SHS: Year Level Selector */}
+                        {yearLevel === 'senior_highschool' && (
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Year Level</label>
+                                <Select
+                                    value={selectedUploadYearLevel}
+                                    onValueChange={setSelectedUploadYearLevel}
+                                    disabled={!selectedUploadStrand}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder={selectedUploadStrand ? "Select year level" : "Select strand first"} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {Object.entries(specificYearLevels).map(([key, label]) => (
+                                            <SelectItem key={key} value={key}>
+                                                {label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
+
+                        {/* For College: Department Selector */}
                         {yearLevel === 'college' && (
-                            <>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Department</label>
-                                    <Select value={selectedUploadDepartment} onValueChange={setSelectedUploadDepartment}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select department" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {departments.map((dept) => (
-                                                <SelectItem key={dept.id} value={dept.id.toString()}>
-                                                    {dept.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Course</label>
-                                    <Select
-                                        value={selectedUploadCourse}
-                                        onValueChange={setSelectedUploadCourse}
-                                        disabled={!selectedUploadDepartment}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder={selectedUploadDepartment ? "Select course" : "Select department first"} />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {availableCourses.map((course) => (
-                                                <SelectItem key={course.id} value={course.id.toString()}>
-                                                    {course.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Department</label>
+                                <Select
+                                    value={selectedUploadDepartment}
+                                    onValueChange={setSelectedUploadDepartment}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select department" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {departments.map((department) => (
+                                            <SelectItem key={department.id} value={department.id.toString()}>
+                                                {department.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         )}
 
-                        {/* Grade/Year Level Selector (All levels) */}
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">
-                                {yearLevel === 'college' ? 'Year Level' : 'Grade Level'}
-                            </label>
-                            <Select
-                                value={selectedUploadYearLevel}
-                                onValueChange={setSelectedUploadYearLevel}
-                                disabled={yearLevel === 'senior_highschool' && !selectedUploadStrand}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder={
-                                        yearLevel === 'senior_highschool' && !selectedUploadStrand
-                                            ? "Select strand first"
-                                            : yearLevel === 'college' ? "Select year level" : "Select grade level"
-                                    } />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {Object.entries(specificYearLevels).map(([key, label]) => (
-                                        <SelectItem key={key} value={key}>
-                                            {label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
+                        {/* For College: Course Selector */}
+                        {yearLevel === 'college' && (
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Course</label>
+                                <Select
+                                    value={selectedUploadCourse}
+                                    onValueChange={setSelectedUploadCourse}
+                                    disabled={!selectedUploadDepartment}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder={selectedUploadDepartment ? "Select course" : "Select department first"} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {availableCourses.map((course) => (
+                                            <SelectItem key={course.id} value={course.id.toString()}>
+                                                {course.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
 
-                        {/* Section Selector (All levels) */}
+                        {/* For College: Year Level Selector */}
+                        {yearLevel === 'college' && (
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Year Level</label>
+                                <Select
+                                    value={selectedUploadYearLevel}
+                                    onValueChange={setSelectedUploadYearLevel}
+                                    disabled={!selectedUploadCourse}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder={selectedUploadCourse ? "Select year level" : "Select course first"} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {Object.entries(specificYearLevels).map(([key, label]) => (
+                                            <SelectItem key={key} value={key}>
+                                                {label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
+
+                        {/* Section Selector (for all) */}
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Section</label>
                             <Select
                                 value={selectedUploadSection}
                                 onValueChange={setSelectedUploadSection}
                                 disabled={
-                                    (yearLevel === 'senior_highschool' && (!selectedUploadStrand || !selectedUploadYearLevel)) ||
-                                    (yearLevel === 'college' && (!selectedUploadCourse || !selectedUploadYearLevel)) ||
-                                    ((yearLevel === 'elementary' || yearLevel === 'junior_highschool') && !selectedUploadYearLevel)
+                                    (yearLevel === 'elementary' || yearLevel === 'junior_highschool')
+                                        ? !selectedUploadYearLevel
+                                        : (yearLevel === 'senior_highschool'
+                                            ? !selectedUploadYearLevel
+                                            : (yearLevel === 'college'
+                                                ? !selectedUploadYearLevel
+                                                : !selectedUploadStrand))
                                 }
                             >
                                 <SelectTrigger>
-                                    <SelectValue placeholder="Select section" />
+                                    <SelectValue placeholder={
+                                        (yearLevel === 'elementary' || yearLevel === 'junior_highschool')
+                                            ? (selectedUploadYearLevel ? "Select section" : "Select grade level first")
+                                            : (yearLevel === 'senior_highschool'
+                                                ? (selectedUploadYearLevel ? "Select section" : "Select year level first")
+                                                : (yearLevel === 'college'
+                                                    ? (selectedUploadYearLevel ? "Select section" : "Select year level first")
+                                                    : (selectedUploadStrand ? "Select section" : "Select track and strand first")))
+                                    } />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {availableSections.map((section) => (
