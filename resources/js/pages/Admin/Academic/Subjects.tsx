@@ -1834,7 +1834,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
 
                                         // Get current grading period IDs
                                         const currentGradingPeriodIds = editSubject.grading_period_ids ||
-                                            (editSubject.grading_period_id ? [editSubject.grading_period_id.toString()] : []);
+                                            (editSubject.grading_period_id ? [editSubject.grading_period_id] : []);
 
                                     return (
                                         <div>
@@ -1848,9 +1848,9 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                                 <input
                                                                     type="checkbox"
                                                                     id={`edit-gp-${gp.id}`}
-                                                                    checked={currentGradingPeriodIds.includes(gp.id.toString())}
+                                                                    checked={currentGradingPeriodIds.includes(gp.id)}
                                                                     onChange={(e) => {
-                                                                        const periodId = gp.id.toString();
+                                                                        const periodId = gp.id;
                                                                         let updatedIds = [...currentGradingPeriodIds];
                                                                         if (e.target.checked) {
                                                                             if (!updatedIds.includes(periodId)) {
@@ -1861,7 +1861,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                                         }
                                                                         setEditSubject({
                                                                             ...editSubject,
-                                                                            grading_period_ids: updatedIds.map(id => Number(id))
+                                                                            grading_period_ids: updatedIds
                                                                         });
                                                                     }}
                                                                     className="rounded border-gray-300"

@@ -365,6 +365,28 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
             console.log('[REGISTRAR_EDIT_TEACHER] Using single grading period ID:', gradingPeriodIds);
         }
 
+        // FIXED: Derive semester IDs from the grading period IDs
+        // This is critical for SHS where grading periods have parent semesters
+        const semesterIds: string[] = [];
+        gradingPeriodIds.forEach(gpId => {
+            const period = gradingPeriods.find(p => p.id.toString() === gpId);
+            if (period && period.parent_id) {
+                const semesterId = period.parent_id.toString();
+                if (!semesterIds.includes(semesterId)) {
+                    semesterIds.push(semesterId);
+                }
+            }
+        });
+
+        console.log('[REGISTRAR_EDIT_TEACHER] Derived semester IDs from grading periods:', {
+            gradingPeriodIds,
+            semesterIds,
+            periods: gradingPeriodIds.map(gpId => {
+                const p = gradingPeriods.find(gp => gp.id.toString() === gpId);
+                return { id: gpId, name: p?.name, parent_id: p?.parent_id };
+            })
+        });
+
         setEditAssignment(assignment);
 
         const formData = {
@@ -375,7 +397,7 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
             track_id: assignment.strand && assignment.strand.track_id ? assignment.strand.track_id.toString() : '',
             strand_id: assignment.strand ? assignment.strand.id.toString() : '',
             section_id: '',
-            semester_ids: [],
+            semester_ids: semesterIds,
             grading_period_ids: gradingPeriodIds,
             school_year: assignment.school_year,
             notes: assignment.notes || '',

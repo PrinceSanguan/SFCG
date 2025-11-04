@@ -178,8 +178,8 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
         section_id: '',
         department_id: '',
         course_id: '',
-        semester_ids: [] as string[],
-        grading_period_ids: [] as string[],
+        semester_ids: [] as number[],
+        grading_period_ids: [] as number[],
         school_year: '',
         notes: '',
         is_active: true,
@@ -399,26 +399,26 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
         });
 
         // Extract ALL grading period IDs from the grouped assignment
-        let gradingPeriodIds: string[] = [];
+        let gradingPeriodIds: number[] = [];
         if (isGrouped) {
             // Get all grading period IDs from the group
             gradingPeriodIds = assignmentOrGroup.gradingPeriods
                 .filter((gp: any) => gp && gp.id) // Filter out null/undefined
-                .map((gp: any) => gp.id.toString());
+                .map((gp: any) => gp.id);
 
             console.log('[EDIT_TEACHER] Extracted grading period IDs from group:', gradingPeriodIds);
         } else {
             // Single assignment - just use its grading period
-            gradingPeriodIds = assignment.grading_period_id ? [assignment.grading_period_id.toString()] : [];
+            gradingPeriodIds = assignment.grading_period_id ? [assignment.grading_period_id] : [];
             console.log('[EDIT_TEACHER] Using single grading period ID:', gradingPeriodIds);
         }
 
         // Extract semester IDs from the grading periods
-        let semesterIds: string[] = [];
+        let semesterIds: number[] = [];
         if (gradingPeriodIds.length > 0) {
             // Get the grading period objects that are assigned
             const selectedPeriods = gradingPeriods.filter(gp =>
-                gradingPeriodIds.includes(gp.id.toString())
+                gradingPeriodIds.includes(gp.id)
             );
 
             // Extract unique parent IDs (semester IDs) from the selected periods
@@ -428,7 +428,7 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                     .filter(pid => pid !== null)
             )];
 
-            semesterIds = uniqueParentIds.map(id => id!.toString());
+            semesterIds = uniqueParentIds.map(id => id!);
 
             console.log('[EDIT_TEACHER] Extracted semester IDs from grading periods:', {
                 gradingPeriodIds,
@@ -962,9 +962,9 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                                                     <input
                                                         type="checkbox"
                                                         id={`semester-${semester.id}`}
-                                                        checked={assignmentForm.semester_ids.includes(semester.id.toString())}
+                                                        checked={assignmentForm.semester_ids.includes(semester.id)}
                                                         onChange={(e) => {
-                                                            const semesterId = semester.id.toString();
+                                                            const semesterId = semester.id;
                                                             if (e.target.checked) {
                                                                 setAssignmentForm({
                                                                     ...assignmentForm,
@@ -1012,9 +1012,9 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                                                                         <input
                                                                             type="checkbox"
                                                                             id={`period-${period.id}`}
-                                                                            checked={assignmentForm.grading_period_ids.includes(period.id.toString())}
+                                                                            checked={assignmentForm.grading_period_ids.includes(period.id)}
                                                                             onChange={(e) => {
-                                                                                const periodId = period.id.toString();
+                                                                                const periodId = period.id;
                                                                                 if (e.target.checked) {
                                                                                     setAssignmentForm({
                                                                                         ...assignmentForm,

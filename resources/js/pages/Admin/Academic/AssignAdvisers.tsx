@@ -105,7 +105,7 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
         academic_level_id: '',
         grade_level: '',
         section_id: '',
-        grading_period_ids: [] as string[],
+        grading_period_ids: [] as number[],
         school_year: '',
         notes: '',
         is_active: true,
@@ -278,7 +278,7 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
             academic_level_id: assignment.academic_level_id.toString(),
             grade_level: assignment.grade_level,
             section_id: assignment.subject?.section_id?.toString() || '',
-            grading_period_ids: assignment.grading_period_ids?.map(id => id.toString()) || [],
+            grading_period_ids: assignment.grading_period_ids || [],
             school_year: assignment.school_year,
             notes: assignment.notes || '',
             is_active: assignment.is_active,
@@ -547,9 +547,9 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
                                                     <input
                                                         type="checkbox"
                                                         id={`period-${period.id}`}
-                                                        checked={assignmentForm.grading_period_ids.includes(period.id.toString())}
+                                                        checked={assignmentForm.grading_period_ids.includes(period.id)}
                                                         onChange={(e) => {
-                                                            const periodId = period.id.toString();
+                                                            const periodId = period.id;
                                                             if (e.target.checked) {
                                                                 setAssignmentForm({
                                                                     ...assignmentForm,
