@@ -118,6 +118,44 @@ class AcademicController extends Controller
         ])->where('academic_level_id', $collegeLevel->id)
           ->orderBy('school_year', 'desc')->get();
 
+        // Debug: Log assignments with their grading period info
+        Log::info('[ASSIGN_INSTRUCTORS] Loaded assignments with grading periods', [
+            'assignments_count' => $assignments->count(),
+            'sample_assignment' => $assignments->first() ? [
+                'id' => $assignments->first()->id,
+                'grading_period_id' => $assignments->first()->grading_period_id,
+                'has_grading_period_relation' => !!$assignments->first()->gradingPeriod,
+                'grading_period_data' => $assignments->first()->gradingPeriod ? [
+                    'id' => $assignments->first()->gradingPeriod->id,
+                    'name' => $assignments->first()->gradingPeriod->name,
+                    'parent_id' => $assignments->first()->gradingPeriod->parent_id,
+                ] : null,
+            ] : null,
+        ]);
+
+        // CRITICAL FIX: Manually load missing grading periods
+        // Some grading periods might not be loaded by the relationship (deleted, different level, etc.)
+        // We need to manually attach them to ensure the frontend can display the correct data
+        foreach ($assignments as $assignment) {
+            if ($assignment->grading_period_id && !$assignment->gradingPeriod) {
+                // Try to load the grading period directly
+                $gradingPeriod = GradingPeriod::find($assignment->grading_period_id);
+                if ($gradingPeriod) {
+                    $assignment->setRelation('gradingPeriod', $gradingPeriod);
+                    Log::info('[ASSIGN_INSTRUCTORS] Manually loaded missing grading period', [
+                        'assignment_id' => $assignment->id,
+                        'grading_period_id' => $assignment->grading_period_id,
+                        'grading_period_name' => $gradingPeriod->name,
+                    ]);
+                } else {
+                    Log::warning('[ASSIGN_INSTRUCTORS] Grading period not found', [
+                        'assignment_id' => $assignment->id,
+                        'grading_period_id' => $assignment->grading_period_id,
+                    ]);
+                }
+            }
+        }
+
         $instructors = User::where('user_role', 'instructor')->orderBy('name')->get();
         $departments = Department::where('academic_level_id', $collegeLevel->id)->orderBy('name')->get();
         $courses = Course::whereHas('department', function($query) use ($collegeLevel) {
@@ -153,7 +191,19 @@ class AcademicController extends Controller
 
         // Get year level options for college
         $yearLevels = User::getSpecificYearLevels()['college'] ?? [];
-        
+
+        // Debug: Log what we're sending to Inertia
+        Log::info('[ASSIGN_INSTRUCTORS] Sending data to Inertia', [
+            'assignments_sample' => $assignments->first() ? [
+                'id' => $assignments->first()->id,
+                'grading_period_id' => $assignments->first()->grading_period_id,
+                'grading_period_exists' => isset($assignments->first()->gradingPeriod),
+                'grading_period_is_null' => $assignments->first()->gradingPeriod === null,
+                'grading_period_toArray' => $assignments->first()->gradingPeriod ? $assignments->first()->gradingPeriod->toArray() : null,
+                'relations_loaded' => array_keys($assignments->first()->getRelations()),
+            ] : null,
+        ]);
+
         return Inertia::render('Admin/Academic/AssignInstructors', [
             'user' => $this->sharedUser(),
             'assignments' => $assignments,
@@ -2394,6 +2444,7 @@ class AcademicController extends Controller
 
     public function storeInstructorAssignment(Request $request)
     {
+        // UPDATED: Accept grading_period_ids as array for multiple period support
         $validator = Validator::make($request->all(), [
             'instructor_id' => 'required|exists:users,id',
             'year_level' => 'required|string|in:first_year,second_year,third_year,fourth_year',
@@ -2402,7 +2453,8 @@ class AcademicController extends Controller
             'section_id' => 'nullable|exists:sections,id',
             'subject_id' => 'required|exists:subjects,id',
             'academic_level_id' => 'required|exists:academic_levels,id',
-            'grading_period_id' => 'nullable|exists:grading_periods,id',
+            'grading_period_ids' => 'nullable|array',
+            'grading_period_ids.*' => 'exists:grading_periods,id',
             'school_year' => 'required|string',
             'notes' => 'nullable|string',
         ]);
@@ -2417,6 +2469,10 @@ class AcademicController extends Controller
             return back()->with('error', 'Selected user is not an instructor.');
         }
 
+        // Process grading periods - if none selected, create one assignment with null
+        $gradingPeriodIds = $request->grading_period_ids ?? [];
+        $periodsToProcess = empty($gradingPeriodIds) ? [null] : $gradingPeriodIds;
+
         Log::info('Starting instructor assignment creation', [
             'instructor_id' => $request->instructor_id,
             'year_level' => $request->year_level,
@@ -2425,143 +2481,154 @@ class AcademicController extends Controller
             'section_id' => $request->section_id,
             'subject_id' => $request->subject_id,
             'academic_level_id' => $request->academic_level_id,
-            'grading_period_id' => $request->grading_period_id,
+            'grading_period_ids' => $gradingPeriodIds,
+            'periods_to_process_count' => count($periodsToProcess),
             'school_year' => $request->school_year,
         ]);
 
-        // Check if this subject is already assigned to any instructor via InstructorSubjectAssignment
-        $existingInstructorAssignment = \App\Models\InstructorSubjectAssignment::where('subject_id', $request->subject_id)
-            ->where('academic_level_id', $request->academic_level_id)
-            ->where('school_year', $request->school_year)
-            ->when($request->grading_period_id, fn($q) => $q->where('grading_period_id', $request->grading_period_id))
-            ->when($request->section_id, fn($q) => $q->where('section_id', $request->section_id))
-            ->with('instructor')
-            ->first();
+        // UPDATED: Loop through each grading period to check for duplicates and create assignments
+        $createdAssignments = [];
+        $gradingPeriodNames = [];
 
-        if ($existingInstructorAssignment) {
-            $instructorName = $existingInstructorAssignment->instructor ? $existingInstructorAssignment->instructor->name : 'an instructor';
-            Log::warning('Subject already assigned via InstructorSubjectAssignment', [
-                'existing_assignment_id' => $existingInstructorAssignment->id,
-                'existing_instructor' => $instructorName,
-            ]);
-            return back()->with('error', 'This subject is already assigned to ' . $instructorName . ' (Instructor) for the selected criteria.');
-        }
+        foreach ($periodsToProcess as $gradingPeriodId) {
+            // Check if this subject is already assigned to any instructor for THIS grading period
+            $existingInstructorAssignment = \App\Models\InstructorSubjectAssignment::where('subject_id', $request->subject_id)
+                ->where('academic_level_id', $request->academic_level_id)
+                ->where('school_year', $request->school_year)
+                ->when($gradingPeriodId, fn($q) => $q->where('grading_period_id', $gradingPeriodId))
+                ->when($request->section_id, fn($q) => $q->where('section_id', $request->section_id))
+                ->with('instructor')
+                ->first();
 
-        // Check teacher assignments
-        $existingTeacherAssignment = TeacherSubjectAssignment::where('subject_id', $request->subject_id)
-            ->where('academic_level_id', $request->academic_level_id)
-            ->where('school_year', $request->school_year)
-            ->when($request->department_id, fn($q) => $q->where('department_id', $request->department_id))
-            ->when($request->course_id, fn($q) => $q->where('course_id', $request->course_id))
-            ->with('teacher')
-            ->first();
+            if ($existingInstructorAssignment) {
+                $instructorName = $existingInstructorAssignment->instructor ? $existingInstructorAssignment->instructor->name : 'an instructor';
+                $periodName = $gradingPeriodId ? \App\Models\GradingPeriod::find($gradingPeriodId)?->name : 'No Specific Period';
+                Log::warning('Subject already assigned for period', [
+                    'existing_assignment_id' => $existingInstructorAssignment->id,
+                    'existing_instructor' => $instructorName,
+                    'grading_period_id' => $gradingPeriodId,
+                ]);
+                return back()->with('error', 'This subject is already assigned to ' . $instructorName . ' (Instructor) for ' . $periodName . '.');
+            }
 
-        if ($existingTeacherAssignment) {
-            $teacherName = $existingTeacherAssignment->teacher ? $existingTeacherAssignment->teacher->name : 'a teacher';
-            return back()->with('error', 'This subject is already assigned to ' . $teacherName . ' (Teacher) for the selected criteria.');
-        }
-
-        // Check adviser assignments
-        $existingAdviserAssignment = \App\Models\ClassAdviserAssignment::where('subject_id', $request->subject_id)
-            ->where('academic_level_id', $request->academic_level_id)
-            ->where('school_year', $request->school_year)
-            ->with('adviser')
-            ->first();
-
-        if ($existingAdviserAssignment) {
-            $adviserName = $existingAdviserAssignment->adviser ? $existingAdviserAssignment->adviser->name : 'an adviser';
-            return back()->with('error', 'This subject is already assigned to ' . $adviserName . ' (Adviser) for the selected criteria.');
-        }
-
-        // Check for existing course assignment with the same subject to prevent duplicates
-        // Allow multiple subjects for the same course
-        $existingCourseAssignment = InstructorCourseAssignment::where([
-            'instructor_id' => $request->instructor_id,
-            'course_id' => $request->course_id,
-            'academic_level_id' => $request->academic_level_id,
-            'grading_period_id' => $request->grading_period_id,
-            'school_year' => $request->school_year,
-            'subject_id' => $request->subject_id,
-        ])->first();
-
-        if ($existingCourseAssignment) {
-            return back()->with('error', 'This instructor is already assigned to this specific subject for the specified period and school year. Please check existing assignments or modify the current one.');
-        }
-
-        try {
-            $assignment = InstructorCourseAssignment::create([
+            // Check for existing course assignment with the same subject to prevent duplicates
+            $existingCourseAssignment = InstructorCourseAssignment::where([
                 'instructor_id' => $request->instructor_id,
-                'year_level' => $request->year_level,
-                'department_id' => $request->department_id,
                 'course_id' => $request->course_id,
-                'section_id' => $request->section_id,
-                'subject_id' => $request->subject_id,
                 'academic_level_id' => $request->academic_level_id,
-                'grading_period_id' => $request->grading_period_id,
+                'grading_period_id' => $gradingPeriodId,
                 'school_year' => $request->school_year,
-                'assigned_by' => Auth::id(),
-                'notes' => $request->notes,
-            ]);
+                'subject_id' => $request->subject_id,
+            ])->first();
 
-            Log::info('InstructorCourseAssignment created successfully', [
-                'assignment_id' => $assignment->id,
-                'instructor_id' => $assignment->instructor_id,
-                'course_id' => $assignment->course_id,
-                'section_id' => $assignment->section_id,
-                'subject_id' => $assignment->subject_id,
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Failed to create InstructorCourseAssignment', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-            return back()->with('error', 'Failed to create instructor assignment: ' . $e->getMessage());
+            if ($existingCourseAssignment) {
+                $periodName = $gradingPeriodId ? \App\Models\GradingPeriod::find($gradingPeriodId)?->name : 'No Specific Period';
+                return back()->with('error', 'This instructor is already assigned to this subject for ' . $periodName . '. Please check existing assignments.');
+            }
+
+            // Create the assignment for this grading period
+            try {
+                $assignment = InstructorCourseAssignment::create([
+                    'instructor_id' => $request->instructor_id,
+                    'year_level' => $request->year_level,
+                    'department_id' => $request->department_id,
+                    'course_id' => $request->course_id,
+                    'section_id' => $request->section_id,
+                    'subject_id' => $request->subject_id,
+                    'academic_level_id' => $request->academic_level_id,
+                    'grading_period_id' => $gradingPeriodId,
+                    'school_year' => $request->school_year,
+                    'assigned_by' => Auth::id(),
+                    'notes' => $request->notes,
+                ]);
+
+                $createdAssignments[] = $assignment;
+
+                // Store grading period name for notification
+                if ($gradingPeriodId) {
+                    $gradingPeriod = \App\Models\GradingPeriod::find($gradingPeriodId);
+                    $gradingPeriodNames[] = $gradingPeriod ? $gradingPeriod->name : 'Period ' . $gradingPeriodId;
+                }
+
+                Log::info('InstructorCourseAssignment created', [
+                    'assignment_id' => $assignment->id,
+                    'grading_period_id' => $gradingPeriodId,
+                    'instructor_id' => $assignment->instructor_id,
+                    'subject_id' => $assignment->subject_id,
+                ]);
+
+                // Sync subject-level assignments for this grading period
+                $subjectsQuery = Subject::query()->where('academic_level_id', $request->academic_level_id);
+                if ($request->filled('subject_id')) {
+                    $subjectsQuery->where('id', $request->subject_id);
+                } else {
+                    $subjectsQuery->where('course_id', $request->course_id);
+                }
+                $subjects = $subjectsQuery->get();
+
+                foreach ($subjects as $subject) {
+                    try {
+                        // CRITICAL FIX: Include grading_period_id in the unique keys
+                        $subjectAssignment = InstructorSubjectAssignment::updateOrCreate([
+                            'instructor_id' => $request->instructor_id,
+                            'subject_id' => $subject->id,
+                            'section_id' => $request->section_id,
+                            'academic_level_id' => $request->academic_level_id,
+                            'grading_period_id' => $gradingPeriodId, // ADDED THIS
+                            'school_year' => $request->school_year,
+                        ], [
+                            'assigned_by' => Auth::id(),
+                            'is_active' => true,
+                            'notes' => $request->notes,
+                        ]);
+
+                        Log::info('InstructorSubjectAssignment synced', [
+                            'subject_assignment_id' => $subjectAssignment->id,
+                            'grading_period_id' => $gradingPeriodId,
+                            'subject_id' => $subject->id,
+                        ]);
+                    } catch (\Exception $e) {
+                        Log::error('Failed to sync InstructorSubjectAssignment', [
+                            'subject_id' => $subject->id,
+                            'grading_period_id' => $gradingPeriodId,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
+
+            } catch (\Illuminate\Database\QueryException $e) {
+                if ($e->getCode() === '23505' || strpos($e->getMessage(), 'unique') !== false) {
+                    $periodName = $gradingPeriodId ? \App\Models\GradingPeriod::find($gradingPeriodId)?->name : 'No Specific Period';
+                    Log::error('Duplicate instructor assignment detected', [
+                        'grading_period_id' => $gradingPeriodId,
+                        'error' => $e->getMessage(),
+                    ]);
+                    return back()->with('error', 'This instructor assignment already exists for ' . $periodName . '.');
+                }
+                Log::error('Failed to create InstructorCourseAssignment', [
+                    'grading_period_id' => $gradingPeriodId,
+                    'error' => $e->getMessage(),
+                ]);
+                return back()->with('error', 'Failed to create instructor assignment: ' . $e->getMessage());
+            } catch (\Exception $e) {
+                Log::error('Failed to create InstructorCourseAssignment', [
+                    'grading_period_id' => $gradingPeriodId,
+                    'error' => $e->getMessage(),
+                ]);
+                return back()->with('error', 'Failed to create instructor assignment: ' . $e->getMessage());
+            }
         }
 
-        // Sync subject-level assignments
-        $subjectsQuery = Subject::query()
-            ->where('academic_level_id', $request->academic_level_id);
+        // Auto-enroll students (only once, not per period)
+        $subjectsQuery = Subject::query()->where('academic_level_id', $request->academic_level_id);
         if ($request->filled('subject_id')) {
             $subjectsQuery->where('id', $request->subject_id);
         } else {
             $subjectsQuery->where('course_id', $request->course_id);
         }
         $subjects = $subjectsQuery->get();
-        Log::info('Syncing instructor subject assignments', [
-            'instructor_id' => $request->instructor_id,
-            'subjects_count' => $subjects->count(),
-            'school_year' => $request->school_year,
-            'section_id' => $request->section_id,
-        ]);
+
         foreach ($subjects as $subject) {
-            try {
-                $subjectAssignment = InstructorSubjectAssignment::updateOrCreate([
-                    'instructor_id' => $request->instructor_id,
-                    'subject_id' => $subject->id,
-                    'section_id' => $request->section_id,
-                    'academic_level_id' => $request->academic_level_id,
-                    'school_year' => $request->school_year,
-                ], [
-                    'grading_period_id' => $request->grading_period_id,
-                    'assigned_by' => Auth::id(),
-                    'is_active' => true,
-                    'notes' => $request->notes,
-                ]);
-
-                Log::info('InstructorSubjectAssignment synced', [
-                    'subject_assignment_id' => $subjectAssignment->id,
-                    'instructor_id' => $request->instructor_id,
-                    'subject_id' => $subject->id,
-                    'section_id' => $request->section_id,
-                ]);
-            } catch (\Exception $e) {
-                Log::error('Failed to sync InstructorSubjectAssignment', [
-                    'subject_id' => $subject->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-
-            // Auto-enroll students in this subject
             $this->autoEnrollStudentsInSubject($subject, $request->school_year, [
                 'grade_level' => $request->year_level,
                 'department_id' => $request->department_id,
@@ -2569,49 +2636,56 @@ class AcademicController extends Controller
             ]);
         }
 
+        // Use first assignment for activity log
+        $firstAssignment = $createdAssignments[0];
+
         // Log activity
         ActivityLog::create([
             'user_id' => Auth::id(),
             'target_user_id' => $request->instructor_id,
             'action' => 'assigned_instructor_course',
             'entity_type' => 'instructor_course_assignment',
-            'entity_id' => $assignment->id,
+            'entity_id' => $firstAssignment->id,
             'details' => [
                 'instructor' => $instructor->name,
-                'course' => $assignment->course->name,
+                'course' => $firstAssignment->course->name,
                 'school_year' => $request->school_year,
-                'section_id' => $request->section_id,
+                'grading_periods_count' => count($createdAssignments),
+                'grading_periods' => $gradingPeriodNames,
             ],
         ]);
 
         Log::info('Instructor assignment completed successfully', [
-            'assignment_id' => $assignment->id,
+            'assignments_created' => count($createdAssignments),
             'instructor_id' => $request->instructor_id,
             'instructor_name' => $instructor->name,
-            'course_id' => $request->course_id,
-            'section_id' => $request->section_id,
-            'subject_id' => $request->subject_id,
-            'school_year' => $request->school_year,
+            'grading_periods' => $gradingPeriodNames,
         ]);
 
-        // Send assignment notification to instructor
+        // Send assignment notification to instructor (one combined email for all periods)
         try {
             $notificationService = new \App\Services\NotificationService();
             $subject = Subject::find($request->subject_id);
             $course = \App\Models\Course::find($request->course_id);
             $academicLevel = \App\Models\AcademicLevel::find($request->academic_level_id);
             $section = $request->section_id ? \App\Models\Section::find($request->section_id) : null;
-            $gradingPeriod = $request->grading_period_id ? \App\Models\GradingPeriod::find($request->grading_period_id) : null;
 
-            Log::info('Preparing assignment notification data', [
+            // Format grading periods for notification
+            $gradingPeriodsText = empty($gradingPeriodNames)
+                ? 'All grading periods'
+                : implode(', ', $gradingPeriodNames);
+
+            Log::info('Preparing batched assignment notification data', [
                 'instructor_id' => $instructor->id,
                 'instructor_name' => $instructor->name,
                 'subject_name' => $subject ? $subject->name : 'N/A',
                 'course_name' => $course ? $course->name : 'N/A',
+                'grading_periods_count' => count($gradingPeriodNames),
+                'grading_periods' => $gradingPeriodsText,
             ]);
 
             $assignmentDetails = [
-                'assignment_id' => $assignment->id,
+                'assignment_id' => !empty($createdAssignments) ? $createdAssignments[0]->id : null,
                 'subject_name' => $subject ? $subject->name : 'N/A',
                 'course_name' => $course ? $course->name : 'N/A',
                 'department_name' => ($course && $course->department) ? $course->department->name : 'N/A',
@@ -2619,12 +2693,14 @@ class AcademicController extends Controller
                 'academic_level' => $academicLevel ? $academicLevel->name : 'N/A',
                 'year_level' => $request->year_level,
                 'school_year' => $request->school_year,
-                'grading_period' => $gradingPeriod ? $gradingPeriod->name : null,
+                'grading_period' => $gradingPeriodsText, // Combined list of all periods
+                'grading_periods_list' => $gradingPeriodNames, // Array for email template
                 'notes' => $request->notes,
             ];
 
-            Log::info('Sending instructor assignment notification', [
+            Log::info('Sending batched instructor assignment notification', [
                 'instructor_id' => $instructor->id,
+                'assignment_count' => count($createdAssignments),
                 'assignment_details' => $assignmentDetails,
             ]);
 
@@ -2635,6 +2711,7 @@ class AcademicController extends Controller
                     'instructor_name' => $instructor->name,
                     'instructor_email' => $instructor->email,
                     'notification_id' => $notificationResult['notification_id'],
+                    'grading_periods' => $gradingPeriodsText,
                 ]);
             } else {
                 Log::warning('Instructor assignment notification failed', [
@@ -2664,7 +2741,8 @@ class AcademicController extends Controller
             'section_id' => 'nullable|exists:sections,id',
             'subject_id' => 'required|exists:subjects,id',
             'academic_level_id' => 'required|exists:academic_levels,id',
-            'grading_period_id' => 'nullable|exists:grading_periods,id',
+            'grading_period_ids' => 'nullable|array',
+            'grading_period_ids.*' => 'exists:grading_periods,id',
             'school_year' => 'required|string',
             'notes' => 'nullable|string',
         ]);
@@ -2679,35 +2757,140 @@ class AcademicController extends Controller
             return back()->with('error', 'Selected user is not an instructor.');
         }
 
-        // Check for existing assignment with the same subject (excluding current one)
-        // Allow multiple subjects for the same course
-        $existingAssignment = InstructorCourseAssignment::where([
+        // Multi-period edit logic: find ALL existing assignments for this instructor-course-subject-year
+        $existingAssignments = InstructorCourseAssignment::where([
             'instructor_id' => $request->instructor_id,
             'course_id' => $request->course_id,
             'academic_level_id' => $request->academic_level_id,
-            'grading_period_id' => $request->grading_period_id,
-            'school_year' => $request->school_year,
             'subject_id' => $request->subject_id,
-        ])->where('id', '!=', $assignment->id)->first();
+            'school_year' => $request->school_year,
+        ])->get();
 
-        if ($existingAssignment) {
-            return back()->with('error', 'This instructor is already assigned to this specific subject for the specified period and school year. Please check existing assignments or modify the current one.');
-        }
+        $existingPeriodIds = $existingAssignments->pluck('grading_period_id')->filter()->toArray();
+        $newPeriodIds = $request->grading_period_ids ?? [];
 
-        $assignment->update([
+        // Determine which periods to add and which to remove
+        $periodsToAdd = array_diff($newPeriodIds, $existingPeriodIds);
+        $periodsToRemove = array_diff($existingPeriodIds, $newPeriodIds);
+        $periodsToKeep = array_intersect($existingPeriodIds, $newPeriodIds);
+
+        Log::info('[UPDATE] Multi-period edit analysis', [
             'instructor_id' => $request->instructor_id,
-            'year_level' => $request->year_level,
-            'department_id' => $request->department_id,
             'course_id' => $request->course_id,
-            'section_id' => $request->section_id,
             'subject_id' => $request->subject_id,
-            'academic_level_id' => $request->academic_level_id,
-            'grading_period_id' => $request->grading_period_id,
-            'school_year' => $request->school_year,
-            'notes' => $request->notes,
+            'existing_periods' => $existingPeriodIds,
+            'new_periods' => $newPeriodIds,
+            'periods_to_add' => $periodsToAdd,
+            'periods_to_remove' => $periodsToRemove,
+            'periods_to_keep' => $periodsToKeep,
         ]);
 
-        // Sync subject-level assignments on update
+        $updatedAssignments = [];
+        $gradingPeriodNames = [];
+
+        // Deactivate removed periods
+        foreach ($periodsToRemove as $periodId) {
+            $assignmentToRemove = $existingAssignments->firstWhere('grading_period_id', $periodId);
+            if ($assignmentToRemove) {
+                $assignmentToRemove->update(['is_active' => false]);
+
+                // Also deactivate corresponding subject assignments
+                InstructorSubjectAssignment::where([
+                    'instructor_id' => $request->instructor_id,
+                    'subject_id' => $request->subject_id,
+                    'section_id' => $request->section_id,
+                    'academic_level_id' => $request->academic_level_id,
+                    'grading_period_id' => $periodId,
+                    'school_year' => $request->school_year,
+                ])->update(['is_active' => false]);
+
+                Log::info('[UPDATE] Deactivated assignment for removed period', [
+                    'assignment_id' => $assignmentToRemove->id,
+                    'grading_period_id' => $periodId,
+                ]);
+            }
+        }
+
+        // Update existing periods that are kept (refresh other fields)
+        foreach ($periodsToKeep as $periodId) {
+            $assignmentToUpdate = $existingAssignments->firstWhere('grading_period_id', $periodId);
+            if ($assignmentToUpdate) {
+                $assignmentToUpdate->update([
+                    'year_level' => $request->year_level,
+                    'department_id' => $request->department_id,
+                    'section_id' => $request->section_id,
+                    'notes' => $request->notes,
+                    'is_active' => true,
+                ]);
+
+                $updatedAssignments[] = $assignmentToUpdate;
+
+                // Sync subject assignment for this period
+                $this->syncSubjectAssignmentForPeriod($request, $periodId);
+
+                $period = \App\Models\GradingPeriod::find($periodId);
+                if ($period) {
+                    $gradingPeriodNames[] = $period->name;
+                }
+
+                Log::info('[UPDATE] Updated existing assignment for kept period', [
+                    'assignment_id' => $assignmentToUpdate->id,
+                    'grading_period_id' => $periodId,
+                ]);
+            }
+        }
+
+        // Create assignments for new periods
+        foreach ($periodsToAdd as $periodId) {
+            // Check if assignment already exists (shouldn't, but safety check)
+            $duplicate = InstructorCourseAssignment::where([
+                'instructor_id' => $request->instructor_id,
+                'course_id' => $request->course_id,
+                'academic_level_id' => $request->academic_level_id,
+                'subject_id' => $request->subject_id,
+                'grading_period_id' => $periodId,
+                'school_year' => $request->school_year,
+            ])->first();
+
+            if ($duplicate) {
+                Log::warning('[UPDATE] Assignment already exists for new period, skipping', [
+                    'assignment_id' => $duplicate->id,
+                    'grading_period_id' => $periodId,
+                ]);
+                continue;
+            }
+
+            $newAssignment = InstructorCourseAssignment::create([
+                'instructor_id' => $request->instructor_id,
+                'year_level' => $request->year_level,
+                'department_id' => $request->department_id,
+                'course_id' => $request->course_id,
+                'section_id' => $request->section_id,
+                'subject_id' => $request->subject_id,
+                'academic_level_id' => $request->academic_level_id,
+                'grading_period_id' => $periodId,
+                'school_year' => $request->school_year,
+                'notes' => $request->notes,
+                'is_active' => true,
+            ]);
+
+            $updatedAssignments[] = $newAssignment;
+
+            // Sync subject assignment for this new period
+            $this->syncSubjectAssignmentForPeriod($request, $periodId);
+
+            $period = \App\Models\GradingPeriod::find($periodId);
+            if ($period) {
+                $gradingPeriodNames[] = $period->name;
+            }
+
+            Log::info('[UPDATE] Created new assignment for added period', [
+                'assignment_id' => $newAssignment->id,
+                'grading_period_id' => $periodId,
+            ]);
+        }
+
+        // Auto-enroll students (only once, not per period)
         $subjectsQuery = Subject::query()->where('academic_level_id', $request->academic_level_id);
         if ($request->filled('subject_id')) {
             $subjectsQuery->where('id', $request->subject_id);
@@ -2715,25 +2898,8 @@ class AcademicController extends Controller
             $subjectsQuery->where('course_id', $request->course_id);
         }
         $subjects = $subjectsQuery->get();
-        Log::info('Syncing (update) instructor subject assignments', [
-            'instructor_id' => $request->instructor_id,
-            'subjects_count' => $subjects->count(),
-            'school_year' => $request->school_year,
-        ]);
-        foreach ($subjects as $subject) {
-            InstructorSubjectAssignment::updateOrCreate([
-                'instructor_id' => $request->instructor_id,
-                'subject_id' => $subject->id,
-                'academic_level_id' => $request->academic_level_id,
-                'school_year' => $request->school_year,
-            ], [
-                'grading_period_id' => $request->grading_period_id,
-                'assigned_by' => Auth::id(),
-                'is_active' => true,
-                'notes' => $request->notes,
-            ]);
 
-            // Auto-enroll students in this subject when assignment is updated
+        foreach ($subjects as $subject) {
             $this->autoEnrollStudentsInSubject($subject, $request->school_year, [
                 'grade_level' => $request->year_level,
                 'department_id' => $request->department_id,
@@ -2752,10 +2918,58 @@ class AcademicController extends Controller
                 'instructor' => $instructor->name,
                 'course' => $assignment->course->name,
                 'school_year' => $request->school_year,
+                'grading_periods' => $gradingPeriodNames,
+                'periods_added' => count($periodsToAdd),
+                'periods_removed' => count($periodsToRemove),
+                'periods_kept' => count($periodsToKeep),
             ],
         ]);
 
         return back()->with('success', 'Instructor assignment updated successfully!');
+    }
+
+    /**
+     * Helper method to sync subject assignments for a specific grading period
+     */
+    private function syncSubjectAssignmentForPeriod($request, $gradingPeriodId)
+    {
+        $subjectsQuery = Subject::query()->where('academic_level_id', $request->academic_level_id);
+        if ($request->filled('subject_id')) {
+            $subjectsQuery->where('id', $request->subject_id);
+        } else {
+            $subjectsQuery->where('course_id', $request->course_id);
+        }
+        $subjects = $subjectsQuery->get();
+
+        foreach ($subjects as $subject) {
+            try {
+                $subjectAssignment = InstructorSubjectAssignment::updateOrCreate([
+                    'instructor_id' => $request->instructor_id,
+                    'subject_id' => $subject->id,
+                    'section_id' => $request->section_id,
+                    'academic_level_id' => $request->academic_level_id,
+                    'grading_period_id' => $gradingPeriodId,
+                    'school_year' => $request->school_year,
+                ], [
+                    'assigned_by' => Auth::id(),
+                    'is_active' => true,
+                    'notes' => $request->notes,
+                ]);
+
+                Log::info('[UPDATE] InstructorSubjectAssignment synced for period', [
+                    'subject_assignment_id' => $subjectAssignment->id,
+                    'instructor_id' => $request->instructor_id,
+                    'subject_id' => $subject->id,
+                    'grading_period_id' => $gradingPeriodId,
+                ]);
+            } catch (\Exception $e) {
+                Log::error('[UPDATE] Failed to sync InstructorSubjectAssignment for period', [
+                    'subject_id' => $subject->id,
+                    'grading_period_id' => $gradingPeriodId,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
     }
 
     public function storeClassAdviserAssignment(Request $request)
@@ -2996,17 +3210,43 @@ class AcademicController extends Controller
 
     public function destroyInstructorAssignment(InstructorCourseAssignment $assignment)
     {
+        // Store grading period info for logging before deletion
+        $gradingPeriodId = $assignment->grading_period_id;
+        $gradingPeriodName = null;
+        if ($gradingPeriodId) {
+            $gradingPeriod = \App\Models\GradingPeriod::find($gradingPeriodId);
+            $gradingPeriodName = $gradingPeriod ? $gradingPeriod->name : 'Unknown';
+        }
+
+        Log::info('[DELETE] Deleting instructor assignment for specific period', [
+            'assignment_id' => $assignment->id,
+            'instructor_id' => $assignment->instructor_id,
+            'course_id' => $assignment->course_id,
+            'subject_id' => $assignment->subject_id,
+            'grading_period_id' => $gradingPeriodId,
+            'grading_period_name' => $gradingPeriodName,
+            'school_year' => $assignment->school_year,
+        ]);
+
         $assignment->delete();
 
-        // Also remove subject-level assignments tied to this course/level + instructor + school year
+        // FIXED: Also remove subject-level assignments for this SPECIFIC grading period only
+        // This ensures we don't delete assignments for other grading periods
         $subjectIds = Subject::where('course_id', $assignment->course_id)
             ->where('academic_level_id', $assignment->academic_level_id)
             ->pluck('id');
-        InstructorSubjectAssignment::where('instructor_id', $assignment->instructor_id)
+
+        $deletedSubjectAssignments = InstructorSubjectAssignment::where('instructor_id', $assignment->instructor_id)
             ->whereIn('subject_id', $subjectIds)
             ->where('academic_level_id', $assignment->academic_level_id)
+            ->where('grading_period_id', $gradingPeriodId) // CRITICAL: Filter by grading_period_id
             ->where('school_year', $assignment->school_year)
             ->delete();
+
+        Log::info('[DELETE] Deleted subject assignments for specific period', [
+            'deleted_count' => $deletedSubjectAssignments,
+            'grading_period_id' => $gradingPeriodId,
+        ]);
 
         // Log activity
         ActivityLog::create([
@@ -3014,6 +3254,12 @@ class AcademicController extends Controller
             'action' => 'deleted_instructor_course_assignment',
             'entity_type' => 'instructor_course_assignment',
             'entity_id' => $assignment->id,
+            'details' => [
+                'grading_period_id' => $gradingPeriodId,
+                'grading_period_name' => $gradingPeriodName,
+                'instructor_id' => $assignment->instructor_id,
+                'course_id' => $assignment->course_id,
+            ],
         ]);
 
         return back()->with('success', 'Instructor assignment removed successfully!');
