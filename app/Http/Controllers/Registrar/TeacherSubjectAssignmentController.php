@@ -55,7 +55,8 @@ class TeacherSubjectAssignmentController extends Controller
             'academic_level_id' => 'required|exists:academic_levels,id',
             'grade_level' => 'nullable|in:grade_11,grade_12',
             'strand_id' => 'nullable|exists:strands,id',
-            'grading_period_id' => 'nullable|exists:grading_periods,id',
+            'grading_period_ids' => 'nullable|array',
+            'grading_period_ids.*' => 'exists:grading_periods,id',
             'school_year' => 'required|string',
             'notes' => 'nullable|string',
             'auto_enroll_students' => 'boolean',
@@ -70,38 +71,56 @@ class TeacherSubjectAssignmentController extends Controller
             return back()->with('error', 'Selected user is not a teacher.');
         }
 
-        $existing = TeacherSubjectAssignment::where([
-            'teacher_id' => $request->teacher_id,
-            'subject_id' => $request->subject_id,
-            'academic_level_id' => $request->academic_level_id,
-            'school_year' => $request->school_year,
-        ])
-        ->when($request->filled('grading_period_id'), function ($q) use ($request) {
-            $q->where('grading_period_id', $request->grading_period_id);
-        }, function ($q) {
-            $q->whereNull('grading_period_id');
-        })
-        ->first();
+        // Get grading period IDs (array or empty)
+        $gradingPeriodIds = $request->grading_period_ids ?? [];
 
-        if ($existing) {
-            return back()->with('error', 'This teacher is already assigned to this subject for the specified period and school year.');
+        // Determine what grading periods to process
+        $periodsToProcess = empty($gradingPeriodIds) ? [null] : $gradingPeriodIds;
+
+        // Check for existing assignments for each grading period
+        foreach ($periodsToProcess as $gradingPeriodId) {
+            $existing = TeacherSubjectAssignment::where([
+                'teacher_id' => $request->teacher_id,
+                'subject_id' => $request->subject_id,
+                'academic_level_id' => $request->academic_level_id,
+                'school_year' => $request->school_year,
+            ])
+            ->when($gradingPeriodId, function ($q) use ($gradingPeriodId) {
+                $q->where('grading_period_id', $gradingPeriodId);
+            }, function ($q) {
+                $q->whereNull('grading_period_id');
+            })
+            ->first();
+
+            if ($existing) {
+                $gradingPeriodName = $gradingPeriodId ? GradingPeriod::find($gradingPeriodId)->name : 'this criteria';
+                return back()->with('error', 'This teacher is already assigned to this subject for ' . $gradingPeriodName . '.');
+            }
         }
 
-        $assignment = TeacherSubjectAssignment::create([
-            'teacher_id' => $request->teacher_id,
-            'subject_id' => $request->subject_id,
-            'academic_level_id' => $request->academic_level_id,
-            'grade_level' => $request->grade_level,
-            'strand_id' => $request->strand_id,
-            'grading_period_id' => $request->grading_period_id ?: null,
-            'school_year' => $request->school_year,
-            'assigned_by' => Auth::id(),
-            'notes' => $request->notes,
-        ]);
+        // Create assignments (one for each grading period, or one without grading period if none selected)
+        $createdAssignments = [];
+        foreach ($periodsToProcess as $gradingPeriodId) {
+            $assignment = TeacherSubjectAssignment::create([
+                'teacher_id' => $request->teacher_id,
+                'subject_id' => $request->subject_id,
+                'academic_level_id' => $request->academic_level_id,
+                'grade_level' => $request->grade_level,
+                'strand_id' => $request->strand_id,
+                'grading_period_id' => $gradingPeriodId,
+                'school_year' => $request->school_year,
+                'assigned_by' => Auth::id(),
+                'notes' => $request->notes,
+            ]);
+            $createdAssignments[] = $assignment;
 
-        if ($request->boolean('auto_enroll_students', true)) {
-            $this->autoEnrollStudents($assignment);
+            if ($request->boolean('auto_enroll_students', true)) {
+                $this->autoEnrollStudents($assignment);
+            }
         }
+
+        // Use the first assignment for logging
+        $assignment = $createdAssignments[0];
 
         ActivityLog::create([
             'user_id' => Auth::id(),
@@ -113,6 +132,7 @@ class TeacherSubjectAssignmentController extends Controller
                 'teacher' => $teacher->name,
                 'subject' => $assignment->subject->name,
                 'school_year' => $request->school_year,
+                'grading_periods_count' => count($createdAssignments),
             ],
         ]);
 
@@ -127,7 +147,8 @@ class TeacherSubjectAssignmentController extends Controller
             'academic_level_id' => 'required|exists:academic_levels,id',
             'grade_level' => 'nullable|in:grade_11,grade_12',
             'strand_id' => 'nullable|exists:strands,id',
-            'grading_period_id' => 'nullable|exists:grading_periods,id',
+            'grading_period_ids' => 'nullable|array',
+            'grading_period_ids.*' => 'exists:grading_periods,id',
             'school_year' => 'required|string',
             'notes' => 'nullable|string',
         ]);
@@ -141,31 +162,41 @@ class TeacherSubjectAssignmentController extends Controller
             return back()->with('error', 'Selected user is not a teacher.');
         }
 
-        $dup = TeacherSubjectAssignment::where([
-            'teacher_id' => $request->teacher_id,
-            'subject_id' => $request->subject_id,
-            'academic_level_id' => $request->academic_level_id,
-            'grading_period_id' => $request->grading_period_id,
-            'school_year' => $request->school_year,
-        ])->where('id', '!=', $assignment->id)->first();
+        // Delete all existing assignments for this teacher+subject+academic_level+school_year combination
+        TeacherSubjectAssignment::where('teacher_id', $request->teacher_id)
+            ->where('subject_id', $request->subject_id)
+            ->where('academic_level_id', $request->academic_level_id)
+            ->where('school_year', $request->school_year)
+            ->delete();
 
-        if ($dup) {
-            return back()->with('error', 'This teacher is already assigned to this subject for the specified period and school year.');
+        // Get grading period IDs (array or empty)
+        $gradingPeriodIds = $request->grading_period_ids ?? [];
+
+        // Determine what grading periods to process
+        $periodsToProcess = empty($gradingPeriodIds) ? [null] : $gradingPeriodIds;
+
+        // Create new assignments (one for each grading period, or one without grading period if none selected)
+        $createdAssignments = [];
+        foreach ($periodsToProcess as $gradingPeriodId) {
+            $newAssignment = TeacherSubjectAssignment::create([
+                'teacher_id' => $request->teacher_id,
+                'subject_id' => $request->subject_id,
+                'academic_level_id' => $request->academic_level_id,
+                'grade_level' => $request->grade_level,
+                'strand_id' => $request->strand_id,
+                'grading_period_id' => $gradingPeriodId,
+                'school_year' => $request->school_year,
+                'assigned_by' => Auth::id(),
+                'notes' => $request->notes,
+            ]);
+            $createdAssignments[] = $newAssignment;
+
+            // Auto-enroll students when assignment is created
+            $this->autoEnrollStudents($newAssignment);
         }
 
-        $assignment->update([
-            'teacher_id' => $request->teacher_id,
-            'subject_id' => $request->subject_id,
-            'academic_level_id' => $request->academic_level_id,
-            'grade_level' => $request->grade_level,
-            'strand_id' => $request->strand_id,
-            'grading_period_id' => $request->grading_period_id,
-            'school_year' => $request->school_year,
-            'notes' => $request->notes,
-        ]);
-
-        // Auto-enroll students when assignment is updated
-        $this->autoEnrollStudents($assignment->fresh());
+        // Use the first assignment for logging
+        $assignment = $createdAssignments[0];
 
         ActivityLog::create([
             'user_id' => Auth::id(),
@@ -177,6 +208,7 @@ class TeacherSubjectAssignmentController extends Controller
                 'teacher' => $teacher->name,
                 'subject' => $assignment->subject->name,
                 'school_year' => $request->school_year,
+                'grading_periods_count' => count($createdAssignments),
             ],
         ]);
 

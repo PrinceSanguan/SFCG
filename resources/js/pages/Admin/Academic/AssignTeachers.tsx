@@ -87,7 +87,7 @@ interface TeacherSubjectAssignment {
     teacher: User;
     subject: Subject;
     academicLevel: AcademicLevel;
-    gradingPeriod: GradingPeriod | null;
+    grading_period: GradingPeriod | null;
     strand?: Strand | null;
 }
 
@@ -271,23 +271,48 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
         shsLevel && assignment.academic_level_id === shsLevel.id
     );
 
+    console.log('[ASSIGN_TEACHERS] Raw SHS assignments BEFORE grouping:', {
+        count: shsAssignments.length,
+        assignments: shsAssignments.map(a => ({
+            id: a.id,
+            teacher: a.teacher?.name,
+            subject: a.subject?.name,
+            grading_period_id: a.grading_period_id,
+            gradingPeriod: a.grading_period,
+            gradingPeriod_exists: !!a.grading_period,
+            gradingPeriod_name: a.grading_period?.name || 'NULL'
+        }))
+    });
+
     // Group assignments by teacher+subject+school_year to combine multiple grading periods
     const groupedAssignments = shsAssignments.reduce((groups: any[], assignment) => {
         const key = `${assignment.teacher_id}-${assignment.subject_id}-${assignment.school_year}`;
         const existingGroup = groups.find(g => g.key === key);
 
+        console.log('[GROUPING] Processing assignment:', {
+            id: assignment.id,
+            key,
+            grading_period_id: assignment.grading_period_id,
+            has_gradingPeriod_object: !!assignment.grading_period,
+            gradingPeriod_data: assignment.grading_period
+        });
+
         if (existingGroup) {
             // Add this grading period to existing group (only if it exists)
-            if (assignment.gradingPeriod) {
-                existingGroup.gradingPeriods.push(assignment.gradingPeriod);
+            if (assignment.grading_period) {
+                console.log('[GROUPING] Adding to existing group:', assignment.grading_period);
+                existingGroup.gradingPeriods.push(assignment.grading_period);
+            } else {
+                console.log('[GROUPING] ❌ No gradingPeriod object to add!');
             }
             existingGroup.assignmentIds.push(assignment.id);
         } else {
             // Create new group
+            console.log('[GROUPING] Creating new group with gradingPeriods:', assignment.grading_period ? [assignment.grading_period] : []);
             groups.push({
                 key,
                 ...assignment,
-                gradingPeriods: assignment.gradingPeriod ? [assignment.gradingPeriod] : [],
+                gradingPeriods: assignment.grading_period ? [assignment.grading_period] : [],
                 assignmentIds: [assignment.id],
                 originalAssignment: assignment, // Keep reference to original for edit/delete
             });
@@ -395,7 +420,7 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
             subject_name: assignment.subject?.name,
             grading_period_id_single: assignment.grading_period_id,
             grading_periods_count: isGrouped ? assignmentOrGroup.gradingPeriods.length : 1,
-            all_grading_periods: isGrouped ? assignmentOrGroup.gradingPeriods.map((gp: any) => ({ id: gp?.id, name: gp?.name })) : [assignment.gradingPeriod]
+            all_grading_periods: isGrouped ? assignmentOrGroup.gradingPeriods.map((gp: any) => ({ id: gp?.id, name: gp?.name })) : [assignment.grading_period]
         });
 
         // Extract ALL grading period IDs from the grouped assignment
@@ -996,9 +1021,9 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                                         ) : (
                                             <div className="space-y-4">
                                                 {assignmentForm.semester_ids.map((semesterId) => {
-                                                    const semester = semesterOptions.find(s => s.id.toString() === semesterId);
+                                                    const semester = semesterOptions.find(s => s.id === semesterId);
                                                     const periods = filteredGradingPeriods.filter(
-                                                        p => p.parent_id === parseInt(semesterId) && p.period_type !== 'final'
+                                                        p => p.parent_id === semesterId && p.period_type !== 'final'
                                                     );
 
                                                     return periods.length > 0 ? (
@@ -1264,12 +1289,16 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                                 {(() => {
                                     console.log('[EDIT_TEACHER_RENDER] Rendering grading periods:', {
                                         grading_period_ids: assignmentForm.grading_period_ids,
-                                        filteredGradingPeriods_count: filteredGradingPeriods.length
+                                        filteredGradingPeriods_count: filteredGradingPeriods.length,
+                                        academic_level_id: assignmentForm.academic_level_id
                                     });
 
-                                    // Filter out "Average" periods (auto-calculated)
-                                    const assignablePeriods = filteredGradingPeriods.filter(
-                                        p => p.parent_id !== null && p.period_type !== 'final'
+                                    // Filter directly from gradingPeriods prop for edit modal
+                                    // (not from filteredGradingPeriods state which depends on useEffect timing)
+                                    const assignablePeriods = gradingPeriods.filter(
+                                        p => p.academic_level_id === parseInt(assignmentForm.academic_level_id) &&
+                                             p.parent_id !== null &&
+                                             p.period_type !== 'final'
                                     );
 
                                     console.log('[EDIT_TEACHER_RENDER] Assignable periods:', {
@@ -1299,12 +1328,10 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                                                         </div>
                                                         <div className="space-y-2 ml-2">
                                                             {periods.map((period) => {
-                                                                const periodIdString = period.id.toString();
-                                                                const isChecked = assignmentForm.grading_period_ids.includes(periodIdString);
+                                                                const isChecked = assignmentForm.grading_period_ids.includes(period.id);
 
                                                                 console.log('[EDIT_TEACHER_CHECKBOX] Rendering checkbox:', {
                                                                     period_id: period.id,
-                                                                    period_id_string: periodIdString,
                                                                     period_name: period.name,
                                                                     form_grading_period_ids: assignmentForm.grading_period_ids,
                                                                     isChecked
@@ -1317,7 +1344,7 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
                                                                             id={`edit-period-${period.id}`}
                                                                             checked={isChecked}
                                                                             onChange={(e) => {
-                                                                                const periodId = period.id.toString();
+                                                                                const periodId = period.id;
                                                                                 if (e.target.checked) {
                                                                                     setAssignmentForm({
                                                                                         ...assignmentForm,

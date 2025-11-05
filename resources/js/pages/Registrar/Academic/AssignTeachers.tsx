@@ -82,7 +82,7 @@ interface TeacherSubjectAssignment {
     teacher: User;
     subject: Subject;
     academicLevel: AcademicLevel;
-    gradingPeriod: GradingPeriod | null;
+    grading_period: GradingPeriod | null;
     track?: Track | null;
     strand?: Strand | null;
 }
@@ -144,8 +144,8 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
         track_id: '',
         strand_id: '',
         section_id: '',
-        semester_ids: [] as string[],
-        grading_period_ids: [] as string[],
+        semester_ids: [] as number[],
+        grading_period_ids: [] as number[],
         school_year: '',
         notes: '',
         is_active: true,
@@ -262,12 +262,48 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
         );
     }
     
-    const shsAssignments = (assignments || []).filter(assignment => 
+    const shsAssignments = (assignments || []).filter(assignment =>
         assignment.academic_level_id === shsLevel.id
     );
+
+    // Group assignments by teacher+subject+school_year to combine multiple grading periods
+    const groupedAssignments = shsAssignments.reduce((groups: any[], assignment) => {
+        const key = `${assignment.teacher_id}-${assignment.subject_id}-${assignment.school_year}`;
+        const existingGroup = groups.find(g => g.key === key);
+
+        if (existingGroup) {
+            // Add this grading period to existing group (only if it exists)
+            if (assignment.grading_period) {
+                existingGroup.gradingPeriods.push(assignment.grading_period);
+            }
+            existingGroup.assignmentIds.push(assignment.id);
+        } else {
+            // Create new group
+            groups.push({
+                key,
+                ...assignment,
+                gradingPeriods: assignment.grading_period ? [assignment.grading_period] : [],
+                assignmentIds: [assignment.id],
+                originalAssignment: assignment, // Keep reference to original for edit/delete
+            });
+        }
+
+        return groups;
+    }, []);
+
+    console.log('[REGISTRAR_ASSIGN_TEACHERS] Grouped assignments:', {
+        total_assignments: shsAssignments.length,
+        grouped_count: groupedAssignments.length,
+        groups: groupedAssignments.map(g => ({
+            teacher: g.teacher.name,
+            subject: g.subject.name,
+            grading_periods: g.gradingPeriods.map((gp: any) => gp?.name || 'N/A'),
+        })),
+    });
+
     // Subjects are already filtered by SHS level in the backend
     const shsSubjects = subjects || [];
-    const shsGradingPeriods = (gradingPeriods || []).filter(period => 
+    const shsGradingPeriods = (gradingPeriods || []).filter(period =>
         period.academic_level_id === shsLevel.id
     );
 
@@ -321,16 +357,25 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
         );
     };
 
-    const destroyAssignment = (id: number) => {
-        if (confirm('Are you sure you want to delete this assignment?')) {
-            router.delete(`/registrar/academic/assign-teachers/${id}`, {
-                onSuccess: () => {
-                    // Success
-                },
-                onError: (errors) => {
-                    console.error(errors);
-                },
-            });
+    const destroyAssignment = (ids: number | number[]) => {
+        const idsArray = Array.isArray(ids) ? ids : [ids];
+        const message = idsArray.length > 1
+            ? `Are you sure you want to delete these ${idsArray.length} assignments?`
+            : 'Are you sure you want to delete this assignment?';
+
+        if (confirm(message)) {
+            // Delete all assignments sequentially
+            const deletePromises = idsArray.map(id =>
+                router.delete(`/registrar/academic/assign-teachers/${id}`, {
+                    onSuccess: () => {
+                        // Success
+                    },
+                    onError: (errors) => {
+                        console.error(errors);
+                    },
+                    preserveScroll: true,
+                })
+            );
         }
     };
 
@@ -347,31 +392,31 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
             subject_name: assignment.subject?.name,
             grading_period_id_single: assignment.grading_period_id,
             grading_periods_count: isGrouped ? assignmentOrGroup.gradingPeriods.length : 1,
-            all_grading_periods: isGrouped ? assignmentOrGroup.gradingPeriods.map((gp: any) => ({ id: gp?.id, name: gp?.name })) : [assignment.gradingPeriod]
+            all_grading_periods: isGrouped ? assignmentOrGroup.gradingPeriods.map((gp: any) => ({ id: gp?.id, name: gp?.name })) : [assignment.grading_period]
         });
 
         // Extract ALL grading period IDs from the grouped assignment
-        let gradingPeriodIds: string[] = [];
+        let gradingPeriodIds: number[] = [];
         if (isGrouped) {
             // Get all grading period IDs from the group
             gradingPeriodIds = assignmentOrGroup.gradingPeriods
                 .filter((gp: any) => gp && gp.id) // Filter out null/undefined
-                .map((gp: any) => gp.id.toString());
+                .map((gp: any) => gp.id);
 
             console.log('[REGISTRAR_EDIT_TEACHER] Extracted grading period IDs from group:', gradingPeriodIds);
         } else {
             // Single assignment - just use its grading period
-            gradingPeriodIds = assignment.grading_period_id ? [assignment.grading_period_id.toString()] : [];
+            gradingPeriodIds = assignment.grading_period_id ? [assignment.grading_period_id] : [];
             console.log('[REGISTRAR_EDIT_TEACHER] Using single grading period ID:', gradingPeriodIds);
         }
 
         // FIXED: Derive semester IDs from the grading period IDs
         // This is critical for SHS where grading periods have parent semesters
-        const semesterIds: string[] = [];
+        const semesterIds: number[] = [];
         gradingPeriodIds.forEach(gpId => {
-            const period = gradingPeriods.find(p => p.id.toString() === gpId);
+            const period = gradingPeriods.find(p => p.id === gpId);
             if (period && period.parent_id) {
-                const semesterId = period.parent_id.toString();
+                const semesterId = period.parent_id;
                 if (!semesterIds.includes(semesterId)) {
                     semesterIds.push(semesterId);
                 }
@@ -382,7 +427,7 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
             gradingPeriodIds,
             semesterIds,
             periods: gradingPeriodIds.map(gpId => {
-                const p = gradingPeriods.find(gp => gp.id.toString() === gpId);
+                const p = gradingPeriods.find(gp => gp.id === gpId);
                 return { id: gpId, name: p?.name, parent_id: p?.parent_id };
             })
         });
@@ -822,49 +867,53 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
             </div>
 
             {/* Assignments Table */}
-            {shsAssignments.length > 0 ? (
+            {groupedAssignments.length > 0 ? (
                 <div className="grid gap-4">
-                    {shsAssignments.map((assignment) => (
-                        <Card key={assignment.id}>
+                    {groupedAssignments.map((group) => (
+                        <Card key={group.key}>
                             <CardContent className="pt-6">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center space-x-4">
                                         <div className="flex items-center space-x-2">
                                             <User className="h-4 w-4 text-gray-500" />
-                                            <span className="font-medium">{assignment.teacher.name}</span>
+                                            <span className="font-medium">{group.teacher.name}</span>
                                         </div>
                                         <span className="text-gray-400">→</span>
                                         <div className="flex items-center space-x-2">
                                             <BookOpen className="h-4 w-4 text-gray-500" />
-                                            <span className="font-medium">{assignment.subject.name}</span>
-                                            <Badge variant="outline">{assignment.subject.code}</Badge>
-                                            {getCoreBadge(assignment.subject.is_core)}
-                                            {assignment.strand && (
-                                                <Badge variant="secondary">{assignment.strand.name}</Badge>
+                                            <span className="font-medium">{group.subject.name}</span>
+                                            <Badge variant="outline">{group.subject.code}</Badge>
+                                            {getCoreBadge(group.subject.is_core)}
+                                            {group.strand && (
+                                                <Badge variant="secondary">{group.strand.name}</Badge>
                                             )}
                                         </div>
                                     </div>
                                     <div className="flex items-center space-x-4">
                                         <div className="flex items-center space-x-2 text-sm text-gray-600">
                                             <Calendar className="h-4 w-4" />
-                                            <span>{assignment.school_year}</span>
+                                            <span>{group.school_year}</span>
                                         </div>
-                                        {assignment.gradingPeriod && (
-                                            <Badge variant="secondary">{assignment.gradingPeriod.name}</Badge>
+                                        {group.gradingPeriods && group.gradingPeriods.length > 0 && (
+                                            <div className="flex items-center gap-2">
+                                                {group.gradingPeriods.map((gp: any, idx: number) => (
+                                                    <Badge key={idx} variant="secondary">{gp?.name || 'N/A'}</Badge>
+                                                ))}
+                                            </div>
                                         )}
-                                        {getStatusBadge(assignment.is_active)}
+                                        {getStatusBadge(group.is_active)}
                                         <div className="flex items-center space-x-2">
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
-                                                onClick={() => openEditModal(assignment)}
+                                                onClick={() => openEditModal(group)}
                                             >
                                                 <Edit className="h-4 w-4" />
                                             </Button>
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
-                                                onClick={() => destroyAssignment(assignment.id)}
+                                                onClick={() => destroyAssignment(group.assignmentIds)}
                                                 className="text-red-600 hover:text-red-700"
                                             >
                                                 <Trash2 className="h-4 w-4" />
@@ -873,11 +922,11 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
                                     </div>
                                 </div>
                                 <div className="flex items-center space-x-4 mt-2 text-sm text-gray-600">
-                                    <span>Units: {assignment.subject.units}</span>
-                                    <span>Hours/Week: {assignment.subject.hours_per_week}</span>
+                                    <span>Units: {group.subject.units}</span>
+                                    <span>Hours/Week: {group.subject.hours_per_week}</span>
                                 </div>
-                                {assignment.notes && (
-                                    <p className="text-sm text-gray-600 mt-2">{assignment.notes}</p>
+                                {group.notes && (
+                                    <p className="text-sm text-gray-600 mt-2">{group.notes}</p>
                                 )}
                             </CardContent>
                         </Card>
@@ -973,39 +1022,91 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
                         <div>
                             <Label htmlFor="edit_grading_periods">Grading Periods</Label>
                             <div className="border rounded-lg p-3">
-                                {filteredGradingPeriods.filter(p => p.parent_id !== null).length > 0 ? (
-                                    <div className="space-y-2">
-                                        {filteredGradingPeriods.filter(p => p.parent_id !== null).map((period) => (
-                                            <div key={period.id} className="flex items-center space-x-2">
-                                                <input
-                                                    type="checkbox"
-                                                    id={`edit-period-${period.id}`}
-                                                    checked={assignmentForm.grading_period_ids.includes(period.id.toString())}
-                                                    onChange={(e) => {
-                                                        const periodId = period.id.toString();
-                                                        if (e.target.checked) {
-                                                            setAssignmentForm({
-                                                                ...assignmentForm,
-                                                                grading_period_ids: [...assignmentForm.grading_period_ids, periodId]
-                                                            });
-                                                        } else {
-                                                            setAssignmentForm({
-                                                                ...assignmentForm,
-                                                                grading_period_ids: assignmentForm.grading_period_ids.filter(id => id !== periodId)
-                                                            });
-                                                        }
-                                                    }}
-                                                    className="w-4 h-4 rounded border-gray-300"
-                                                />
-                                                <Label htmlFor={`edit-period-${period.id}`} className="text-sm font-normal cursor-pointer">
-                                                    {period.name}
-                                                </Label>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <p className="text-sm text-gray-500">No grading periods available</p>
-                                )}
+                                {(() => {
+                                    console.log('[EDIT_TEACHER_RENDER] Rendering grading periods:', {
+                                        grading_period_ids: assignmentForm.grading_period_ids,
+                                        semester_ids: assignmentForm.semester_ids,
+                                        filteredGradingPeriods_count: filteredGradingPeriods.length
+                                    });
+
+                                    // Filter out "Average" periods (auto-calculated)
+                                    const assignablePeriods = filteredGradingPeriods.filter(
+                                        p => p.parent_id !== null && p.period_type !== 'final'
+                                    );
+
+                                    console.log('[EDIT_TEACHER_RENDER] Assignable periods:', {
+                                        count: assignablePeriods.length,
+                                        periods: assignablePeriods.map(p => ({ id: p.id, name: p.name, parent_id: p.parent_id }))
+                                    });
+
+                                    // Get unique parent semester IDs from assignable periods
+                                    const uniqueParentIds = [...new Set(
+                                        assignablePeriods.map(p => p.parent_id).filter(id => id !== null)
+                                    )];
+
+                                    console.log('[EDIT_TEACHER_RENDER] Unique parent IDs:', uniqueParentIds);
+
+                                    if (uniqueParentIds.length === 0) {
+                                        return <p className="text-sm text-gray-500">No grading periods available</p>;
+                                    }
+
+                                    return (
+                                        <div className="space-y-4">
+                                            {uniqueParentIds.map((parentId) => {
+                                                const semester = semesterOptions.find(s => s.id === parentId);
+                                                const periods = assignablePeriods.filter(p => p.parent_id === parentId);
+
+                                                return periods.length > 0 ? (
+                                                    <div key={parentId}>
+                                                        <div className="text-sm font-medium text-blue-600 mb-2 border-l-4 border-blue-600 pl-2">
+                                                            {semester?.name} Periods:
+                                                        </div>
+                                                        <div className="space-y-2 ml-2">
+                                                            {periods.map((period) => {
+                                                                const isChecked = assignmentForm.grading_period_ids.includes(period.id);
+
+                                                                console.log('[EDIT_TEACHER_CHECKBOX] Rendering checkbox:', {
+                                                                    period_id: period.id,
+                                                                    period_name: period.name,
+                                                                    form_grading_period_ids: assignmentForm.grading_period_ids,
+                                                                    isChecked
+                                                                });
+
+                                                                return (
+                                                                    <div key={period.id} className="flex items-center space-x-2">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            id={`edit-period-${period.id}`}
+                                                                            checked={isChecked}
+                                                                            onChange={(e) => {
+                                                                                const periodId = period.id;
+                                                                                if (e.target.checked) {
+                                                                                    setAssignmentForm({
+                                                                                        ...assignmentForm,
+                                                                                        grading_period_ids: [...assignmentForm.grading_period_ids, periodId]
+                                                                                    });
+                                                                                } else {
+                                                                                    setAssignmentForm({
+                                                                                        ...assignmentForm,
+                                                                                        grading_period_ids: assignmentForm.grading_period_ids.filter(id => id !== periodId)
+                                                                                    });
+                                                                                }
+                                                                            }}
+                                                                            className="w-4 h-4 rounded border-gray-300"
+                                                                        />
+                                                                        <Label htmlFor={`edit-period-${period.id}`} className="text-sm font-normal cursor-pointer">
+                                                                            {period.name}
+                                                                        </Label>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                ) : null;
+                                            })}
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         </div>
 
