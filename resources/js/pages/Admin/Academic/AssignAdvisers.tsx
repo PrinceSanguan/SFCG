@@ -263,7 +263,18 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
     };
 
     const openEditModal = (assignment: ClassAdviserAssignment) => {
-        console.log('Opening edit modal for adviser assignment:', {
+        console.log('[ASSIGN_ADVISERS] ===== DIAGNOSTIC START =====');
+        console.log('[ASSIGN_ADVISERS] Raw assignment object:', assignment);
+        console.log('[ASSIGN_ADVISERS] Assignment keys:', Object.keys(assignment));
+        console.log('[ASSIGN_ADVISERS] grading_period_ids detailed check:', {
+            value: assignment.grading_period_ids,
+            type: typeof assignment.grading_period_ids,
+            isNull: assignment.grading_period_ids === null,
+            isArray: Array.isArray(assignment.grading_period_ids),
+            length: assignment.grading_period_ids?.length,
+            stringified: JSON.stringify(assignment.grading_period_ids)
+        });
+        console.log('[ASSIGN_ADVISERS] Opening edit modal for adviser assignment:', {
             id: assignment.id,
             adviser: assignment.adviser?.name,
             grading_period_ids: assignment.grading_period_ids,
@@ -272,7 +283,8 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
         });
 
         setEditAssignment(assignment);
-        setAssignmentForm({
+
+        const formData = {
             adviser_id: assignment.adviser_id.toString(),
             subject_id: assignment.subject_id?.toString() || '',
             academic_level_id: assignment.academic_level_id.toString(),
@@ -282,7 +294,18 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
             school_year: assignment.school_year,
             notes: assignment.notes || '',
             is_active: assignment.is_active,
+        };
+
+        console.log('[ASSIGN_ADVISERS] Form data being set:', formData);
+        console.log('[ASSIGN_ADVISERS] grading_period_ids after transformation:', {
+            value: formData.grading_period_ids,
+            type: typeof formData.grading_period_ids,
+            isArray: Array.isArray(formData.grading_period_ids),
+            length: formData.grading_period_ids?.length
         });
+        console.log('[ASSIGN_ADVISERS] ===== DIAGNOSTIC END =====');
+
+        setAssignmentForm(formData);
         setEditModal(true);
     };
 
@@ -838,6 +861,45 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
                                     </SelectContent>
                                 </Select>
                             </div>
+
+                            {filteredGradingPeriods.length > 0 && (
+                                <div className="md:col-span-2 border rounded-lg p-4">
+                                    <Label className="text-base font-semibold mb-3 block">Grading Periods (Optional)</Label>
+                                    <p className="text-sm text-gray-500 mb-3">Select specific grading periods for this assignment, or leave empty to apply to all periods.</p>
+                                    <div className="space-y-2">
+                                        {filteredGradingPeriods
+                                            .filter(p => !p.parent_id)
+                                            .sort((a, b) => a.name.localeCompare(b.name))
+                                            .map((period) => (
+                                                <div key={period.id} className="flex items-center space-x-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        id={`edit-period-${period.id}`}
+                                                        checked={assignmentForm.grading_period_ids.includes(period.id)}
+                                                        onChange={(e) => {
+                                                            const periodId = period.id;
+                                                            if (e.target.checked) {
+                                                                setAssignmentForm({
+                                                                    ...assignmentForm,
+                                                                    grading_period_ids: [...assignmentForm.grading_period_ids, periodId]
+                                                                });
+                                                            } else {
+                                                                setAssignmentForm({
+                                                                    ...assignmentForm,
+                                                                    grading_period_ids: assignmentForm.grading_period_ids.filter(id => id !== periodId)
+                                                                });
+                                                            }
+                                                        }}
+                                                        className="w-4 h-4 rounded border-gray-300"
+                                                    />
+                                                    <Label htmlFor={`edit-period-${period.id}`} className="text-sm font-normal cursor-pointer">
+                                                        {period.name} ({period.code})
+                                                    </Label>
+                                                </div>
+                                            ))}
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="md:col-span-2">
                                 <Label htmlFor="edit_notes">Notes</Label>

@@ -412,6 +412,16 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
         const isGrouped = assignmentOrGroup.gradingPeriods && Array.isArray(assignmentOrGroup.gradingPeriods);
         const assignment = isGrouped ? assignmentOrGroup.originalAssignment : assignmentOrGroup;
 
+        console.log('[EDIT_TEACHER] ===== DIAGNOSTIC START =====');
+        console.log('[EDIT_TEACHER] Raw assignment object keys:', Object.keys(assignment));
+        console.log('[EDIT_TEACHER] Assignment grading_period check:', {
+            grading_period_id: assignment.grading_period_id,
+            grading_period_snake: assignment.grading_period,
+            gradingPeriod_camel: assignment.gradingPeriod,
+            has_snake_case: !!assignment.grading_period,
+            has_camel_case: !!assignment.gradingPeriod
+        });
+
         console.log('[EDIT_TEACHER] Opening edit modal:', {
             isGrouped,
             teacher_id: assignment.teacher_id,
@@ -482,6 +492,7 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
         };
 
         console.log('[EDIT_TEACHER] Setting form data:', formData);
+        console.log('[EDIT_TEACHER] ===== DIAGNOSTIC END =====');
 
         setAssignmentForm(formData);
         setEditModal(true);

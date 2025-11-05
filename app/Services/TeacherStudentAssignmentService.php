@@ -63,6 +63,7 @@ class TeacherStudentAssignmentService
                 'academic_level_id' => $subject->academic_level_id,
                 'grade_level' => $assignmentData['grade_level'] ?? $this->getGradeLevelFromSubject($subject),
                 'section' => $assignmentData['section'] ?? $this->getSectionFromSubject($subject),
+                'grading_period_ids' => $assignmentData['grading_period_ids'] ?? null,
                 'school_year' => $currentSchoolYear,
                 'is_active' => true,
                 'assigned_at' => now(),

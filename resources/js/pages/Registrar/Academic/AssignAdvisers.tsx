@@ -839,6 +839,45 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
                                 </Select>
                             </div>
 
+                            {filteredGradingPeriods.length > 0 && (
+                                <div className="md:col-span-2 border rounded-lg p-4">
+                                    <Label className="text-base font-semibold mb-3 block">Grading Periods (Optional)</Label>
+                                    <p className="text-sm text-gray-500 mb-3">Select specific grading periods for this assignment, or leave empty to apply to all periods.</p>
+                                    <div className="space-y-2">
+                                        {filteredGradingPeriods
+                                            .filter(p => !p.parent_id)
+                                            .sort((a, b) => a.name.localeCompare(b.name))
+                                            .map((period) => (
+                                                <div key={period.id} className="flex items-center space-x-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        id={`edit-period-${period.id}`}
+                                                        checked={assignmentForm.grading_period_ids.includes(period.id.toString())}
+                                                        onChange={(e) => {
+                                                            const periodId = period.id.toString();
+                                                            if (e.target.checked) {
+                                                                setAssignmentForm({
+                                                                    ...assignmentForm,
+                                                                    grading_period_ids: [...assignmentForm.grading_period_ids, periodId]
+                                                                });
+                                                            } else {
+                                                                setAssignmentForm({
+                                                                    ...assignmentForm,
+                                                                    grading_period_ids: assignmentForm.grading_period_ids.filter(id => id !== periodId)
+                                                                });
+                                                            }
+                                                        }}
+                                                        className="w-4 h-4 rounded border-gray-300"
+                                                    />
+                                                    <Label htmlFor={`edit-period-${period.id}`} className="text-sm font-normal cursor-pointer">
+                                                        {period.name} ({period.code})
+                                                    </Label>
+                                                </div>
+                                            ))}
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="md:col-span-2">
                                 <Label htmlFor="edit_notes">Notes</Label>
                                 <Textarea

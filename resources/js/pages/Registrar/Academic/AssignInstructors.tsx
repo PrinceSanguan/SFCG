@@ -344,10 +344,13 @@ export default function AssignInstructors({ user, assignments, instructors, depa
         let semesterIds: string[] = [];
         let gradingPeriodIds: string[] = [];
 
-        if (assignment.gradingPeriod) {
+        // CRITICAL FIX: Laravel sends snake_case, not camelCase
+        const gradingPeriod = (assignment as any).grading_period || assignment.gradingPeriod;
+
+        if (gradingPeriod) {
             // If the grading period has a parent_id, it's a child period
-            if (assignment.gradingPeriod.parent_id) {
-                semesterIds = [assignment.gradingPeriod.parent_id.toString()];
+            if (gradingPeriod.parent_id) {
+                semesterIds = [gradingPeriod.parent_id.toString()];
                 gradingPeriodIds = [assignment.grading_period_id!.toString()];
             } else {
                 // If no parent_id, the grading period itself IS the semester
@@ -816,7 +819,7 @@ export default function AssignInstructors({ user, assignments, instructors, depa
                                     instructor: assignment.instructor,
                                     course: assignment.course,
                                     year_level: assignment.year_level,
-                                    gradingPeriod: assignment.gradingPeriod,
+                                    gradingPeriod: (assignment as any).grading_period || assignment.gradingPeriod,
                                     school_year: assignment.school_year,
                                     is_active: assignment.is_active,
                                     assignments: []

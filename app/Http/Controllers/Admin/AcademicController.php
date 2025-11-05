@@ -328,13 +328,29 @@ class AcademicController extends Controller
         
         // Transform assignments to ensure academic level data is included
         $transformedAssignments = $assignments->map(function ($assignment) {
+            // DIAGNOSTIC: Log raw data from database
+            \Log::info('[ASSIGN_ADVISERS_BACKEND] Raw assignment from database:', [
+                'id' => $assignment->id,
+                'adviser' => $assignment->adviser?->name,
+                'grading_period_ids_raw' => $assignment->grading_period_ids,
+                'grading_period_ids_type' => gettype($assignment->grading_period_ids),
+                'grading_period_ids_is_null' => is_null($assignment->grading_period_ids),
+                'grading_period_ids_is_array' => is_array($assignment->grading_period_ids),
+                'grading_period_ids_json' => json_encode($assignment->grading_period_ids),
+                'section' => $assignment->section,
+                'grade_level' => $assignment->grade_level,
+            ]);
+
+            // FIX: Ensure grading_period_ids is always an array, never null
+            $gradingPeriodIds = $assignment->grading_period_ids ?? [];
+
             $transformed = [
                 'id' => $assignment->id,
                 'adviser_id' => $assignment->adviser_id,
                 'academic_level_id' => $assignment->academic_level_id,
                 'grade_level' => $assignment->grade_level,
                 'section' => $assignment->section,
-                'grading_period_ids' => $assignment->grading_period_ids,
+                'grading_period_ids' => $gradingPeriodIds,  // Use fixed value
                 'school_year' => $assignment->school_year,
                 'notes' => $assignment->notes,
                 'is_active' => $assignment->is_active,
@@ -348,13 +364,11 @@ class AcademicController extends Controller
                 'subject' => $assignment->subject,
             ];
 
-            // Log adviser assignment data for debugging
-            \Log::info('Adviser Assignment Transformation:', [
-                'id' => $assignment->id,
-                'adviser' => $assignment->adviser?->name,
-                'grading_period_ids' => $assignment->grading_period_ids,
-                'section' => $assignment->section,
-                'grade_level' => $assignment->grade_level,
+            // DIAGNOSTIC: Log transformed data being sent to frontend
+            \Log::info('[ASSIGN_ADVISERS_BACKEND] Transformed assignment for frontend:', [
+                'id' => $transformed['id'],
+                'grading_period_ids_transformed' => $transformed['grading_period_ids'],
+                'grading_period_ids_type' => gettype($transformed['grading_period_ids']),
             ]);
 
             return $transformed;
