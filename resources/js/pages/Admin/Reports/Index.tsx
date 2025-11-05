@@ -543,9 +543,21 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
   const handleHonorStatistics = (e: React.FormEvent) => {
     e.preventDefault();
 
+    console.log('=== [ADMIN] HONOR STATISTICS FORM SUBMISSION ===');
+    console.log('[ADMIN] Honor Data:', honorData);
+
     if (!csrfToken) {
-      console.error('CSRF token not found');
+      console.error('[ADMIN] CSRF token not found');
       alert('Session expired. Please refresh the page and try again.');
+      return;
+    }
+
+    console.log('[ADMIN] CSRF Token:', csrfToken);
+
+    // Validate required fields
+    if (!honorData.school_year) {
+      console.error('[ADMIN] School year is required');
+      alert('Please select a school year before generating the report.');
       return;
     }
 
@@ -558,6 +570,9 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
       iframe.id = 'download-iframe';
       iframe.style.display = 'none';
       document.body.appendChild(iframe);
+      console.log('[ADMIN] Created download iframe');
+    } else {
+      console.log('[ADMIN] Using existing download iframe');
     }
 
     // Create a temporary form for file download
@@ -565,6 +580,8 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
     form.method = 'POST';
     form.action = route('admin.reports.honor-statistics');
     form.target = 'download-iframe';
+
+    console.log('[ADMIN] Form action URL:', form.action);
 
     // Add CSRF token
     const csrfInput = document.createElement('input');
@@ -574,6 +591,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
     form.appendChild(csrfInput);
 
     // Add form data
+    const formDataEntries: Record<string, string> = {};
     Object.entries(honorData).forEach(([key, value]) => {
       const input = document.createElement('input');
       input.type = 'hidden';
@@ -584,23 +602,79 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
       } else {
         input.value = value?.toString() || '';
       }
+      formDataEntries[key] = input.value;
       form.appendChild(input);
     });
 
+    console.log('[ADMIN] Form data being submitted:', formDataEntries);
+
     document.body.appendChild(form);
+    console.log('[ADMIN] Form appended to body, submitting...');
     form.submit();
+    console.log('[ADMIN] Form submitted');
     document.body.removeChild(form);
+    console.log('[ADMIN] Form removed from body');
+
+    // Add iframe load listener to detect errors
+    iframe.onload = () => {
+      console.log('[ADMIN] Iframe loaded');
+      try {
+        const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (iframeDoc) {
+          const body = iframeDoc.body;
+          const bodyText = body?.textContent || '';
+          console.log('[ADMIN] Iframe body content length:', bodyText.length);
+          console.log('[ADMIN] Iframe body preview:', bodyText.substring(0, 500));
+
+          // Check for error messages
+          if (bodyText.includes('error') || bodyText.includes('Error') || bodyText.includes('Exception')) {
+            console.error('[ADMIN] Error detected in response:', bodyText.substring(0, 1000));
+            alert('An error occurred while generating the report. Please check the console and Laravel logs for details.');
+          }
+        }
+      } catch (e) {
+        console.log('[ADMIN] Could not access iframe content (this is normal for successful downloads):', e);
+      }
+    };
 
     // Reset loading state after a delay
-    setTimeout(() => setIsGenerating(false), 2000);
+    setTimeout(() => {
+      console.log('[ADMIN] Resetting loading state');
+      setIsGenerating(false);
+    }, 3000);
   };
 
   const handleArchiveRecords = (e: React.FormEvent) => {
     e.preventDefault();
 
+    console.log('=== [ADMIN] ARCHIVE RECORDS FORM SUBMISSION ===');
+    console.log('[ADMIN] Archive Data:', archiveData);
+
     if (!csrfToken) {
-      console.error('CSRF token not found');
+      console.error('[ADMIN] CSRF token not found');
       alert('Session expired. Please refresh the page and try again.');
+      return;
+    }
+
+    console.log('[ADMIN] CSRF Token:', csrfToken);
+
+    // Validate required fields
+    if (!archiveData.academic_level_id) {
+      console.error('[ADMIN] Academic level is required');
+      alert('Please select an academic level before creating the archive.');
+      return;
+    }
+
+    if (!archiveData.school_year) {
+      console.error('[ADMIN] School year is required');
+      alert('Please select a school year before creating the archive.');
+      return;
+    }
+
+    // Validate at least one data type is selected
+    if (!archiveData.include_grades && !archiveData.include_honors && !archiveData.include_certificates) {
+      console.error('[ADMIN] No data types selected');
+      alert('Please select at least one data type to include in the archive (grades, honors, or certificates).');
       return;
     }
 
@@ -613,6 +687,9 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
       iframe.id = 'download-iframe';
       iframe.style.display = 'none';
       document.body.appendChild(iframe);
+      console.log('[ADMIN] Created download iframe');
+    } else {
+      console.log('[ADMIN] Using existing download iframe');
     }
 
     // Create a temporary form for file download
@@ -620,6 +697,8 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
     form.method = 'POST';
     form.action = route('admin.reports.archive-records');
     form.target = 'download-iframe';
+
+    console.log('[ADMIN] Form action URL:', form.action);
 
     // Add CSRF token
     const csrfInput = document.createElement('input');
@@ -629,6 +708,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
     form.appendChild(csrfInput);
 
     // Add form data
+    const formDataEntries: Record<string, string> = {};
     Object.entries(archiveData).forEach(([key, value]) => {
       const input = document.createElement('input');
       input.type = 'hidden';
@@ -639,15 +719,46 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
       } else {
         input.value = value?.toString() || '';
       }
+      formDataEntries[key] = input.value;
       form.appendChild(input);
     });
 
+    console.log('[ADMIN] Form data being submitted:', formDataEntries);
+
     document.body.appendChild(form);
+    console.log('[ADMIN] Form appended to body, submitting...');
     form.submit();
+    console.log('[ADMIN] Form submitted');
     document.body.removeChild(form);
+    console.log('[ADMIN] Form removed from body');
+
+    // Add iframe load listener to detect errors
+    iframe.onload = () => {
+      console.log('[ADMIN] Iframe loaded');
+      try {
+        const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (iframeDoc) {
+          const body = iframeDoc.body;
+          const bodyText = body?.textContent || '';
+          console.log('[ADMIN] Iframe body content length:', bodyText.length);
+          console.log('[ADMIN] Iframe body preview:', bodyText.substring(0, 500));
+
+          // Check for error messages
+          if (bodyText.includes('error') || bodyText.includes('Error') || bodyText.includes('Exception')) {
+            console.error('[ADMIN] Error detected in response:', bodyText.substring(0, 1000));
+            alert('An error occurred while creating the archive. Please check the console and Laravel logs for details.');
+          }
+        }
+      } catch (e) {
+        console.log('[ADMIN] Could not access iframe content (this is normal for successful downloads):', e);
+      }
+    };
 
     // Reset loading state after a delay
-    setTimeout(() => setIsGenerating(false), 2000);
+    setTimeout(() => {
+      console.log('[ADMIN] Resetting loading state');
+      setIsGenerating(false);
+    }, 3000);
   };
 
   // Get available year levels that have sections with data

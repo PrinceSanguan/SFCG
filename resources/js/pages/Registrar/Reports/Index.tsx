@@ -645,6 +645,14 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
 
         console.log('[REGISTRAR] Honor statistics data:', honorData);
         console.log('[REGISTRAR] Route URL:', route('registrar.reports.honor-statistics'));
+
+        // Validate required fields
+        if (!honorData.school_year) {
+            console.error('[REGISTRAR] School year is required');
+            alert('Please select a school year before generating the report.');
+            return;
+        }
+
         setIsGenerating(true);
 
         // Create a hidden iframe for download
@@ -654,6 +662,9 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
             iframe.id = 'download-iframe';
             iframe.style.display = 'none';
             document.body.appendChild(iframe);
+            console.log('[REGISTRAR] Created download iframe');
+        } else {
+            console.log('[REGISTRAR] Using existing download iframe');
         }
 
         // Create a temporary form for file download
@@ -661,6 +672,8 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
         form.method = 'POST';
         form.action = route('registrar.reports.honor-statistics');
         form.target = 'download-iframe';
+
+        console.log('[REGISTRAR] Form action URL:', form.action);
 
         // Add CSRF token
         const csrfInput = document.createElement('input');
@@ -670,20 +683,57 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
         form.appendChild(csrfInput);
 
         // Add form data
+        const formDataEntries: Record<string, string> = {};
         Object.entries(honorData).forEach(([key, value]) => {
             const input = document.createElement('input');
             input.type = 'hidden';
             input.name = key;
-            input.value = value?.toString() || '';
+            // Handle boolean values properly for backend validation
+            if (typeof value === 'boolean') {
+                input.value = value ? '1' : '0';
+            } else {
+                input.value = value?.toString() || '';
+            }
+            formDataEntries[key] = input.value;
             form.appendChild(input);
         });
 
+        console.log('[REGISTRAR] Form data being submitted:', formDataEntries);
+
         document.body.appendChild(form);
+        console.log('[REGISTRAR] Form appended to body, submitting...');
         form.submit();
+        console.log('[REGISTRAR] Form submitted');
         document.body.removeChild(form);
+        console.log('[REGISTRAR] Form removed from body');
+
+        // Add iframe load listener to detect errors
+        iframe.onload = () => {
+            console.log('[REGISTRAR] Iframe loaded');
+            try {
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+                if (iframeDoc) {
+                    const body = iframeDoc.body;
+                    const bodyText = body?.textContent || '';
+                    console.log('[REGISTRAR] Iframe body content length:', bodyText.length);
+                    console.log('[REGISTRAR] Iframe body preview:', bodyText.substring(0, 500));
+
+                    // Check for error messages
+                    if (bodyText.includes('error') || bodyText.includes('Error') || bodyText.includes('Exception')) {
+                        console.error('[REGISTRAR] Error detected in response:', bodyText.substring(0, 1000));
+                        alert('An error occurred while generating the report. Please check the console and Laravel logs for details.');
+                    }
+                }
+            } catch (e) {
+                console.log('[REGISTRAR] Could not access iframe content (this is normal for successful downloads):', e);
+            }
+        };
 
         // Reset loading state after a delay
-        setTimeout(() => setIsGenerating(false), 2000);
+        setTimeout(() => {
+            console.log('[REGISTRAR] Resetting loading state');
+            setIsGenerating(false);
+        }, 3000);
     };
 
     const handleArchiveRecords = (e: React.FormEvent) => {
@@ -698,6 +748,27 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
 
         console.log('[REGISTRAR] Archive data:', archiveData);
         console.log('[REGISTRAR] Route URL:', route('registrar.reports.archive-records'));
+
+        // Validate required fields
+        if (!archiveData.academic_level_id) {
+            console.error('[REGISTRAR] Academic level is required');
+            alert('Please select an academic level before creating the archive.');
+            return;
+        }
+
+        if (!archiveData.school_year) {
+            console.error('[REGISTRAR] School year is required');
+            alert('Please select a school year before creating the archive.');
+            return;
+        }
+
+        // Validate at least one data type is selected
+        if (!archiveData.include_grades && !archiveData.include_honors && !archiveData.include_certificates) {
+            console.error('[REGISTRAR] No data types selected');
+            alert('Please select at least one data type to include in the archive (grades, honors, or certificates).');
+            return;
+        }
+
         setIsGenerating(true);
 
         // Create a hidden iframe for download
@@ -707,6 +778,9 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
             iframe.id = 'download-iframe';
             iframe.style.display = 'none';
             document.body.appendChild(iframe);
+            console.log('[REGISTRAR] Created download iframe');
+        } else {
+            console.log('[REGISTRAR] Using existing download iframe');
         }
 
         // Create a temporary form for file download
@@ -714,6 +788,8 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
         form.method = 'POST';
         form.action = route('registrar.reports.archive-records');
         form.target = 'download-iframe';
+
+        console.log('[REGISTRAR] Form action URL:', form.action);
 
         // Add CSRF token
         const csrfInput = document.createElement('input');
@@ -723,20 +799,57 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
         form.appendChild(csrfInput);
 
         // Add form data
+        const formDataEntries: Record<string, string> = {};
         Object.entries(archiveData).forEach(([key, value]) => {
             const input = document.createElement('input');
             input.type = 'hidden';
             input.name = key;
-            input.value = value?.toString() || '';
+            // Handle boolean values properly for backend validation
+            if (typeof value === 'boolean') {
+                input.value = value ? '1' : '0';
+            } else {
+                input.value = value?.toString() || '';
+            }
+            formDataEntries[key] = input.value;
             form.appendChild(input);
         });
 
+        console.log('[REGISTRAR] Form data being submitted:', formDataEntries);
+
         document.body.appendChild(form);
+        console.log('[REGISTRAR] Form appended to body, submitting...');
         form.submit();
+        console.log('[REGISTRAR] Form submitted');
         document.body.removeChild(form);
+        console.log('[REGISTRAR] Form removed from body');
+
+        // Add iframe load listener to detect errors
+        iframe.onload = () => {
+            console.log('[REGISTRAR] Iframe loaded');
+            try {
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+                if (iframeDoc) {
+                    const body = iframeDoc.body;
+                    const bodyText = body?.textContent || '';
+                    console.log('[REGISTRAR] Iframe body content length:', bodyText.length);
+                    console.log('[REGISTRAR] Iframe body preview:', bodyText.substring(0, 500));
+
+                    // Check for error messages
+                    if (bodyText.includes('error') || bodyText.includes('Error') || bodyText.includes('Exception')) {
+                        console.error('[REGISTRAR] Error detected in response:', bodyText.substring(0, 1000));
+                        alert('An error occurred while creating the archive. Please check the console and Laravel logs for details.');
+                    }
+                }
+            } catch (e) {
+                console.log('[REGISTRAR] Could not access iframe content (this is normal for successful downloads):', e);
+            }
+        };
 
         // Reset loading state after a delay
-        setTimeout(() => setIsGenerating(false), 2000);
+        setTimeout(() => {
+            console.log('[REGISTRAR] Resetting loading state');
+            setIsGenerating(false);
+        }, 3000);
     };
 
     const handleClassSectionReport = (e: React.FormEvent) => {

@@ -19,10 +19,26 @@ return new class extends Migration
         // Step 1: Handle existing data conflicts in instructor_course_assignments
         $this->consolidateInstructorCourseAssignments();
 
-        // Step 2: Update instructor_course_assignments unique constraint
+        // Step 2: Drop foreign keys first (required before dropping unique constraints)
         Schema::table('instructor_course_assignments', function (Blueprint $table) {
-            // Drop the old unique constraint (includes subject_id)
+            $table->dropForeign(['instructor_id']);
+            $table->dropForeign(['course_id']);
+            $table->dropForeign(['academic_level_id']);
+            $table->dropForeign(['subject_id']);
+        });
+
+        // Step 3: Drop the old unique constraint (includes subject_id)
+        Schema::table('instructor_course_assignments', function (Blueprint $table) {
             $table->dropUnique('unique_instructor_course_subject_assignment');
+        });
+
+        // Step 4: Recreate foreign keys and add new unique constraint
+        Schema::table('instructor_course_assignments', function (Blueprint $table) {
+            // Recreate foreign keys
+            $table->foreign('instructor_id')->references('id')->on('users')->onDelete('cascade');
+            $table->foreign('course_id')->references('id')->on('courses')->onDelete('cascade');
+            $table->foreign('academic_level_id')->references('id')->on('academic_levels')->onDelete('cascade');
+            $table->foreign('subject_id')->references('id')->on('subjects')->onDelete('set null');
 
             // Add new unique constraint that includes grading_period_id
             // This allows the same instructor-course-subject-year for different grading periods
@@ -34,13 +50,29 @@ return new class extends Migration
 
         Log::info('[MIGRATION] Updated instructor_course_assignments unique constraint to include grading_period_id');
 
-        // Step 3: Handle existing data conflicts in instructor_subject_assignments
+        // Step 5: Handle existing data conflicts in instructor_subject_assignments
         $this->consolidateInstructorSubjectAssignments();
 
-        // Step 4: Update instructor_subject_assignments unique constraint
+        // Step 6: Drop foreign keys first (required before dropping unique constraints)
         Schema::table('instructor_subject_assignments', function (Blueprint $table) {
-            // Drop the old unique constraint
+            $table->dropForeign(['instructor_id']);
+            $table->dropForeign(['subject_id']);
+            $table->dropForeign(['academic_level_id']);
+            $table->dropForeign(['section_id']);
+        });
+
+        // Step 7: Drop the old unique constraint
+        Schema::table('instructor_subject_assignments', function (Blueprint $table) {
             $table->dropUnique('unique_instructor_subject_section_assignment');
+        });
+
+        // Step 8: Recreate foreign keys and add new unique constraint
+        Schema::table('instructor_subject_assignments', function (Blueprint $table) {
+            // Recreate foreign keys
+            $table->foreign('instructor_id')->references('id')->on('users')->onDelete('cascade');
+            $table->foreign('subject_id')->references('id')->on('subjects')->onDelete('cascade');
+            $table->foreign('academic_level_id')->references('id')->on('academic_levels')->onDelete('cascade');
+            $table->foreign('section_id')->references('id')->on('sections')->onDelete('cascade');
 
             // Add new unique constraint that includes grading_period_id
             $table->unique(
@@ -177,9 +209,26 @@ return new class extends Migration
     public function down(): void
     {
         // Revert instructor_subject_assignments constraint
+        // Step 1: Drop foreign keys first
         Schema::table('instructor_subject_assignments', function (Blueprint $table) {
-            // Drop the new unique constraint
+            $table->dropForeign(['instructor_id']);
+            $table->dropForeign(['subject_id']);
+            $table->dropForeign(['academic_level_id']);
+            $table->dropForeign(['section_id']);
+        });
+
+        // Step 2: Drop the new unique constraint
+        Schema::table('instructor_subject_assignments', function (Blueprint $table) {
             $table->dropUnique('unique_instructor_subject_section_period_assignment');
+        });
+
+        // Step 3: Recreate foreign keys and restore old constraint
+        Schema::table('instructor_subject_assignments', function (Blueprint $table) {
+            // Recreate foreign keys
+            $table->foreign('instructor_id')->references('id')->on('users')->onDelete('cascade');
+            $table->foreign('subject_id')->references('id')->on('subjects')->onDelete('cascade');
+            $table->foreign('academic_level_id')->references('id')->on('academic_levels')->onDelete('cascade');
+            $table->foreign('section_id')->references('id')->on('sections')->onDelete('cascade');
 
             // Restore the old unique constraint (without grading_period_id)
             $table->unique(
@@ -189,9 +238,26 @@ return new class extends Migration
         });
 
         // Revert instructor_course_assignments constraint
+        // Step 4: Drop foreign keys first
         Schema::table('instructor_course_assignments', function (Blueprint $table) {
-            // Drop the new unique constraint
+            $table->dropForeign(['instructor_id']);
+            $table->dropForeign(['course_id']);
+            $table->dropForeign(['academic_level_id']);
+            $table->dropForeign(['subject_id']);
+        });
+
+        // Step 5: Drop the new unique constraint
+        Schema::table('instructor_course_assignments', function (Blueprint $table) {
             $table->dropUnique('unique_instructor_course_subject_period_assignment');
+        });
+
+        // Step 6: Recreate foreign keys and restore old constraint
+        Schema::table('instructor_course_assignments', function (Blueprint $table) {
+            // Recreate foreign keys
+            $table->foreign('instructor_id')->references('id')->on('users')->onDelete('cascade');
+            $table->foreign('course_id')->references('id')->on('courses')->onDelete('cascade');
+            $table->foreign('academic_level_id')->references('id')->on('academic_levels')->onDelete('cascade');
+            $table->foreign('subject_id')->references('id')->on('subjects')->onDelete('set null');
 
             // Restore the old unique constraint (without grading_period_id, includes subject_id)
             $table->unique(
