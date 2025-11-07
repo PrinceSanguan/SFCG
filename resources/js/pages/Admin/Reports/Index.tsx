@@ -8,18 +8,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useForm, Link, usePage } from '@inertiajs/react';
-import { 
-  FileText, 
-  Award, 
-  Archive, 
-  Download, 
-  BarChart3, 
+import { useToast } from '@/components/ui/toast';
+import {
+  FileText,
+  Award,
+  Archive,
+  Download,
+  BarChart3,
   GraduationCap,
   Calendar,
   Users,
   TrendingUp,
   FileSpreadsheet,
-  FileX
+  FileX,
+  Loader2
 } from 'lucide-react';
 
 interface User { name: string; email: string; user_role: string; }
@@ -74,6 +76,7 @@ interface Props {
 }
 
 export default function ReportsIndex({ user, academicLevels, schoolYears, currentSchoolYear, gradingPeriods, honorTypes, sections, tracks, strands, departments, courses, stats }: Props) {
+  const { addToast } = useToast();
   const [activeTab, setActiveTab] = useState('honor-statistics');
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedSemester, setSelectedSemester] = useState<string>('');
@@ -544,11 +547,13 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
     e.preventDefault();
 
     console.log('=== [ADMIN] HONOR STATISTICS FORM SUBMISSION ===');
+    console.log('[ADMIN] Button clicked at:', new Date().toISOString());
     console.log('[ADMIN] Honor Data:', honorData);
+    console.log('[ADMIN] Active Tab:', activeTab);
 
     if (!csrfToken) {
       console.error('[ADMIN] CSRF token not found');
-      alert('Session expired. Please refresh the page and try again.');
+      addToast('Session expired. Please refresh the page and try again.', 'error');
       return;
     }
 
@@ -557,10 +562,12 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
     // Validate required fields
     if (!honorData.school_year) {
       console.error('[ADMIN] School year is required');
-      alert('Please select a school year before generating the report.');
+      addToast('Please select a school year before generating the report.', 'warning');
       return;
     }
 
+    console.log('[ADMIN] All validations passed, starting report generation...');
+    addToast('Generating Honor Statistics Report...', 'info', { duration: 2000 });
     setIsGenerating(true);
 
     // Create a hidden iframe for download
@@ -568,11 +575,14 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
     if (!iframe) {
       iframe = document.createElement('iframe');
       iframe.id = 'download-iframe';
+      iframe.name = 'download-iframe'; // IMPORTANT: name attribute must match form target
       iframe.style.display = 'none';
       document.body.appendChild(iframe);
-      console.log('[ADMIN] Created download iframe');
+      console.log('[ADMIN] Created download iframe with name:', iframe.name);
     } else {
-      console.log('[ADMIN] Using existing download iframe');
+      // Ensure name is set even if iframe already exists
+      iframe.name = 'download-iframe';
+      console.log('[ADMIN] Using existing download iframe, name set to:', iframe.name);
     }
 
     // Create a temporary form for file download
@@ -582,6 +592,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
     form.target = 'download-iframe';
 
     console.log('[ADMIN] Form action URL:', form.action);
+    console.log('[ADMIN] Form target:', form.target);
 
     // Add CSRF token
     const csrfInput = document.createElement('input');
@@ -608,16 +619,9 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
 
     console.log('[ADMIN] Form data being submitted:', formDataEntries);
 
-    document.body.appendChild(form);
-    console.log('[ADMIN] Form appended to body, submitting...');
-    form.submit();
-    console.log('[ADMIN] Form submitted');
-    document.body.removeChild(form);
-    console.log('[ADMIN] Form removed from body');
-
-    // Add iframe load listener to detect errors
+    // Add iframe load listener BEFORE submitting form
     iframe.onload = () => {
-      console.log('[ADMIN] Iframe loaded');
+      console.log('[ADMIN] Iframe loaded at:', new Date().toISOString());
       try {
         const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
         if (iframeDoc) {
@@ -626,20 +630,63 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
           console.log('[ADMIN] Iframe body content length:', bodyText.length);
           console.log('[ADMIN] Iframe body preview:', bodyText.substring(0, 500));
 
-          // Check for error messages
+          // Check for no-data error page
+          const errorContainer = body?.querySelector('[data-error-type="no-data"]');
+          if (errorContainer) {
+            const errorTitle = body?.querySelector('.error-title')?.textContent?.trim() || 'No data found';
+            const errorMessage = body?.querySelector('.error-message')?.textContent?.trim() || 'Please adjust your filters and try again.';
+            console.warn('[ADMIN] No data found:', errorTitle);
+            addToast(`${errorTitle} ${errorMessage}`, 'warning', { duration: 5000 });
+            // Clean up form after error is detected
+            setTimeout(() => {
+              if (form.parentNode) {
+                document.body.removeChild(form);
+                console.log('[ADMIN] Form removed after error detection');
+              }
+            }, 100);
+            return;
+          }
+
+          // Check for generic error messages
           if (bodyText.includes('error') || bodyText.includes('Error') || bodyText.includes('Exception')) {
             console.error('[ADMIN] Error detected in response:', bodyText.substring(0, 1000));
-            alert('An error occurred while generating the report. Please check the console and Laravel logs for details.');
+            addToast('An error occurred while generating the report. Please check the Laravel logs.', 'error', { duration: 7000 });
+          } else if (bodyText.length > 0 && bodyText.length < 200) {
+            // Likely an error message (successful downloads don't have accessible content)
+            console.error('[ADMIN] Possible error response:', bodyText);
+            addToast('Report generation may have failed. Please check the Laravel logs.', 'warning', { duration: 5000 });
+          } else {
+            console.log('[ADMIN] Report likely generated successfully');
+            addToast('Report generated successfully! Download should start automatically.', 'success', { duration: 3000 });
           }
         }
       } catch (e) {
         console.log('[ADMIN] Could not access iframe content (this is normal for successful downloads):', e);
+        addToast('Report generated! Check your downloads folder.', 'success', { duration: 3000 });
       }
+
+      // Clean up form after processing (delay to ensure submission completes)
+      setTimeout(() => {
+        if (form.parentNode) {
+          document.body.removeChild(form);
+          console.log('[ADMIN] Form removed from body after iframe load');
+        }
+      }, 100);
     };
+
+    document.body.appendChild(form);
+    console.log('[ADMIN] Form appended to body');
+
+    // Small delay to ensure iframe is registered as a valid target
+    setTimeout(() => {
+      console.log('[ADMIN] Submitting form to iframe:', form.target);
+      form.submit();
+      console.log('[ADMIN] Form submitted at:', new Date().toISOString());
+    }, 50);
 
     // Reset loading state after a delay
     setTimeout(() => {
-      console.log('[ADMIN] Resetting loading state');
+      console.log('[ADMIN] Resetting loading state at:', new Date().toISOString());
       setIsGenerating(false);
     }, 3000);
   };
@@ -648,11 +695,13 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
     e.preventDefault();
 
     console.log('=== [ADMIN] ARCHIVE RECORDS FORM SUBMISSION ===');
+    console.log('[ADMIN] Button clicked at:', new Date().toISOString());
     console.log('[ADMIN] Archive Data:', archiveData);
+    console.log('[ADMIN] Active Tab:', activeTab);
 
     if (!csrfToken) {
       console.error('[ADMIN] CSRF token not found');
-      alert('Session expired. Please refresh the page and try again.');
+      addToast('Session expired. Please refresh the page and try again.', 'error');
       return;
     }
 
@@ -661,23 +710,25 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
     // Validate required fields
     if (!archiveData.academic_level_id) {
       console.error('[ADMIN] Academic level is required');
-      alert('Please select an academic level before creating the archive.');
+      addToast('Please select an academic level before creating the archive.', 'warning');
       return;
     }
 
     if (!archiveData.school_year) {
       console.error('[ADMIN] School year is required');
-      alert('Please select a school year before creating the archive.');
+      addToast('Please select a school year before creating the archive.', 'warning');
       return;
     }
 
     // Validate at least one data type is selected
     if (!archiveData.include_grades && !archiveData.include_honors && !archiveData.include_certificates) {
       console.error('[ADMIN] No data types selected');
-      alert('Please select at least one data type to include in the archive (grades, honors, or certificates).');
+      addToast('Please select at least one data type to include in the archive (grades, honors, or certificates).', 'warning');
       return;
     }
 
+    console.log('[ADMIN] All validations passed, starting archive creation...');
+    addToast('Creating Academic Records Archive...', 'info', { duration: 2000 });
     setIsGenerating(true);
 
     // Create a hidden iframe for download
@@ -685,11 +736,14 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
     if (!iframe) {
       iframe = document.createElement('iframe');
       iframe.id = 'download-iframe';
+      iframe.name = 'download-iframe'; // IMPORTANT: name attribute must match form target
       iframe.style.display = 'none';
       document.body.appendChild(iframe);
-      console.log('[ADMIN] Created download iframe');
+      console.log('[ADMIN] Created download iframe with name:', iframe.name);
     } else {
-      console.log('[ADMIN] Using existing download iframe');
+      // Ensure name is set even if iframe already exists
+      iframe.name = 'download-iframe';
+      console.log('[ADMIN] Using existing download iframe, name set to:', iframe.name);
     }
 
     // Create a temporary form for file download
@@ -725,16 +779,9 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
 
     console.log('[ADMIN] Form data being submitted:', formDataEntries);
 
-    document.body.appendChild(form);
-    console.log('[ADMIN] Form appended to body, submitting...');
-    form.submit();
-    console.log('[ADMIN] Form submitted');
-    document.body.removeChild(form);
-    console.log('[ADMIN] Form removed from body');
-
-    // Add iframe load listener to detect errors
+    // Add iframe load listener BEFORE submitting form
     iframe.onload = () => {
-      console.log('[ADMIN] Iframe loaded');
+      console.log('[ADMIN] Iframe loaded at:', new Date().toISOString());
       try {
         const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
         if (iframeDoc) {
@@ -743,20 +790,62 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
           console.log('[ADMIN] Iframe body content length:', bodyText.length);
           console.log('[ADMIN] Iframe body preview:', bodyText.substring(0, 500));
 
-          // Check for error messages
+          // Check for no-data error page
+          const errorContainer = body?.querySelector('[data-error-type="no-data"]');
+          if (errorContainer) {
+            const errorTitle = body?.querySelector('.error-title')?.textContent?.trim() || 'No data found';
+            const errorMessage = body?.querySelector('.error-message')?.textContent?.trim() || 'Please adjust your filters and try again.';
+            console.warn('[ADMIN] No data found:', errorTitle);
+            addToast(`${errorTitle} ${errorMessage}`, 'warning', { duration: 5000 });
+            // Clean up form after error is detected
+            setTimeout(() => {
+              if (form.parentNode) {
+                document.body.removeChild(form);
+                console.log('[ADMIN] Form removed after error detection');
+              }
+            }, 100);
+            return;
+          }
+
+          // Check for generic error messages
           if (bodyText.includes('error') || bodyText.includes('Error') || bodyText.includes('Exception')) {
             console.error('[ADMIN] Error detected in response:', bodyText.substring(0, 1000));
-            alert('An error occurred while creating the archive. Please check the console and Laravel logs for details.');
+            addToast('An error occurred while creating the archive. Please check the Laravel logs.', 'error', { duration: 7000 });
+          } else if (bodyText.length > 0 && bodyText.length < 200) {
+            console.error('[ADMIN] Possible error response:', bodyText);
+            addToast('Archive creation may have failed. Please check the Laravel logs.', 'warning', { duration: 5000 });
+          } else {
+            console.log('[ADMIN] Archive likely created successfully');
+            addToast('Archive created successfully! Download should start automatically.', 'success', { duration: 3000 });
           }
         }
       } catch (e) {
         console.log('[ADMIN] Could not access iframe content (this is normal for successful downloads):', e);
+        addToast('Archive created! Check your downloads folder.', 'success', { duration: 3000 });
       }
+
+      // Clean up form after processing (delay to ensure submission completes)
+      setTimeout(() => {
+        if (form.parentNode) {
+          document.body.removeChild(form);
+          console.log('[ADMIN] Form removed from body after iframe load');
+        }
+      }, 100);
     };
+
+    document.body.appendChild(form);
+    console.log('[ADMIN] Form appended to body');
+
+    // Small delay to ensure iframe is registered as a valid target
+    setTimeout(() => {
+      console.log('[ADMIN] Submitting form to iframe:', form.target);
+      form.submit();
+      console.log('[ADMIN] Form submitted at:', new Date().toISOString());
+    }, 50);
 
     // Reset loading state after a delay
     setTimeout(() => {
-      console.log('[ADMIN] Resetting loading state');
+      console.log('[ADMIN] Resetting loading state at:', new Date().toISOString());
       setIsGenerating(false);
     }, 3000);
   };
@@ -778,19 +867,36 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
 
   const handleClassSectionReport = (e: React.FormEvent) => {
     console.log('=== handleClassSectionReport CALLED ===');
+    console.log('[ADMIN] Button clicked at:', new Date().toISOString());
     e.preventDefault();
     e.stopPropagation();
 
-    console.log('=== CLASS SECTION REPORT FORM SUBMISSION ===');
-    console.log('Form Data:', sectionData);
+    console.log('=== [ADMIN] CLASS SECTION REPORT FORM SUBMISSION ===');
+    console.log('[ADMIN] Section Data:', sectionData);
+    console.log('[ADMIN] Active Tab:', activeTab);
 
     if (!csrfToken) {
-      console.error('CSRF token not found');
-      alert('Session expired. Please refresh the page and try again.');
+      console.error('[ADMIN] CSRF token not found');
+      addToast('Session expired. Please refresh the page and try again.', 'error');
       return;
     }
 
-    console.log('CSRF Token:', csrfToken);
+    // Validate required fields
+    if (!sectionData.academic_level_id) {
+      console.error('[ADMIN] Academic level is required');
+      addToast('Please select an academic level before generating the report.', 'warning');
+      return;
+    }
+
+    if (!sectionData.school_year) {
+      console.error('[ADMIN] School year is required');
+      addToast('Please select a school year before generating the report.', 'warning');
+      return;
+    }
+
+    console.log('[ADMIN] CSRF Token:', csrfToken);
+    console.log('[ADMIN] All validations passed, starting report generation...');
+    addToast('Generating Class Section Report...', 'info', { duration: 2000 });
 
     setIsGenerating(true);
 
@@ -799,11 +905,14 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
     if (!iframe) {
       iframe = document.createElement('iframe');
       iframe.id = 'download-iframe';
+      iframe.name = 'download-iframe'; // IMPORTANT: name attribute must match form target
       iframe.style.display = 'none';
       document.body.appendChild(iframe);
-      console.log('Created download iframe');
+      console.log('[ADMIN] Created download iframe with name:', iframe.name);
     } else {
-      console.log('Using existing download iframe');
+      // Ensure name is set even if iframe already exists
+      iframe.name = 'download-iframe';
+      console.log('[ADMIN] Using existing download iframe, name set to:', iframe.name);
     }
 
     // Create a temporary form for file download
@@ -812,7 +921,8 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
     form.action = route('admin.reports.class-section-report');
     form.target = 'download-iframe';
 
-    console.log('Form action URL:', form.action);
+    console.log('[ADMIN] Form action URL:', form.action);
+    console.log('[ADMIN] Form target:', form.target);
 
     // Add CSRF token
     const csrfInput = document.createElement('input');
@@ -820,8 +930,6 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
     csrfInput.name = '_token';
     csrfInput.value = csrfToken;
     form.appendChild(csrfInput);
-
-    console.log('Added CSRF token to form');
 
     // Add form data
     const formDataEntries: Record<string, string> = {};
@@ -839,32 +947,75 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
       form.appendChild(input);
     });
 
-    console.log('Form data being submitted:', formDataEntries);
+    console.log('[ADMIN] Form data being submitted:', formDataEntries);
 
-    document.body.appendChild(form);
-    console.log('Form appended to body, submitting...');
-    form.submit();
-    console.log('Form submitted');
-    document.body.removeChild(form);
-    console.log('Form removed from body');
-
-    // Add iframe load listener to detect errors
+    // Add iframe load listener BEFORE submitting form
     iframe.onload = () => {
-      console.log('Iframe loaded');
+      console.log('[ADMIN] Iframe loaded at:', new Date().toISOString());
       try {
         const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
         if (iframeDoc) {
           const body = iframeDoc.body;
-          console.log('Iframe body content:', body?.textContent?.substring(0, 500));
+          const bodyText = body?.textContent || '';
+          console.log('[ADMIN] Iframe body content length:', bodyText.length);
+          console.log('[ADMIN] Iframe body preview:', bodyText.substring(0, 500));
+
+          // Check for no-data error page
+          const errorContainer = body?.querySelector('[data-error-type="no-data"]');
+          if (errorContainer) {
+            const errorTitle = body?.querySelector('.error-title')?.textContent?.trim() || 'No data found';
+            const errorMessage = body?.querySelector('.error-message')?.textContent?.trim() || 'Please adjust your filters and try again.';
+            console.warn('[ADMIN] No data found:', errorTitle);
+            addToast(`${errorTitle} ${errorMessage}`, 'warning', { duration: 5000 });
+            // Clean up form after error is detected
+            setTimeout(() => {
+              if (form.parentNode) {
+                document.body.removeChild(form);
+                console.log('[ADMIN] Form removed after error detection');
+              }
+            }, 100);
+            return;
+          }
+
+          // Check for generic error messages
+          if (bodyText.includes('error') || bodyText.includes('Error') || bodyText.includes('Exception')) {
+            console.error('[ADMIN] Error detected in response:', bodyText.substring(0, 1000));
+            addToast('An error occurred while generating the report. Please check the Laravel logs.', 'error', { duration: 7000 });
+          } else if (bodyText.length > 0 && bodyText.length < 200) {
+            console.error('[ADMIN] Possible error response:', bodyText);
+            addToast('Report generation may have failed. Please check the Laravel logs.', 'warning', { duration: 5000 });
+          } else {
+            console.log('[ADMIN] Report likely generated successfully');
+            addToast('Report generated successfully! Download should start automatically.', 'success', { duration: 3000 });
+          }
         }
       } catch (e) {
-        console.log('Could not access iframe content (this is normal for successful downloads):', e);
+        console.log('[ADMIN] Could not access iframe content (this is normal for successful downloads):', e);
+        addToast('Report generated! Check your downloads folder.', 'success', { duration: 3000 });
       }
+
+      // Clean up form after processing (delay to ensure submission completes)
+      setTimeout(() => {
+        if (form.parentNode) {
+          document.body.removeChild(form);
+          console.log('[ADMIN] Form removed from body after iframe load');
+        }
+      }, 100);
     };
+
+    document.body.appendChild(form);
+    console.log('[ADMIN] Form appended to body');
+
+    // Small delay to ensure iframe is registered as a valid target
+    setTimeout(() => {
+      console.log('[ADMIN] Submitting form to iframe:', form.target);
+      form.submit();
+      console.log('[ADMIN] Form submitted at:', new Date().toISOString());
+    }, 50);
 
     // Reset loading state after a delay
     setTimeout(() => {
-      console.log('Resetting loading state');
+      console.log('[ADMIN] Resetting loading state at:', new Date().toISOString());
       setIsGenerating(false);
     }, 2000);
   };
@@ -1635,7 +1786,11 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                             <Checkbox
                               id="include_grades"
                               checked={archiveData.include_grades}
-                              onCheckedChange={(checked) => setArchiveData('include_grades', !!checked)}
+                              onCheckedChange={(checked) => {
+                                const value = checked === true;
+                                console.log('[ADMIN] Archive include_grades changed to:', value);
+                                setArchiveData('include_grades', value as any);
+                              }}
                             />
                             <Label htmlFor="include_grades" className="flex items-center gap-2">
                               <GraduationCap className="h-4 w-4" />
@@ -1646,7 +1801,11 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                             <Checkbox
                               id="include_honors"
                               checked={archiveData.include_honors}
-                              onCheckedChange={(checked) => setArchiveData('include_honors', !!checked)}
+                              onCheckedChange={(checked) => {
+                                const value = checked === true;
+                                console.log('[ADMIN] Archive include_honors changed to:', value);
+                                setArchiveData('include_honors', value as any);
+                              }}
                             />
                             <Label htmlFor="include_honors" className="flex items-center gap-2">
                               <Award className="h-4 w-4" />
@@ -1657,7 +1816,11 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                             <Checkbox
                               id="include_certificates"
                               checked={archiveData.include_certificates}
-                              onCheckedChange={(checked) => setArchiveData('include_certificates', !!checked)}
+                              onCheckedChange={(checked) => {
+                                const value = checked === true;
+                                console.log('[ADMIN] Archive include_certificates changed to:', value);
+                                setArchiveData('include_certificates', value as any);
+                              }}
                             />
                             <Label htmlFor="include_certificates" className="flex items-center gap-2">
                               <FileText className="h-4 w-4" />
@@ -2067,7 +2230,11 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                         <Checkbox
                           id="include_grades_section"
                           checked={sectionData.include_grades}
-                          onCheckedChange={(checked) => setSectionData('include_grades', !!checked)}
+                          onCheckedChange={(checked) => {
+                            const value = checked === true;
+                            console.log('[ADMIN] Section include_grades changed to:', value);
+                            setSectionData('include_grades', value as any);
+                          }}
                         />
                         <Label htmlFor="include_grades_section">Include student average grades in the report</Label>
                       </div>

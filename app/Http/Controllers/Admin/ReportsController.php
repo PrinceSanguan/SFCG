@@ -362,18 +362,21 @@ class ReportsController extends Controller
     {
         try {
             Log::info('Starting PDF generation for grade report', ['filename' => $filename, 'grades_count' => $grades->count()]);
-            
+
             // Check if we have any grades to report
             if ($grades->count() === 0) {
                 Log::warning('No grades found for PDF generation');
-                return back()->withErrors(['pdf_generation' => 'No grade data found for the selected criteria.']);
+                return response()->view('errors.no-data', [
+                    'message' => 'No grade data found for the selected criteria.',
+                    'details' => 'There are no grade records matching your filters. Please adjust your selection and try again.'
+                ], 404);
             }
-            
+
             $html = view('reports.grade-report', compact('grades', 'statistics'))->render();
             Log::info('HTML generated successfully', ['html_length' => strlen($html)]);
-            
+
             $pdf = Pdf::loadHTML($html);
-            
+
             // Set PDF options for better compatibility
             $pdf->setPaper('A4', 'portrait');
             $pdf->setOptions([
@@ -381,9 +384,9 @@ class ReportsController extends Controller
                 'isRemoteEnabled' => true,
                 'defaultFont' => 'Arial'
             ]);
-            
+
             Log::info('PDF options set, generating output');
-            
+
             // Ensure proper headers for download
             return response($pdf->output(), 200, [
                 'Content-Type' => 'application/pdf',
@@ -395,7 +398,10 @@ class ReportsController extends Controller
         } catch (\Exception $e) {
             Log::error('PDF generation failed: ' . $e->getMessage());
             Log::error('PDF generation stack trace: ' . $e->getTraceAsString());
-            return back()->withErrors(['pdf_generation' => 'Failed to generate PDF. Please try again.']);
+            return response()->view('errors.no-data', [
+                'message' => 'Failed to generate PDF report.',
+                'details' => 'An error occurred while generating the grade report: ' . $e->getMessage()
+            ], 500);
         }
     }
 
@@ -403,11 +409,14 @@ class ReportsController extends Controller
     {
         try {
             Log::info('Starting PDF generation for honor statistics', ['filename' => $filename, 'honors_count' => $honors->count()]);
-            
+
             // Check if we have any honors to report
             if ($honors->count() === 0) {
                 Log::warning('No honors found for PDF generation');
-                return back()->withErrors(['pdf_generation' => 'No honor data found for the selected criteria.']);
+                return response()->view('errors.no-data', [
+                    'message' => 'No honor data found for the selected criteria.',
+                    'details' => 'There are no honor records matching your filters. Please adjust your selection and try again.'
+                ], 404);
             }
             
             $html = view('reports.honor-statistics', compact('honors', 'statistics'))->render();
@@ -424,7 +433,7 @@ class ReportsController extends Controller
             ]);
             
             Log::info('PDF options set, generating output');
-            
+
             // Ensure proper headers for download
             return response($pdf->output(), 200, [
                 'Content-Type' => 'application/pdf',
@@ -436,7 +445,10 @@ class ReportsController extends Controller
         } catch (\Exception $e) {
             Log::error('PDF generation failed: ' . $e->getMessage());
             Log::error('PDF generation stack trace: ' . $e->getTraceAsString());
-            return back()->withErrors(['pdf_generation' => 'Failed to generate PDF. Please try again.']);
+            return response()->view('errors.no-data', [
+                'message' => 'Failed to generate PDF report.',
+                'details' => 'An error occurred while generating the honor statistics report: ' . $e->getMessage()
+            ], 500);
         }
     }
 
@@ -780,6 +792,15 @@ class ReportsController extends Controller
         Log::info('[ADMIN] Include Grades: ' . (isset($filters['include_grades']) && $filters['include_grades'] === '1' ? 'Yes' : 'No'));
         Log::info('[ADMIN] Sections data count: ' . $sectionsData->count());
 
+        // Check if we have any sections to report
+        if ($sectionsData->count() === 0) {
+            Log::warning('[ADMIN] No sections found for PDF generation');
+            return response()->view('errors.no-data', [
+                'message' => 'No class sections found for the selected criteria.',
+                'details' => 'There are no sections matching your filters. Please adjust your selection and try again.'
+            ], 404);
+        }
+
         try {
             Log::info('[ADMIN] Preparing view data...');
             $viewData = [
@@ -817,7 +838,10 @@ class ReportsController extends Controller
             Log::error('[ADMIN] Error message: ' . $e->getMessage());
             Log::error('[ADMIN] Error file: ' . $e->getFile() . ':' . $e->getLine());
             Log::error('[ADMIN] Stack trace: ' . $e->getTraceAsString());
-            throw $e;
+            return response()->view('errors.no-data', [
+                'message' => 'Failed to generate PDF report.',
+                'details' => 'An error occurred while generating the class section report: ' . $e->getMessage()
+            ], 500);
         }
     }
 }

@@ -182,7 +182,9 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
     };
 
     const downloadTemplate = () => {
-        const academicLevelKey = getCurrentAcademicLevelKey();
+        const academicLevelKey = data.academic_level_id ?
+            academicLevels.find(l => l.id.toString() === data.academic_level_id)?.key || 'senior_highschool'
+            : 'senior_highschool';
         const url = route('teacher.grades.template') + '?academic_level=' + academicLevelKey;
 
         console.log('Downloading CSV template for academic level:', academicLevelKey);
@@ -190,12 +192,16 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
         window.open(url, '_blank');
     };
 
-    const getCurrentAcademicLevelKey = () => {
-        const level = academicLevels.find(l => l.id.toString() === data.academic_level_id);
-        return level?.key || 'college';
-    };
+    const downloadSubjectTemplate = () => {
+        if (!data.subject_id || !data.school_year) {
+            alert('Please select a subject and enter school year first');
+            return;
+        }
 
-    const isCollegeLevel = getCurrentAcademicLevelKey() === 'college';
+        const url = route('teacher.grades.subject-template') +
+            `?subject_id=${data.subject_id}&school_year=${encodeURIComponent(data.school_year)}`;
+        window.open(url, '_blank');
+    };
 
     return (
         <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
@@ -335,10 +341,7 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
                                     <Alert>
                                         <AlertCircle className="h-4 w-4" />
                                         <AlertDescription>
-                                            <strong>Grade System:</strong> {isCollegeLevel ? 
-                                                'College uses 1.0-5.0 scale (1.0 highest, 3.0 passing)' : 
-                                                'Elementary to Senior High uses 75-100 scale (75 passing)'
-                                            }
+                                            <strong>Grade System:</strong> Teachers use 1.0-5.0 scale (1.0 highest, 3.0 passing)
                                         </AlertDescription>
                                     </Alert>
 
@@ -361,24 +364,43 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
                                     )}
 
                                     {/* Action Buttons */}
-                                    <div className="flex gap-4 pt-4">
-                                        <Button 
-                                            type="submit" 
+                                    <div className="space-y-3 pt-4">
+                                        <Button
+                                            type="submit"
                                             disabled={processing || isUploading || !selectedFile || !data.subject_id || !data.academic_level_id || !data.school_year}
-                                            className="flex-1"
+                                            className="w-full"
                                         >
                                             <UploadIcon className="h-4 w-4 mr-2" />
                                             {isUploading ? 'Uploading...' : 'Upload Grades'}
                                         </Button>
-                                        <Button 
-                                            type="button" 
-                                            variant="outline" 
-                                            onClick={downloadTemplate}
-                                            className="flex-1"
-                                        >
-                                            <Download className="h-4 w-4 mr-2" />
-                                            Download Template
-                                        </Button>
+
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={downloadSubjectTemplate}
+                                                disabled={!data.subject_id || !data.school_year}
+                                                className="w-full"
+                                            >
+                                                <Download className="h-4 w-4 mr-2" />
+                                                Download Subject Template
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={downloadTemplate}
+                                                className="w-full"
+                                            >
+                                                <Download className="h-4 w-4 mr-2" />
+                                                Multi-Subject Template
+                                            </Button>
+                                        </div>
+
+                                        {data.subject_id && data.school_year && (
+                                            <p className="text-sm text-muted-foreground text-center">
+                                                Tip: Download the subject template to get a pre-filled CSV with your enrolled students!
+                                            </p>
+                                        )}
                                     </div>
                                 </form>
                             </CardContent>
@@ -390,29 +412,62 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
                                 <CardTitle>CSV Format Instructions</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                <div className="grid gap-4 md:grid-cols-2">
+                                <div className="space-y-4">
                                     <div>
-                                        <h4 className="font-medium mb-2">Required Columns:</h4>
-                                        <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                                        <h4 className="font-medium mb-2 text-green-600">Subject-Specific Template (Recommended):</h4>
+                                        <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1 mb-3">
+                                            <li>• Select a subject and school year above</li>
+                                            <li>• Click "Download Subject Template" to get a pre-filled CSV with enrolled students</li>
+                                            <li>• Fill in <strong>MIDTERM</strong> and <strong>FINAL TERM</strong> grade columns (1.0-5.0 scale)</li>
+                                            <li>• Upload the completed CSV</li>
+                                            <li>• The system will create separate grade entries for midterm and final periods</li>
+                                        </ul>
+                                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                                            This format is perfect for uploading grades for a specific subject with all enrolled students already listed!
+                                        </p>
+                                    </div>
+
+                                    <div>
+                                        <h4 className="font-medium mb-2">Multi-Subject CSV Format:</h4>
+                                        <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1 mb-3">
+                                            <li>• <strong>Student ID:</strong> Student number or database ID</li>
+                                            <li>• <strong>Student Name:</strong> Full name of student</li>
+                                            <li>• <strong>Subject Code:</strong> Subject code (e.g., MATH101, ENG102)</li>
+                                            <li>• <strong>Grade:</strong> Numeric grade value</li>
+                                            <li>• <strong>Grading Period:</strong> Period code (optional)</li>
+                                            <li>• <strong>Notes:</strong> Optional comments</li>
+                                        </ul>
+                                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                                            Use this format for uploading grades across multiple subjects in one file.
+                                        </p>
+                                    </div>
+
+                                    <div>
+                                        <h4 className="font-medium mb-2">Single-Subject CSV Format:</h4>
+                                        <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1 mb-3">
                                             <li>• <strong>Student ID:</strong> Student number or database ID</li>
                                             <li>• <strong>Student Name:</strong> Full name of student</li>
                                             <li>• <strong>Grade:</strong> Numeric grade value</li>
                                             <li>• <strong>Notes:</strong> Optional comments</li>
                                         </ul>
+                                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                                            Simple 4-column format for uploading one grade per student. Subject and grading period must be selected in the form above.
+                                        </p>
                                     </div>
-                                    <div>
+
+                                    <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
                                         <h4 className="font-medium mb-2">Grade Values:</h4>
                                         <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                                            <li>• <strong>College:</strong> 1.0 to 5.0 (3.0 = passing)</li>
-                                            <li>• <strong>Elementary/Senior High:</strong> 75 to 100 (75 = passing)</li>
+                                            <li>• <strong>Grading Scale:</strong> 1.0 to 5.0 (1.0 = highest, 3.0 = passing)</li>
+                                            <li>• <strong>Sample Grades:</strong> 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 4.0, 5.0</li>
                                         </ul>
                                     </div>
                                 </div>
-                                
+
                                 <Alert>
                                     <CheckCircle className="h-4 w-4 text-green-600" />
                                     <AlertDescription>
-                                        <strong>Tip:</strong> Download the template to see the exact format. The system will automatically detect existing grades and update them, or create new ones if they don't exist.
+                                        <strong>Tip:</strong> The system will automatically detect the CSV format and process it accordingly. It will update existing grades or create new ones if they don't exist. Grades can be edited within 5 days of creation if not yet submitted for validation.
                                     </AlertDescription>
                                 </Alert>
                             </CardContent>

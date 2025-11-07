@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useToast } from '@/components/ui/toast';
 import {
     FileText,
     Award,
@@ -15,7 +16,8 @@ import {
     GraduationCap,
     Users,
     FileSpreadsheet,
-    FileX
+    FileX,
+    Loader2
 } from 'lucide-react';
 import { Sidebar } from '@/components/registrar/sidebar';
 import { Header } from '@/components/registrar/header';
@@ -114,6 +116,7 @@ interface Props {
 }
 
 export default function RegistrarReportsIndex({ user, academicLevels, schoolYears, currentSchoolYear, gradingPeriods, honorTypes, sections, tracks, strands, departments, courses, stats }: Props) {
+    const { addToast } = useToast();
     const [activeTab, setActiveTab] = useState('grade-reports');
 
     // Class Section Reports filtering state
@@ -596,8 +599,13 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
         if (!iframe) {
             iframe = document.createElement('iframe');
             iframe.id = 'download-iframe';
+            iframe.name = 'download-iframe'; // IMPORTANT: name attribute must match form target
             iframe.style.display = 'none';
             document.body.appendChild(iframe);
+            console.log('[REGISTRAR] Created download iframe with name:', iframe.name);
+        } else {
+            iframe.name = 'download-iframe';
+            console.log('[REGISTRAR] Using existing download iframe, name set to:', iframe.name);
         }
 
         // Create a temporary form for file download
@@ -622,14 +630,54 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
             form.appendChild(input);
         });
 
-        document.body.appendChild(form);
-        form.submit();
-        document.body.removeChild(form);
+        // Add iframe load listener BEFORE submitting form
+        iframe.onload = () => {
+            console.log('[REGISTRAR] Iframe loaded at:', new Date().toISOString());
+            try {
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+                if (iframeDoc) {
+                    const body = iframeDoc.body;
+                    const errorContainer = body?.querySelector('[data-error-type="no-data"]');
+                    if (errorContainer) {
+                        const errorTitle = body?.querySelector('.error-title')?.textContent?.trim() || 'No data found';
+                        const errorMessage = body?.querySelector('.error-message')?.textContent?.trim() || 'Please adjust your filters and try again.';
+                        console.warn('[REGISTRAR] No data found:', errorTitle);
+                        addToast(`${errorTitle} ${errorMessage}`, 'warning', { duration: 5000 });
+                        setTimeout(() => {
+                            if (form.parentNode) {
+                                document.body.removeChild(form);
+                                console.log('[REGISTRAR] Form removed after error detection');
+                            }
+                        }, 100);
+                        return;
+                    }
+                    addToast('Report generated successfully! Download should start automatically.', 'success', { duration: 3000 });
+                }
+            } catch (e) {
+                console.log('[REGISTRAR] Could not access iframe content (normal for downloads):', e);
+                addToast('Report generated! Check your downloads folder.', 'success', { duration: 3000 });
+            }
+            setTimeout(() => {
+                if (form.parentNode) {
+                    document.body.removeChild(form);
+                    console.log('[REGISTRAR] Form removed from body after iframe load');
+                }
+            }, 100);
+        };
 
-        // Reset loading state after a delay and show success message
+        document.body.appendChild(form);
+        console.log('[REGISTRAR] Form appended to body');
+
+        // Small delay to ensure iframe is registered as a valid target
+        setTimeout(() => {
+            console.log('[REGISTRAR] Submitting form to iframe:', form.target);
+            form.submit();
+            console.log('[REGISTRAR] Form submitted at:', new Date().toISOString());
+        }, 50);
+
+        // Reset loading state after a delay
         setTimeout(() => {
             setIsGenerating(false);
-            alert('Report generation initiated. Your download should begin shortly. If it doesn\'t, please check your filters and try again.');
         }, 2000);
     };
 
@@ -660,11 +708,13 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
         if (!iframe) {
             iframe = document.createElement('iframe');
             iframe.id = 'download-iframe';
+            iframe.name = 'download-iframe'; // IMPORTANT: name attribute must match form target
             iframe.style.display = 'none';
             document.body.appendChild(iframe);
-            console.log('[REGISTRAR] Created download iframe');
+            console.log('[REGISTRAR] Created download iframe with name:', iframe.name);
         } else {
-            console.log('[REGISTRAR] Using existing download iframe');
+            iframe.name = 'download-iframe';
+            console.log('[REGISTRAR] Using existing download iframe, name set to:', iframe.name);
         }
 
         // Create a temporary form for file download
@@ -674,6 +724,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
         form.target = 'download-iframe';
 
         console.log('[REGISTRAR] Form action URL:', form.action);
+        console.log('[REGISTRAR] Form target:', form.target);
 
         // Add CSRF token
         const csrfInput = document.createElement('input');
@@ -700,16 +751,9 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
 
         console.log('[REGISTRAR] Form data being submitted:', formDataEntries);
 
-        document.body.appendChild(form);
-        console.log('[REGISTRAR] Form appended to body, submitting...');
-        form.submit();
-        console.log('[REGISTRAR] Form submitted');
-        document.body.removeChild(form);
-        console.log('[REGISTRAR] Form removed from body');
-
-        // Add iframe load listener to detect errors
+        // Add iframe load listener BEFORE submitting form
         iframe.onload = () => {
-            console.log('[REGISTRAR] Iframe loaded');
+            console.log('[REGISTRAR] Iframe loaded at:', new Date().toISOString());
             try {
                 const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
                 if (iframeDoc) {
@@ -718,20 +762,57 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                     console.log('[REGISTRAR] Iframe body content length:', bodyText.length);
                     console.log('[REGISTRAR] Iframe body preview:', bodyText.substring(0, 500));
 
+                    // Check for no-data error page
+                    const errorContainer = body?.querySelector('[data-error-type="no-data"]');
+                    if (errorContainer) {
+                        const errorTitle = body?.querySelector('.error-title')?.textContent?.trim() || 'No data found';
+                        const errorMessage = body?.querySelector('.error-message')?.textContent?.trim() || 'Please adjust your filters and try again.';
+                        console.warn('[REGISTRAR] No data found:', errorTitle);
+                        addToast(`${errorTitle} ${errorMessage}`, 'warning', { duration: 5000 });
+                        setTimeout(() => {
+                            if (form.parentNode) {
+                                document.body.removeChild(form);
+                                console.log('[REGISTRAR] Form removed after error detection');
+                            }
+                        }, 100);
+                        return;
+                    }
+
                     // Check for error messages
                     if (bodyText.includes('error') || bodyText.includes('Error') || bodyText.includes('Exception')) {
                         console.error('[REGISTRAR] Error detected in response:', bodyText.substring(0, 1000));
-                        alert('An error occurred while generating the report. Please check the console and Laravel logs for details.');
+                        addToast('An error occurred while generating the report. Please check the Laravel logs.', 'error', { duration: 7000 });
+                    } else {
+                        addToast('Report generated successfully! Download should start automatically.', 'success', { duration: 3000 });
                     }
                 }
             } catch (e) {
                 console.log('[REGISTRAR] Could not access iframe content (this is normal for successful downloads):', e);
+                addToast('Report generated! Check your downloads folder.', 'success', { duration: 3000 });
             }
+
+            // Clean up form after processing
+            setTimeout(() => {
+                if (form.parentNode) {
+                    document.body.removeChild(form);
+                    console.log('[REGISTRAR] Form removed from body after iframe load');
+                }
+            }, 100);
         };
+
+        document.body.appendChild(form);
+        console.log('[REGISTRAR] Form appended to body');
+
+        // Small delay to ensure iframe is registered as a valid target
+        setTimeout(() => {
+            console.log('[REGISTRAR] Submitting form to iframe:', form.target);
+            form.submit();
+            console.log('[REGISTRAR] Form submitted at:', new Date().toISOString());
+        }, 50);
 
         // Reset loading state after a delay
         setTimeout(() => {
-            console.log('[REGISTRAR] Resetting loading state');
+            console.log('[REGISTRAR] Resetting loading state at:', new Date().toISOString());
             setIsGenerating(false);
         }, 3000);
     };
@@ -776,11 +857,13 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
         if (!iframe) {
             iframe = document.createElement('iframe');
             iframe.id = 'download-iframe';
+            iframe.name = 'download-iframe'; // IMPORTANT: name attribute must match form target
             iframe.style.display = 'none';
             document.body.appendChild(iframe);
-            console.log('[REGISTRAR] Created download iframe');
+            console.log('[REGISTRAR] Created download iframe with name:', iframe.name);
         } else {
-            console.log('[REGISTRAR] Using existing download iframe');
+            iframe.name = 'download-iframe';
+            console.log('[REGISTRAR] Using existing download iframe, name set to:', iframe.name);
         }
 
         // Create a temporary form for file download
@@ -790,6 +873,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
         form.target = 'download-iframe';
 
         console.log('[REGISTRAR] Form action URL:', form.action);
+        console.log('[REGISTRAR] Form target:', form.target);
 
         // Add CSRF token
         const csrfInput = document.createElement('input');
@@ -816,16 +900,9 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
 
         console.log('[REGISTRAR] Form data being submitted:', formDataEntries);
 
-        document.body.appendChild(form);
-        console.log('[REGISTRAR] Form appended to body, submitting...');
-        form.submit();
-        console.log('[REGISTRAR] Form submitted');
-        document.body.removeChild(form);
-        console.log('[REGISTRAR] Form removed from body');
-
-        // Add iframe load listener to detect errors
+        // Add iframe load listener BEFORE submitting form
         iframe.onload = () => {
-            console.log('[REGISTRAR] Iframe loaded');
+            console.log('[REGISTRAR] Iframe loaded at:', new Date().toISOString());
             try {
                 const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
                 if (iframeDoc) {
@@ -834,20 +911,57 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                     console.log('[REGISTRAR] Iframe body content length:', bodyText.length);
                     console.log('[REGISTRAR] Iframe body preview:', bodyText.substring(0, 500));
 
+                    // Check for no-data error page
+                    const errorContainer = body?.querySelector('[data-error-type="no-data"]');
+                    if (errorContainer) {
+                        const errorTitle = body?.querySelector('.error-title')?.textContent?.trim() || 'No data found';
+                        const errorMessage = body?.querySelector('.error-message')?.textContent?.trim() || 'Please adjust your filters and try again.';
+                        console.warn('[REGISTRAR] No data found:', errorTitle);
+                        addToast(`${errorTitle} ${errorMessage}`, 'warning', { duration: 5000 });
+                        setTimeout(() => {
+                            if (form.parentNode) {
+                                document.body.removeChild(form);
+                                console.log('[REGISTRAR] Form removed after error detection');
+                            }
+                        }, 100);
+                        return;
+                    }
+
                     // Check for error messages
                     if (bodyText.includes('error') || bodyText.includes('Error') || bodyText.includes('Exception')) {
                         console.error('[REGISTRAR] Error detected in response:', bodyText.substring(0, 1000));
-                        alert('An error occurred while creating the archive. Please check the console and Laravel logs for details.');
+                        addToast('An error occurred while creating the archive. Please check the Laravel logs.', 'error', { duration: 7000 });
+                    } else {
+                        addToast('Archive created successfully! Download should start automatically.', 'success', { duration: 3000 });
                     }
                 }
             } catch (e) {
                 console.log('[REGISTRAR] Could not access iframe content (this is normal for successful downloads):', e);
+                addToast('Archive created! Check your downloads folder.', 'success', { duration: 3000 });
             }
+
+            // Clean up form after processing
+            setTimeout(() => {
+                if (form.parentNode) {
+                    document.body.removeChild(form);
+                    console.log('[REGISTRAR] Form removed from body after iframe load');
+                }
+            }, 100);
         };
+
+        document.body.appendChild(form);
+        console.log('[REGISTRAR] Form appended to body');
+
+        // Small delay to ensure iframe is registered as a valid target
+        setTimeout(() => {
+            console.log('[REGISTRAR] Submitting form to iframe:', form.target);
+            form.submit();
+            console.log('[REGISTRAR] Form submitted at:', new Date().toISOString());
+        }, 50);
 
         // Reset loading state after a delay
         setTimeout(() => {
-            console.log('[REGISTRAR] Resetting loading state');
+            console.log('[REGISTRAR] Resetting loading state at:', new Date().toISOString());
             setIsGenerating(false);
         }, 3000);
     };
@@ -890,8 +1004,13 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
         if (!iframe) {
             iframe = document.createElement('iframe');
             iframe.id = 'download-iframe';
+            iframe.name = 'download-iframe'; // IMPORTANT: name attribute must match form target
             iframe.style.display = 'none';
             document.body.appendChild(iframe);
+            console.log('[REGISTRAR] Created download iframe with name:', iframe.name);
+        } else {
+            iframe.name = 'download-iframe';
+            console.log('[REGISTRAR] Using existing download iframe, name set to:', iframe.name);
         }
 
         // Create a temporary form for file download
@@ -899,6 +1018,9 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
         form.method = 'POST';
         form.action = route('registrar.reports.class-section-report');
         form.target = 'download-iframe';
+
+        console.log('[REGISTRAR] Form action URL:', form.action);
+        console.log('[REGISTRAR] Form target:', form.target);
 
         // Add CSRF token
         const csrfInput = document.createElement('input');
@@ -921,14 +1043,56 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
             form.appendChild(input);
         });
 
-        document.body.appendChild(form);
-        form.submit();
-        document.body.removeChild(form);
+        console.log('[REGISTRAR] Form data being submitted');
 
-        // Reset loading state after a delay and show success message
+        // Add iframe load listener BEFORE submitting form
+        iframe.onload = () => {
+            console.log('[REGISTRAR] Iframe loaded at:', new Date().toISOString());
+            try {
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+                if (iframeDoc) {
+                    const body = iframeDoc.body;
+                    const errorContainer = body?.querySelector('[data-error-type="no-data"]');
+                    if (errorContainer) {
+                        const errorTitle = body?.querySelector('.error-title')?.textContent?.trim() || 'No data found';
+                        const errorMessage = body?.querySelector('.error-message')?.textContent?.trim() || 'Please adjust your filters and try again.';
+                        console.warn('[REGISTRAR] No data found:', errorTitle);
+                        addToast(`${errorTitle} ${errorMessage}`, 'warning', { duration: 5000 });
+                        setTimeout(() => {
+                            if (form.parentNode) {
+                                document.body.removeChild(form);
+                                console.log('[REGISTRAR] Form removed after error detection');
+                            }
+                        }, 100);
+                        return;
+                    }
+                    addToast('Report generated successfully! Download should start automatically.', 'success', { duration: 3000 });
+                }
+            } catch (e) {
+                console.log('[REGISTRAR] Could not access iframe content (normal for downloads):', e);
+                addToast('Report generated! Check your downloads folder.', 'success', { duration: 3000 });
+            }
+            setTimeout(() => {
+                if (form.parentNode) {
+                    document.body.removeChild(form);
+                    console.log('[REGISTRAR] Form removed from body after iframe load');
+                }
+            }, 100);
+        };
+
+        document.body.appendChild(form);
+        console.log('[REGISTRAR] Form appended to body');
+
+        // Small delay to ensure iframe is registered as a valid target
+        setTimeout(() => {
+            console.log('[REGISTRAR] Submitting form to iframe:', form.target);
+            form.submit();
+            console.log('[REGISTRAR] Form submitted at:', new Date().toISOString());
+        }, 50);
+
+        // Reset loading state after a delay
         setTimeout(() => {
             setIsGenerating(false);
-            alert('Report generation initiated. Your download should begin shortly. If it doesn\'t, please check your filters and try again.');
         }, 2000);
     };
 
@@ -2550,7 +2714,11 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                 <Checkbox
                                                     id="include_grades_section"
                                                     checked={sectionData.include_grades}
-                                                    onCheckedChange={(checked) => setSectionData({ ...sectionData, include_grades: !!checked })}
+                                                    onCheckedChange={(checked) => {
+                                                        const value = checked === true ? '1' : '0';
+                                                        console.log('[REGISTRAR] Section include_grades changed to:', value);
+                                                        setSectionData({ ...sectionData, include_grades: value });
+                                                    }}
                                                 />
                                                 <Label htmlFor="include_grades_section">Include student average grades in the report</Label>
                                             </div>
