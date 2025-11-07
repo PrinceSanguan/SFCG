@@ -5,8 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Plus, Search, Upload, Edit } from 'lucide-react';
-import { Link } from '@inertiajs/react';
-import { useState } from 'react';
+import { Link, router } from '@inertiajs/react';
+import { useState, useMemo } from 'react';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 
 interface User {
     id: number;
@@ -32,6 +38,9 @@ interface StudentGrade {
     gradingPeriod?: {
         id: number;
         name: string;
+        semester_number?: number;
+        type?: string;
+        full_name?: string;
     };
     grade: number;
     school_year: string;
@@ -42,6 +51,10 @@ interface StudentGrade {
 
 interface AssignedSubject {
     id: number;
+    subject_id: number;
+    academic_level_id: number;
+    grading_period_id: number | null;
+    section_id: number;
     subject: {
         id: number;
         name: string;
@@ -60,6 +73,9 @@ interface AssignedSubject {
     gradingPeriod?: {
         id: number;
         name: string;
+        semester_number?: number;
+        type?: string;
+        full_name?: string;
     };
     school_year: string;
     is_active: boolean;
@@ -69,12 +85,30 @@ interface AssignedSubject {
             id: number;
             name: string;
             email: string;
+            student_number?: string;
         };
         semester?: string;
         is_active: boolean;
         school_year: string;
     }>;
     student_count: number;
+}
+
+// Grouped subject for display (combining multiple grading periods)
+interface GroupedSubject {
+    id: string; // subject ID
+    name: string;
+    code: string;
+    academicLevel: string;
+    schoolYear: string;
+    gradingPeriods: string; // Comma-separated list
+    assignments: Array<{
+        assignmentId: number;
+        gradingPeriodId: number | null;
+        gradingPeriod: { id: number; name: string } | null;
+        sectionId: number;
+        enrolledStudents: AssignedSubject['enrolled_students'];
+    }>;
 }
 
 interface IndexProps {
@@ -92,6 +126,8 @@ interface IndexProps {
 export default function GradesIndex({ user, grades, assignedSubjects }: IndexProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedSubject, setSelectedSubject] = useState<string>('');
+    const [showPeriodSelector, setShowPeriodSelector] = useState(false);
+    const [selectedSubjectForPeriodSelection, setSelectedSubjectForPeriodSelection] = useState<string | null>(null);
 
     // Debug logging
     console.log('GradesIndex props:', { user, grades, assignedSubjects });
@@ -160,64 +196,135 @@ export default function GradesIndex({ user, grades, assignedSubjects }: IndexPro
         return 'Failing';
     };
 
-    // Get students for selected subject
+    // Get students for selected subject (across all grading periods)
     const getStudentsForSubject = (subjectId: string) => {
         if (!subjectId || !assignedSubjects || !Array.isArray(assignedSubjects)) return [];
-        
-        // Find the subject assignment
-        const subjectAssignment = assignedSubjects.find(subject => 
-            subject.subject?.id?.toString() === subjectId
+
+        console.log('Getting students for subject ID:', subjectId);
+
+        // Get all assignments for this subject (there may be multiple grading periods)
+        const subjectAssignments = assignedSubjects.filter(
+            assignment => assignment.subject?.id?.toString() === subjectId
         );
-        
-        if (!subjectAssignment || !subjectAssignment.enrolled_students) return [];
-        
-        // Return enrolled students with their grades
-        return subjectAssignment.enrolled_students.map(enrollment => {
-            // Find the latest grade for this student in this subject
-            const studentGrade = grades?.data?.find(grade => 
-                grade.student.id === enrollment.student.id && 
-                grade.subject.id === parseInt(subjectId)
-            );
-            
-            return {
-                id: enrollment.student.id,
-                name: enrollment.student.name,
-                email: enrollment.student.email,
-                latestGrade: studentGrade ? studentGrade.grade : 0,
-                latestGradeDate: studentGrade ? studentGrade.updated_at : '',
-                academicLevel: {
-                    key: subjectAssignment.academicLevel?.key || '',
-                    name: subjectAssignment.academicLevel?.name || ''
-                },
-                gradingPeriod: subjectAssignment.gradingPeriod ? {
-                    name: subjectAssignment.gradingPeriod.name
-                } : undefined,
-                schoolYear: enrollment.school_year
-            };
+
+        console.log('Found assignments:', subjectAssignments.length);
+
+        if (subjectAssignments.length === 0) return [];
+
+        // Collect all unique students across all grading periods
+        const studentsMap = new Map();
+
+        subjectAssignments.forEach(assignment => {
+            if (!assignment.enrolled_students) return;
+
+            assignment.enrolled_students.forEach(enrollment => {
+                const studentId = enrollment.student.id;
+
+                if (!studentsMap.has(studentId)) {
+                    // Find all grades for this student in this subject
+                    const studentGrades = grades?.data?.filter(grade =>
+                        grade.student.id === studentId &&
+                        grade.subject.id.toString() === subjectId
+                    ) || [];
+
+                    // Get the latest grade
+                    const latestGrade = studentGrades.length > 0 ? studentGrades[0] : null;
+
+                    studentsMap.set(studentId, {
+                        id: enrollment.student.id,
+                        name: enrollment.student.name,
+                        email: enrollment.student.email,
+                        student_number: enrollment.student.student_number,
+                        latestGrade: latestGrade ? latestGrade.grade : 0,
+                        latestGradeDate: latestGrade ? latestGrade.updated_at : '',
+                        academicLevel: {
+                            key: assignment.academicLevel?.key || '',
+                            name: assignment.academicLevel?.name || ''
+                        },
+                        gradingPeriod: assignment.gradingPeriod ? {
+                            name: assignment.gradingPeriod.name
+                        } : undefined,
+                        schoolYear: enrollment.school_year,
+                        enrolledInPeriods: []
+                    });
+                }
+
+                // Track which grading periods this student is enrolled in
+                const student = studentsMap.get(studentId);
+                if (assignment.gradingPeriod?.name) {
+                    student.enrolledInPeriods.push(assignment.gradingPeriod.full_name || assignment.gradingPeriod.name);
+                }
+            });
         });
+
+        const result = Array.from(studentsMap.values());
+        console.log('Returning students:', result.length);
+        return result;
     };
 
-    // Get available subjects from assigned subjects with safe access
-    const availableSubjects = (assignedSubjects || []).map(subject => {
-        console.log('Processing subject assignment:', subject);
-        
-        // Skip subjects that don't have the required structure
-        if (!subject?.subject?.id || !subject?.subject?.name || !subject?.academicLevel?.name) {
-            console.log('Skipping subject - missing required structure:', subject);
-            return null;
+    // Get available subjects from assigned subjects with grouping by subject ID
+    // This combines multiple grading period assignments into single cards
+    const availableSubjects = useMemo((): GroupedSubject[] => {
+        if (!assignedSubjects || !Array.isArray(assignedSubjects)) {
+            console.log('No assignedSubjects available');
+            return [];
         }
-        
-        const mappedSubject = {
-            id: subject.subject.id.toString(),
-            name: subject.subject.name,
-            code: subject.subject.code || 'N/A',
-            academicLevel: subject.academicLevel.name,
-            schoolYear: subject.school_year || 'N/A'
-        };
-        
-        console.log('Mapped subject:', mappedSubject);
-        return mappedSubject;
-    }).filter((subject): subject is NonNullable<typeof subject> => subject !== null); // Remove null entries with proper typing
+
+        console.log('Processing assignments for grouping:', assignedSubjects);
+
+        // Group assignments by subject ID
+        const grouped = assignedSubjects.reduce((acc, assignment) => {
+            // Skip if missing required structure
+            if (!assignment?.subject?.id || !assignment?.subject?.name || !assignment?.academicLevel?.name) {
+                console.log('Skipping assignment - missing required structure:', assignment);
+                return acc;
+            }
+
+            const subjectId = assignment.subject.id;
+
+            if (!acc[subjectId]) {
+                // Initialize group for this subject
+                acc[subjectId] = {
+                    subject: assignment.subject,
+                    academicLevel: assignment.academicLevel,
+                    schoolYear: assignment.school_year,
+                    assignments: []
+                };
+            }
+
+            // Add this assignment to the group
+            acc[subjectId].assignments.push({
+                assignmentId: assignment.id,
+                gradingPeriodId: assignment.grading_period_id,
+                gradingPeriod: assignment.gradingPeriod || null,
+                sectionId: assignment.section_id,
+                enrolledStudents: assignment.enrolled_students || []
+            });
+
+            return acc;
+        }, {} as Record<number, any>);
+
+        // Convert to array and format for display
+        const result = Object.values(grouped).map((group: any): GroupedSubject => {
+            // Collect grading period names
+            const gradingPeriodNames = group.assignments
+                .map((a: any) => a.gradingPeriod?.full_name || a.gradingPeriod?.name)
+                .filter((name: string | undefined): name is string => Boolean(name));
+
+            return {
+                id: group.subject.id.toString(),
+                name: group.subject.name,
+                code: group.subject.code || 'N/A',
+                academicLevel: group.academicLevel.name,
+                schoolYear: group.schoolYear || 'N/A',
+                gradingPeriods: gradingPeriodNames.length > 0 ? gradingPeriodNames.join(', ') : 'No Period',
+                assignments: group.assignments
+            };
+        });
+
+        console.log('Grouped available subjects:', result);
+        return result;
+    }, [assignedSubjects]);
 
     const handleInputGrade = (student: {
         id: number;
@@ -229,26 +336,44 @@ export default function GradesIndex({ user, grades, assignedSubjects }: IndexPro
         gradingPeriod?: { name: string };
         schoolYear: string;
     }) => {
-        // Use the currently selected subject instead of finding the first match
-        const subjectAssignment = assignedSubjects.find(subject =>
-            subject.subject.id.toString() === selectedSubject
+        if (!selectedSubject || !assignedSubjects) return;
+
+        // Get all assignments for the selected subject
+        const subjectAssignments = assignedSubjects.filter(
+            assignment => assignment.subject.id.toString() === selectedSubject
         );
 
-        if (subjectAssignment) {
-            console.log('Creating grade for subject:', {
-                subjectId: subjectAssignment.subject.id,
-                subjectName: subjectAssignment.subject.name,
-                studentId: student.id
+        if (subjectAssignments.length === 0) {
+            console.error('No subject assignment found for selectedSubject:', selectedSubject);
+            return;
+        }
+
+        if (subjectAssignments.length === 1) {
+            // Single assignment - navigate directly to grade input
+            const assignment = subjectAssignments[0];
+            console.log('Creating grade for subject (single period):', {
+                subjectId: assignment.subject.id,
+                subjectName: assignment.subject.name,
+                studentId: student.id,
+                gradingPeriod: assignment.gradingPeriod?.full_name || assignment.gradingPeriod?.name
             });
 
-            window.location.href = route('instructor.grades.create') +
-                `?student_id=${student.id}` +
-                `&subject_id=${subjectAssignment.subject.id}` +
-                `&academic_level_id=${subjectAssignment.academicLevel.id}` +
-                `&academic_level_key=${subjectAssignment.academicLevel.key}` +
-                `&school_year=${subjectAssignment.school_year}`;
+            router.visit(route('instructor.grades.create', {
+                student_id: student.id,
+                subject_id: assignment.subject.id,
+                assignment_id: assignment.id,
+                academic_level_id: assignment.academic_level_id,
+                academic_level_key: assignment.academicLevel.key,
+                grading_period_id: assignment.grading_period_id,
+                school_year: assignment.school_year
+            }));
         } else {
-            console.error('No subject assignment found for selectedSubject:', selectedSubject);
+            // Multiple assignments - need to select grading period first
+            console.log('Multiple assignments found, showing period selector');
+            // Store student info for after period selection
+            (window as any).__pendingGradeStudent = student;
+            setSelectedSubjectForPeriodSelection(selectedSubject);
+            setShowPeriodSelector(true);
         }
     };
 
@@ -338,7 +463,7 @@ export default function GradesIndex({ user, grades, assignedSubjects }: IndexPro
                                                             {subject.code}
                                                         </p>
                                                         <p className="text-xs text-gray-400 dark:text-gray-500">
-                                                            {subject.academicLevel} • {subject.schoolYear}
+                                                            {subject.academicLevel} • SY {subject.schoolYear} • {subject.gradingPeriods}
                                                         </p>
                                                     </div>
                                                     <div className={`w-3 h-3 rounded-full ${
@@ -470,6 +595,61 @@ export default function GradesIndex({ user, grades, assignedSubjects }: IndexPro
                     </div>
                 </main>
             </div>
+
+            {/* Grading Period Selector Modal */}
+            {showPeriodSelector && selectedSubjectForPeriodSelection && assignedSubjects && (
+                <Dialog open={showPeriodSelector} onOpenChange={setShowPeriodSelector}>
+                    <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Select Grading Period</DialogTitle>
+                            <p className="text-sm text-muted-foreground mt-2">
+                                This subject has multiple grading periods. Please select which period you want to input grades for.
+                            </p>
+                        </DialogHeader>
+                        <div className="space-y-2 mt-4">
+                            {assignedSubjects
+                                .filter(a => a.subject.id.toString() === selectedSubjectForPeriodSelection)
+                                .map(assignment => (
+                                    <Button
+                                        key={assignment.id}
+                                        onClick={() => {
+                                            const student = (window as any).__pendingGradeStudent;
+                                            console.log('Selected grading period:', assignment.gradingPeriod?.full_name || assignment.gradingPeriod?.name);
+
+                                            if (student) {
+                                                router.visit(route('instructor.grades.create', {
+                                                    student_id: student.id,
+                                                    subject_id: assignment.subject.id,
+                                                    assignment_id: assignment.id,
+                                                    academic_level_id: assignment.academic_level_id,
+                                                    academic_level_key: assignment.academicLevel.key,
+                                                    grading_period_id: assignment.grading_period_id,
+                                                    school_year: assignment.school_year
+                                                }));
+                                            }
+
+                                            setShowPeriodSelector(false);
+                                            setSelectedSubjectForPeriodSelection(null);
+                                            delete (window as any).__pendingGradeStudent;
+                                        }}
+                                        variant="outline"
+                                        className="w-full justify-start h-auto py-4 px-4"
+                                    >
+                                        <div className="flex flex-col items-start text-left">
+                                            <span className="font-medium">
+                                                {assignment.gradingPeriod?.full_name || assignment.gradingPeriod?.name || 'No Period Assigned'}
+                                            </span>
+                                            <span className="text-xs text-muted-foreground mt-1">
+                                                {assignment.school_year} • {assignment.subject.code}
+                                            </span>
+                                        </div>
+                                    </Button>
+                                ))
+                            }
+                        </div>
+                    </DialogContent>
+                </Dialog>
+            )}
         </div>
     );
 }

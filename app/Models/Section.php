@@ -59,6 +59,36 @@ class Section extends Model
     {
         return $this->hasMany(User::class, 'section_id');
     }
+
+    /**
+     * Get the effective school year for this section.
+     * Returns the section's school_year or a default current year if not set.
+     *
+     * @return string The school year in format "YYYY-YYYY" (e.g., "2025-2026")
+     */
+    public function getEffectiveSchoolYear(): string
+    {
+        if ($this->school_year) {
+            return $this->school_year;
+        }
+
+        // If section doesn't have a school year, generate current one based on calendar
+        // Academic year typically starts in August/September
+        $currentYear = now()->year;
+        $currentMonth = now()->month;
+
+        // If we're in Aug-Dec, academic year is current-next (e.g., 2025-2026)
+        // If we're in Jan-Jul, academic year is previous-current (e.g., 2024-2025)
+        if ($currentMonth >= 8) {
+            $startYear = $currentYear;
+            $endYear = $currentYear + 1;
+        } else {
+            $startYear = $currentYear - 1;
+            $endYear = $currentYear;
+        }
+
+        return "{$startYear}-{$endYear}";
+    }
 }
 
 

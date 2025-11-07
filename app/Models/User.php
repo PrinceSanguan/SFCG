@@ -511,4 +511,41 @@ class User extends Authenticatable
     {
         return $this->getAssignedSubjects()->contains('id', $subject->id);
     }
+
+    /**
+     * Get the effective school year for this student.
+     * Returns the school year from the student's section, or generates a default.
+     * Only applicable for users with user_role = 'student'.
+     *
+     * @return string|null The school year in format "YYYY-YYYY" (e.g., "2025-2026"), or null if not a student
+     */
+    public function getEffectiveSchoolYear(): ?string
+    {
+        // Only students have school years
+        if ($this->user_role !== 'student') {
+            return null;
+        }
+
+        // If student has a section, use the section's school year
+        if ($this->section_id && $this->section) {
+            return $this->section->getEffectiveSchoolYear();
+        }
+
+        // If no section, generate current academic year based on calendar
+        // Academic year typically starts in August/September
+        $currentYear = now()->year;
+        $currentMonth = now()->month;
+
+        // If we're in Aug-Dec, academic year is current-next (e.g., 2025-2026)
+        // If we're in Jan-Jul, academic year is previous-current (e.g., 2024-2025)
+        if ($currentMonth >= 8) {
+            $startYear = $currentYear;
+            $endYear = $currentYear + 1;
+        } else {
+            $startYear = $currentYear - 1;
+            $endYear = $currentYear;
+        }
+
+        return "{$startYear}-{$endYear}";
+    }
 }

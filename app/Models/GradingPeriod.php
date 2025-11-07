@@ -124,7 +124,8 @@ class GradingPeriod extends Model
         }
         
         if ($this->isSubPeriod()) {
-            return "{$this->parent->name} - {$this->name}";
+            $parentName = $this->parent?->name ?? 'Unknown Parent';
+            return "{$parentName} - {$this->name}";
         }
         
         return $this->name;

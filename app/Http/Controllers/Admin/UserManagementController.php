@@ -934,33 +934,34 @@ class UserManagementController extends Controller
 
         // Use different columns based on academic level
         // If section_id is provided for elementary/JHS, exclude section_name from template
+        // Note: school_year column is optional - if blank, uses section's school_year
         if ($academicLevel === 'senior_highschool') {
             // New workflow: track/strand/section provided separately, simplified format
             if ($trackId && $strandId && $sectionId) {
-                $columns = ['name', 'email', 'password', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
+                $columns = ['name', 'email', 'password', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship', 'school_year'];
             } else {
                 // Old workflow: include all columns for backward compatibility
-                $columns = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'academic_strand', 'track', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
+                $columns = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'academic_strand', 'track', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship', 'school_year'];
             }
         } elseif ($academicLevel === 'college') {
             // New workflow: department/course/section provided separately, simplified format
             if ($departmentId && $courseId && $sectionId) {
-                $columns = ['name', 'email', 'password', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
+                $columns = ['name', 'email', 'password', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship', 'school_year'];
             } else {
                 // Old workflow: include all columns for backward compatibility
-                $columns = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'department_name', 'course_name', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
+                $columns = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'department_name', 'course_name', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship', 'school_year'];
             }
         } elseif ($academicLevel === 'elementary' || $academicLevel === 'junior_highschool') {
             // Remove section_name if section_id is provided (new workflow)
             if ($sectionId) {
-                $columns = ['name', 'email', 'password', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
+                $columns = ['name', 'email', 'password', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship', 'school_year'];
             } else {
                 // Keep old format for backward compatibility
-                $columns = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
+                $columns = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship', 'school_year'];
             }
         } else {
             // Default for when no academic level is specified
-            $columns = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'strand_name', 'department_name', 'course_name', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
+            $columns = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'strand_name', 'department_name', 'course_name', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship', 'school_year'];
         }
 
         $sampleRows = [];
@@ -986,7 +987,8 @@ class UserManagementController extends Controller
                         '123 Main Street, Barangay 1',
                         'Pedro Dela Cruz',
                         '09123456788',
-                        'father'
+                        'father',
+                        '', // school_year (optional)
                     ];
                 } else {
                     // Old workflow: include section in CSV
@@ -1004,7 +1006,8 @@ class UserManagementController extends Controller
                         '123 Main Street, Barangay 1',
                         'Pedro Dela Cruz',
                         '09123456788',
-                        'father'
+                        'father',
+                        '', // school_year (optional)
                     ];
                 }
             } else {

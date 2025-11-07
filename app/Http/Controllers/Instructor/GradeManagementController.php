@@ -28,7 +28,7 @@ class GradeManagementController extends Controller
         Log::info('Grades index accessed by user: ' . $user->id . ' - ' . $user->name);
         
         // Get instructor's assigned subjects (College level only)
-        $assignedSubjects = InstructorSubjectAssignment::with(['subject.course', 'academicLevel', 'gradingPeriod'])
+        $assignedSubjects = InstructorSubjectAssignment::with(['subject.course', 'academicLevel', 'gradingPeriod.parent'])
             ->where('instructor_id', $user->id)
             ->where('is_active', true)
             ->whereHas('academicLevel', function ($query) {
@@ -50,6 +50,20 @@ class GradeManagementController extends Controller
                 ->where('school_year', $assignment->school_year)
                 ->where('is_active', true)
                 ->get();
+
+            // Log the query results using ActivityLogService
+            \App\Services\ActivityLogService::logStudentQuery(
+                instructorId: auth()->id(),
+                subjectId: $assignment->subject_id,
+                schoolYear: $assignment->school_year,
+                studentCount: $enrolledStudents->count(),
+                additionalDetails: [
+                    'subject_name' => $assignment->subject->name ?? 'Unknown',
+                    'section_id' => $assignment->section_id,
+                    'grading_period_id' => $assignment->grading_period_id,
+                    'context' => 'instructor_dashboard_index',
+                ]
+            );
             
             return [
                 'id' => $assignment->id,
@@ -72,6 +86,9 @@ class GradeManagementController extends Controller
                 'gradingPeriod' => $assignment->gradingPeriod ? [
                     'id' => $assignment->gradingPeriod->id,
                     'name' => $assignment->gradingPeriod->name,
+                    'semester_number' => $assignment->gradingPeriod->semester_number,
+                    'type' => $assignment->gradingPeriod->type,
+                    'full_name' => $assignment->gradingPeriod->full_name,
                 ] : null,
                 'school_year' => $assignment->school_year,
                 'is_active' => $assignment->is_active,
@@ -95,7 +112,7 @@ class GradeManagementController extends Controller
         Log::info('Debug data structure: ' . json_encode($debugData->first()));
         
         // Get grades for assigned subjects
-        $gradesQuery = StudentGrade::with(['student', 'subject', 'academicLevel', 'gradingPeriod'])
+        $gradesQuery = StudentGrade::with(['student', 'subject', 'academicLevel', 'gradingPeriod.parent'])
             ->whereHas('subject', function ($query) use ($assignedSubjects) {
                 // Get subjects that the instructor is assigned to
                 $query->whereIn('id', $assignedSubjects->pluck('subject_id'));
@@ -152,20 +169,43 @@ class GradeManagementController extends Controller
     {
         $user = Auth::user();
         
-        // Check for URL parameters to pre-select student
+        // Check for URL parameters to pre-select student and grading period
         $selectedStudent = null;
+        $selectedGradingPeriodId = null;
+        $selectedAssignmentId = null;
+
         if (request()->has('student_id') && request()->has('subject_id') && request()->has('academic_level_id')) {
             $studentId = request('student_id');
             $subjectId = request('subject_id');
             $academicLevelId = request('academic_level_id');
-            
+
+            // Get the specific assignment if assignment_id is provided
+            if (request()->has('assignment_id')) {
+                $selectedAssignmentId = request('assignment_id');
+                $assignment = InstructorSubjectAssignment::where('instructor_id', $user->id)
+                    ->where('id', $selectedAssignmentId)
+                    ->where('is_active', true)
+                    ->first();
+
+                if ($assignment) {
+                    $selectedGradingPeriodId = $assignment->grading_period_id;
+
+                    Log::info('Selected assignment grading period:', [
+                        'assignment_id' => $assignment->id,
+                        'grading_period_id' => $selectedGradingPeriodId,
+                        'subject_id' => $subjectId,
+                        'student_id' => $studentId
+                    ]);
+                }
+            }
+
             // Verify the instructor is assigned to this subject
             $isAssigned = InstructorSubjectAssignment::where('instructor_id', $user->id)
                 ->where('subject_id', $subjectId)
                 ->where('academic_level_id', $academicLevelId)
                 ->where('is_active', true)
                 ->exists();
-            
+
             if ($isAssigned) {
                 $student = User::find($studentId);
                 if ($student) {
@@ -181,7 +221,7 @@ class GradeManagementController extends Controller
         }
         
         // Get instructor's assigned subjects with enrolled students
-        $assignedSubjects = InstructorSubjectAssignment::with(['subject.course', 'academicLevel', 'gradingPeriod'])
+        $assignedSubjects = InstructorSubjectAssignment::with(['subject.course', 'academicLevel', 'gradingPeriod.parent'])
             ->where('instructor_id', $user->id)
             ->where('is_active', true)
             ->get();
@@ -195,16 +235,33 @@ class GradeManagementController extends Controller
                 ->where('is_active', true)
                 ->get();
 
+            // Log the query results using ActivityLogService
+            \App\Services\ActivityLogService::logStudentQuery(
+                instructorId: auth()->id(),
+                subjectId: $assignment->subject_id,
+                schoolYear: $assignment->school_year,
+                studentCount: $enrolledStudents->count(),
+                additionalDetails: [
+                    'subject_name' => $assignment->subject->name ?? 'Unknown',
+                    'section_id' => $assignment->section_id,
+                    'grading_period_id' => $assignment->grading_period_id,
+                    'context' => 'instructor_grade_input_create',
+                ]
+            );
+
             // Get the subject's grading_period_ids and semester_ids
             $subject = $assignment->subject;
             $gradingPeriodIds = $subject->grading_period_ids ?? [];
             $semesterIds = $subject->semester_ids ?? [];
 
-            \Log::info('Assignment subject grading periods:', [
+            \Log::info('Assignment grading period details:', [
+                'assignment_id' => $assignment->id,
+                'assignment_grading_period_id' => $assignment->grading_period_id,
+                'assignment_grading_period_name' => $assignment->gradingPeriod ? $assignment->gradingPeriod->full_name : 'None',
                 'subject_id' => $subject->id,
                 'subject_name' => $subject->name,
-                'grading_period_ids' => $gradingPeriodIds,
-                'semester_ids' => $semesterIds
+                'subject_grading_period_ids' => $gradingPeriodIds,
+                'subject_semester_ids' => $semesterIds
             ]);
 
             return [
@@ -230,6 +287,9 @@ class GradeManagementController extends Controller
                 'gradingPeriod' => $assignment->gradingPeriod ? [
                     'id' => $assignment->gradingPeriod->id,
                     'name' => $assignment->gradingPeriod->name,
+                    'semester_number' => $assignment->gradingPeriod->semester_number,
+                    'type' => $assignment->gradingPeriod->type,
+                    'full_name' => $assignment->gradingPeriod->full_name,
                 ] : null,
                 'grading_period_ids' => $gradingPeriodIds,
                 'semester_ids' => $semesterIds,
@@ -266,14 +326,18 @@ class GradeManagementController extends Controller
         Log::info('Grade Creation - Academic Levels:', $academicLevels->toArray());
         Log::info('Grade Creation - Grading Periods:', $gradingPeriods->toArray());
         Log::info('Grade Creation - Selected Student:', $selectedStudent ?: []);
+        Log::info('Grade Creation - Selected Grading Period ID: ' . ($selectedGradingPeriodId ?: 'None'));
+        Log::info('Grade Creation - Selected Assignment ID: ' . ($selectedAssignmentId ?: 'None'));
         Log::info('Grade Creation - Request Parameters:', request()->all());
-        
+
         return Inertia::render('Instructor/Grades/Create', [
             'user' => $user,
             'academicLevels' => $academicLevels,
             'gradingPeriods' => $gradingPeriods,
             'assignedSubjects' => $debugData,
             'selectedStudent' => $selectedStudent,
+            'selectedGradingPeriodId' => $selectedGradingPeriodId,
+            'selectedAssignmentId' => $selectedAssignmentId,
         ]);
     }
     
@@ -516,7 +580,7 @@ class GradeManagementController extends Controller
         $academicLevel = $assignment->academicLevel;
         
         // Get all grades for this student in this subject with editability info
-        $grades = StudentGrade::with(['student:id,name,student_number', 'subject', 'academicLevel', 'gradingPeriod'])
+        $grades = StudentGrade::with(['student:id,name,student_number', 'subject', 'academicLevel', 'gradingPeriod.parent'])
             ->where('student_id', $studentId)
             ->where('subject_id', $subjectId)
             ->orderBy('created_at', 'desc')
@@ -616,7 +680,7 @@ class GradeManagementController extends Controller
             ->get();
 
         // Get instructor's assigned subjects with enrolled students
-        $assignedSubjects = InstructorSubjectAssignment::with(['subject.course', 'academicLevel', 'gradingPeriod'])
+        $assignedSubjects = InstructorSubjectAssignment::with(['subject.course', 'academicLevel', 'gradingPeriod.parent'])
             ->where('instructor_id', $user->id)
             ->where('is_active', true)
             ->get();
@@ -651,6 +715,9 @@ class GradeManagementController extends Controller
                 'gradingPeriod' => $assignment->gradingPeriod ? [
                     'id' => $assignment->gradingPeriod->id,
                     'name' => $assignment->gradingPeriod->name,
+                    'semester_number' => $assignment->gradingPeriod->semester_number,
+                    'type' => $assignment->gradingPeriod->type,
+                    'full_name' => $assignment->gradingPeriod->full_name,
                 ] : null,
                 'school_year' => $assignment->school_year,
                 'is_active' => $assignment->is_active,

@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\User;
 use App\Models\InstructorSubjectAssignment;
 use App\Models\StudentSubjectAssignment;
-use App\Models\ActivityLog;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
@@ -64,22 +63,21 @@ class InstructorStudentAssignmentService
 
                     $enrolledStudents[] = $assignment;
 
-                    // Log activity
-                    ActivityLog::create([
-                        'user_id' => Auth::id() ?? 1,
-                        'target_user_id' => $student->id,
-                        'action' => 'auto_enrolled_student_via_instructor_assignment',
-                        'entity_type' => 'student_subject_assignment',
-                        'entity_id' => $assignment->id,
-                        'details' => [
-                            'student' => $student->name,
-                            'subject' => $instructorAssignment->subject->name ?? 'Unknown',
-                            'instructor' => $instructorAssignment->instructor->name ?? 'Unknown',
+                    // Log enrollment using ActivityLogService
+                    ActivityLogService::logStudentEnrollment(
+                        studentId: $student->id,
+                        subjectId: $instructorAssignment->subject_id,
+                        schoolYear: $instructorAssignment->school_year,
+                        source: 'instructor_assignment',
+                        additionalDetails: [
+                            'student_name' => $student->name,
+                            'subject_name' => $instructorAssignment->subject->name ?? 'Unknown',
+                            'instructor_id' => $instructorAssignment->instructor_id,
+                            'instructor_name' => $instructorAssignment->instructor->name ?? 'Unknown',
                             'section_id' => $instructorAssignment->section_id,
-                            'school_year' => $instructorAssignment->school_year,
                             'trigger' => 'instructor_section_assignment',
-                        ],
-                    ]);
+                        ]
+                    );
 
                     Log::info('Student auto-enrolled via instructor assignment', [
                         'student_id' => $student->id,
@@ -88,6 +86,7 @@ class InstructorStudentAssignmentService
                         'subject_name' => $instructorAssignment->subject->name ?? 'Unknown',
                         'instructor_id' => $instructorAssignment->instructor_id,
                         'section_id' => $instructorAssignment->section_id,
+                        'school_year' => $instructorAssignment->school_year,
                     ]);
                 }
             } catch (\Exception $e) {
@@ -160,17 +159,33 @@ class InstructorStudentAssignmentService
 
     /**
      * Get current school year.
+     * Generates based on calendar date.
+     * Academic year typically starts in August/September.
      */
     private function getCurrentSchoolYear(): string
     {
-        return "2024-2025";
+        $currentYear = now()->year;
+        $currentMonth = now()->month;
+
+        // If we're in Aug-Dec, academic year is current-next (e.g., 2025-2026)
+        // If we're in Jan-Jul, academic year is previous-current (e.g., 2024-2025)
+        if ($currentMonth >= 8) {
+            return "{$currentYear}-" . ($currentYear + 1);
+        } else {
+            return ($currentYear - 1) . "-{$currentYear}";
+        }
     }
 
     /**
      * Get semester for the academic level.
+     *
+     * @param string $yearLevel The academic level (reserved for future semester logic)
+     * @return string
      */
     private function getSemesterForLevel(string $yearLevel): string
     {
+        // Currently returns default semester for all levels
+        // $yearLevel parameter reserved for future semester-based logic
         return '1st Semester';
     }
 }

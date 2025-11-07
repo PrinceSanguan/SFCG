@@ -40,6 +40,9 @@ interface AssignedSubject {
     gradingPeriod?: {
         id: number;
         name: string;
+        semester_number?: number;
+        type?: string;
+        full_name?: string;
     };
     grading_period_ids?: number[];
     semester_ids?: number[];
@@ -76,6 +79,9 @@ interface GradingPeriod {
     sort_order: number;
     is_active: boolean;
     academic_level_id: number;
+    semester_number?: number;
+    type?: string;
+    full_name?: string;
 }
 
 interface CreateProps {
@@ -90,21 +96,24 @@ interface CreateProps {
         subjectId?: number;
         academicLevelKey?: string;
     };
+    selectedGradingPeriodId?: number | null;
+    selectedAssignmentId?: number | null;
 }
 
-export default function Create({ user, academicLevels, gradingPeriods, assignedSubjects, selectedStudent }: CreateProps) {
+export default function Create({ user, academicLevels, gradingPeriods, assignedSubjects, selectedStudent, selectedGradingPeriodId, selectedAssignmentId }: CreateProps) {
     // Get URL parameters for initial form state
     const urlParams = new URLSearchParams(window.location.search);
     const initialStudentId = urlParams.get('student_id') || '';
     const initialSubjectId = urlParams.get('subject_id') || '';
     const initialAcademicLevelId = urlParams.get('academic_level_id') || '';
     const initialSchoolYear = urlParams.get('school_year') || '2024-2025';
-    
+    const initialGradingPeriodId = urlParams.get('grading_period_id') || selectedGradingPeriodId?.toString() || '0';
+
     const { data, setData, post, processing, errors } = useForm({
         student_id: initialStudentId,
         subject_id: initialSubjectId,
         academic_level_id: initialAcademicLevelId,
-        grading_period_id: '0',
+        grading_period_id: initialGradingPeriodId,
         school_year: initialSchoolYear,
         year_of_study: '',
         grade: '',
@@ -112,39 +121,40 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
     
     const [isInitialized, setIsInitialized] = useState(false);
 
-    // Get allowed grading periods for the selected subject
+    // Get allowed grading periods - ONLY show periods assigned to this instructor
     const allowedGradingPeriods = useMemo(() => {
-        if (!data.subject_id) {
-            console.log('No subject selected, returning all periods');
-            return gradingPeriods;
-        }
+        console.log('=== Grading Period Filtering Logic Start ===');
+        console.log('Selected Subject ID:', data.subject_id);
+        console.log('Selected Grading Period ID from Backend:', selectedGradingPeriodId);
+        console.log('Selected Assignment ID:', selectedAssignmentId);
+        console.log('Total Grading Periods Available:', gradingPeriods.length);
+        console.log('Instructor Assignments:', assignedSubjects.length);
 
-        const selectedAssignment = assignedSubjects.find(
-            s => s.subject.id.toString() === data.subject_id
+        // Get all grading period IDs from instructor's assignments
+        const assignedGradingPeriodIds = new Set<number>();
+        assignedSubjects.forEach(assignment => {
+            if (assignment.gradingPeriod?.id) {
+                assignedGradingPeriodIds.add(assignment.gradingPeriod.id);
+            }
+        });
+
+        console.log('Assigned Grading Period IDs:', Array.from(assignedGradingPeriodIds));
+
+        // Filter to show ONLY the grading periods this instructor is assigned to
+        const assignedPeriods = gradingPeriods.filter(period =>
+            assignedGradingPeriodIds.has(period.id)
         );
 
-        if (!selectedAssignment) {
-            console.log('No assignment found for subject_id:', data.subject_id);
-            return gradingPeriods;
-        }
+        console.log('Filtered to assigned periods only:', assignedPeriods.length);
+        console.log('Assigned Periods:', assignedPeriods.map(p => ({
+            id: p.id,
+            name: p.name,
+            full_name: p.full_name,
+            code: p.code
+        })));
 
-        const gradingPeriodIds = selectedAssignment.grading_period_ids || selectedAssignment.subject?.grading_period_ids || [];
-
-        console.log('=== Grading Period Filtering ===');
-        console.log('Selected subject:', selectedAssignment.subject?.name);
-        console.log('Assignment grading_period_ids:', gradingPeriodIds);
-        console.log('All grading periods:', gradingPeriods.length);
-
-        if (gradingPeriodIds.length === 0) {
-            console.log('No grading_period_ids assigned, showing all periods');
-            return gradingPeriods;
-        }
-
-        const filtered = gradingPeriods.filter(period => gradingPeriodIds.includes(period.id));
-        console.log('Filtered grading periods:', filtered.length, filtered.map(p => ({ id: p.id, name: p.name })));
-
-        return filtered;
-    }, [data.subject_id, assignedSubjects, gradingPeriods]);
+        return assignedPeriods;
+    }, [assignedSubjects, gradingPeriods, selectedGradingPeriodId, selectedAssignmentId]);
 
     // Extract unique semesters from allowed grading periods
     const availableSemesters = useMemo(() => {
@@ -183,13 +193,18 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                 initialStudentId,
                 initialSubjectId,
                 initialAcademicLevelId,
-                initialSchoolYear
+                initialSchoolYear,
+                initialGradingPeriodId
             });
+            console.log('Selected Grading Period ID from Backend:', selectedGradingPeriodId);
+            console.log('Selected Assignment ID from Backend:', selectedAssignmentId);
             console.log('Form Data After Init:', data);
             console.log('Assigned Subjects:', assignedSubjects.map(s => ({
                 assignmentId: s.id,
                 subjectId: s.subject.id,
-                subjectName: s.subject.name
+                subjectName: s.subject.name,
+                gradingPeriodId: s.gradingPeriod?.id,
+                gradingPeriodName: s.gradingPeriod?.full_name || s.gradingPeriod?.name
             })));
 
             // Verify the subject exists in assignedSubjects
@@ -290,8 +305,13 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
     console.log('Form data:', data);
     console.log('hasPreSelectedStudent:', hasPreSelectedStudent);
     console.log('Academic Levels:', academicLevels);
+    console.log('=== Grading Period Dropdown Render ===');
+    console.log('Current grading_period_id value:', data.grading_period_id);
+    console.log('Allowed Grading Periods:', allowedGradingPeriods.length);
     console.log('Grading Periods:', gradingPeriods);
     console.log('Grading Periods Length:', gradingPeriods?.length);
+    console.log('Has First Semester Periods:', hasFirstSemesterPeriods);
+    console.log('Has Second Semester Periods:', hasSecondSemesterPeriods);
 
     // Show loading state while initializing
     if (!isInitialized) {

@@ -18,11 +18,26 @@ class StudentSubjectAssignmentService
     public function assignSubjectsToStudent(User $student): array
     {
         $assignedSubjects = [];
-        $currentSchoolYear = $this->getCurrentSchoolYear();
-        
+
+        // Get school year from student's section (NEW LOGIC)
+        $currentSchoolYear = $student->getEffectiveSchoolYear();
+
+        // Log the school year being used
+        ActivityLogService::logSectionSchoolYearUsage(
+            studentId: $student->id,
+            sectionId: $student->section_id ?? 0,
+            sectionSchoolYear: $currentSchoolYear,
+            context: 'assignSubjectsToStudent',
+            additionalDetails: [
+                'student_name' => $student->name,
+                'year_level' => $student->year_level,
+                'has_section' => $student->section_id ? true : false,
+            ]
+        );
+
         // Get academic level ID based on student's year level
         $academicLevelId = $this->getAcademicLevelId($student->year_level);
-        
+
         if (!$academicLevelId) {
             Log::warning('Could not determine academic level for student', [
                 'student_id' => $student->id,
@@ -33,7 +48,7 @@ class StudentSubjectAssignmentService
 
         // Get subjects based on student's academic level and program
         $subjects = $this->getSubjectsForStudent($student, $academicLevelId);
-        
+
         foreach ($subjects as $subject) {
             try {
                 // Check if student is already enrolled in this subject
@@ -56,24 +71,23 @@ class StudentSubjectAssignmentService
 
                     $assignedSubjects[] = $assignment;
 
+                    // Log enrollment using ActivityLogService
+                    ActivityLogService::logStudentEnrollment(
+                        studentId: $student->id,
+                        subjectId: $subject->id,
+                        schoolYear: $currentSchoolYear,
+                        source: 'automatic',
+                        additionalDetails: [
+                            'student_name' => $student->name,
+                            'subject_name' => $subject->name,
+                            'academic_level' => $student->year_level,
+                            'section_id' => $student->section_id,
+                        ]
+                    );
+
                     // Check if there's a teacher/adviser/instructor assigned to this subject
                     // and log the student-teacher relationship
                     $this->logTeacherStudentRelationship($student, $subject);
-
-                    // Log activity
-                    ActivityLog::create([
-                        'user_id' => Auth::id() ?? 1,
-                        'target_user_id' => $student->id,
-                        'action' => 'auto_enrolled_student_subject',
-                        'entity_type' => 'student_subject_assignment',
-                        'entity_id' => $assignment->id,
-                        'details' => [
-                            'student' => $student->name,
-                            'subject' => $subject->name,
-                            'academic_level' => $student->year_level,
-                            'school_year' => $currentSchoolYear,
-                        ],
-                    ]);
                 }
             } catch (\Exception $e) {
                 Log::error('Failed to assign subject to student', [
@@ -169,12 +183,30 @@ class StudentSubjectAssignmentService
     }
 
     /**
-     * Get current school year.
+     * Get current school year for a student.
+     * Uses the student's section's school_year if available, otherwise generates based on calendar.
+     *
+     * @param User $student
+     * @return string School year in format "YYYY-YYYY"
+     * @deprecated Use $student->getEffectiveSchoolYear() instead
      */
-    private function getCurrentSchoolYear(): string
+    private function getCurrentSchoolYear(?User $student = null): string
     {
-        // Use 2024-2025 as the current school year for this system
-        return "2024-2025";
+        if ($student) {
+            return $student->getEffectiveSchoolYear();
+        }
+
+        // Fallback: Generate current academic year based on calendar
+        $currentYear = now()->year;
+        $currentMonth = now()->month;
+
+        // If we're in Aug-Dec, academic year is current-next (e.g., 2025-2026)
+        // If we're in Jan-Jul, academic year is previous-current (e.g., 2024-2025)
+        if ($currentMonth >= 8) {
+            return "{$currentYear}-" . ($currentYear + 1);
+        } else {
+            return ($currentYear - 1) . "-{$currentYear}";
+        }
     }
 
     /**
@@ -231,13 +263,29 @@ class StudentSubjectAssignmentService
     public function enrollStudentInSectionSubjects(User $student): array
     {
         $enrolledSubjects = [];
-        $currentSchoolYear = $this->getCurrentSchoolYear();
+
+        // Get school year from student's section (NEW LOGIC)
+        $currentSchoolYear = $student->getEffectiveSchoolYear();
+
+        // Log the school year being used
+        ActivityLogService::logSectionSchoolYearUsage(
+            studentId: $student->id,
+            sectionId: $student->section_id ?? 0,
+            sectionSchoolYear: $currentSchoolYear,
+            context: 'enrollStudentInSectionSubjects',
+            additionalDetails: [
+                'student_name' => $student->name,
+                'year_level' => $student->year_level,
+                'has_section' => $student->section_id ? true : false,
+            ]
+        );
 
         // Check if student has a section assigned
         if (!$student->section_id) {
             Log::warning('Student has no section assigned, using academic level assignment instead', [
                 'student_id' => $student->id,
                 'student_name' => $student->name,
+                'school_year' => $currentSchoolYear,
             ]);
             // Fall back to academic level-based assignment
             return $this->assignSubjectsToStudent($student);
@@ -269,6 +317,7 @@ class StudentSubjectAssignmentService
                 'section_id' => $student->section_id,
                 'academic_level' => $student->year_level,
                 'specific_year_level' => $student->specific_year_level,
+                'school_year' => $currentSchoolYear,
             ]);
             return $enrolledSubjects;
         }
@@ -295,26 +344,24 @@ class StudentSubjectAssignmentService
 
                     $enrolledSubjects[] = $assignment;
 
-                    // Check if there's a teacher/adviser/instructor assigned to this subject
-                    // and log the student-teacher relationship
-                    $this->logTeacherStudentRelationship($student, $subject);
-
-                    // Log activity
-                    ActivityLog::create([
-                        'user_id' => Auth::id() ?? 1,
-                        'target_user_id' => $student->id,
-                        'action' => 'auto_enrolled_student_subject',
-                        'entity_type' => 'student_subject_assignment',
-                        'entity_id' => $assignment->id,
-                        'details' => [
-                            'student' => $student->name,
-                            'subject' => $subject->name,
+                    // Log enrollment using ActivityLogService
+                    ActivityLogService::logStudentEnrollment(
+                        studentId: $student->id,
+                        subjectId: $subject->id,
+                        schoolYear: $currentSchoolYear,
+                        source: 'section_assignment',
+                        additionalDetails: [
+                            'student_name' => $student->name,
+                            'subject_name' => $subject->name,
                             'section_id' => $student->section_id,
                             'academic_level' => $student->year_level,
                             'specific_year_level' => $student->specific_year_level,
-                            'school_year' => $currentSchoolYear,
-                        ],
-                    ]);
+                        ]
+                    );
+
+                    // Check if there's a teacher/adviser/instructor assigned to this subject
+                    // and log the student-teacher relationship
+                    $this->logTeacherStudentRelationship($student, $subject);
 
                     Log::info('Student automatically enrolled in subject', [
                         'student_id' => $student->id,
@@ -324,6 +371,7 @@ class StudentSubjectAssignmentService
                         'section_id' => $student->section_id,
                         'academic_level' => $student->year_level,
                         'specific_year_level' => $student->specific_year_level,
+                        'school_year' => $currentSchoolYear,
                     ]);
                 }
             } catch (\Exception $e) {
