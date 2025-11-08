@@ -1,0 +1,6 @@
+name,email,password,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship
+Maria Clara Santos,maria.santos2025@sfc.edu.ph,Password123!,SHS-2025-001,2008-03-15,female,09171234567,123 Rizal Street Barangay San Jose Manila,Rosa Santos,09171234568,mother
+Juan Miguel Reyes,juan.reyes2025@sfc.edu.ph,Password123!,SHS-2025-002,2008-07-22,male,09281234567,456 Del Pilar Avenue Barangay Poblacion Quezon City,Roberto Reyes,09281234568,father
+Angela Marie Cruz,angela.cruz2025@sfc.edu.ph,Password123!,SHS-2025-003,2008-11-10,female,09391234567,789 Bonifacio Road Barangay Santa Cruz Makati,Carmen Cruz,09391234568,mother
+Rafael Antonio Gomez,rafael.gomez2025@sfc.edu.ph,Password123!,SHS-2025-004,2008-05-18,male,09451234567,321 Mabini Street Barangay San Miguel Pasig,Luis Gomez,09451234568,father
+Sofia Gabriela Fernandez,sofia.fernandez2025@sfc.edu.ph,Password123!,SHS-2025-005,2008-09-28,female,09561234567,654 Luna Avenue Barangay Holy Spirit Quezon City,Teresa Fernandez,09561234568,mother

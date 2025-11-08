@@ -1650,7 +1650,7 @@ class RegistrarUserManagementController extends Controller
             $columns = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'strand_name', 'department_name', 'course_name', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
         }
 
-        $callback = function () use ($columns, $academicLevel, $sectionId) {
+        $callback = function () use ($columns, $academicLevel, $sectionId, $specificYearLevel, $trackId, $strandId, $departmentId, $courseId) {
             $handle = fopen('php://output', 'w');
             fputcsv($handle, $columns);
 
@@ -1786,59 +1786,138 @@ class RegistrarUserManagementController extends Controller
             }
 
             if (!$academicLevel || $academicLevel === 'senior_highschool') {
+                $strand = \App\Models\Strand::with('track')->first();
                 $shsSection = \App\Models\Section::whereHas('academicLevel', function($q) {
                     $q->where('key', 'senior_highschool');
                 })->first();
-                $strand = \App\Models\Strand::with('track')->first();
-                $track = $strand ? $strand->track : null;
 
-                // Different columns for SHS: academic_strand, track (no department_name, course_name)
-                fputcsv($handle, [
-                    'Pedro Garcia',
-                    'pedro.garcia@example.com',
-                    'password123',
-                    'senior_highschool',
-                    'grade_11',
-                    $strand ? $strand->name : '',  // academic_strand
-                    $track ? $track->name : '',  // track
-                    $shsSection ? $shsSection->name : '',  // section_name
-                    'SHS-2025-000003',
-                    '2008-03-10',
-                    'male',
-                    '09123456792',
-                    '789 Pine Road, Barangay 3',
-                    'Ana Garcia',
-                    '09123456793',
-                    'mother'
-                ]);
+                // SHS uses simplified template with only required fields
+                if ($academicLevel === 'senior_highschool') {
+                    // New workflow: track/strand/section are pre-selected, exclude them from CSV
+                    if ($trackId && $strandId && $sectionId) {
+                        fputcsv($handle, [
+                            'Pedro Garcia',
+                            'pedro.garcia@example.com',
+                            'password123',
+                            'SHS-2025-000003',
+                            '2008-03-10',
+                            'male',
+                            '09123456792',
+                            '789 Pine Road, Barangay 3',
+                            'Ana Garcia',
+                            '09123456793',
+                            'mother'
+                        ]);
+                    } else {
+                        // Old workflow: include all columns for backward compatibility
+                        fputcsv($handle, [
+                            'Pedro Garcia',
+                            'pedro.garcia@example.com',
+                            'password123',
+                            'senior_highschool',
+                            'grade_11',
+                            $strand ? $strand->name : '',  // academic_strand
+                            $strand && $strand->track ? $strand->track->name : '',  // track
+                            $shsSection ? $shsSection->name : '',  // section_name
+                            'SHS-2025-000003',
+                            '2008-03-10',
+                            'male',
+                            '09123456792',
+                            '789 Pine Road, Barangay 3',
+                            'Ana Garcia',
+                            '09123456793',
+                            'mother'
+                        ]);
+                    }
+                } else {
+                    // When no specific academic level, use full template with empty fields
+                    fputcsv($handle, [
+                        'Pedro Garcia',
+                        'pedro.garcia@example.com',
+                        'password123',
+                        'senior_highschool',
+                        'grade_11',
+                        $strand ? $strand->name : '',  // academic_strand
+                        $strand && $strand->track ? $strand->track->name : '',  // track
+                        $shsSection ? $shsSection->name : '',  // section_name
+                        'SHS-2025-000003',
+                        '2008-03-10',
+                        'male',
+                        '09123456792',
+                        '789 Pine Road, Barangay 3',
+                        'Ana Garcia',
+                        '09123456793',
+                        'mother'
+                    ]);
+                }
             }
 
             if (!$academicLevel || $academicLevel === 'college') {
+                $department = \App\Models\Department::first();
+                $course = \App\Models\Course::first();
                 $collegeSection = \App\Models\Section::whereHas('academicLevel', function($q) {
                     $q->where('key', 'college');
                 })->first();
-                $department = \App\Models\Department::first();
-                $course = \App\Models\Course::first();
 
-                // College template: no strand_name, only department_name and course_name
-                fputcsv($handle, [
-                    'Ana Rodriguez',
-                    'ana.rodriguez@example.com',
-                    'password123',
-                    'college',
-                    'first_year',
-                    $department ? $department->name : '',
-                    $course ? $course->name : '',
-                    $collegeSection ? $collegeSection->name : '',
-                    'CO-2025-000004',
-                    '2005-12-25',
-                    'female',
-                    '09123456794',
-                    '321 Elm Street, Barangay 4',
-                    'Carlos Rodriguez',
-                    '09123456795',
-                    'father'
-                ]);
+                // College template
+                if ($academicLevel === 'college') {
+                    // New workflow: department/course/section provided separately, exclude from CSV
+                    if ($departmentId && $courseId && $sectionId) {
+                        fputcsv($handle, [
+                            'Ana Rodriguez',
+                            'ana.rodriguez@example.com',
+                            'password123',
+                            'CO-2025-000004',
+                            '2005-12-25',
+                            'female',
+                            '09123456794',
+                            '321 Elm Street, Barangay 4',
+                            'Carlos Rodriguez',
+                            '09123456795',
+                            'father'
+                        ]);
+                    } else {
+                        // Old workflow: include all columns
+                        fputcsv($handle, [
+                            'Ana Rodriguez',
+                            'ana.rodriguez@example.com',
+                            'password123',
+                            'college',
+                            'first_year',
+                            $department ? $department->name : '',
+                            $course ? $course->name : '',
+                            $collegeSection ? $collegeSection->name : '',
+                            'CO-2025-000004',
+                            '2005-12-25',
+                            'female',
+                            '09123456794',
+                            '321 Elm Street, Barangay 4',
+                            'Carlos Rodriguez',
+                            '09123456795',
+                            'father'
+                        ]);
+                    }
+                } else {
+                    // When no specific academic level, use full template
+                    fputcsv($handle, [
+                        'Ana Rodriguez',
+                        'ana.rodriguez@example.com',
+                        'password123',
+                        'college',
+                        'first_year',
+                        $department ? $department->name : '',
+                        $course ? $course->name : '',
+                        $collegeSection ? $collegeSection->name : '',
+                        'CO-2025-000004',
+                        '2005-12-25',
+                        'female',
+                        '09123456794',
+                        '321 Elm Street, Barangay 4',
+                        'Carlos Rodriguez',
+                        '09123456795',
+                        'father'
+                    ]);
+                }
             }
 
             fclose($handle);

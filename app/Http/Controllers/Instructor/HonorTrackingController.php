@@ -30,7 +30,37 @@ class HonorTrackingController extends Controller
 
         $academicLevels = $assignments->pluck('academicLevel')->filter()->unique('id')->values();
         $academicLevelIds = $academicLevels->pluck('id');
-        $honorTypes = HonorType::all();
+
+        // Map academic levels to their scope (basic: elementary/JHS/SHS, college: college)
+        $academicLevelKeys = $academicLevels->pluck('key')->toArray();
+        $scopes = [];
+        foreach ($academicLevelKeys as $key) {
+            if (in_array($key, ['elementary', 'junior_highschool', 'senior_highschool'])) {
+                $scopes[] = 'basic';
+            } elseif ($key === 'college') {
+                $scopes[] = 'college';
+            }
+        }
+        $scopes = array_unique($scopes);
+
+        // Get honor types filtered by scope and load criteria for assigned academic levels
+        $honorTypes = HonorType::whereIn('scope', $scopes)
+            ->with(['criteria' => function ($query) use ($academicLevelIds) {
+                $query->whereIn('academic_level_id', $academicLevelIds);
+            }])
+            ->get()
+            ->map(function ($honorType) {
+                // Add min_gpa from criteria if available
+                $minGpa = $honorType->criteria->first()?->min_gpa;
+                return [
+                    'id' => $honorType->id,
+                    'name' => $honorType->name,
+                    'key' => $honorType->key,
+                    'scope' => $honorType->scope,
+                    'minimum_gpa' => $minGpa,
+                    'description' => $this->getHonorDescription($honorType->key),
+                ];
+            });
 
         // Get honor statistics for instructor's assigned academic levels
         $allHonorResults = HonorResult::with(['student', 'honorType', 'academicLevel'])
@@ -231,5 +261,24 @@ class HonorTrackingController extends Controller
         ];
 
         return response()->json($statistics);
+    }
+
+    /**
+     * Get description for honor type based on key.
+     */
+    private function getHonorDescription(string $key): string
+    {
+        $descriptions = [
+            'with_honors' => 'GPA ≥ 90',
+            'with_high_honors' => 'GPA 95-97, no grade below 90',
+            'with_highest_honors' => 'GPA 98-100, no grade below 93',
+            'deans_list' => 'GPA ≥ 92, no grade below 90, 2nd & 3rd year only',
+            'college_honors' => 'No grade below 85 from 1st to 2nd semester',
+            'cum_laude' => 'No grade below 87 in any subject from 1st to 4th year',
+            'magna_cum_laude' => 'No grade below 93 from 1st to 4th year',
+            'summa_cum_laude' => 'No grade below 95 in all subjects from 1st to 4th year',
+        ];
+
+        return $descriptions[$key] ?? '';
     }
 }

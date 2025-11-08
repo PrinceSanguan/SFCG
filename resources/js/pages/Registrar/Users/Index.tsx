@@ -720,7 +720,6 @@ export default function UsersIndex({ user, users, filters, roles, currentRole, y
                                 <p className="font-medium mb-1">Next Steps:</p>
                                 <ol className="list-decimal list-inside space-y-1">
                                     <li>Click "Download Template" to get the CSV file</li>
-                                    <li>Fill in student information (do NOT modify Student ID column)</li>
                                     <li>Click "Upload CSV" to import the students</li>
                                 </ol>
                             </div>

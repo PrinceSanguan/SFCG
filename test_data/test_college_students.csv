@@ -1,0 +1,6 @@
+name,email,password,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship
+Carlos Miguel Torres,carlos.torres2025@sfc.edu.ph,Password123!,COL-2025-001,2005-02-14,male,09171234569,234 Quezon Boulevard Barangay Commonwealth Quezon City,Elena Torres,09171234570,mother
+Isabela Rose Mendoza,isabela.mendoza2025@sfc.edu.ph,Password123!,COL-2025-002,2005-06-30,female,09281234569,567 Magsaysay Avenue Barangay San Antonio Pasig,Pedro Mendoza,09281234570,father
+Diego Lorenzo Rivera,diego.rivera2025@sfc.edu.ph,Password123!,COL-2025-003,2005-10-08,male,09391234569,890 Aguinaldo Street Barangay New Era Quezon City,Maria Rivera,09391234570,mother
+Valentina Sofia Ramos,valentina.ramos2025@sfc.edu.ph,Password123!,COL-2025-004,2005-04-25,female,09451234569,432 Osmeña Highway Barangay Guadalupe Makati,Fernando Ramos,09451234570,father
+Gabriel Alexander Diaz,gabriel.diaz2025@sfc.edu.ph,Password123!,COL-2025-005,2005-12-12,male,09561234569,765 Roxas Boulevard Barangay Malate Manila,Ana Diaz,09561234570,mother

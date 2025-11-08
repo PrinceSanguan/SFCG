@@ -40,8 +40,10 @@ interface AcademicLevel {
 interface HonorType {
     id: number;
     name: string;
-    description: string;
-    minimum_gpa: number;
+    key: string;
+    scope: string;
+    description?: string;
+    minimum_gpa?: number | null;
 }
 
 
@@ -59,7 +61,7 @@ interface Props {
         rejected_honors: number;
         average_gpa: number;
     }>;
-    honorTypes: Array<{ id: number; name: string; description?: string; minimum_gpa?: number }>;
+    honorTypes: HonorType[];
     schoolYear: string;
     assignedCourses: Array<{ school_year: string }>;
     overallStats: {
@@ -78,6 +80,20 @@ export default function InstructorHonorsIndex({ user, academicLevels, honorTypes
     const [selectedLevel, setSelectedLevel] = useState<string>('all');
     const [selectedYear, setSelectedYear] = useState<string>(schoolYear || '2024-2025');
     const availableYears = Array.from(new Set((assignedCourses || []).map(a => a.school_year)));
+
+    // Filter honor types based on selected academic level
+    const filteredHonorTypes = selectedLevel === 'all'
+        ? honorTypes
+        : honorTypes.filter(honorType => {
+            const selectedLevelData = academicLevels.find(level => level.id.toString() === selectedLevel);
+            if (!selectedLevelData) return true;
+
+            const levelKey = selectedLevelData.key;
+            const isBasicLevel = ['elementary', 'junior_highschool', 'senior_highschool'].includes(levelKey);
+            const isCollegeLevel = levelKey === 'college';
+
+            return (isBasicLevel && honorType.scope === 'basic') || (isCollegeLevel && honorType.scope === 'college');
+        });
 
     const getHonorIcon = (honorType: string) => {
         switch (honorType.toLowerCase()) {
@@ -171,7 +187,7 @@ export default function InstructorHonorsIndex({ user, academicLevels, honorTypes
                             </CardHeader>
                             <CardContent>
                                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                                    {honorTypes.map((honorType) => (
+                                    {filteredHonorTypes.map((honorType) => (
                                         <div key={honorType.id} className="p-4 border rounded-lg">
                                             <div className="flex items-center gap-2 mb-2">
                                                 {getHonorIcon(honorType.name)}
@@ -180,11 +196,13 @@ export default function InstructorHonorsIndex({ user, academicLevels, honorTypes
                                             <p className="text-sm text-muted-foreground mb-2">
                                                 {honorType.description}
                                             </p>
-                                            <div className="flex items-center gap-2">
-                                                <Badge variant="outline">
-                                                    Min GPA: {honorType.minimum_gpa}
-                                                </Badge>
-                                            </div>
+                                            {honorType.minimum_gpa !== null && honorType.minimum_gpa !== undefined && (
+                                                <div className="flex items-center gap-2">
+                                                    <Badge variant="outline">
+                                                        Min GPA: {honorType.minimum_gpa}
+                                                    </Badge>
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
