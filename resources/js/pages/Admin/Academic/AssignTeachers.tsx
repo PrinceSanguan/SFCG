@@ -585,7 +585,14 @@ export default function AssignTeachers({ user, assignments, teachers, subjects, 
             <div className="flex justify-between items-center">
                 <div className="flex items-center space-x-4">
                     <h2 className="text-lg font-semibold text-gray-900">Teacher Assignments</h2>
-                    <Badge variant="secondary">{shsAssignments.length} assignments</Badge>
+                    <Badge variant="secondary">
+                        {(() => {
+                            const uniqueGroups = new Set(
+                                shsAssignments.map(a => `${a.teacher_id}-${a.subject_id}-${a.school_year}`)
+                            );
+                            return uniqueGroups.size;
+                        })()} assignments
+                    </Badge>
                 </div>
                 <Dialog open={assignmentModal} onOpenChange={setAssignmentModal}>
                     <DialogTrigger asChild>
