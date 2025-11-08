@@ -350,10 +350,15 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
     Route::post('/assign-instructors', function(\Illuminate\Http\Request $request) {
         $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
             'instructor_id' => 'required|exists:users,id',
+            'subject_id' => 'required|exists:subjects,id',
+            'section_id' => 'required|exists:sections,id',
             'course_id' => 'required|exists:courses,id',
             'academic_level_id' => 'required|exists:academic_levels,id',
             'year_level' => 'nullable|string|in:first_year,second_year,third_year,fourth_year',
-            'grading_period_id' => 'nullable|exists:grading_periods,id',
+            'semester_ids' => 'nullable|array',
+            'semester_ids.*' => 'exists:grading_periods,id',
+            'grading_period_ids' => 'required|array|min:1',
+            'grading_period_ids.*' => 'exists:grading_periods,id',
             'school_year' => 'required|string',
             'notes' => 'nullable|string',
         ]);
@@ -368,123 +373,88 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
             return back()->with('error', 'Selected user is not an instructor.');
         }
 
-        // Check for existing assignment to provide better error message
-        $existingAssignment = \App\Models\InstructorCourseAssignment::where([
+        \Illuminate\Support\Facades\Log::info('[REGISTRAR POST] Creating instructor subject assignments', [
             'instructor_id' => $request->instructor_id,
-            'course_id' => $request->course_id,
-            'academic_level_id' => $request->academic_level_id,
-            'grading_period_id' => $request->grading_period_id,
+            'subject_id' => $request->subject_id,
+            'section_id' => $request->section_id,
+            'grading_period_ids' => $request->grading_period_ids,
             'school_year' => $request->school_year,
-        ])->first();
-
-        if ($existingAssignment) {
-            return back()->with('error', 'This instructor is already assigned to this course for the specified period and school year. Please check existing assignments or modify the current one.');
-        }
-
-        $assignment = \App\Models\InstructorCourseAssignment::create([
-            'instructor_id' => $request->instructor_id,
-            'course_id' => $request->course_id,
-            'academic_level_id' => $request->academic_level_id,
-            'year_level' => $request->year_level,
-            'grading_period_id' => $request->grading_period_id,
-            'school_year' => $request->school_year,
-            'assigned_by' => \Illuminate\Support\Facades\Auth::id(),
-            'notes' => $request->notes,
         ]);
 
-        // Also create subject-level assignments for all subjects in this course/level
-        $subjects = \App\Models\Subject::where('course_id', $request->course_id)
-            ->where('academic_level_id', $request->academic_level_id)
-            ->get();
-        foreach ($subjects as $subject) {
-            \App\Models\InstructorSubjectAssignment::firstOrCreate([
+        // Create one assignment for each grading period
+        $createdAssignments = [];
+        foreach ($request->grading_period_ids as $gradingPeriodId) {
+            // Check for existing assignment
+            $existingAssignment = \App\Models\InstructorSubjectAssignment::where([
                 'instructor_id' => $request->instructor_id,
-                'subject_id' => $subject->id,
+                'subject_id' => $request->subject_id,
+                'section_id' => $request->section_id,
                 'academic_level_id' => $request->academic_level_id,
+                'grading_period_id' => $gradingPeriodId,
                 'school_year' => $request->school_year,
-                'grading_period_id' => $request->grading_period_id,
-            ], [
+            ])->first();
+
+            if ($existingAssignment) {
+                continue; // Skip if already exists
+            }
+
+            $assignment = \App\Models\InstructorSubjectAssignment::create([
+                'instructor_id' => $request->instructor_id,
+                'subject_id' => $request->subject_id,
+                'section_id' => $request->section_id,
+                'academic_level_id' => $request->academic_level_id,
+                'grading_period_id' => $gradingPeriodId,
+                'school_year' => $request->school_year,
                 'assigned_by' => \Illuminate\Support\Facades\Auth::id(),
-                'is_active' => true,
                 'notes' => $request->notes,
+                'is_active' => true,
             ]);
+
+            $createdAssignments[] = $assignment;
         }
+
+        if (count($createdAssignments) === 0) {
+            return back()->with('error', 'All selected grading periods already have assignments for this instructor and subject.');
+        }
+
+        $firstAssignment = $createdAssignments[0];
 
         // Log activity
         \App\Models\ActivityLog::create([
             'user_id' => \Illuminate\Support\Facades\Auth::id(),
             'target_user_id' => $request->instructor_id,
-            'action' => 'assigned_instructor_course',
-            'entity_type' => 'instructor_course_assignment',
-            'entity_id' => $assignment->id,
+            'action' => 'assigned_instructor_subject',
+            'entity_type' => 'instructor_subject_assignment',
+            'entity_id' => $firstAssignment->id,
             'details' => [
                 'instructor' => $instructor->name,
-                'course' => $assignment->course->name,
+                'subject' => $firstAssignment->subject->name,
+                'section' => $firstAssignment->section->name,
+                'periods_count' => count($createdAssignments),
                 'school_year' => $request->school_year,
             ],
         ]);
 
-        // Send assignment notification to instructor
-        try {
-            $notificationService = new \App\Services\NotificationService();
-            $course = \App\Models\Course::find($request->course_id);
-            $academicLevel = \App\Models\AcademicLevel::find($request->academic_level_id);
-            $gradingPeriod = $request->grading_period_id ? \App\Models\GradingPeriod::find($request->grading_period_id) : null;
+        \Illuminate\Support\Facades\Log::info('[REGISTRAR POST] Created assignments successfully', [
+            'count' => count($createdAssignments),
+            'instructor' => $instructor->name,
+            'subject' => $firstAssignment->subject->name,
+        ]);
 
-            \Illuminate\Support\Facades\Log::info('[Registrar] Preparing instructor assignment notification data', [
-                'instructor_id' => $instructor->id,
-                'instructor_name' => $instructor->name,
-                'course_name' => $course ? $course->name : 'N/A',
-            ]);
-
-            $assignmentDetails = [
-                'assignment_id' => $assignment->id,
-                'course_name' => $course ? $course->name : 'N/A',
-                'department_name' => ($course && $course->department) ? $course->department->name : 'N/A',
-                'academic_level' => $academicLevel ? $academicLevel->name : 'N/A',
-                'year_level' => $request->year_level,
-                'school_year' => $request->school_year,
-                'grading_period' => $gradingPeriod ? $gradingPeriod->name : null,
-                'notes' => $request->notes,
-            ];
-
-            \Illuminate\Support\Facades\Log::info('[Registrar] Sending instructor assignment notification', [
-                'instructor_id' => $instructor->id,
-                'assignment_details' => $assignmentDetails,
-            ]);
-
-            $notificationResult = $notificationService->sendAssignmentNotification($instructor, 'instructor', $assignmentDetails);
-
-            if ($notificationResult['success']) {
-                \Illuminate\Support\Facades\Log::info('[Registrar] Instructor assignment notification sent successfully', [
-                    'instructor_name' => $instructor->name,
-                    'instructor_email' => $instructor->email,
-                    'notification_id' => $notificationResult['notification_id'],
-                ]);
-            } else {
-                \Illuminate\Support\Facades\Log::warning('[Registrar] Instructor assignment notification failed', [
-                    'instructor_name' => $instructor->name,
-                    'error' => $notificationResult['error'] ?? 'Unknown error',
-                ]);
-            }
-        } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('[Registrar] Exception while sending instructor assignment notification', [
-                'instructor_id' => $instructor->id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-            // Don't fail the whole operation if notification fails
-        }
-
-        return back()->with('success', 'Instructor assigned to course successfully!');
+        return back()->with('success', 'Instructor assigned to subject successfully for ' . count($createdAssignments) . ' grading period(s)!');
     })->name('assign-instructors.store');
-    Route::put('/assign-instructors/{assignment}', function(\Illuminate\Http\Request $request, \App\Models\InstructorCourseAssignment $assignment) {
+    Route::put('/assign-instructors/{assignment}', function(\Illuminate\Http\Request $request, \App\Models\InstructorSubjectAssignment $assignment) {
         $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
             'instructor_id' => 'required|exists:users,id',
+            'subject_id' => 'required|exists:subjects,id',
+            'section_id' => 'required|exists:sections,id',
             'course_id' => 'required|exists:courses,id',
             'academic_level_id' => 'required|exists:academic_levels,id',
             'year_level' => 'nullable|string|in:first_year,second_year,third_year,fourth_year',
-            'grading_period_id' => 'nullable|exists:grading_periods,id',
+            'semester_ids' => 'nullable|array',
+            'semester_ids.*' => 'exists:grading_periods,id',
+            'grading_period_ids' => 'required|array|min:1',
+            'grading_period_ids.*' => 'exists:grading_periods,id',
             'school_year' => 'required|string',
             'notes' => 'nullable|string',
         ]);
@@ -499,91 +469,132 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
             return back()->with('error', 'Selected user is not an instructor.');
         }
 
-        // Check for existing assignment (excluding current one) to provide better error message
-        $existingAssignment = \App\Models\InstructorCourseAssignment::where([
+        \Illuminate\Support\Facades\Log::info('[REGISTRAR PUT] Updating instructor subject assignments', [
+            'assignment_id' => $assignment->id,
             'instructor_id' => $request->instructor_id,
-            'course_id' => $request->course_id,
-            'academic_level_id' => $request->academic_level_id,
-            'grading_period_id' => $request->grading_period_id,
+            'subject_id' => $request->subject_id,
+            'section_id' => $request->section_id,
+            'new_grading_period_ids' => $request->grading_period_ids,
             'school_year' => $request->school_year,
-        ])->where('id', '!=', $assignment->id)->first();
-
-        if ($existingAssignment) {
-            return back()->with('error', 'This instructor is already assigned to this course for the specified period and school year. Please check existing assignments or modify the current one.');
-        }
-
-        $assignment->update([
-            'instructor_id' => $request->instructor_id,
-            'course_id' => $request->course_id,
-            'academic_level_id' => $request->academic_level_id,
-            'year_level' => $request->year_level,
-            'grading_period_id' => $request->grading_period_id,
-            'school_year' => $request->school_year,
-            'notes' => $request->notes,
         ]);
 
-        // Sync subject-level assignments for all subjects in this course/level
-        $subjects = \App\Models\Subject::where('course_id', $request->course_id)
-            ->where('academic_level_id', $request->academic_level_id)
-            ->get();
-        foreach ($subjects as $subject) {
-            \App\Models\InstructorSubjectAssignment::updateOrCreate([
+        // Find ALL related assignments for this instructor-course-subject-year combo
+        $relatedAssignments = \App\Models\InstructorSubjectAssignment::where([
+            'instructor_id' => $assignment->instructor_id,
+            'subject_id' => $assignment->subject_id,
+            'section_id' => $assignment->section_id,
+            'academic_level_id' => $assignment->academic_level_id,
+            'school_year' => $assignment->school_year,
+            'is_active' => true,
+        ])->get();
+
+        $existingPeriodIds = $relatedAssignments->pluck('grading_period_id')->filter()->map(fn($id) => (string)$id)->toArray();
+        $newPeriodIds = $request->grading_period_ids;
+
+        \Illuminate\Support\Facades\Log::info('[REGISTRAR PUT] Period comparison', [
+            'existing_period_ids' => $existingPeriodIds,
+            'new_period_ids' => $newPeriodIds,
+        ]);
+
+        // Delete assignments for periods that are no longer selected
+        $periodsToDelete = array_diff($existingPeriodIds, $newPeriodIds);
+        if (!empty($periodsToDelete)) {
+            \App\Models\InstructorSubjectAssignment::where([
+                'instructor_id' => $assignment->instructor_id,
+                'subject_id' => $assignment->subject_id,
+                'section_id' => $assignment->section_id,
+                'academic_level_id' => $assignment->academic_level_id,
+                'school_year' => $assignment->school_year,
+            ])->whereIn('grading_period_id', $periodsToDelete)->delete();
+            \Illuminate\Support\Facades\Log::info('[REGISTRAR PUT] Deleted old period assignments', ['deleted_periods' => $periodsToDelete]);
+        }
+
+        // Create assignments for newly selected periods
+        $periodsToCreate = array_diff($newPeriodIds, $existingPeriodIds);
+        foreach ($periodsToCreate as $gradingPeriodId) {
+            \App\Models\InstructorSubjectAssignment::create([
                 'instructor_id' => $request->instructor_id,
-                'subject_id' => $subject->id,
+                'subject_id' => $request->subject_id,
+                'section_id' => $request->section_id,
                 'academic_level_id' => $request->academic_level_id,
+                'grading_period_id' => $gradingPeriodId,
                 'school_year' => $request->school_year,
-            ], [
-                'grading_period_id' => $request->grading_period_id,
-                'notes' => $request->notes,
                 'assigned_by' => \Illuminate\Support\Facades\Auth::id(),
+                'notes' => $request->notes,
                 'is_active' => true,
             ]);
+        }
+        if (!empty($periodsToCreate)) {
+            \Illuminate\Support\Facades\Log::info('[REGISTRAR PUT] Created new period assignments', ['new_periods' => $periodsToCreate]);
+        }
+
+        // Update existing assignments that weren't deleted
+        $periodsToKeep = array_intersect($existingPeriodIds, $newPeriodIds);
+        if (!empty($periodsToKeep)) {
+            \App\Models\InstructorSubjectAssignment::where([
+                'instructor_id' => $assignment->instructor_id,
+                'subject_id' => $assignment->subject_id,
+                'section_id' => $assignment->section_id,
+                'academic_level_id' => $assignment->academic_level_id,
+                'school_year' => $assignment->school_year,
+            ])->whereIn('grading_period_id', $periodsToKeep)->update([
+                'notes' => $request->notes,
+            ]);
+            \Illuminate\Support\Facades\Log::info('[REGISTRAR PUT] Updated existing period assignments', ['updated_periods' => $periodsToKeep]);
         }
 
         // Log activity
         \App\Models\ActivityLog::create([
             'user_id' => \Illuminate\Support\Facades\Auth::id(),
             'target_user_id' => $request->instructor_id,
-            'action' => 'updated_instructor_course_assignment',
-            'entity_type' => 'instructor_course_assignment',
+            'action' => 'updated_instructor_subject_assignment',
+            'entity_type' => 'instructor_subject_assignment',
             'entity_id' => $assignment->id,
             'details' => [
                 'instructor' => $instructor->name,
-                'course' => $assignment->course->name,
+                'subject' => $assignment->subject->name,
+                'section' => $assignment->section->name,
+                'periods_count' => count($newPeriodIds),
                 'school_year' => $request->school_year,
             ],
         ]);
 
-        return back()->with('success', 'Instructor assignment updated successfully!');
+        \Illuminate\Support\Facades\Log::info('[REGISTRAR PUT] Update complete');
+
+        return back()->with('success', 'Instructor assignment updated successfully for ' . count($newPeriodIds) . ' grading period(s)!');
     })->name('assign-instructors.update');
-    Route::delete('/assign-instructors/{assignment}', function(\App\Models\InstructorCourseAssignment $assignment) {
+    Route::delete('/assign-instructors/{assignment}', function(\App\Models\InstructorSubjectAssignment $assignment) {
         // Capture details before delete
-        $instructorId = $assignment->instructor_id;
-        $courseId = $assignment->course_id;
-        $academicLevelId = $assignment->academic_level_id;
-        $schoolYear = $assignment->school_year;
+        $instructorName = $assignment->instructor->name;
+        $subjectName = $assignment->subject->name;
 
-        $assignment->delete();
-
-        // Also remove subject-level assignments tied to this course/level + instructor + school year
-        $subjectIds = \App\Models\Subject::where('course_id', $courseId)
-            ->where('academic_level_id', $academicLevelId)
-            ->pluck('id');
-        \App\Models\InstructorSubjectAssignment::where('instructor_id', $instructorId)
-            ->whereIn('subject_id', $subjectIds)
-            ->where('academic_level_id', $academicLevelId)
-            ->where('school_year', $schoolYear)
-            ->delete();
+        // Find and delete ALL related assignments for this instructor-subject-section-year combo
+        \App\Models\InstructorSubjectAssignment::where([
+            'instructor_id' => $assignment->instructor_id,
+            'subject_id' => $assignment->subject_id,
+            'section_id' => $assignment->section_id,
+            'academic_level_id' => $assignment->academic_level_id,
+            'school_year' => $assignment->school_year,
+        ])->delete();
 
         // Log activity
         \App\Models\ActivityLog::create([
             'user_id' => \Illuminate\Support\Facades\Auth::id(),
-            'action' => 'deleted_instructor_course_assignment',
-            'entity_type' => 'instructor_course_assignment',
+            'action' => 'deleted_instructor_subject_assignment',
+            'entity_type' => 'instructor_subject_assignment',
             'entity_id' => $assignment->id,
+            'details' => [
+                'instructor' => $instructorName,
+                'subject' => $subjectName,
+            ],
         ]);
 
-        return back()->with('success', 'Instructor assignment removed successfully!');
+        \Illuminate\Support\Facades\Log::info('[REGISTRAR DELETE] Deleted all related assignments', [
+            'instructor' => $instructorName,
+            'subject' => $subjectName,
+        ]);
+
+        return back()->with('success', 'Instructor assignment(s) removed successfully!');
     })->name('assign-instructors.destroy');
     Route::get('/assign-teachers', [RegistrarAcademicController::class, 'assignTeachers'])->name('assign-teachers');
     Route::post('/assign-teachers', function(\Illuminate\Http\Request $request) {
@@ -1167,20 +1178,49 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
             'code' => ['required', 'string', 'max:20', 'unique:subjects,code'],
             'description' => ['nullable', 'string'],
             'academic_level_id' => ['required', 'exists:academic_levels,id'],
+            'strand_id' => ['nullable', 'exists:strands,id'],
+            'shs_year_level' => ['nullable', 'string', 'in:grade_11,grade_12'],
+            'jhs_year_level' => ['nullable', 'string', 'in:grade_7,grade_8,grade_9,grade_10'],
+            'college_year_level' => ['nullable', 'string', 'in:first_year,second_year,third_year,fourth_year,fifth_year'],
             'grade_levels' => ['nullable', 'array'],
             'grade_levels.*' => ['string', 'in:grade_1,grade_2,grade_3,grade_4,grade_5,grade_6'],
-            'grading_period_id' => ['nullable', 'exists:grading_periods,id'],
+            'grading_period_ids' => ['nullable', 'array'],
+            'grading_period_ids.*' => ['exists:grading_periods,id'],
+            'semester_ids' => ['nullable', 'array'],
+            'semester_ids.*' => ['exists:grading_periods,id'],
             'course_id' => ['nullable', 'exists:courses,id'],
+            'section_id' => ['nullable', 'exists:sections,id'],
             'units' => ['required', 'numeric', 'min:0'],
             'hours_per_week' => ['required', 'numeric', 'min:0'],
             'is_core' => ['nullable', 'boolean'],
             'is_active' => ['nullable', 'boolean'],
         ]);
-        
-        $validated['is_core'] = $validated['is_core'] ?? false;
-        $validated['is_active'] = $validated['is_active'] ?? true;
-        
-        $subject = \App\Models\Subject::create($validated);
+
+        // Build explicit data array with all fields
+        $data = [
+            'name' => $request->name,
+            'code' => $request->code,
+            'description' => $request->description,
+            'academic_level_id' => $request->academic_level_id,
+            'strand_id' => $request->strand_id,
+            'shs_year_level' => $request->shs_year_level,
+            'jhs_year_level' => $request->jhs_year_level,
+            'college_year_level' => $request->college_year_level,
+            'grade_levels' => $request->grade_levels,
+            'grading_period_id' => null,
+            'grading_period_ids' => $request->grading_period_ids,
+            'semester_ids' => $request->semester_ids,
+            'course_id' => $request->course_id,
+            'section_id' => $request->section_id,
+            'units' => $request->units ?? 0,
+            'hours_per_week' => $request->hours_per_week ?? 0,
+            'is_core' => $request->is_core ?? false,
+            'is_active' => $request->is_active ?? true,
+        ];
+
+        \Log::info('[REGISTRAR CREATE SUBJECT] Creating subject with data:', $data);
+
+        $subject = \App\Models\Subject::create($data);
         
         // Log activity
         \App\Models\ActivityLog::create([

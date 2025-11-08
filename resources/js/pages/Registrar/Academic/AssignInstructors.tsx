@@ -201,11 +201,12 @@ export default function AssignInstructors({ user, assignments, instructors, depa
                 });
                 setFilteredSubjects(filteredSubj);
             }
-        } else {
-            // Clear subjects if no section selected
+        } else if (!editModal) {
+            // Only clear subjects if NOT in edit mode
+            // In edit mode, subjects are already set by openEditModal()
             setFilteredSubjects([]);
         }
-    }, [assignmentForm.department_id, assignmentForm.course_id, assignmentForm.year_level, assignmentForm.section_id, sectionJustSelected, courses, subjects, sections, departments]);
+    }, [assignmentForm.department_id, assignmentForm.course_id, assignmentForm.year_level, assignmentForm.section_id, sectionJustSelected, courses, subjects, sections, departments, editModal]);
 
     // Safety check: only proceed if we have valid level
     if (!collegeLevel) {
@@ -319,6 +320,16 @@ export default function AssignInstructors({ user, assignments, instructors, depa
     };
 
     const openEditModal = (assignment: InstructorCourseAssignment) => {
+        console.log('[REGISTRAR_EDIT] Opening edit modal for assignment:', {
+            id: assignment.id,
+            instructor_id: assignment.instructor_id,
+            subject_id: assignment.subject?.id,
+            subject_name: assignment.subject?.name,
+            course_id: assignment.course_id,
+            grading_period_id: assignment.grading_period_id,
+            school_year: assignment.school_year,
+        });
+
         setEditAssignment(assignment);
 
         // Find the department for the selected course
@@ -332,7 +343,19 @@ export default function AssignInstructors({ user, assignments, instructors, depa
                 s.college_year_level === assignment.year_level;
             return matchesCourse && matchesYearLevel;
         });
+
+        // IMPORTANT: Ensure the currently assigned subject is included in the list
+        if (assignment.subject && !filteredSubj.find(s => s.id === assignment.subject!.id)) {
+            console.log('[REGISTRAR_EDIT] Adding current subject to filtered list:', {
+                subject_id: assignment.subject.id,
+                subject_name: assignment.subject.name,
+                subject_code: assignment.subject.code
+            });
+            filteredSubj.unshift(assignment.subject);
+        }
+
         setFilteredSubjects(filteredSubj);
+        console.log('[REGISTRAR_EDIT] Filtered subjects:', filteredSubj.length);
 
         // Filter courses for this department
         if (departmentId) {
@@ -340,25 +363,48 @@ export default function AssignInstructors({ user, assignments, instructors, depa
             setFilteredCourses(filtered);
         }
 
-        // Determine semester IDs and grading period IDs
-        let semesterIds: string[] = [];
-        let gradingPeriodIds: string[] = [];
+        // MULTI-PERIOD EDIT: Find ALL assignments for this instructor-course-subject-year
+        // An instructor can be assigned to multiple grading periods (Prelim, Midterm, Finals)
+        // for the same subject, creating multiple assignment records
+        const relatedAssignments = assignments.filter(a =>
+            a.instructor_id === assignment.instructor_id &&
+            a.course_id === assignment.course_id &&
+            a.subject?.id === assignment.subject?.id &&
+            a.school_year === assignment.school_year &&
+            a.is_active
+        );
 
-        // CRITICAL FIX: Laravel sends snake_case, not camelCase
-        const gradingPeriod = (assignment as any).grading_period || assignment.gradingPeriod;
+        console.log('[REGISTRAR_EDIT] Found related assignments:', relatedAssignments.length);
 
-        if (gradingPeriod) {
-            // If the grading period has a parent_id, it's a child period
-            if (gradingPeriod.parent_id) {
-                semesterIds = [gradingPeriod.parent_id.toString()];
-                gradingPeriodIds = [assignment.grading_period_id!.toString()];
-            } else {
-                // If no parent_id, the grading period itself IS the semester
-                semesterIds = [assignment.grading_period_id!.toString()];
+        // Collect all semester IDs and grading period IDs from related assignments
+        const semesterIdSet = new Set<string>();
+        const gradingPeriodIds: string[] = [];
+
+        for (const relatedAssignment of relatedAssignments) {
+            // CRITICAL FIX: Laravel sends snake_case, not camelCase
+            const gradingPeriod = (relatedAssignment as any).grading_period || relatedAssignment.gradingPeriod;
+
+            if (gradingPeriod && relatedAssignment.grading_period_id) {
+                if (gradingPeriod.parent_id) {
+                    // Child period (Prelim, Midterm, Finals, etc.)
+                    semesterIdSet.add(gradingPeriod.parent_id.toString());
+                    gradingPeriodIds.push(relatedAssignment.grading_period_id.toString());
+                } else {
+                    // Parent period (semester itself)
+                    semesterIdSet.add(relatedAssignment.grading_period_id.toString());
+                }
             }
         }
 
-        setAssignmentForm({
+        const semesterIds = Array.from(semesterIdSet);
+
+        console.log('[REGISTRAR_EDIT] Collected periods:', {
+            semesterIds,
+            gradingPeriodIds,
+            totalRelatedAssignments: relatedAssignments.length
+        });
+
+        const formData = {
             instructor_id: assignment.instructor_id.toString(),
             year_level: assignment.year_level || '',
             department_id: departmentId,
@@ -371,8 +417,24 @@ export default function AssignInstructors({ user, assignments, instructors, depa
             school_year: assignment.school_year,
             notes: assignment.notes || '',
             is_active: assignment.is_active,
-        });
+        };
+
+        console.log('[REGISTRAR_EDIT] Setting form data:', JSON.stringify({
+            ...formData,
+            subject_id: formData.subject_id,
+            semester_ids_length: formData.semester_ids.length,
+            semester_ids_values: formData.semester_ids,
+            grading_period_ids_length: formData.grading_period_ids.length,
+            grading_period_ids_values: formData.grading_period_ids,
+        }, null, 2));
+
+        setAssignmentForm(formData);
+
+        console.log('[REGISTRAR_EDIT] Form state set, opening modal...');
+
         setEditModal(true);
+
+        console.log('[REGISTRAR_EDIT] Edit modal opened successfully');
     };
 
     const getStatusBadge = (isActive: boolean) => {
@@ -487,7 +549,15 @@ export default function AssignInstructors({ user, assignments, instructors, depa
             <div className="flex justify-between items-center">
                 <div className="flex items-center space-x-4">
                     <h2 className="text-lg font-semibold text-gray-900">Instructor Assignments</h2>
-                    <Badge variant="secondary">{collegeAssignments.length} assignments</Badge>
+                    <Badge variant="secondary">
+                        {(() => {
+                            // Calculate grouped count (unique instructor-course-year combinations)
+                            const uniqueGroups = new Set(
+                                collegeAssignments.map(a => `${a.instructor_id}-${a.course_id}-${a.school_year}`)
+                            );
+                            return uniqueGroups.size;
+                        })()} assignments
+                    </Badge>
                 </div>
                 <Dialog open={assignmentModal} onOpenChange={setAssignmentModal}>
                     <DialogTrigger asChild>
@@ -811,19 +881,25 @@ export default function AssignInstructors({ user, assignments, instructors, depa
             {collegeAssignments.length > 0 ? (
                 <div className="grid gap-4">
                     {(() => {
-                        // Group assignments by instructor, course, and period
+                        // Group assignments by instructor, course, and school year (NOT grading period)
+                        // This groups all grading periods for the same assignment together
                         const grouped = collegeAssignments.reduce((acc, assignment) => {
-                            const key = `${assignment.instructor_id}-${assignment.course_id}-${assignment.grading_period_id}-${assignment.school_year}`;
+                            const key = `${assignment.instructor_id}-${assignment.course_id}-${assignment.school_year}`;
                             if (!acc[key]) {
                                 acc[key] = {
                                     instructor: assignment.instructor,
                                     course: assignment.course,
                                     year_level: assignment.year_level,
-                                    gradingPeriod: (assignment as any).grading_period || assignment.gradingPeriod,
+                                    gradingPeriods: [],
                                     school_year: assignment.school_year,
                                     is_active: assignment.is_active,
                                     assignments: []
                                 };
+                            }
+                            // Collect unique grading periods
+                            const gradingPeriod = (assignment as any).grading_period || assignment.gradingPeriod;
+                            if (gradingPeriod && !acc[key].gradingPeriods.find((p: any) => p.id === gradingPeriod.id)) {
+                                acc[key].gradingPeriods.push(gradingPeriod);
                             }
                             acc[key].assignments.push(assignment);
                             return acc;
@@ -831,7 +907,7 @@ export default function AssignInstructors({ user, assignments, instructors, depa
                             instructor: User,
                             course: Course,
                             year_level: string | null,
-                            gradingPeriod: GradingPeriod | null,
+                            gradingPeriods: GradingPeriod[],
                             school_year: string,
                             is_active: boolean,
                             assignments: InstructorCourseAssignment[]
@@ -882,8 +958,12 @@ export default function AssignInstructors({ user, assignments, instructors, depa
                                                 {group.year_level && (
                                                     <Badge variant="outline">{yearLevels[group.year_level] || group.year_level}</Badge>
                                                 )}
-                                                {group.gradingPeriod && (
-                                                    <Badge variant="secondary">{group.gradingPeriod.name}</Badge>
+                                                {group.gradingPeriods.length > 0 && (
+                                                    <div className="flex items-center gap-1">
+                                                        {group.gradingPeriods.map((period, periodIdx) => (
+                                                            <Badge key={periodIdx} variant="secondary">{period.name}</Badge>
+                                                        ))}
+                                                    </div>
                                                 )}
                                                 {getStatusBadge(group.is_active)}
                                             </div>
@@ -893,36 +973,51 @@ export default function AssignInstructors({ user, assignments, instructors, depa
                                         <div className="border-t pt-3">
                                             <div className="text-xs text-gray-500 mb-2">Individual Subject Actions:</div>
                                             <div className="space-y-2">
-                                                {group.assignments.map(assignment => (
-                                                    <div key={assignment.id} className="flex items-center justify-between bg-gray-50 rounded px-3 py-2">
-                                                        <div className="flex items-center space-x-2">
-                                                            <BookOpen className="h-3 w-3 text-gray-400" />
-                                                            <span className="text-sm font-medium">
-                                                                {assignment.subject?.name || 'All Course Subjects'}
-                                                            </span>
-                                                            {assignment.subject && (
-                                                                <span className="text-xs text-gray-500">({assignment.subject.code})</span>
-                                                            )}
+                                                {(() => {
+                                                    // Group by subject to avoid showing duplicate rows for the same subject
+                                                    const subjectGroups = group.assignments.reduce((acc, assignment) => {
+                                                        const subjectId = assignment.subject?.id || 'no-subject';
+                                                        if (!acc[subjectId]) {
+                                                            acc[subjectId] = {
+                                                                subject: assignment.subject,
+                                                                assignments: []
+                                                            };
+                                                        }
+                                                        acc[subjectId].assignments.push(assignment);
+                                                        return acc;
+                                                    }, {} as Record<string, { subject: Subject | null, assignments: InstructorCourseAssignment[] }>);
+
+                                                    return Object.values(subjectGroups).map((subjectGroup, subIdx) => (
+                                                        <div key={subIdx} className="flex items-center justify-between bg-gray-50 rounded px-3 py-2">
+                                                            <div className="flex items-center space-x-2">
+                                                                <BookOpen className="h-3 w-3 text-gray-400" />
+                                                                <span className="text-sm font-medium">
+                                                                    {subjectGroup.subject?.name || 'All Course Subjects'}
+                                                                </span>
+                                                                {subjectGroup.subject && (
+                                                                    <span className="text-xs text-gray-500">({subjectGroup.subject.code})</span>
+                                                                )}
+                                                            </div>
+                                                            <div className="flex items-center space-x-2">
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => openEditModal(subjectGroup.assignments[0])}
+                                                                >
+                                                                    <Edit className="h-3 w-3" />
+                                                                </Button>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => destroyAssignment(subjectGroup.assignments[0].id)}
+                                                                    className="text-red-600 hover:text-red-700"
+                                                                >
+                                                                    <Trash2 className="h-3 w-3" />
+                                                                </Button>
+                                                            </div>
                                                         </div>
-                                                        <div className="flex items-center space-x-2">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() => openEditModal(assignment)}
-                                                            >
-                                                                <Edit className="h-3 w-3" />
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() => destroyAssignment(assignment.id)}
-                                                                className="text-red-600 hover:text-red-700"
-                                                            >
-                                                                <Trash2 className="h-3 w-3" />
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                ))}
+                                                    ));
+                                                })()}
                                             </div>
                                         </div>
 

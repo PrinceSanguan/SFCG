@@ -53,7 +53,7 @@ interface Subject {
     // Additional properties for different academic levels
     shs_year_level?: string;
     jhs_year_level?: string;
-    year_level?: string;
+    college_year_level?: string;
     track_id?: string;
     strand_id?: string;
     department_id?: number;
@@ -99,6 +99,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
         strand_id: '',
         shs_year_level: '',
         jhs_year_level: '',
+        college_year_level: '',
         section_id: ''
     });
     const [subjectModal, setSubjectModal] = useState(false);
@@ -304,7 +305,15 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
             ...subjectForm,
             description: subjectForm.description || null,
             grading_period_ids: subjectForm.grading_period_ids.length > 0 ? subjectForm.grading_period_ids : null,
+            semester_ids: subjectForm.semester_ids.length > 0 ? subjectForm.semester_ids : null,
             course_id: subjectForm.course_id || null,
+            department_id: subjectForm.department_id || null,
+            section_id: subjectForm.section_id || null,
+            strand_id: subjectForm.strand_id || null,
+            track_id: subjectForm.track_id || null,
+            shs_year_level: subjectForm.shs_year_level || null,
+            jhs_year_level: subjectForm.jhs_year_level || null,
+            college_year_level: subjectForm.college_year_level || null,
         };
 
         router.post(route('registrar.academic.subjects.store'), cleanedForm, {
@@ -377,20 +386,50 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
     };
 
     const openEditModal = (subject: Subject) => {
+        console.log('[REGISTRAR EDIT] Opening edit modal for subject:', {
+            id: subject.id,
+            name: subject.name,
+            college_year_level: subject.college_year_level,
+            department_id: subject.department_id,
+            course_id: subject.course_id,
+            semesters: subject.semesters,
+            grading_periods: subject.grading_periods,
+            semester_ids: subject.semester_ids,
+            grading_period_ids: subject.grading_period_ids,
+        });
+
+        // Get department from course if not directly available
+        const selectedCourse = subject.course_id ? courses.find(c => c.id === subject.course_id) : null;
+        const departmentId = subject.department_id || (selectedCourse?.department_id);
+
+        // Normalize semester_ids and grading_period_ids to ensure they're number arrays
+        const normalizedSemesterIds = (subject.semester_ids || []).map(id => typeof id === 'number' ? id : parseInt(id));
+        const normalizedGradingPeriodIds = (subject.grading_period_ids || []).map(id => typeof id === 'number' ? id : parseInt(id));
+
+        console.log('[REGISTRAR EDIT] Normalized data:', {
+            departmentId,
+            selectedCourseDepartmentId: selectedCourse?.department_id,
+            subjectDepartmentId: subject.department_id,
+            normalizedSemesterIds,
+            normalizedGradingPeriodIds,
+            rawSemesterIds: subject.semester_ids,
+            rawGradingPeriodIds: subject.grading_period_ids,
+        });
+
         // Properly initialize all fields with correct types for Select components
         setEditSubject({
             ...subject,
             track_id: subject.track_id?.toString() || '',
             strand_id: subject.strand_id?.toString() || '',
-            semester_ids: subject.semester_ids || [],
-            grading_period_ids: subject.grading_period_ids || [],
+            semester_ids: normalizedSemesterIds,
+            grading_period_ids: normalizedGradingPeriodIds,
             section_id: subject.section_id || undefined,
             jhs_year_level: subject.jhs_year_level || '',
             shs_year_level: subject.shs_year_level || '',
-            year_level: subject.year_level || '',  // College year level
-            department_id: subject.department_id,   // Keep as number
-            course_id: subject.course_id,           // Keep as number
-            grade_levels: subject.grade_levels || [], // Elementary grade levels
+            college_year_level: subject.college_year_level || '',
+            department_id: departmentId,
+            course_id: subject.course_id,
+            grade_levels: subject.grade_levels || [],
         });
         setEditModal(true);
     };
@@ -646,13 +685,13 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                         return (isShs || isCollege) && (
                                                     <div>
                                                                 <Label htmlFor="subject-year-level">Year Level</Label>
-                                                                <Select 
-                                                                    value={isShs ? subjectForm.shs_year_level as unknown as string : (subjectForm as unknown as { year_level?: string }).year_level || ''} 
+                                                                <Select
+                                                                    value={isShs ? subjectForm.shs_year_level as unknown as string : subjectForm.college_year_level || ''}
                                                                     onValueChange={(v) => {
                                                                         if (isShs) {
                                                                             setSubjectForm(prev => ({ ...prev, shs_year_level: v }));
-                                                                            } else {
-                                                                            setSubjectForm({ ...subjectForm, year_level: v } as typeof subjectForm & { year_level: string });
+                                                                        } else {
+                                                                            setSubjectForm({ ...subjectForm, college_year_level: v });
                                                                         }
                                                                     }}
                                                                 >
@@ -1357,11 +1396,11 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                                         );
                                                                     }
                                                                     // College subjects
-                                                                    if (subject.academic_level.key === 'college' && subject.year_level) {
+                                                                    if (subject.academic_level.key === 'college' && subject.college_year_level) {
                                                                         const collegeLabels = yearLevels;
                                                                         return (
                                                                             <Badge variant="secondary" className="text-xs">
-                                                                                {collegeLabels[subject.year_level] || subject.year_level}
+                                                                                {collegeLabels[subject.college_year_level] || subject.college_year_level}
                                                                             </Badge>
                                                                         );
                                                                     }
@@ -1925,13 +1964,13 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                     return (isShs || isCollege) && (
                                         <div>
                                             <Label htmlFor="edit-subject-year-level">Year Level</Label>
-                                            <Select 
-                                                value={isShs ? editSubject.shs_year_level || '' : editSubject.year_level || ''} 
+                                            <Select
+                                                value={isShs ? editSubject.shs_year_level || '' : editSubject.college_year_level || ''}
                                                 onValueChange={(v) => {
                                                     if (isShs) {
                                                         setEditSubject({ ...editSubject, shs_year_level: v });
                                                     } else {
-                                                        setEditSubject({ ...editSubject, year_level: v });
+                                                        setEditSubject({ ...editSubject, college_year_level: v });
                                                     }
                                                 }}
                                             >
@@ -2073,7 +2112,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                             {/* Section for College - Edit */}
                             {(() => {
                                 const selectedLevel = academicLevels.find(level => level.id === editSubject.academic_level_id);
-                                if (selectedLevel?.key !== 'college' || !editSubject.department_id || !editSubject.course_id || !editSubject.year_level) return null;
+                                if (selectedLevel?.key !== 'college' || !editSubject.department_id || !editSubject.course_id || !editSubject.college_year_level) return null;
 
                                 return (
                                     <div>
@@ -2093,7 +2132,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                         return level?.key === 'college' &&
                                                                section.department_id === editSubject.department_id &&
                                                                section.course_id === editSubject.course_id &&
-                                                               section.specific_year_level === editSubject.year_level;
+                                                               section.specific_year_level === editSubject.college_year_level;
                                                     });
 
                                                     if (collegeSections.length === 0) {

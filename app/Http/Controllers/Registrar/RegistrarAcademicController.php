@@ -91,15 +91,25 @@ class RegistrarAcademicController extends Controller
         // Get College level ID
         $collegeLevel = AcademicLevel::where('key', 'college')->first();
 
-        $assignments = InstructorCourseAssignment::with([
+        $assignments = \App\Models\InstructorSubjectAssignment::with([
             'instructor',
-            'course.department',
-            'section',
+            'subject.course.department',
+            'section.course',
             'academicLevel',
-            'gradingPeriod',
-            'subject'
+            'gradingPeriod.parent'
         ])->where('academic_level_id', $collegeLevel->id)
-          ->orderBy('school_year', 'desc')->get();
+          ->where('is_active', true)
+          ->orderBy('school_year', 'desc')
+          ->get();
+
+        // Add course info to each assignment from the subject
+        foreach ($assignments as $assignment) {
+            if ($assignment->subject && $assignment->subject->course) {
+                $assignment->course = $assignment->subject->course;
+                $assignment->course_id = $assignment->subject->course->id;
+                $assignment->year_level = $assignment->section ? $assignment->section->specific_year_level : null;
+            }
+        }
 
         $instructors = User::where('user_role', 'instructor')->orderBy('name')->get();
         $departments = Department::where('academic_level_id', $collegeLevel->id)->orderBy('name')->get();
@@ -269,6 +279,23 @@ class RegistrarAcademicController extends Controller
                 // Add grading periods collection to each subject
                 $subjectArray = $subject->toArray();
                 $subjectArray['grading_periods'] = $subject->gradingPeriods()->toArray();
+                $subjectArray['semesters'] = $subject->semesters()->toArray();
+
+                // Add track_id directly if strand exists (for SHS subjects)
+                if ($subject->strand && $subject->strand->track) {
+                    $subjectArray['track_id'] = $subject->strand->track->id;
+                }
+
+                \Log::info('[REGISTRAR SUBJECTS] Subject data for edit', [
+                    'subject_id' => $subject->id,
+                    'name' => $subject->name,
+                    'college_year_level' => $subjectArray['college_year_level'] ?? null,
+                    'department_id' => $subjectArray['department_id'] ?? null,
+                    'course_id' => $subjectArray['course_id'] ?? null,
+                    'semesters_count' => count($subjectArray['semesters']),
+                    'grading_periods_count' => count($subjectArray['grading_periods']),
+                ]);
+
                 return $subjectArray;
             });
 
