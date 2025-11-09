@@ -41,7 +41,12 @@ interface GradingPeriod {
     academic_level_id: number;
     sort_order: number;
     parent_id?: number | null;
-    type?: string;
+    type: 'quarter' | 'semester';
+    period_type?: 'quarter' | 'midterm' | 'prefinal' | 'final';
+    semester_number?: number | null;
+    is_calculated?: boolean;
+    parent?: GradingPeriod;
+    children?: GradingPeriod[];
 }
 
 interface HonorType {
@@ -157,12 +162,12 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
         academic_level_id: 'all',
         grading_period_id: 'all',
         school_year: currentSchoolYear || schoolYears[0] || '',
-        year_level: '',
-        track_id: '',
-        strand_id: '',
-        department_id: '',
+        year_level: 'all',
+        track_id: 'all',
+        strand_id: 'all',
+        department_id: 'all',
         course_id: '',
-        section_id: 'all',
+        section_id: '',
         format: 'pdf',
         include_statistics: '1',
     });
@@ -172,12 +177,12 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
         academic_level_id: 'all',
         school_year: currentSchoolYear || schoolYears[0] || '',
         honor_type_id: 'all',
-        year_level: '',
-        track_id: '',
-        strand_id: '',
-        department_id: '',
+        year_level: 'all',
+        track_id: 'all',
+        strand_id: 'all',
+        department_id: 'all',
         course_id: '',
-        section_id: 'all',
+        section_id: '',
         format: 'pdf',
     });
 
@@ -185,12 +190,12 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
     const { data: archiveData, setData: setArchiveData, processing: archiveProcessing } = useForm({
         academic_level_id: '',
         school_year: schoolYears[0] || '',
-        year_level: '',
-        track_id: '',
-        strand_id: '',
-        department_id: '',
+        year_level: 'all',
+        track_id: 'all',
+        strand_id: 'all',
+        department_id: 'all',
         course_id: '',
-        section_id: 'all',
+        section_id: '',
         include_grades: '1',
         include_honors: '1',
         include_certificates: '1',
@@ -200,12 +205,12 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
     // Class Section Report Form
     const { data: sectionData, setData: setSectionData, processing: sectionProcessing } = useForm({
         academic_level_id: '',
-        year_level: '',
-        track_id: '',
-        strand_id: '',
-        department_id: '',
+        year_level: 'all',
+        track_id: 'all',
+        strand_id: 'all',
+        department_id: 'all',
         course_id: '',
-        section_id: 'all',
+        section_id: '',
         school_year: currentSchoolYear || schoolYears[0] || '',
         include_grades: false as boolean,
         format: 'pdf',
@@ -528,24 +533,24 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
 
         let filtered = sections.filter(section => section.academic_level_id === levelId);
 
-        if (gradeData.year_level) {
+        if (gradeData.year_level && gradeData.year_level !== 'all') {
             filtered = filtered.filter(section => section.specific_year_level === gradeData.year_level);
         }
 
         if (selectedLevel.key === 'senior_highschool') {
-            if (gradeData.track_id) {
+            if (gradeData.track_id && gradeData.track_id !== 'all') {
                 filtered = filtered.filter(section => section.track_id?.toString() === gradeData.track_id);
             }
-            if (gradeData.strand_id) {
+            if (gradeData.strand_id && gradeData.strand_id !== 'all') {
                 filtered = filtered.filter(section => section.strand_id?.toString() === gradeData.strand_id);
             }
         }
 
         if (selectedLevel.key === 'college') {
-            if (gradeData.department_id) {
+            if (gradeData.department_id && gradeData.department_id !== 'all') {
                 filtered = filtered.filter(section => section.department_id?.toString() === gradeData.department_id);
             }
-            if (gradeData.course_id) {
+            if (gradeData.course_id && gradeData.course_id !== 'all') {
                 filtered = filtered.filter(section => section.course_id?.toString() === gradeData.course_id);
             }
         }
@@ -553,27 +558,186 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
         setFilteredSectionsGrade(filtered);
     }, [gradeData.academic_level_id, gradeData.year_level, gradeData.track_id, gradeData.strand_id, gradeData.department_id, gradeData.course_id, sections, academicLevels]);
 
-    // Filter strands based on selected track (for Grade Reports SHS)
+    // Filter strands based on year level and track (for Grade Reports SHS) - Progressive filtering
     useEffect(() => {
-        if (gradeData.track_id) {
-            const trackId = parseInt(gradeData.track_id);
-            const filtered = strands.filter(strand => strand.track_id === trackId);
-            setFilteredStrandsGrade(filtered);
+        console.log('[REGISTRAR GRADE] Filtering strands by year level and track');
+
+        if (gradeData.academic_level_id && gradeData.academic_level_id !== 'all') {
+            const levelId = parseInt(gradeData.academic_level_id);
+            const selectedLevel = academicLevels.find(level => level.id === levelId);
+
+            if (selectedLevel?.key === 'senior_highschool') {
+                // Start with sections at this academic level
+                let relevantSections = sections.filter(s => s.academic_level_id === levelId);
+
+                // Filter by year level if selected
+                if (gradeData.year_level && gradeData.year_level !== 'all') {
+                    relevantSections = relevantSections.filter(
+                        s => s.specific_year_level === gradeData.year_level
+                    );
+                }
+
+                // Filter by track if selected
+                if (gradeData.track_id && gradeData.track_id !== 'all') {
+                    const trackId = parseInt(gradeData.track_id);
+                    relevantSections = relevantSections.filter(
+                        s => s.track_id === trackId
+                    );
+                }
+
+                // Extract unique strand IDs from relevant sections
+                const strandIds = new Set(
+                    relevantSections
+                        .map(s => s.strand_id)
+                        .filter(id => id !== undefined && id !== null) as number[]
+                );
+
+                // Filter strands to only those with matching sections
+                const filtered = strands.filter(strand => strandIds.has(strand.id));
+                console.log('[REGISTRAR GRADE] Filtered strands count:', filtered.length, 'Strand IDs:', Array.from(strandIds));
+                setFilteredStrandsGrade(filtered);
+            } else {
+                setFilteredStrandsGrade([]);
+            }
         } else {
             setFilteredStrandsGrade([]);
         }
-    }, [gradeData.track_id, strands]);
+    }, [gradeData.academic_level_id, gradeData.year_level, gradeData.track_id, sections, academicLevels, strands]);
 
-    // Filter courses based on selected department (for Grade Reports College)
+    // Filter courses based on year level and department (for Grade Reports College) - Progressive filtering
     useEffect(() => {
-        if (gradeData.department_id) {
-            const deptId = parseInt(gradeData.department_id);
-            const filtered = courses.filter(course => course.department_id === deptId);
-            setFilteredCoursesGrade(filtered);
+        console.log('[REGISTRAR GRADE] Filtering courses by year level and department');
+
+        if (gradeData.academic_level_id && gradeData.academic_level_id !== 'all') {
+            const levelId = parseInt(gradeData.academic_level_id);
+            const selectedLevel = academicLevels.find(level => level.id === levelId);
+
+            if (selectedLevel?.key === 'college') {
+                // Start with sections at this academic level
+                let relevantSections = sections.filter(s => s.academic_level_id === levelId);
+
+                console.log('[REGISTRAR GRADE] Total college sections for courses:', relevantSections.length);
+
+                // Filter by year level if selected
+                if (gradeData.year_level && gradeData.year_level !== 'all') {
+                    relevantSections = relevantSections.filter(
+                        s => s.specific_year_level === gradeData.year_level
+                    );
+                    console.log('[REGISTRAR GRADE] Sections matching year level:', relevantSections.length);
+                }
+
+                // Filter by department if selected
+                if (gradeData.department_id && gradeData.department_id !== 'all') {
+                    const deptId = parseInt(gradeData.department_id);
+                    relevantSections = relevantSections.filter(
+                        s => s.department_id === deptId
+                    );
+                    console.log('[REGISTRAR GRADE] Sections matching department:', relevantSections.length);
+                }
+
+                // Extract unique course IDs from relevant sections
+                const courseIds = new Set(
+                    relevantSections
+                        .map(s => s.course_id)
+                        .filter(id => id !== undefined && id !== null) as number[]
+                );
+
+                console.log('[REGISTRAR GRADE] Unique course IDs:', Array.from(courseIds));
+
+                // Filter courses to only those with matching sections
+                const filtered = courses.filter(course => courseIds.has(course.id));
+                console.log('[REGISTRAR GRADE] Filtered courses:', filtered.length);
+
+                setFilteredCoursesGrade(filtered);
+            } else {
+                setFilteredCoursesGrade([]);
+            }
         } else {
             setFilteredCoursesGrade([]);
         }
-    }, [gradeData.department_id, courses]);
+    }, [gradeData.academic_level_id, gradeData.year_level, gradeData.department_id, sections, academicLevels, courses]);
+
+    // Filter departments based on year level (for Grade Reports College) - Progressive filtering
+    useEffect(() => {
+        console.log('[REGISTRAR GRADE] Filtering departments by year level');
+
+        if (gradeData.academic_level_id && gradeData.academic_level_id !== 'all') {
+            const levelId = parseInt(gradeData.academic_level_id);
+            const selectedLevel = academicLevels.find(level => level.id === levelId);
+
+            if (selectedLevel?.key === 'college') {
+                // Start with sections at this academic level
+                let relevantSections = sections.filter(s => s.academic_level_id === levelId);
+
+                console.log('[REGISTRAR GRADE] Total college sections:', relevantSections.length);
+
+                // Filter by year level if selected
+                if (gradeData.year_level && gradeData.year_level !== 'all') {
+                    relevantSections = relevantSections.filter(
+                        s => s.specific_year_level === gradeData.year_level
+                    );
+                    console.log('[REGISTRAR GRADE] Sections matching year level:', relevantSections.length);
+                }
+
+                // Extract unique department IDs from relevant sections
+                const departmentIds = new Set(
+                    relevantSections
+                        .map(s => s.department_id)
+                        .filter(id => id !== undefined && id !== null) as number[]
+                );
+
+                console.log('[REGISTRAR GRADE] Unique department IDs:', Array.from(departmentIds));
+
+                // Filter departments to only those with matching sections
+                const filtered = departments.filter(dept => departmentIds.has(dept.id));
+                console.log('[REGISTRAR GRADE] Filtered departments:', filtered.length);
+
+                setFilteredDepartmentsGrade(filtered);
+            } else {
+                setFilteredDepartmentsGrade([]);
+            }
+        } else {
+            setFilteredDepartmentsGrade([]);
+        }
+    }, [gradeData.academic_level_id, gradeData.year_level, sections, academicLevels, departments]);
+
+    // Filter tracks based on year level (for Grade Reports SHS) - Progressive filtering
+    useEffect(() => {
+        console.log('[REGISTRAR GRADE] Filtering tracks by year level');
+
+        if (gradeData.academic_level_id && gradeData.academic_level_id !== 'all') {
+            const levelId = parseInt(gradeData.academic_level_id);
+            const selectedLevel = academicLevels.find(level => level.id === levelId);
+
+            if (selectedLevel?.key === 'senior_highschool') {
+                // Start with sections at this academic level
+                let relevantSections = sections.filter(s => s.academic_level_id === levelId);
+
+                // Filter by year level if selected
+                if (gradeData.year_level && gradeData.year_level !== 'all') {
+                    relevantSections = relevantSections.filter(
+                        s => s.specific_year_level === gradeData.year_level
+                    );
+                }
+
+                // Extract unique track IDs from relevant sections
+                const trackIds = new Set(
+                    relevantSections
+                        .map(s => s.track_id)
+                        .filter(id => id !== undefined && id !== null) as number[]
+                );
+
+                // Filter tracks to only those with matching sections
+                const filtered = tracks.filter(track => trackIds.has(track.id));
+                console.log('[REGISTRAR GRADE] Filtered tracks count:', filtered.length, 'Track IDs:', Array.from(trackIds));
+                setFilteredTracksGrade(filtered);
+            } else {
+                setFilteredTracksGrade([]);
+            }
+        } else {
+            setFilteredTracksGrade([]);
+        }
+    }, [gradeData.academic_level_id, gradeData.year_level, sections, academicLevels, tracks]);
 
     // ===== Archive Records Filtering =====
 
@@ -610,17 +774,17 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
             console.log('[REGISTRAR ARCHIVE] Processing SHS filters');
             setFilteredTracksArchive(tracks);
 
-            if (archiveData.track_id) {
+            if (archiveData.track_id && archiveData.track_id !== 'all') {
                 console.log('[REGISTRAR ARCHIVE] Filtering by Track ID:', archiveData.track_id);
                 filtered = filtered.filter(section => section.track_id?.toString() === archiveData.track_id);
             }
 
-            if (archiveData.strand_id) {
+            if (archiveData.strand_id && archiveData.strand_id !== 'all') {
                 console.log('[REGISTRAR ARCHIVE] Filtering by Strand ID:', archiveData.strand_id);
                 filtered = filtered.filter(section => section.strand_id?.toString() === archiveData.strand_id);
             }
 
-            if (archiveData.year_level) {
+            if (archiveData.year_level && archiveData.year_level !== 'all') {
                 console.log('[REGISTRAR ARCHIVE] Filtering by Year Level:', archiveData.year_level);
                 filtered = filtered.filter(section => section.specific_year_level === archiveData.year_level);
             }
@@ -630,17 +794,17 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
             console.log('[REGISTRAR ARCHIVE] Processing College filters');
             setFilteredDepartmentsArchive(departments);
 
-            if (archiveData.department_id) {
+            if (archiveData.department_id && archiveData.department_id !== 'all') {
                 console.log('[REGISTRAR ARCHIVE] Filtering by Department ID:', archiveData.department_id);
                 filtered = filtered.filter(section => section.department_id?.toString() === archiveData.department_id);
             }
 
-            if (archiveData.course_id) {
+            if (archiveData.course_id && archiveData.course_id !== 'all') {
                 console.log('[REGISTRAR ARCHIVE] Filtering by Course ID:', archiveData.course_id);
                 filtered = filtered.filter(section => section.course_id?.toString() === archiveData.course_id);
             }
 
-            if (archiveData.year_level) {
+            if (archiveData.year_level && archiveData.year_level !== 'all') {
                 console.log('[REGISTRAR ARCHIVE] Filtering by Year Level:', archiveData.year_level);
                 filtered = filtered.filter(section => section.specific_year_level === archiveData.year_level);
             }
@@ -649,7 +813,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
         if (selectedLevel.key === 'elementary' || selectedLevel.key === 'junior_highschool') {
             console.log('[REGISTRAR ARCHIVE] Processing Elementary/JHS filters');
 
-            if (archiveData.year_level) {
+            if (archiveData.year_level && archiveData.year_level !== 'all') {
                 console.log('[REGISTRAR ARCHIVE] Filtering by Year Level:', archiveData.year_level);
                 filtered = filtered.filter(section => section.specific_year_level === archiveData.year_level);
             }
@@ -661,7 +825,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
 
     // Filter strands based on selected track (for Archive SHS)
     useEffect(() => {
-        if (archiveData.track_id) {
+        if (archiveData.track_id && archiveData.track_id !== 'all') {
             const trackId = parseInt(archiveData.track_id);
             const filtered = strands.filter(strand => strand.track_id === trackId);
             setFilteredStrandsArchive(filtered);
@@ -672,7 +836,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
 
     // Filter courses based on selected department (for Archive College)
     useEffect(() => {
-        if (archiveData.department_id) {
+        if (archiveData.department_id && archiveData.department_id !== 'all') {
             const deptId = parseInt(archiveData.department_id);
             const filtered = courses.filter(course => course.department_id === deptId);
             setFilteredCoursesArchive(filtered);
@@ -1215,25 +1379,54 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
         }
     }, [sectionData.academic_level_id, sections]);
 
-    // Organize grading periods - remove duplicates and sort properly
+    // Organize grading periods - filter by academic level and type to eliminate duplicates
     const getOrganizedGradingPeriods = () => {
+        console.log('[REGISTRAR GRADE] Organizing grading periods for academic level:', gradeData.academic_level_id);
+
+        // When "All" is selected, show root periods only to avoid confusion
+        if (gradeData.academic_level_id === 'all') {
+            const rootPeriods = gradingPeriods
+                .filter(period => !period.parent_id)
+                .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+            console.log('[REGISTRAR GRADE] Showing root periods for "All":', rootPeriods.length);
+            return rootPeriods;
+        }
+
+        const academicLevelId = parseInt(gradeData.academic_level_id);
+        const selectedLevel = academicLevels.find(level => level.id === academicLevelId);
+
+        if (!selectedLevel) {
+            console.log('[REGISTRAR GRADE] Selected level not found');
+            return [];
+        }
+
+        console.log('[REGISTRAR GRADE] Selected level:', selectedLevel.name, selectedLevel.key);
+
         // Filter by academic level
-        const periods = gradingPeriods.filter(period =>
-            period.academic_level_id.toString() === gradeData.academic_level_id || gradeData.academic_level_id === 'all'
+        let periods = gradingPeriods.filter(
+            period => period.academic_level_id === academicLevelId
         );
 
-        // Remove duplicates by ID
-        const uniquePeriods = Array.from(
-            new Map(periods.map(period => [period.id, period])).values()
-        );
+        console.log('[REGISTRAR GRADE] Periods for level:', periods.length);
 
-        // Sort by sort_order, then by name
-        return uniquePeriods.sort((a, b) => {
-            // First sort by sort_order if available
-            if (a.sort_order !== undefined && b.sort_order !== undefined) {
-                if (a.sort_order !== b.sort_order) {
-                    return a.sort_order - b.sort_order;
-                }
+        // For Elementary, JHS, SHS: Show only quarter-type root periods (no parent_id)
+        if (['elementary', 'junior_highschool', 'senior_highschool'].includes(selectedLevel.key)) {
+            periods = periods.filter(p => p.type === 'quarter' && !p.parent_id);
+            console.log('[REGISTRAR GRADE] Filtered quarter periods:', periods.length);
+        }
+
+        // For College: Show only child periods (Midterm, Pre-Final, Final Average) for actual reporting
+        // These are the periods that users can actually generate reports for
+        if (selectedLevel.key === 'college') {
+            periods = periods.filter(p => p.parent_id !== null);
+            console.log('[REGISTRAR GRADE] Filtered child periods for college:', periods.length);
+        }
+
+        // Sort by sort_order, then by semester_number if available
+        return periods.sort((a, b) => {
+            // First by sort_order
+            if (a.sort_order !== b.sort_order) {
+                return (a.sort_order || 0) - (b.sort_order || 0);
             }
             // Then by name
             return a.name.localeCompare(b.name);
@@ -1241,6 +1434,60 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
     };
 
     const organizedGradingPeriods = getOrganizedGradingPeriods();
+
+    // Render grading period options with hierarchical grouping for College
+    const renderGradingPeriodOptions = () => {
+        if (gradeData.academic_level_id === 'all') {
+            // Show flat list for "All"
+            return organizedGradingPeriods.map(period => (
+                <SelectItem key={period.id} value={period.id.toString()}>
+                    {period.name}
+                </SelectItem>
+            ));
+        }
+
+        const academicLevelId = parseInt(gradeData.academic_level_id);
+        const selectedLevel = academicLevels.find(level => level.id === academicLevelId);
+
+        // For College, group child periods under parent semesters
+        if (selectedLevel?.key === 'college') {
+            // Get parent semesters (root periods without parent_id)
+            const semesters = gradingPeriods
+                .filter(p => p.academic_level_id === academicLevelId && !p.parent_id && p.type === 'semester')
+                .sort((a, b) => (a.semester_number || 0) - (b.semester_number || 0));
+
+            console.log('[REGISTRAR GRADE] Rendering hierarchical semesters:', semesters.length);
+
+            return semesters.map(semester => {
+                // Get children of this semester
+                const children = gradingPeriods
+                    .filter(p => p.parent_id === semester.id)
+                    .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+
+                console.log(`[REGISTRAR GRADE] Semester "${semester.name}" has ${children.length} children`);
+
+                return (
+                    <React.Fragment key={semester.id}>
+                        <SelectItem value={semester.id.toString()} disabled className="font-semibold text-gray-700">
+                            {semester.name}
+                        </SelectItem>
+                        {children.map(child => (
+                            <SelectItem key={child.id} value={child.id.toString()} className="pl-6">
+                                └─ {child.name}
+                            </SelectItem>
+                        ))}
+                    </React.Fragment>
+                );
+            });
+        } else {
+            // For Elementary/JHS/SHS, show flat list
+            return organizedGradingPeriods.map(period => (
+                <SelectItem key={period.id} value={period.id.toString()}>
+                    {period.name}
+                </SelectItem>
+            ));
+        }
+    };
 
     return (
         <div className="flex min-h-screen bg-gray-100 dark:bg-gray-900">
@@ -1365,7 +1612,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                 strand_id: '',
                                                                 department_id: '',
                                                                 course_id: '',
-                                                                section_id: 'all',
+                                                                section_id: '',
                                                             });
                                                         }}
                                                     >
@@ -1394,11 +1641,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                         </SelectTrigger>
                                                         <SelectContent>
                                                             <SelectItem value="all">All Periods</SelectItem>
-                                                            {organizedGradingPeriods.map((period) => (
-                                                                <SelectItem key={period.id} value={period.id.toString()}>
-                                                                    {period.name}
-                                                                </SelectItem>
-                                                            ))}
+                                                            {renderGradingPeriodOptions()}
                                                         </SelectContent>
                                                     </Select>
                                                 </div>
@@ -1496,15 +1739,16 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                         setGradeData({
                                                                             ...gradeData,
                                                                             year_level: value,
-                                                                            section_id: 'all'
+                                                                            section_id: ''
                                                                         });
                                                                     }}
+                                                                    disabled={!gradeData.school_year || gradeData.school_year === ''}
                                                                 >
                                                                     <SelectTrigger>
                                                                         <SelectValue placeholder="All year levels" />
                                                                     </SelectTrigger>
                                                                     <SelectContent>
-                                                                        <SelectItem value="">All Year Levels</SelectItem>
+                                                                        <SelectItem value="all">All Year Levels</SelectItem>
                                                                         {yearLevelOptions.map(opt => (
                                                                             <SelectItem key={opt.value} value={opt.value}>
                                                                                 {opt.label}
@@ -1522,12 +1766,12 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                         console.log('[REGISTRAR GRADE] Section Changed:', value);
                                                                         setGradeData({ ...gradeData, section_id: value });
                                                                     }}
+                                                                    disabled={!gradeData.year_level || gradeData.year_level === 'all'}
                                                                 >
                                                                     <SelectTrigger>
-                                                                        <SelectValue placeholder="All sections" />
+                                                                        <SelectValue placeholder="Select a section" />
                                                                     </SelectTrigger>
                                                                     <SelectContent>
-                                                                        <SelectItem value="all">All Sections</SelectItem>
                                                                         {filteredSectionsGrade.map(section => (
                                                                             <SelectItem key={section.id} value={section.id.toString()}>
                                                                                 {section.name}
@@ -1553,17 +1797,18 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                         setGradeData({
                                                                             ...gradeData,
                                                                             year_level: value,
-                                                                            track_id: '',
-                                                                            strand_id: '',
-                                                                            section_id: 'all'
+                                                                            track_id: 'all',
+                                                                            strand_id: 'all',
+                                                                            section_id: ''
                                                                         });
                                                                     }}
+                                                                    disabled={!gradeData.school_year || gradeData.school_year === ''}
                                                                 >
                                                                     <SelectTrigger>
                                                                         <SelectValue placeholder="All year levels" />
                                                                     </SelectTrigger>
                                                                     <SelectContent>
-                                                                        <SelectItem value="">All Year Levels</SelectItem>
+                                                                        <SelectItem value="all">All Year Levels</SelectItem>
                                                                         <SelectItem value="grade_11">Grade 11</SelectItem>
                                                                         <SelectItem value="grade_12">Grade 12</SelectItem>
                                                                     </SelectContent>
@@ -1579,16 +1824,17 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                         setGradeData({
                                                                             ...gradeData,
                                                                             track_id: value,
-                                                                            strand_id: '',
-                                                                            section_id: 'all'
+                                                                            strand_id: 'all',
+                                                                            section_id: ''
                                                                         });
                                                                     }}
+                                                                    disabled={!gradeData.year_level || gradeData.year_level === 'all'}
                                                                 >
                                                                     <SelectTrigger>
                                                                         <SelectValue placeholder="All tracks" />
                                                                     </SelectTrigger>
                                                                     <SelectContent>
-                                                                        <SelectItem value="">All Tracks</SelectItem>
+                                                                        <SelectItem value="all">All Tracks</SelectItem>
                                                                         {filteredTracksGrade.map(track => (
                                                                             <SelectItem key={track.id} value={track.id.toString()}>
                                                                                 {track.name}
@@ -1607,15 +1853,16 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                         setGradeData({
                                                                             ...gradeData,
                                                                             strand_id: value,
-                                                                            section_id: 'all'
+                                                                            section_id: ''
                                                                         });
                                                                     }}
+                                                                    disabled={!gradeData.track_id || gradeData.track_id === 'all'}
                                                                 >
                                                                     <SelectTrigger>
                                                                         <SelectValue placeholder="All strands" />
                                                                     </SelectTrigger>
                                                                     <SelectContent>
-                                                                        <SelectItem value="">All Strands</SelectItem>
+                                                                        <SelectItem value="all">All Strands</SelectItem>
                                                                         {filteredStrandsGrade.map(strand => (
                                                                             <SelectItem key={strand.id} value={strand.id.toString()}>
                                                                                 {strand.name}
@@ -1633,12 +1880,12 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                         console.log('[REGISTRAR GRADE] Section Changed:', value);
                                                                         setGradeData({ ...gradeData, section_id: value });
                                                                     }}
+                                                                    disabled={!gradeData.strand_id || gradeData.strand_id === 'all'}
                                                                 >
                                                                     <SelectTrigger>
-                                                                        <SelectValue placeholder="All sections" />
+                                                                        <SelectValue placeholder="Select a section" />
                                                                     </SelectTrigger>
                                                                     <SelectContent>
-                                                                        <SelectItem value="all">All Sections</SelectItem>
                                                                         {filteredSectionsGrade.map(section => (
                                                                             <SelectItem key={section.id} value={section.id.toString()}>
                                                                                 {section.name}
@@ -1664,17 +1911,18 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                         setGradeData({
                                                                             ...gradeData,
                                                                             year_level: value,
-                                                                            department_id: '',
+                                                                            department_id: 'all',
                                                                             course_id: '',
-                                                                            section_id: 'all'
+                                                                            section_id: ''
                                                                         });
                                                                     }}
+                                                                    disabled={!gradeData.school_year || gradeData.school_year === ''}
                                                                 >
                                                                     <SelectTrigger>
                                                                         <SelectValue placeholder="All year levels" />
                                                                     </SelectTrigger>
                                                                     <SelectContent>
-                                                                        <SelectItem value="">All Year Levels</SelectItem>
+                                                                        <SelectItem value="all">All Year Levels</SelectItem>
                                                                         <SelectItem value="first_year">1st Year</SelectItem>
                                                                         <SelectItem value="second_year">2nd Year</SelectItem>
                                                                         <SelectItem value="third_year">3rd Year</SelectItem>
@@ -1693,15 +1941,16 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                             ...gradeData,
                                                                             department_id: value,
                                                                             course_id: '',
-                                                                            section_id: 'all'
+                                                                            section_id: ''
                                                                         });
                                                                     }}
+                                                                    disabled={!gradeData.year_level || gradeData.year_level === 'all'}
                                                                 >
                                                                     <SelectTrigger>
                                                                         <SelectValue placeholder="All departments" />
                                                                     </SelectTrigger>
                                                                     <SelectContent>
-                                                                        <SelectItem value="">All Departments</SelectItem>
+                                                                        <SelectItem value="all">All Departments</SelectItem>
                                                                         {filteredDepartmentsGrade.map(dept => (
                                                                             <SelectItem key={dept.id} value={dept.id.toString()}>
                                                                                 {dept.name}
@@ -1720,15 +1969,15 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                         setGradeData({
                                                                             ...gradeData,
                                                                             course_id: value,
-                                                                            section_id: 'all'
+                                                                            section_id: ''
                                                                         });
                                                                     }}
+                                                                    disabled={!gradeData.department_id || gradeData.department_id === 'all'}
                                                                 >
                                                                     <SelectTrigger>
-                                                                        <SelectValue placeholder="All courses" />
+                                                                        <SelectValue placeholder="Select a course" />
                                                                     </SelectTrigger>
                                                                     <SelectContent>
-                                                                        <SelectItem value="">All Courses</SelectItem>
                                                                         {filteredCoursesGrade.map(course => (
                                                                             <SelectItem key={course.id} value={course.id.toString()}>
                                                                                 {course.name}
@@ -1746,12 +1995,12 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                         console.log('[REGISTRAR GRADE] Section Changed:', value);
                                                                         setGradeData({ ...gradeData, section_id: value });
                                                                     }}
+                                                                    disabled={!gradeData.course_id || gradeData.course_id === 'all'}
                                                                 >
                                                                     <SelectTrigger>
-                                                                        <SelectValue placeholder="All sections" />
+                                                                        <SelectValue placeholder="Select a section" />
                                                                     </SelectTrigger>
                                                                     <SelectContent>
-                                                                        <SelectItem value="all">All Sections</SelectItem>
                                                                         {filteredSectionsGrade.map(section => (
                                                                             <SelectItem key={section.id} value={section.id.toString()}>
                                                                                 {section.name}
@@ -1824,7 +2073,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                 strand_id: '',
                                                                 department_id: '',
                                                                 course_id: '',
-                                                                section_id: 'all',
+                                                                section_id: '',
                                                             });
                                                         }}
                                                     >
@@ -1926,7 +2175,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                             <div className="space-y-2">
                                                                 <Label>Year Level</Label>
-                                                                <Select value={honorData.year_level} onValueChange={(v) => setHonorData({ ...honorData, year_level: v, section_id: 'all' })}>
+                                                                <Select value={honorData.year_level} onValueChange={(v) => setHonorData({ ...honorData, year_level: v, section_id: '' })}>
                                                                     <SelectTrigger><SelectValue placeholder="All year levels" /></SelectTrigger>
                                                                     <SelectContent>
                                                                         {yearLevelOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
@@ -1950,11 +2199,11 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                     return (
                                                         <div className="space-y-4">
                                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                                <div className="space-y-2"><Label>Year Level</Label><Select value={honorData.year_level} onValueChange={(v) => setHonorData({ ...honorData, year_level: v, track_id: '', strand_id: '', section_id: 'all' })}><SelectTrigger><SelectValue placeholder="All year levels" /></SelectTrigger><SelectContent><SelectItem value="grade_11">Grade 11</SelectItem><SelectItem value="grade_12">Grade 12</SelectItem></SelectContent></Select></div>
-                                                                <div className="space-y-2"><Label>Track</Label><Select value={honorData.track_id} onValueChange={(v) => setHonorData({ ...honorData, track_id: v, strand_id: '', section_id: 'all' })}><SelectTrigger><SelectValue placeholder="All tracks" /></SelectTrigger><SelectContent>{tracks.map(track => <SelectItem key={track.id} value={track.id.toString()}>{track.name} ({track.code})</SelectItem>)}</SelectContent></Select></div>
+                                                                <div className="space-y-2"><Label>Year Level</Label><Select value={honorData.year_level} onValueChange={(v) => setHonorData({ ...honorData, year_level: v, track_id: '', strand_id: '', section_id: '' })}><SelectTrigger><SelectValue placeholder="All year levels" /></SelectTrigger><SelectContent><SelectItem value="grade_11">Grade 11</SelectItem><SelectItem value="grade_12">Grade 12</SelectItem></SelectContent></Select></div>
+                                                                <div className="space-y-2"><Label>Track</Label><Select value={honorData.track_id} onValueChange={(v) => setHonorData({ ...honorData, track_id: v, strand_id: '', section_id: '' })}><SelectTrigger><SelectValue placeholder="All tracks" /></SelectTrigger><SelectContent>{tracks.map(track => <SelectItem key={track.id} value={track.id.toString()}>{track.name} ({track.code})</SelectItem>)}</SelectContent></Select></div>
                                                             </div>
                                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                                <div className="space-y-2"><Label>Strand</Label><Select value={honorData.strand_id} onValueChange={(v) => setHonorData({ ...honorData, strand_id: v, section_id: 'all' })} disabled={!honorData.track_id}><SelectTrigger><SelectValue placeholder={honorData.track_id ? "All strands" : "Select track first"} /></SelectTrigger><SelectContent>{filteredStrandsHonor.map(strand => <SelectItem key={strand.id} value={strand.id.toString()}>{strand.name} ({strand.code})</SelectItem>)}</SelectContent></Select></div>
+                                                                <div className="space-y-2"><Label>Strand</Label><Select value={honorData.strand_id} onValueChange={(v) => setHonorData({ ...honorData, strand_id: v, section_id: '' })} disabled={!honorData.track_id}><SelectTrigger><SelectValue placeholder={honorData.track_id ? "All strands" : "Select track first"} /></SelectTrigger><SelectContent>{filteredStrandsHonor.map(strand => <SelectItem key={strand.id} value={strand.id.toString()}>{strand.name} ({strand.code})</SelectItem>)}</SelectContent></Select></div>
                                                                 <div className="space-y-2"><Label>Section</Label><Select value={honorData.section_id} onValueChange={(v) => setHonorData({ ...honorData, section_id: v })}><SelectTrigger><SelectValue placeholder="All sections" /></SelectTrigger><SelectContent><SelectItem value="all">All Sections</SelectItem>{filteredSectionsHonor.map(section => <SelectItem key={section.id} value={section.id.toString()}>{section.name}</SelectItem>)}</SelectContent></Select></div>
                                                             </div>
                                                         </div>
@@ -1964,11 +2213,11 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                     return (
                                                         <div className="space-y-4">
                                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                                <div className="space-y-2"><Label>Year Level</Label><Select value={honorData.year_level} onValueChange={(v) => setHonorData({ ...honorData, year_level: v, department_id: '', course_id: '', section_id: 'all' })}><SelectTrigger><SelectValue placeholder="All year levels" /></SelectTrigger><SelectContent><SelectItem value="1st_year">1st Year</SelectItem><SelectItem value="2nd_year">2nd Year</SelectItem><SelectItem value="3rd_year">3rd Year</SelectItem><SelectItem value="4th_year">4th Year</SelectItem></SelectContent></Select></div>
-                                                                <div className="space-y-2"><Label>Department</Label><Select value={honorData.department_id} onValueChange={(v) => setHonorData({ ...honorData, department_id: v, course_id: '', section_id: 'all' })}><SelectTrigger><SelectValue placeholder="All departments" /></SelectTrigger><SelectContent>{departments.map(dept => <SelectItem key={dept.id} value={dept.id.toString()}>{dept.name} ({dept.code})</SelectItem>)}</SelectContent></Select></div>
+                                                                <div className="space-y-2"><Label>Year Level</Label><Select value={honorData.year_level} onValueChange={(v) => setHonorData({ ...honorData, year_level: v, department_id: '', course_id: '', section_id: '' })}><SelectTrigger><SelectValue placeholder="All year levels" /></SelectTrigger><SelectContent><SelectItem value="1st_year">1st Year</SelectItem><SelectItem value="2nd_year">2nd Year</SelectItem><SelectItem value="3rd_year">3rd Year</SelectItem><SelectItem value="4th_year">4th Year</SelectItem></SelectContent></Select></div>
+                                                                <div className="space-y-2"><Label>Department</Label><Select value={honorData.department_id} onValueChange={(v) => setHonorData({ ...honorData, department_id: v, course_id: '', section_id: '' })}><SelectTrigger><SelectValue placeholder="All departments" /></SelectTrigger><SelectContent>{departments.map(dept => <SelectItem key={dept.id} value={dept.id.toString()}>{dept.name} ({dept.code})</SelectItem>)}</SelectContent></Select></div>
                                                             </div>
                                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                                <div className="space-y-2"><Label>Course</Label><Select value={honorData.course_id} onValueChange={(v) => setHonorData({ ...honorData, course_id: v, section_id: 'all' })} disabled={!honorData.department_id}><SelectTrigger><SelectValue placeholder={honorData.department_id ? "All courses" : "Select department first"} /></SelectTrigger><SelectContent>{filteredCoursesHonor.map(course => <SelectItem key={course.id} value={course.id.toString()}>{course.name} ({course.code})</SelectItem>)}</SelectContent></Select></div>
+                                                                <div className="space-y-2"><Label>Course</Label><Select value={honorData.course_id} onValueChange={(v) => setHonorData({ ...honorData, course_id: v, section_id: '' })} disabled={!honorData.department_id}><SelectTrigger><SelectValue placeholder={honorData.department_id ? "All courses" : "Select department first"} /></SelectTrigger><SelectContent>{filteredCoursesHonor.map(course => <SelectItem key={course.id} value={course.id.toString()}>{course.name} ({course.code})</SelectItem>)}</SelectContent></Select></div>
                                                                 <div className="space-y-2"><Label>Section</Label><Select value={honorData.section_id} onValueChange={(v) => setHonorData({ ...honorData, section_id: v })}><SelectTrigger><SelectValue placeholder="All sections" /></SelectTrigger><SelectContent><SelectItem value="all">All Sections</SelectItem>{filteredSectionsHonor.map(section => <SelectItem key={section.id} value={section.id.toString()}>{section.name}</SelectItem>)}</SelectContent></Select></div>
                                                             </div>
                                                         </div>
@@ -2032,7 +2281,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                 strand_id: '',
                                                                 department_id: '',
                                                                 course_id: '',
-                                                                section_id: 'all',
+                                                                section_id: '',
                                                             });
                                                         }}
                                                     >
@@ -2116,7 +2365,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                         setArchiveData({
                                                                             ...archiveData,
                                                                             year_level: value,
-                                                                            section_id: 'all'
+                                                                            section_id: ''
                                                                         });
                                                                     }}
                                                                 >
@@ -2124,7 +2373,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                         <SelectValue placeholder="All year levels" />
                                                                     </SelectTrigger>
                                                                     <SelectContent>
-                                                                        <SelectItem value="">All Year Levels</SelectItem>
+                                                                        <SelectItem value="all">All Year Levels</SelectItem>
                                                                         {yearLevelOptions.map(opt => (
                                                                             <SelectItem key={opt.value} value={opt.value}>
                                                                                 {opt.label}
@@ -2173,9 +2422,9 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                         setArchiveData({
                                                                             ...archiveData,
                                                                             year_level: value,
-                                                                            track_id: '',
-                                                                            strand_id: '',
-                                                                            section_id: 'all'
+                                                                            track_id: 'all',
+                                                                            strand_id: 'all',
+                                                                            section_id: ''
                                                                         });
                                                                     }}
                                                                 >
@@ -2183,7 +2432,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                         <SelectValue placeholder="All year levels" />
                                                                     </SelectTrigger>
                                                                     <SelectContent>
-                                                                        <SelectItem value="">All Year Levels</SelectItem>
+                                                                        <SelectItem value="all">All Year Levels</SelectItem>
                                                                         <SelectItem value="grade_11">Grade 11</SelectItem>
                                                                         <SelectItem value="grade_12">Grade 12</SelectItem>
                                                                     </SelectContent>
@@ -2199,8 +2448,8 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                         setArchiveData({
                                                                             ...archiveData,
                                                                             track_id: value,
-                                                                            strand_id: '',
-                                                                            section_id: 'all'
+                                                                            strand_id: 'all',
+                                                                            section_id: ''
                                                                         });
                                                                     }}
                                                                 >
@@ -2208,7 +2457,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                         <SelectValue placeholder="All tracks" />
                                                                     </SelectTrigger>
                                                                     <SelectContent>
-                                                                        <SelectItem value="">All Tracks</SelectItem>
+                                                                        <SelectItem value="all">All Tracks</SelectItem>
                                                                         {filteredTracksArchive.map(track => (
                                                                             <SelectItem key={track.id} value={track.id.toString()}>
                                                                                 {track.name}
@@ -2227,7 +2476,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                         setArchiveData({
                                                                             ...archiveData,
                                                                             strand_id: value,
-                                                                            section_id: 'all'
+                                                                            section_id: ''
                                                                         });
                                                                     }}
                                                                 >
@@ -2235,7 +2484,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                         <SelectValue placeholder="All strands" />
                                                                     </SelectTrigger>
                                                                     <SelectContent>
-                                                                        <SelectItem value="">All Strands</SelectItem>
+                                                                        <SelectItem value="all">All Strands</SelectItem>
                                                                         {filteredStrandsArchive.map(strand => (
                                                                             <SelectItem key={strand.id} value={strand.id.toString()}>
                                                                                 {strand.name}
@@ -2284,9 +2533,9 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                         setArchiveData({
                                                                             ...archiveData,
                                                                             year_level: value,
-                                                                            department_id: '',
+                                                                            department_id: 'all',
                                                                             course_id: '',
-                                                                            section_id: 'all'
+                                                                            section_id: ''
                                                                         });
                                                                     }}
                                                                 >
@@ -2294,7 +2543,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                         <SelectValue placeholder="All year levels" />
                                                                     </SelectTrigger>
                                                                     <SelectContent>
-                                                                        <SelectItem value="">All Year Levels</SelectItem>
+                                                                        <SelectItem value="all">All Year Levels</SelectItem>
                                                                         <SelectItem value="first_year">1st Year</SelectItem>
                                                                         <SelectItem value="second_year">2nd Year</SelectItem>
                                                                         <SelectItem value="third_year">3rd Year</SelectItem>
@@ -2313,7 +2562,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                             ...archiveData,
                                                                             department_id: value,
                                                                             course_id: '',
-                                                                            section_id: 'all'
+                                                                            section_id: ''
                                                                         });
                                                                     }}
                                                                 >
@@ -2321,7 +2570,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                         <SelectValue placeholder="All departments" />
                                                                     </SelectTrigger>
                                                                     <SelectContent>
-                                                                        <SelectItem value="">All Departments</SelectItem>
+                                                                        <SelectItem value="all">All Departments</SelectItem>
                                                                         {filteredDepartmentsArchive.map(dept => (
                                                                             <SelectItem key={dept.id} value={dept.id.toString()}>
                                                                                 {dept.name}
@@ -2340,7 +2589,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                         setArchiveData({
                                                                             ...archiveData,
                                                                             course_id: value,
-                                                                            section_id: 'all'
+                                                                            section_id: ''
                                                                         });
                                                                     }}
                                                                 >
@@ -2348,7 +2597,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                         <SelectValue placeholder="All courses" />
                                                                     </SelectTrigger>
                                                                     <SelectContent>
-                                                                        <SelectItem value="">All Courses</SelectItem>
+                                                                        <SelectItem value="all">All Courses</SelectItem>
                                                                         {filteredCoursesArchive.map(course => (
                                                                             <SelectItem key={course.id} value={course.id.toString()}>
                                                                                 {course.name}
@@ -2492,7 +2741,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                             strand_id: '',
                                                             department_id: '',
                                                             course_id: '',
-                                                            section_id: 'all',
+                                                            section_id: '',
                                                         });
                                                     }}
                                                 >
@@ -2544,7 +2793,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                     value={sectionData.year_level}
                                                                     onValueChange={(v) => {
                                                                         console.log('[REGISTRAR] Year Level Changed:', v);
-                                                                        setSectionData({ ...sectionData, year_level: v, section_id: 'all' });
+                                                                        setSectionData({ ...sectionData, year_level: v, section_id: '' });
                                                                     }}
                                                                 >
                                                                     <SelectTrigger><SelectValue placeholder="Select year level" /></SelectTrigger>
@@ -2595,7 +2844,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                         value={sectionData.year_level}
                                                                         onValueChange={(v) => {
                                                                             console.log('[REGISTRAR] Year Level Changed:', v);
-                                                                            setSectionData({ ...sectionData, year_level: v, track_id: '', strand_id: '', section_id: 'all' });
+                                                                            setSectionData({ ...sectionData, year_level: v, track_id: '', strand_id: '', section_id: '' });
                                                                         }}
                                                                     >
                                                                         <SelectTrigger><SelectValue placeholder="Select year level" /></SelectTrigger>
@@ -2614,7 +2863,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                         value={sectionData.track_id}
                                                                         onValueChange={(v) => {
                                                                             console.log('[REGISTRAR] Track Changed:', v);
-                                                                            setSectionData({ ...sectionData, track_id: v, strand_id: '', section_id: 'all' });
+                                                                            setSectionData({ ...sectionData, track_id: v, strand_id: '', section_id: '' });
                                                                         }}
                                                                     >
                                                                         <SelectTrigger><SelectValue placeholder="Select track" /></SelectTrigger>
@@ -2637,7 +2886,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                         value={sectionData.strand_id}
                                                                         onValueChange={(v) => {
                                                                             console.log('[REGISTRAR] Strand Changed:', v);
-                                                                            setSectionData({ ...sectionData, strand_id: v, section_id: 'all' });
+                                                                            setSectionData({ ...sectionData, strand_id: v, section_id: '' });
                                                                         }}
                                                                         disabled={!sectionData.track_id}
                                                                     >
@@ -2694,7 +2943,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                         value={sectionData.year_level}
                                                                         onValueChange={(v) => {
                                                                             console.log('[REGISTRAR] Year Level Changed:', v);
-                                                                            setSectionData({ ...sectionData, year_level: v, department_id: '', course_id: '', section_id: 'all' });
+                                                                            setSectionData({ ...sectionData, year_level: v, department_id: '', course_id: '', section_id: '' });
                                                                         }}
                                                                     >
                                                                         <SelectTrigger><SelectValue placeholder="Select year level" /></SelectTrigger>
@@ -2713,7 +2962,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                         value={sectionData.department_id}
                                                                         onValueChange={(v) => {
                                                                             console.log('[REGISTRAR] Department Changed:', v);
-                                                                            setSectionData({ ...sectionData, department_id: v, course_id: '', section_id: 'all' });
+                                                                            setSectionData({ ...sectionData, department_id: v, course_id: '', section_id: '' });
                                                                         }}
                                                                     >
                                                                         <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
@@ -2736,7 +2985,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                         value={sectionData.course_id}
                                                                         onValueChange={(v) => {
                                                                             console.log('[REGISTRAR] Course Changed:', v);
-                                                                            setSectionData({ ...sectionData, course_id: v, section_id: 'all' });
+                                                                            setSectionData({ ...sectionData, course_id: v, section_id: '' });
                                                                         }}
                                                                         disabled={!sectionData.department_id}
                                                                     >

@@ -166,7 +166,7 @@ class RegistrarController extends Controller
 
         // Get data for reports
         $academicLevels = AcademicLevel::orderBy('name')->get();
-        $gradingPeriods = GradingPeriod::with('academicLevel')->orderBy('name')->get();
+        $gradingPeriods = GradingPeriod::with(['academicLevel', 'parent', 'children'])->orderBy('sort_order')->orderBy('name')->get();
         $honorTypes = HonorType::orderBy('name')->get();
         $sections = \App\Models\Section::with(['academicLevel', 'track', 'strand', 'department', 'course'])
             ->where('is_active', true)

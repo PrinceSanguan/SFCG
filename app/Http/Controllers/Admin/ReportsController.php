@@ -38,7 +38,7 @@ class ReportsController extends Controller
     {
         $academicLevels = AcademicLevel::orderBy('sort_order')->get();
         $schoolYears = $this->getSchoolYears();
-        $gradingPeriods = GradingPeriod::with('academicLevel')->orderBy('sort_order')->get();
+        $gradingPeriods = GradingPeriod::with(['academicLevel', 'parent', 'children'])->orderBy('sort_order')->orderBy('name')->get();
         $honorTypes = HonorType::all();
         $sections = \App\Models\Section::with(['academicLevel', 'track', 'strand', 'department', 'course'])
             ->where('is_active', true)

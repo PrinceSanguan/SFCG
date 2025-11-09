@@ -29,10 +29,16 @@ interface AcademicLevel { id: number; name: string; key: string; }
 interface GradingPeriod {
   id: number;
   name: string;
+  code: string;
   academic_level_id: number;
-  semester_number: number | null;
-  parent_id: number | null;
-  type: string;
+  sort_order: number;
+  parent_id?: number | null;
+  type: 'quarter' | 'semester';
+  period_type?: 'quarter' | 'midterm' | 'prefinal' | 'final';
+  semester_number?: number | null;
+  is_calculated?: boolean;
+  parent?: GradingPeriod;
+  children?: GradingPeriod[];
 }
 interface HonorType { id: number; name: string; }
 interface Track { id: number; name: string; code: string; is_active: boolean; }
@@ -135,11 +141,11 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
   const { data: archiveData, setData: setArchiveData, post: postArchive, processing: archiveProcessing } = useForm({
     academic_level_id: '',
     school_year: currentSchoolYear || schoolYears[0] || '',
-    year_level: '',
-    track_id: '',
-    strand_id: '',
-    department_id: '',
-    course_id: '',
+    year_level: 'all',
+    track_id: 'all',
+    strand_id: 'all',
+    department_id: 'all',
+    course_id: 'all',
     section_id: 'all',
     include_grades: true,
     include_honors: true,
@@ -150,11 +156,11 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
   // Class Section Report Form
   const { data: sectionData, setData: setSectionData, post: postSection, processing: sectionProcessing } = useForm({
     academic_level_id: '',
-    year_level: '',
-    track_id: '',
-    strand_id: '',
-    department_id: '',
-    course_id: '',
+    year_level: 'all',
+    track_id: 'all',
+    strand_id: 'all',
+    department_id: 'all',
+    course_id: 'all',
     section_id: 'all',
     school_year: currentSchoolYear || schoolYears[0] || '',
     include_grades: false,
@@ -417,17 +423,17 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
       console.log('[ADMIN ARCHIVE] Processing SHS filters');
       setFilteredTracksArchive(tracks);
 
-      if (archiveData.track_id) {
+      if (archiveData.track_id && archiveData.track_id !== 'all') {
         console.log('[ADMIN ARCHIVE] Filtering by Track ID:', archiveData.track_id);
         filtered = filtered.filter(section => section.track_id?.toString() === archiveData.track_id);
       }
 
-      if (archiveData.strand_id) {
+      if (archiveData.strand_id && archiveData.strand_id !== 'all') {
         console.log('[ADMIN ARCHIVE] Filtering by Strand ID:', archiveData.strand_id);
         filtered = filtered.filter(section => section.strand_id?.toString() === archiveData.strand_id);
       }
 
-      if (archiveData.year_level) {
+      if (archiveData.year_level && archiveData.year_level !== 'all') {
         console.log('[ADMIN ARCHIVE] Filtering by Year Level:', archiveData.year_level);
         filtered = filtered.filter(section => section.specific_year_level === archiveData.year_level);
       }
@@ -437,17 +443,17 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
       console.log('[ADMIN ARCHIVE] Processing College filters');
       setFilteredDepartmentsArchive(departments);
 
-      if (archiveData.department_id) {
+      if (archiveData.department_id && archiveData.department_id !== 'all') {
         console.log('[ADMIN ARCHIVE] Filtering by Department ID:', archiveData.department_id);
         filtered = filtered.filter(section => section.department_id?.toString() === archiveData.department_id);
       }
 
-      if (archiveData.course_id) {
+      if (archiveData.course_id && archiveData.course_id !== 'all') {
         console.log('[ADMIN ARCHIVE] Filtering by Course ID:', archiveData.course_id);
         filtered = filtered.filter(section => section.course_id?.toString() === archiveData.course_id);
       }
 
-      if (archiveData.year_level) {
+      if (archiveData.year_level && archiveData.year_level !== 'all') {
         console.log('[ADMIN ARCHIVE] Filtering by Year Level:', archiveData.year_level);
         filtered = filtered.filter(section => section.specific_year_level === archiveData.year_level);
       }
@@ -456,7 +462,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
     if (selectedLevel.key === 'elementary' || selectedLevel.key === 'junior_highschool') {
       console.log('[ADMIN ARCHIVE] Processing Elementary/JHS filters');
 
-      if (archiveData.year_level) {
+      if (archiveData.year_level && archiveData.year_level !== 'all') {
         console.log('[ADMIN ARCHIVE] Filtering by Year Level:', archiveData.year_level);
         filtered = filtered.filter(section => section.specific_year_level === archiveData.year_level);
       }
@@ -468,7 +474,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
 
   // Filter strands based on selected track (for Archive SHS)
   useEffect(() => {
-    if (archiveData.track_id) {
+    if (archiveData.track_id && archiveData.track_id !== 'all') {
       const trackId = parseInt(archiveData.track_id);
       const filtered = strands.filter(strand => strand.track_id === trackId);
       setFilteredStrandsArchive(filtered);
@@ -479,7 +485,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
 
   // Filter courses based on selected department (for Archive College)
   useEffect(() => {
-    if (archiveData.department_id) {
+    if (archiveData.department_id && archiveData.department_id !== 'all') {
       const deptId = parseInt(archiveData.department_id);
       const filtered = courses.filter(course => course.department_id === deptId);
       setFilteredCoursesArchive(filtered);
@@ -1566,7 +1572,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                 >
                                   <SelectTrigger><SelectValue placeholder="All year levels" /></SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="">All Year Levels</SelectItem>
+                                    <SelectItem value="all">All Year Levels</SelectItem>
                                     {yearLevelOptions.map(opt => (
                                       <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                                     ))}
@@ -1608,12 +1614,12 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                   value={archiveData.year_level}
                                   onValueChange={(v) => {
                                     console.log('[ADMIN ARCHIVE] Year Level Changed:', v);
-                                    setArchiveData({ ...archiveData, year_level: v, track_id: '', strand_id: '', section_id: 'all' });
+                                    setArchiveData({ ...archiveData, year_level: v, track_id: 'all', strand_id: 'all', section_id: 'all' });
                                   }}
                                 >
                                   <SelectTrigger><SelectValue placeholder="All year levels" /></SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="">All Year Levels</SelectItem>
+                                    <SelectItem value="all">All Year Levels</SelectItem>
                                     <SelectItem value="grade_11">Grade 11</SelectItem>
                                     <SelectItem value="grade_12">Grade 12</SelectItem>
                                   </SelectContent>
@@ -1626,12 +1632,12 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                   value={archiveData.track_id}
                                   onValueChange={(v) => {
                                     console.log('[ADMIN ARCHIVE] Track Changed:', v);
-                                    setArchiveData({ ...archiveData, track_id: v, strand_id: '', section_id: 'all' });
+                                    setArchiveData({ ...archiveData, track_id: v, strand_id: 'all', section_id: 'all' });
                                   }}
                                 >
                                   <SelectTrigger><SelectValue placeholder="All tracks" /></SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="">All Tracks</SelectItem>
+                                    <SelectItem value="all">All Tracks</SelectItem>
                                     {filteredTracksArchive.map(track => (
                                       <SelectItem key={track.id} value={track.id.toString()}>
                                         {track.name}
@@ -1652,7 +1658,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                 >
                                   <SelectTrigger><SelectValue placeholder="All strands" /></SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="">All Strands</SelectItem>
+                                    <SelectItem value="all">All Strands</SelectItem>
                                     {filteredStrandsArchive.map(strand => (
                                       <SelectItem key={strand.id} value={strand.id.toString()}>
                                         {strand.name}
@@ -1696,12 +1702,12 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                   value={archiveData.year_level}
                                   onValueChange={(v) => {
                                     console.log('[ADMIN ARCHIVE] Year Level Changed:', v);
-                                    setArchiveData({ ...archiveData, year_level: v, department_id: '', course_id: '', section_id: 'all' });
+                                    setArchiveData({ ...archiveData, year_level: v, department_id: 'all', course_id: 'all', section_id: 'all' });
                                   }}
                                 >
                                   <SelectTrigger><SelectValue placeholder="All year levels" /></SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="">All Year Levels</SelectItem>
+                                    <SelectItem value="all">All Year Levels</SelectItem>
                                     <SelectItem value="first_year">1st Year</SelectItem>
                                     <SelectItem value="second_year">2nd Year</SelectItem>
                                     <SelectItem value="third_year">3rd Year</SelectItem>
@@ -1716,12 +1722,12 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                   value={archiveData.department_id}
                                   onValueChange={(v) => {
                                     console.log('[ADMIN ARCHIVE] Department Changed:', v);
-                                    setArchiveData({ ...archiveData, department_id: v, course_id: '', section_id: 'all' });
+                                    setArchiveData({ ...archiveData, department_id: v, course_id: 'all', section_id: 'all' });
                                   }}
                                 >
                                   <SelectTrigger><SelectValue placeholder="All departments" /></SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="">All Departments</SelectItem>
+                                    <SelectItem value="all">All Departments</SelectItem>
                                     {filteredDepartmentsArchive.map(dept => (
                                       <SelectItem key={dept.id} value={dept.id.toString()}>
                                         {dept.name}
@@ -1742,7 +1748,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                 >
                                   <SelectTrigger><SelectValue placeholder="All courses" /></SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="">All Courses</SelectItem>
+                                    <SelectItem value="all">All Courses</SelectItem>
                                     {filteredCoursesArchive.map(course => (
                                       <SelectItem key={course.id} value={course.id.toString()}>
                                         {course.name}
