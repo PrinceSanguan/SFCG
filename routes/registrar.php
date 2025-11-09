@@ -1039,20 +1039,56 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
     
     // Adviser Assignments CRUD routes
     Route::post('/assign-advisers', function(\Illuminate\Http\Request $request) {
+        \Illuminate\Support\Facades\Log::info('[ASSIGN_ADVISER] === START POST REQUEST ===');
+        \Illuminate\Support\Facades\Log::info('[ASSIGN_ADVISER] Raw request data:', $request->all());
+
         $validated = $request->validate([
             'adviser_id' => ['required', 'exists:users,id'],
             'subject_id' => ['required', 'exists:subjects,id'],
             'academic_level_id' => ['required', 'exists:academic_levels,id'],
             'grade_level' => ['required', 'string', 'max:50'],
-            'section' => ['required', 'string', 'max:10'],
+            'section_id' => ['nullable', 'exists:sections,id'],
+            'section' => ['nullable', 'string', 'max:10'],
+            'grading_period_ids' => ['nullable', 'array'],
+            'grading_period_ids.*' => ['exists:grading_periods,id'],
             'school_year' => ['required', 'string', 'max:20'],
             'notes' => ['nullable', 'string'],
             'is_active' => ['nullable', 'boolean'],
         ]);
-        
+
+        \Illuminate\Support\Facades\Log::info('[ASSIGN_ADVISER] After validation:', $validated);
+
+        // If section_id is provided but section is not, derive section name from section_id
+        if (!empty($validated['section_id']) && empty($validated['section'])) {
+            \Illuminate\Support\Facades\Log::info('[ASSIGN_ADVISER] Deriving section name from section_id:', ['section_id' => $validated['section_id']]);
+            $section = \App\Models\Section::find($validated['section_id']);
+            if ($section) {
+                $validated['section'] = $section->name;
+                \Illuminate\Support\Facades\Log::info('[ASSIGN_ADVISER] Section name derived:', ['section' => $validated['section']]);
+            } else {
+                \Illuminate\Support\Facades\Log::warning('[ASSIGN_ADVISER] Section not found for ID:', ['section_id' => $validated['section_id']]);
+            }
+        }
+
+        // Remove section_id as it's not a field in the database
+        unset($validated['section_id']);
+
         $validated['is_active'] = $validated['is_active'] ?? true;
-        
-        $assignment = \App\Models\ClassAdviserAssignment::create($validated);
+        $validated['assigned_by'] = \Illuminate\Support\Facades\Auth::id();
+
+        \Illuminate\Support\Facades\Log::info('[ASSIGN_ADVISER] Final data before create:', $validated);
+
+        try {
+            $assignment = \App\Models\ClassAdviserAssignment::create($validated);
+            \Illuminate\Support\Facades\Log::info('[ASSIGN_ADVISER] Assignment created successfully:', ['id' => $assignment->id]);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('[ASSIGN_ADVISER] Failed to create assignment:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'validated_data' => $validated
+            ]);
+            throw $e;
+        }
         
         // Log activity
         \App\Models\ActivityLog::create([
@@ -1124,20 +1160,57 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
     })->name('assign-advisers.store');
     
     Route::put('/assign-advisers/{assignment}', function(\Illuminate\Http\Request $request, \App\Models\ClassAdviserAssignment $assignment) {
+        \Illuminate\Support\Facades\Log::info('[ASSIGN_ADVISER] === START PUT REQUEST ===');
+        \Illuminate\Support\Facades\Log::info('[ASSIGN_ADVISER] Assignment ID:', ['id' => $assignment->id]);
+        \Illuminate\Support\Facades\Log::info('[ASSIGN_ADVISER] Raw request data:', $request->all());
+
         $validated = $request->validate([
             'adviser_id' => ['required', 'exists:users,id'],
             'subject_id' => ['required', 'exists:subjects,id'],
             'academic_level_id' => ['required', 'exists:academic_levels,id'],
             'grade_level' => ['required', 'string', 'max:50'],
-            'section' => ['required', 'string', 'max:10'],
+            'section_id' => ['nullable', 'exists:sections,id'],
+            'section' => ['nullable', 'string', 'max:10'],
+            'grading_period_ids' => ['nullable', 'array'],
+            'grading_period_ids.*' => ['exists:grading_periods,id'],
             'school_year' => ['required', 'string', 'max:20'],
             'notes' => ['nullable', 'string'],
             'is_active' => ['nullable', 'boolean'],
         ]);
-        
+
+        \Illuminate\Support\Facades\Log::info('[ASSIGN_ADVISER] After validation:', $validated);
+
+        // If section_id is provided but section is not, derive section name from section_id
+        if (!empty($validated['section_id']) && empty($validated['section'])) {
+            \Illuminate\Support\Facades\Log::info('[ASSIGN_ADVISER] Deriving section name from section_id:', ['section_id' => $validated['section_id']]);
+            $section = \App\Models\Section::find($validated['section_id']);
+            if ($section) {
+                $validated['section'] = $section->name;
+                \Illuminate\Support\Facades\Log::info('[ASSIGN_ADVISER] Section name derived:', ['section' => $validated['section']]);
+            } else {
+                \Illuminate\Support\Facades\Log::warning('[ASSIGN_ADVISER] Section not found for ID:', ['section_id' => $validated['section_id']]);
+            }
+        }
+
+        // Remove section_id as it's not a field in the database
+        unset($validated['section_id']);
+
         $validated['is_active'] = $validated['is_active'] ?? true;
-        
-        $assignment->update($validated);
+        $validated['assigned_by'] = \Illuminate\Support\Facades\Auth::id();
+
+        \Illuminate\Support\Facades\Log::info('[ASSIGN_ADVISER] Final data before update:', $validated);
+
+        try {
+            $assignment->update($validated);
+            \Illuminate\Support\Facades\Log::info('[ASSIGN_ADVISER] Assignment updated successfully:', ['id' => $assignment->id]);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('[ASSIGN_ADVISER] Failed to update assignment:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'validated_data' => $validated
+            ]);
+            throw $e;
+        }
         
         // Log activity
         \App\Models\ActivityLog::create([

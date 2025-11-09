@@ -714,10 +714,10 @@ export default function AssignInstructorsSubjects({
                                 ];
                             } else if (selectedLevel.key === 'college') {
                                 yearLevelOptions = [
-                                    { value: '1st_year', label: '1st Year' },
-                                    { value: '2nd_year', label: '2nd Year' },
-                                    { value: '3rd_year', label: '3rd Year' },
-                                    { value: '4th_year', label: '4th Year' },
+                                    { value: 'first_year', label: '1st Year' },
+                                    { value: 'second_year', label: '2nd Year' },
+                                    { value: 'third_year', label: '3rd Year' },
+                                    { value: 'fourth_year', label: '4th Year' },
                                 ];
                             }
 

@@ -228,12 +228,44 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
     // Filter sections based on academic level and cascading filters
     useEffect(() => {
         console.log('=== [REGISTRAR] CLASS SECTION FILTER TRIGGERED ===');
-        console.log('[REGISTRAR] Academic Level ID:', sectionData.academic_level_id);
-        console.log('[REGISTRAR] Year Level:', sectionData.year_level);
-        console.log('[REGISTRAR] Track ID:', sectionData.track_id);
-        console.log('[REGISTRAR] Strand ID:', sectionData.strand_id);
-        console.log('[REGISTRAR] Department ID:', sectionData.department_id);
-        console.log('[REGISTRAR] Course ID:', sectionData.course_id);
+        console.log('[REGISTRAR] Form Data:', {
+            academic_level_id: sectionData.academic_level_id,
+            year_level: sectionData.year_level,
+            track_id: sectionData.track_id,
+            strand_id: sectionData.strand_id,
+            department_id: sectionData.department_id,
+            course_id: sectionData.course_id,
+            school_year: sectionData.school_year
+        });
+        console.log('[REGISTRAR] Total available sections:', sections.length);
+        console.log('[REGISTRAR] Sample sections:', sections.slice(0, 3).map(s => ({
+            id: s.id,
+            name: s.name,
+            academic_level_id: s.academic_level_id,
+            year_level: s.specific_year_level,
+            track_id: s.track_id,
+            strand_id: s.strand_id,
+            department_id: s.department_id,
+            course_id: s.course_id,
+            school_year: (s as any).school_year
+        })));
+
+        // Show College sections in table format for easy debugging
+        const collegeSections = sections.filter(s => {
+            const collegeLevel = academicLevels.find(level => level.key === 'college');
+            return collegeLevel && s.academic_level_id === collegeLevel.id;
+        });
+        if (collegeSections.length > 0) {
+            console.log('[REGISTRAR] College Sections Table:');
+            console.table(collegeSections.map(s => ({
+                ID: s.id,
+                Name: s.name,
+                Year: s.specific_year_level,
+                Dept: s.department_id,
+                Course: s.course_id,
+                'School Year': (s as any).school_year
+            })));
+        }
 
         if (!sectionData.academic_level_id) {
             setFilteredSections([]);
@@ -256,42 +288,118 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
 
         // Filter sections based on academic level type
         let filtered = sections.filter(section => section.academic_level_id === levelId);
+        console.log('[REGISTRAR] After academic level filter:', filtered.length, 'sections');
 
-        console.log('[REGISTRAR] Sections for level:', filtered);
+        // Apply school year filter if section has school_year property
+        if (sectionData.school_year && filtered.length > 0) {
+            const beforeCount = filtered.length;
+            filtered = filtered.filter(section => {
+                const sectionSchoolYear = (section as any).school_year;
+                return !sectionSchoolYear || sectionSchoolYear === sectionData.school_year;
+            });
+            console.log(`[REGISTRAR] After school year filter (${sectionData.school_year}):`, filtered.length, 'sections (removed', beforeCount - filtered.length, 'sections)');
+        }
 
         // Apply year level filter for all levels
         if (sectionData.year_level) {
+            const beforeCount = filtered.length;
             filtered = filtered.filter(section => section.specific_year_level === sectionData.year_level);
-            console.log('[REGISTRAR] After year level filter:', filtered);
+            console.log(`[REGISTRAR] After year level filter (${sectionData.year_level}):`, filtered.length, 'sections (removed', beforeCount - filtered.length, 'sections)');
         }
 
         // SHS-specific filtering
         if (selectedLevel.key === 'senior_highschool') {
             if (sectionData.track_id) {
+                const beforeCount = filtered.length;
                 filtered = filtered.filter(section => section.track_id?.toString() === sectionData.track_id);
-                console.log('[REGISTRAR] After track filter:', filtered);
+                console.log(`[REGISTRAR] After track filter (${sectionData.track_id}):`, filtered.length, 'sections (removed', beforeCount - filtered.length, 'sections)');
             }
             if (sectionData.strand_id) {
+                const beforeCount = filtered.length;
                 filtered = filtered.filter(section => section.strand_id?.toString() === sectionData.strand_id);
-                console.log('[REGISTRAR] After strand filter:', filtered);
+                console.log(`[REGISTRAR] After strand filter (${sectionData.strand_id}):`, filtered.length, 'sections (removed', beforeCount - filtered.length, 'sections)');
             }
         }
 
         // College-specific filtering
         if (selectedLevel.key === 'college') {
             if (sectionData.department_id) {
-                filtered = filtered.filter(section => section.department_id?.toString() === sectionData.department_id);
-                console.log('[REGISTRAR] After department filter:', filtered);
+                const beforeCount = filtered.length;
+                console.log(`[REGISTRAR] === DEPARTMENT FILTER DEBUG ===`);
+                console.log(`[REGISTRAR] Looking for department_id:`, sectionData.department_id, `(type: ${typeof sectionData.department_id})`);
+                console.log(`[REGISTRAR] Sample sections before department filter:`, filtered.slice(0, 3).map(s => ({
+                    id: s.id,
+                    name: s.name,
+                    department_id: s.department_id,
+                    department_id_type: typeof s.department_id,
+                    toString: s.department_id?.toString(),
+                    matches: s.department_id?.toString() === sectionData.department_id
+                })));
+
+                filtered = filtered.filter(section => {
+                    const matches = section.department_id?.toString() === sectionData.department_id;
+                    if (!matches && section.department_id) {
+                        console.log(`[REGISTRAR] Section "${section.name}" filtered out: department_id ${section.department_id} (${typeof section.department_id}) !== ${sectionData.department_id} (${typeof sectionData.department_id})`);
+                    }
+                    return matches;
+                });
+                console.log(`[REGISTRAR] After department filter (${sectionData.department_id}):`, filtered.length, 'sections (removed', beforeCount - filtered.length, 'sections)');
+
+                if (filtered.length === 0 && beforeCount > 0) {
+                    console.error(`[REGISTRAR] ⚠️ DEPARTMENT FILTER ELIMINATED ALL SECTIONS!`);
+                    console.log(`[REGISTRAR] Check if sections have department_id property and if values match`);
+                }
             }
             if (sectionData.course_id) {
-                filtered = filtered.filter(section => section.course_id?.toString() === sectionData.course_id);
-                console.log('[REGISTRAR] After course filter:', filtered);
+                const beforeCount = filtered.length;
+                console.log(`[REGISTRAR] === COURSE FILTER DEBUG ===`);
+                console.log(`[REGISTRAR] Looking for course_id:`, sectionData.course_id, `(type: ${typeof sectionData.course_id})`);
+                console.log(`[REGISTRAR] Sample sections before course filter:`, filtered.slice(0, 3).map(s => ({
+                    id: s.id,
+                    name: s.name,
+                    course_id: s.course_id,
+                    course_id_type: typeof s.course_id,
+                    toString: s.course_id?.toString(),
+                    matches: s.course_id?.toString() === sectionData.course_id
+                })));
+
+                filtered = filtered.filter(section => {
+                    const matches = section.course_id?.toString() === sectionData.course_id;
+                    if (!matches && section.course_id) {
+                        console.log(`[REGISTRAR] Section "${section.name}" filtered out: course_id ${section.course_id} (${typeof section.course_id}) !== ${sectionData.course_id} (${typeof sectionData.course_id})`);
+                    }
+                    return matches;
+                });
+                console.log(`[REGISTRAR] After course filter (${sectionData.course_id}):`, filtered.length, 'sections (removed', beforeCount - filtered.length, 'sections)');
+
+                if (filtered.length === 0 && beforeCount > 0) {
+                    console.error(`[REGISTRAR] ⚠️ COURSE FILTER ELIMINATED ALL SECTIONS!`);
+                    console.log(`[REGISTRAR] Check if sections have course_id property and if values match`);
+                }
             }
         }
 
-        console.log('[REGISTRAR] Final filtered sections:', filtered);
+        console.log('[REGISTRAR] === FINAL FILTERED SECTIONS ===');
+        console.log('[REGISTRAR] Count:', filtered.length);
+        if (filtered.length === 0) {
+            console.warn('[REGISTRAR] ⚠️ WARNING: No sections matched the filters!');
+            console.log('[REGISTRAR] Debugging tips:');
+            console.log('[REGISTRAR] 1. Check if sections exist for this academic level');
+            console.log('[REGISTRAR] 2. Try removing filters one by one to find which filter eliminates all sections');
+            console.log('[REGISTRAR] 3. Check section properties match your filter values');
+        } else {
+            console.log('[REGISTRAR] Filtered sections:', filtered.map(s => ({
+                id: s.id,
+                name: s.name,
+                year_level: s.specific_year_level,
+                track_id: s.track_id,
+                strand_id: s.strand_id,
+                department_id: s.department_id,
+                course_id: s.course_id
+            })));
+        }
         setFilteredSections(filtered);
-    }, [sectionData.academic_level_id, sectionData.year_level, sectionData.track_id, sectionData.strand_id, sectionData.department_id, sectionData.course_id, sections, academicLevels]);
+    }, [sectionData.academic_level_id, sectionData.year_level, sectionData.track_id, sectionData.strand_id, sectionData.department_id, sectionData.course_id, sectionData.school_year, sections, academicLevels]);
 
     // Filter strands based on selected track (for SHS)
     useEffect(() => {
@@ -1567,10 +1675,10 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                     </SelectTrigger>
                                                                     <SelectContent>
                                                                         <SelectItem value="">All Year Levels</SelectItem>
-                                                                        <SelectItem value="1st_year">1st Year</SelectItem>
-                                                                        <SelectItem value="2nd_year">2nd Year</SelectItem>
-                                                                        <SelectItem value="3rd_year">3rd Year</SelectItem>
-                                                                        <SelectItem value="4th_year">4th Year</SelectItem>
+                                                                        <SelectItem value="first_year">1st Year</SelectItem>
+                                                                        <SelectItem value="second_year">2nd Year</SelectItem>
+                                                                        <SelectItem value="third_year">3rd Year</SelectItem>
+                                                                        <SelectItem value="fourth_year">4th Year</SelectItem>
                                                                     </SelectContent>
                                                                 </Select>
                                                             </div>
@@ -2187,10 +2295,10 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                     </SelectTrigger>
                                                                     <SelectContent>
                                                                         <SelectItem value="">All Year Levels</SelectItem>
-                                                                        <SelectItem value="1st_year">1st Year</SelectItem>
-                                                                        <SelectItem value="2nd_year">2nd Year</SelectItem>
-                                                                        <SelectItem value="3rd_year">3rd Year</SelectItem>
-                                                                        <SelectItem value="4th_year">4th Year</SelectItem>
+                                                                        <SelectItem value="first_year">1st Year</SelectItem>
+                                                                        <SelectItem value="second_year">2nd Year</SelectItem>
+                                                                        <SelectItem value="third_year">3rd Year</SelectItem>
+                                                                        <SelectItem value="fourth_year">4th Year</SelectItem>
                                                                     </SelectContent>
                                                                 </Select>
                                                             </div>
@@ -2571,10 +2679,10 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                 // College: Year Level → Department → Course → Section
                                                 if (isCollege) {
                                                     const collegeYearOptions = [
-                                                        { value: '1st_year', label: '1st Year' },
-                                                        { value: '2nd_year', label: '2nd Year' },
-                                                        { value: '3rd_year', label: '3rd Year' },
-                                                        { value: '4th_year', label: '4th Year' },
+                                                        { value: 'first_year', label: '1st Year' },
+                                                        { value: 'second_year', label: '2nd Year' },
+                                                        { value: 'third_year', label: '3rd Year' },
+                                                        { value: 'fourth_year', label: '4th Year' },
                                                     ];
 
                                                     return (

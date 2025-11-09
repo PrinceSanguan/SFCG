@@ -120,8 +120,35 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
     // Filter for Elementary and Junior High School levels only
     const elementaryLevel = academicLevels.find(level => level.key === 'elementary');
     const jhsLevel = academicLevels.find(level => level.key === 'junior_highschool');
-    const relevantLevels = [elementaryLevel, jhsLevel].filter((level): level is AcademicLevel => level !== null && level !== undefined);
-    
+    const relevantLevels = [elementaryLevel, jhsLevel].filter((level): level is AcademicLevel => {
+        const isValid = level !== null &&
+                       level !== undefined &&
+                       level.id !== null &&
+                       level.id !== undefined &&
+                       level.id.toString().trim() !== '';
+
+        if (!isValid && level) {
+            console.warn('[REGISTRAR ASSIGN ADVISERS] Invalid level filtered out:', level);
+        }
+
+        return isValid;
+    });
+
+    // Log academic levels for debugging
+    console.log('[REGISTRAR ASSIGN ADVISERS] === ACADEMIC LEVELS DEBUG ===');
+    console.log('[REGISTRAR ASSIGN ADVISERS] All academic levels:', academicLevels);
+    console.log('[REGISTRAR ASSIGN ADVISERS] Elementary level:', elementaryLevel);
+    console.log('[REGISTRAR ASSIGN ADVISERS] JHS level:', jhsLevel);
+    console.log('[REGISTRAR ASSIGN ADVISERS] Relevant levels count:', relevantLevels.length);
+    relevantLevels.forEach(level => {
+        console.log(`[REGISTRAR ASSIGN ADVISERS] Level: ${level.name}`, {
+            id: level.id,
+            key: level.key,
+            idString: level.id?.toString(),
+            isEmpty: !level.id || level.id.toString().trim() === ''
+        });
+    });
+
     // Safety check: only proceed if we have valid levels
     if (relevantLevels.length === 0) {
         return (
@@ -263,13 +290,28 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
     };
 
     const openEditModal = (assignment: ClassAdviserAssignment) => {
-        console.log('[REGISTRAR] Opening edit modal for adviser assignment:', {
-            id: assignment.id,
-            adviser: assignment.adviser?.name,
-            grading_period_ids: assignment.grading_period_ids,
-            section: assignment.section,
-            grade_level: assignment.grade_level,
-        });
+        console.log('[REGISTRAR] === OPENING EDIT MODAL ===');
+        console.log('[REGISTRAR] Assignment data:', assignment);
+        console.log('[REGISTRAR] grading_period_ids raw:', assignment.grading_period_ids);
+        console.log('[REGISTRAR] grading_period_ids type:', typeof assignment.grading_period_ids);
+        console.log('[REGISTRAR] grading_period_ids is array?', Array.isArray(assignment.grading_period_ids));
+
+        // Ensure grading_period_ids is always an array of strings
+        let gradingPeriodIds: string[] = [];
+        if (assignment.grading_period_ids) {
+            if (Array.isArray(assignment.grading_period_ids)) {
+                gradingPeriodIds = assignment.grading_period_ids.map(id => String(id));
+            } else if (typeof assignment.grading_period_ids === 'string') {
+                try {
+                    const parsed = JSON.parse(assignment.grading_period_ids);
+                    gradingPeriodIds = Array.isArray(parsed) ? parsed.map(id => String(id)) : [];
+                } catch {
+                    gradingPeriodIds = [];
+                }
+            }
+        }
+
+        console.log('[REGISTRAR] Processed grading_period_ids:', gradingPeriodIds);
 
         setEditAssignment(assignment);
         setAssignmentForm({
@@ -278,11 +320,16 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
             academic_level_id: assignment.academic_level_id.toString(),
             grade_level: assignment.grade_level,
             section_id: assignment.subject?.section_id?.toString() || '',
-            grading_period_ids: assignment.grading_period_ids?.map(id => id.toString()) || [],
+            grading_period_ids: gradingPeriodIds,
             school_year: assignment.school_year,
             notes: assignment.notes || '',
             is_active: assignment.is_active,
         });
+
+        console.log('[REGISTRAR] Form data set:', {
+            grading_period_ids: gradingPeriodIds,
+        });
+
         setEditModal(true);
     };
 
@@ -433,14 +480,23 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
                                             <SelectValue placeholder="Select academic level" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {relevantLevels.map((level) => (
-                                                <SelectItem key={level.id} value={level.id.toString()}>
-                                                    <span className="flex items-center space-x-2">
-                                                        <span>{getLevelIcon(level.key)}</span>
-                                                        <span>{level.name}</span>
-                                                    </span>
-                                                </SelectItem>
-                                            ))}
+                                            {relevantLevels.map((level) => {
+                                                const valueStr = level.id?.toString() || `level-${level.key}`;
+                                                console.log('[REGISTRAR ASSIGN ADVISERS] Rendering academic level option:', {
+                                                    id: level.id,
+                                                    name: level.name,
+                                                    key: level.key,
+                                                    valueStr
+                                                });
+                                                return (
+                                                    <SelectItem key={level.id} value={valueStr}>
+                                                        <span className="flex items-center space-x-2">
+                                                            <span>{getLevelIcon(level.key)}</span>
+                                                            <span>{level.name}</span>
+                                                        </span>
+                                                    </SelectItem>
+                                                );
+                                            })}
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -740,14 +796,23 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
                                         <SelectValue placeholder="Select academic level" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {relevantLevels.map((level) => (
-                                            <SelectItem key={level.id} value={level.id.toString()}>
-                                                <span className="flex items-center space-x-2">
-                                                    <span>{getLevelIcon(level.key)}</span>
-                                                    <span>{level.name}</span>
-                                            </span>
-                                            </SelectItem>
-                                        ))}
+                                        {relevantLevels.map((level) => {
+                                            const valueStr = level.id?.toString() || `level-${level.key}`;
+                                            console.log('[REGISTRAR ASSIGN ADVISERS EDIT] Rendering academic level option:', {
+                                                id: level.id,
+                                                name: level.name,
+                                                key: level.key,
+                                                valueStr
+                                            });
+                                            return (
+                                                <SelectItem key={level.id} value={valueStr}>
+                                                    <span className="flex items-center space-x-2">
+                                                        <span>{getLevelIcon(level.key)}</span>
+                                                        <span>{level.name}</span>
+                                                </span>
+                                                </SelectItem>
+                                            );
+                                        })}
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -847,33 +912,52 @@ export default function AssignAdvisers({ user, assignments, advisers, subjects, 
                                         {filteredGradingPeriods
                                             .filter(p => !p.parent_id)
                                             .sort((a, b) => a.name.localeCompare(b.name))
-                                            .map((period) => (
-                                                <div key={period.id} className="flex items-center space-x-2">
-                                                    <input
-                                                        type="checkbox"
-                                                        id={`edit-period-${period.id}`}
-                                                        checked={assignmentForm.grading_period_ids.includes(period.id.toString())}
-                                                        onChange={(e) => {
-                                                            const periodId = period.id.toString();
-                                                            if (e.target.checked) {
-                                                                setAssignmentForm({
-                                                                    ...assignmentForm,
-                                                                    grading_period_ids: [...assignmentForm.grading_period_ids, periodId]
+                                            .map((period) => {
+                                                const periodIdStr = period.id.toString();
+                                                const isChecked = assignmentForm.grading_period_ids.includes(periodIdStr);
+
+                                                if (editModal) {
+                                                    console.log(`[REGISTRAR] Period ${period.name} (${period.id}):`, {
+                                                        periodId: period.id,
+                                                        periodIdStr,
+                                                        formGradingPeriodIds: assignmentForm.grading_period_ids,
+                                                        isChecked
+                                                    });
+                                                }
+
+                                                return (
+                                                    <div key={period.id} className="flex items-center space-x-2">
+                                                        <input
+                                                            type="checkbox"
+                                                            id={`edit-period-${period.id}`}
+                                                            checked={isChecked}
+                                                            onChange={(e) => {
+                                                                const periodId = period.id.toString();
+                                                                console.log('[REGISTRAR] Checkbox changed:', {
+                                                                    periodId,
+                                                                    checked: e.target.checked,
+                                                                    currentIds: assignmentForm.grading_period_ids
                                                                 });
-                                                            } else {
-                                                                setAssignmentForm({
-                                                                    ...assignmentForm,
-                                                                    grading_period_ids: assignmentForm.grading_period_ids.filter(id => id !== periodId)
-                                                                });
-                                                            }
-                                                        }}
-                                                        className="w-4 h-4 rounded border-gray-300"
-                                                    />
-                                                    <Label htmlFor={`edit-period-${period.id}`} className="text-sm font-normal cursor-pointer">
-                                                        {period.name} ({period.code})
-                                                    </Label>
-                                                </div>
-                                            ))}
+                                                                if (e.target.checked) {
+                                                                    setAssignmentForm({
+                                                                        ...assignmentForm,
+                                                                        grading_period_ids: [...assignmentForm.grading_period_ids, periodId]
+                                                                    });
+                                                                } else {
+                                                                    setAssignmentForm({
+                                                                        ...assignmentForm,
+                                                                        grading_period_ids: assignmentForm.grading_period_ids.filter(id => id !== periodId)
+                                                                    });
+                                                                }
+                                                            }}
+                                                            className="w-4 h-4 rounded border-gray-300"
+                                                        />
+                                                        <Label htmlFor={`edit-period-${period.id}`} className="text-sm font-normal cursor-pointer">
+                                                            {period.name} ({period.code})
+                                                        </Label>
+                                                    </div>
+                                                );
+                                            })}
                                     </div>
                                 </div>
                             )}

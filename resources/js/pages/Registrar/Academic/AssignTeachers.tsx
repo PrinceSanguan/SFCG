@@ -677,14 +677,43 @@ export default function AssignTeachers({ user, assignments = [], teachers = [], 
                                     <Select
                                         value={assignmentForm.section_id}
                                         onValueChange={(value) => {
+                                            console.log('[REGISTRAR] === SECTION CHANGED ===');
+                                            console.log('[REGISTRAR] Selected Section ID:', value);
+                                            console.log('[REGISTRAR] Current Strand ID:', assignmentForm.strand_id);
+                                            console.log('[REGISTRAR] Current Grade Level:', assignmentForm.grade_level);
+
                                             setAssignmentForm({ ...assignmentForm, section_id: value, subject_id: '' });
-                                            // Filter subjects by strand
-                                            const filtered = subjects.filter(s => {
+
+                                            // Filter subjects by grade level, strand, and section
+                                            console.log('[REGISTRAR] All subjects:', subjects);
+                                            const filteredSubjectsResult = subjects.filter(s => {
+                                                // Match by strand (specific to the strand)
                                                 const matchesStrand = s.strand_id === parseInt(assignmentForm.strand_id);
+                                                // Or general subjects (no strand specified)
                                                 const isGeneral = s.strand_id == null;
-                                                return matchesStrand || isGeneral;
+                                                // Match by grade level if specified on subject
+                                                const matchesGradeLevel = !s.shs_year_level || s.shs_year_level === assignmentForm.grade_level;
+                                                // Match by section if specified on subject
+                                                const matchesSection = !s.section_id || s.section_id === parseInt(value);
+
+                                                console.log(`[REGISTRAR] Subject: ${s.name} (${s.code})`, {
+                                                    subject_strand_id: s.strand_id,
+                                                    selected_strand_id: parseInt(assignmentForm.strand_id),
+                                                    matchesStrand,
+                                                    isGeneral,
+                                                    shs_year_level: s.shs_year_level,
+                                                    selected_grade_level: assignmentForm.grade_level,
+                                                    matchesGradeLevel,
+                                                    subject_section_id: s.section_id,
+                                                    selected_section_id: parseInt(value),
+                                                    matchesSection,
+                                                    passes: (matchesStrand || isGeneral) && matchesGradeLevel && matchesSection
+                                                });
+
+                                                return (matchesStrand || isGeneral) && matchesGradeLevel && matchesSection;
                                             });
-                                            setFilteredSubjects(filtered);
+                                            console.log('[REGISTRAR] Filtered Subjects after Section selection:', filteredSubjectsResult);
+                                            setFilteredSubjects(filteredSubjectsResult);
                                         }}
                                         disabled={!assignmentForm.strand_id}
                                     >

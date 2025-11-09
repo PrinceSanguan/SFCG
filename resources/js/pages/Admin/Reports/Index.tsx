@@ -1318,10 +1318,10 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                         // College: Year Level → Department → Course → Section
                         if (isCollege) {
                           const collegeYearOptions = [
-                            { value: '1st_year', label: '1st Year' },
-                            { value: '2nd_year', label: '2nd Year' },
-                            { value: '3rd_year', label: '3rd Year' },
-                            { value: '4th_year', label: '4th Year' },
+                            { value: 'first_year', label: '1st Year' },
+                            { value: 'second_year', label: '2nd Year' },
+                            { value: 'third_year', label: '3rd Year' },
+                            { value: 'fourth_year', label: '4th Year' },
                           ];
 
                           return (
@@ -1702,10 +1702,10 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                   <SelectTrigger><SelectValue placeholder="All year levels" /></SelectTrigger>
                                   <SelectContent>
                                     <SelectItem value="">All Year Levels</SelectItem>
-                                    <SelectItem value="1st_year">1st Year</SelectItem>
-                                    <SelectItem value="2nd_year">2nd Year</SelectItem>
-                                    <SelectItem value="3rd_year">3rd Year</SelectItem>
-                                    <SelectItem value="4th_year">4th Year</SelectItem>
+                                    <SelectItem value="first_year">1st Year</SelectItem>
+                                    <SelectItem value="second_year">2nd Year</SelectItem>
+                                    <SelectItem value="third_year">3rd Year</SelectItem>
+                                    <SelectItem value="fourth_year">4th Year</SelectItem>
                                   </SelectContent>
                                 </Select>
                               </div>
@@ -2087,10 +2087,10 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                         // College: Year Level → Department → Course → Section
                         if (isCollege) {
                           const collegeYearOptions = [
-                            { value: '1st_year', label: '1st Year' },
-                            { value: '2nd_year', label: '2nd Year' },
-                            { value: '3rd_year', label: '3rd Year' },
-                            { value: '4th_year', label: '4th Year' },
+                            { value: 'first_year', label: '1st Year' },
+                            { value: 'second_year', label: '2nd Year' },
+                            { value: 'third_year', label: '3rd Year' },
+                            { value: 'fourth_year', label: '4th Year' },
                           ];
 
                           return (
