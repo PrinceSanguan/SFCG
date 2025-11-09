@@ -550,7 +550,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
             if (gradeData.department_id && gradeData.department_id !== 'all') {
                 filtered = filtered.filter(section => section.department_id?.toString() === gradeData.department_id);
             }
-            if (gradeData.course_id && gradeData.course_id !== 'all') {
+            if (gradeData.course_id && gradeData.course_id !== '') {
                 filtered = filtered.filter(section => section.course_id?.toString() === gradeData.course_id);
             }
         }
@@ -604,58 +604,31 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
         }
     }, [gradeData.academic_level_id, gradeData.year_level, gradeData.track_id, sections, academicLevels, strands]);
 
-    // Filter courses based on year level and department (for Grade Reports College) - Progressive filtering
+    // Filter courses based on department only (for Grade Reports College)
     useEffect(() => {
-        console.log('[REGISTRAR GRADE] Filtering courses by year level and department');
+        console.log('[REGISTRAR GRADE] Filtering courses by department');
 
         if (gradeData.academic_level_id && gradeData.academic_level_id !== 'all') {
             const levelId = parseInt(gradeData.academic_level_id);
             const selectedLevel = academicLevels.find(level => level.id === levelId);
 
             if (selectedLevel?.key === 'college') {
-                // Start with sections at this academic level
-                let relevantSections = sections.filter(s => s.academic_level_id === levelId);
-
-                console.log('[REGISTRAR GRADE] Total college sections for courses:', relevantSections.length);
-
-                // Filter by year level if selected
-                if (gradeData.year_level && gradeData.year_level !== 'all') {
-                    relevantSections = relevantSections.filter(
-                        s => s.specific_year_level === gradeData.year_level
-                    );
-                    console.log('[REGISTRAR GRADE] Sections matching year level:', relevantSections.length);
-                }
-
-                // Filter by department if selected
+                // Filter by department if selected - show ALL courses in that department
                 if (gradeData.department_id && gradeData.department_id !== 'all') {
                     const deptId = parseInt(gradeData.department_id);
-                    relevantSections = relevantSections.filter(
-                        s => s.department_id === deptId
-                    );
-                    console.log('[REGISTRAR GRADE] Sections matching department:', relevantSections.length);
+                    const filtered = courses.filter(course => course.department_id === deptId);
+                    console.log('[REGISTRAR GRADE] Filtered courses for department:', filtered.length);
+                    setFilteredCoursesGrade(filtered);
+                } else {
+                    setFilteredCoursesGrade([]);
                 }
-
-                // Extract unique course IDs from relevant sections
-                const courseIds = new Set(
-                    relevantSections
-                        .map(s => s.course_id)
-                        .filter(id => id !== undefined && id !== null) as number[]
-                );
-
-                console.log('[REGISTRAR GRADE] Unique course IDs:', Array.from(courseIds));
-
-                // Filter courses to only those with matching sections
-                const filtered = courses.filter(course => courseIds.has(course.id));
-                console.log('[REGISTRAR GRADE] Filtered courses:', filtered.length);
-
-                setFilteredCoursesGrade(filtered);
             } else {
                 setFilteredCoursesGrade([]);
             }
         } else {
             setFilteredCoursesGrade([]);
         }
-    }, [gradeData.academic_level_id, gradeData.year_level, gradeData.department_id, sections, academicLevels, courses]);
+    }, [gradeData.academic_level_id, gradeData.department_id, academicLevels, courses]);
 
     // Filter departments based on year level (for Grade Reports College) - Progressive filtering
     useEffect(() => {
