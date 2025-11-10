@@ -1000,7 +1000,21 @@ export default function AssignInstructors({ user, assignments, instructors, depa
                                                 {/* Show all assigned subjects for this instructor/course/period */}
                                                 <div className="ml-8 mt-3">
                                                     <div className="text-sm text-gray-600 mb-2">
-                                                        Subjects ({group.assignments.length} {group.assignments.length === 1 ? 'assignment' : 'assignments'}):
+                                                        {(() => {
+                                                            // Get unique subjects
+                                                            const uniqueSubjects = new Set(group.assignments.map(a => a.subject?.id).filter(Boolean));
+                                                            const subjectCount = uniqueSubjects.size;
+
+                                                            // If only one subject but multiple assignments, they're for different semesters/periods
+                                                            if (subjectCount === 1 && group.assignments.length > 1) {
+                                                                // List the semester/period names
+                                                                const periodNames = group.gradingPeriods.map(p => p.name).join(', ');
+                                                                return `Subjects (${periodNames}):`;
+                                                            }
+
+                                                            // Otherwise show normal assignment count
+                                                            return `Subjects (${group.assignments.length} ${group.assignments.length === 1 ? 'assignment' : 'assignments'}):`;
+                                                        })()}
                                                     </div>
                                                     <div className="flex flex-wrap gap-2">
                                                         {group.assignments.map(assignment => assignment.subject).filter(Boolean).map((subject, subIdx) => (
