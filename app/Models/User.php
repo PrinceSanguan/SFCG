@@ -457,6 +457,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Section enrollments for this student.
+     */
+    public function sectionEnrollments(): HasMany
+    {
+        return $this->hasMany(StudentSectionEnrollment::class, 'student_id');
+    }
+
+    /**
      * Get students assigned to this teacher/adviser/instructor through subjects.
      */
     public function getStudentsThroughSubjects(): \Illuminate\Support\Collection

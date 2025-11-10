@@ -84,6 +84,7 @@ export default function UsersIndex({ user, users, filters, roles, currentRole, y
     const [userToDelete, setUserToDelete] = useState<User | null>(null);
     const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
     const [csvModalOpen, setCsvModalOpen] = useState(false);
+    const [selectedUploadSchoolYear, setSelectedUploadSchoolYear] = useState<string>('');
     const [selectedUploadYearLevel, setSelectedUploadYearLevel] = useState<string>('');
     const [selectedUploadSection, setSelectedUploadSection] = useState<string>('');
     const [selectedUploadTrack, setSelectedUploadTrack] = useState<string>('');
@@ -170,6 +171,12 @@ export default function UsersIndex({ user, users, filters, roles, currentRole, y
     };
 
     const handleDownloadTemplate = () => {
+        // Validation for school year (required)
+        if (!selectedUploadSchoolYear) {
+            addToast('Please enter a school year first.', 'error');
+            return;
+        }
+
         // Validation for Elementary/JHS
         if (!selectedUploadSection && (yearLevel === 'elementary' || yearLevel === 'junior_highschool')) {
             addToast('Please select a grade level and section first.', 'error');
@@ -189,6 +196,10 @@ export default function UsersIndex({ user, users, filters, roles, currentRole, y
         const params: Record<string, string> = {};
         if (yearLevel) {
             params.academic_level = yearLevel;
+        }
+        // School year (required)
+        if (selectedUploadSchoolYear) {
+            params.school_year = selectedUploadSchoolYear;
         }
         // For Elementary/JHS/College (year level)
         if (selectedUploadYearLevel) {
@@ -218,6 +229,12 @@ export default function UsersIndex({ user, users, filters, roles, currentRole, y
     };
 
     const handleUploadClick = () => {
+        // Validation for school year (required)
+        if (!selectedUploadSchoolYear) {
+            addToast('Please enter a school year first.', 'error');
+            return;
+        }
+
         // Validation for Elementary/JHS
         if (!selectedUploadSection && (yearLevel === 'elementary' || yearLevel === 'junior_highschool')) {
             addToast('Please select a grade level and section first.', 'error');
@@ -255,6 +272,10 @@ export default function UsersIndex({ user, users, filters, roles, currentRole, y
         if (yearLevel) {
             formData.append('academic_level', yearLevel);
         }
+        // Pass school year (required)
+        if (selectedUploadSchoolYear) {
+            formData.append('school_year', selectedUploadSchoolYear);
+        }
         // Pass year level for elementary/JHS/College
         if (selectedUploadYearLevel) {
             formData.append('specific_year_level', selectedUploadYearLevel);
@@ -282,6 +303,7 @@ export default function UsersIndex({ user, users, filters, roles, currentRole, y
             onSuccess: () => {
                 addToast('Students CSV uploaded successfully.', 'success');
                 setCsvModalOpen(false);
+                setSelectedUploadSchoolYear('');
                 setSelectedUploadYearLevel('');
                 setSelectedUploadSection('');
                 setSelectedUploadTrack('');
@@ -518,13 +540,28 @@ export default function UsersIndex({ user, users, filters, roles, currentRole, y
                         <DialogTitle>CSV Upload Manager</DialogTitle>
                         <DialogDescription>
                             {yearLevel === 'senior_highschool'
-                                ? 'Select the track, strand, year level, and section first, then download the template and upload your CSV file.'
+                                ? 'Enter the school year, then select the track, strand, year level, and section, then download the template and upload your CSV file.'
                                 : yearLevel === 'college'
-                                ? 'Select the department, course, year level, and section first, then download the template and upload your CSV file.'
-                                : 'Select the grade level and section first, then download the template and upload your CSV file.'}
+                                ? 'Enter the school year, then select the department, course, year level, and section, then download the template and upload your CSV file.'
+                                : 'Enter the school year, then select the grade level and section, then download the template and upload your CSV file.'}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
+                        {/* School Year Input (Required for all) */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">
+                                School Year <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="e.g., 2024-2025"
+                                value={selectedUploadSchoolYear}
+                                onChange={(e) => setSelectedUploadSchoolYear(e.target.value)}
+                                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                            <p className="text-xs text-gray-500">Format: YYYY-YYYY (e.g., 2024-2025)</p>
+                        </div>
+
                         {/* For Elementary/JHS: Grade Level Selector */}
                         {(yearLevel === 'elementary' || yearLevel === 'junior_highschool') && (
                             <div className="space-y-2">

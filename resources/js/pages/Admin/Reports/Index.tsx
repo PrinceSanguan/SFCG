@@ -133,7 +133,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
     strand_id: '',
     department_id: '',
     course_id: '',
-    section_id: 'all',
+    section_id: '',
     format: 'pdf',
   });
 
@@ -145,8 +145,8 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
     track_id: 'all',
     strand_id: 'all',
     department_id: 'all',
-    course_id: 'all',
-    section_id: 'all',
+    course_id: '',
+    section_id: '',
     include_grades: true,
     include_honors: true,
     include_certificates: true,
@@ -160,8 +160,8 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
     track_id: 'all',
     strand_id: 'all',
     department_id: 'all',
-    course_id: 'all',
-    section_id: 'all',
+    course_id: '',
+    section_id: '',
     school_year: currentSchoolYear || schoolYears[0] || '',
     include_grades: false,
     format: 'pdf',
@@ -387,6 +387,82 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
       setFilteredCoursesHonor([]);
     }
   }, [honorData.department_id, courses]);
+
+  // Filter departments based on year level (for Honor Statistics College) - Progressive filtering
+  useEffect(() => {
+    console.log('[ADMIN HONOR] Filtering departments by year level');
+
+    if (honorData.academic_level_id && honorData.academic_level_id !== 'all') {
+      const levelId = parseInt(honorData.academic_level_id);
+      const selectedLevel = academicLevels.find(level => level.id === levelId);
+
+      if (selectedLevel?.key === 'college') {
+        // Start with sections at this academic level
+        let relevantSections = sections.filter(s => s.academic_level_id === levelId);
+
+        // Filter by year level if selected
+        if (honorData.year_level && honorData.year_level !== '') {
+          relevantSections = relevantSections.filter(
+            s => s.specific_year_level === honorData.year_level
+          );
+        }
+
+        // Extract unique department IDs from relevant sections
+        const departmentIds = new Set(
+          relevantSections
+            .map(s => s.department_id)
+            .filter(id => id !== undefined && id !== null) as number[]
+        );
+
+        // Filter departments to only those with matching sections
+        const filtered = departments.filter(dept => departmentIds.has(dept.id));
+        console.log('[ADMIN HONOR] Filtered departments count:', filtered.length);
+        setFilteredDepartmentsHonor(filtered);
+      } else {
+        setFilteredDepartmentsHonor([]);
+      }
+    } else {
+      setFilteredDepartmentsHonor([]);
+    }
+  }, [honorData.academic_level_id, honorData.year_level, sections, academicLevels, departments]);
+
+  // Filter tracks based on year level (for Honor Statistics SHS) - Progressive filtering
+  useEffect(() => {
+    console.log('[ADMIN HONOR] Filtering tracks by year level');
+
+    if (honorData.academic_level_id && honorData.academic_level_id !== 'all') {
+      const levelId = parseInt(honorData.academic_level_id);
+      const selectedLevel = academicLevels.find(level => level.id === levelId);
+
+      if (selectedLevel?.key === 'senior_highschool') {
+        // Start with sections at this academic level
+        let relevantSections = sections.filter(s => s.academic_level_id === levelId);
+
+        // Filter by year level if selected
+        if (honorData.year_level && honorData.year_level !== '') {
+          relevantSections = relevantSections.filter(
+            s => s.specific_year_level === honorData.year_level
+          );
+        }
+
+        // Extract unique track IDs from relevant sections
+        const trackIds = new Set(
+          relevantSections
+            .map(s => s.track_id)
+            .filter(id => id !== undefined && id !== null) as number[]
+        );
+
+        // Filter tracks to only those with matching sections
+        const filtered = tracks.filter(track => trackIds.has(track.id));
+        console.log('[ADMIN HONOR] Filtered tracks count:', filtered.length, 'Track IDs:', Array.from(trackIds));
+        setFilteredTracksHonor(filtered);
+      } else {
+        setFilteredTracksHonor([]);
+      }
+    } else {
+      setFilteredTracksHonor([]);
+    }
+  }, [honorData.academic_level_id, honorData.year_level, sections, academicLevels, tracks]);
 
   // ===== Archive Records Filtering =====
 
@@ -1143,7 +1219,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                               strand_id: '',
                               department_id: '',
                               course_id: '',
-                              section_id: 'all',
+                              section_id: '',
                             });
                           }}>
                             <SelectTrigger><SelectValue placeholder="All levels" /></SelectTrigger>
@@ -1205,7 +1281,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                 <Label>Year Level</Label>
                                 <Select
                                   value={honorData.year_level}
-                                  onValueChange={(v) => setHonorData({ ...honorData, year_level: v, section_id: 'all' })}
+                                  onValueChange={(v) => setHonorData({ ...honorData, year_level: v, section_id: '' })}
                                 >
                                   <SelectTrigger><SelectValue placeholder="All year levels" /></SelectTrigger>
                                   <SelectContent>
@@ -1251,7 +1327,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                   <Label>Year Level</Label>
                                   <Select
                                     value={honorData.year_level}
-                                    onValueChange={(v) => setHonorData({ ...honorData, year_level: v, track_id: '', strand_id: '', section_id: 'all' })}
+                                    onValueChange={(v) => setHonorData({ ...honorData, year_level: v, track_id: '', strand_id: '', section_id: '' })}
                                   >
                                     <SelectTrigger><SelectValue placeholder="All year levels" /></SelectTrigger>
                                     <SelectContent>
@@ -1266,11 +1342,11 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                   <Label>Track</Label>
                                   <Select
                                     value={honorData.track_id}
-                                    onValueChange={(v) => setHonorData({ ...honorData, track_id: v, strand_id: '', section_id: 'all' })}
+                                    onValueChange={(v) => setHonorData({ ...honorData, track_id: v, strand_id: '', section_id: '' })}
                                   >
                                     <SelectTrigger><SelectValue placeholder="All tracks" /></SelectTrigger>
                                     <SelectContent>
-                                      {tracks.map(track => (
+                                      {(filteredTracksHonor.length > 0 ? filteredTracksHonor : tracks).map(track => (
                                         <SelectItem key={track.id} value={track.id.toString()}>
                                           {track.name} ({track.code})
                                         </SelectItem>
@@ -1285,7 +1361,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                   <Label>Strand</Label>
                                   <Select
                                     value={honorData.strand_id}
-                                    onValueChange={(v) => setHonorData({ ...honorData, strand_id: v, section_id: 'all' })}
+                                    onValueChange={(v) => setHonorData({ ...honorData, strand_id: v, section_id: '' })}
                                     disabled={!honorData.track_id}
                                   >
                                     <SelectTrigger><SelectValue placeholder={honorData.track_id ? "All strands" : "Select track first"} /></SelectTrigger>
@@ -1337,7 +1413,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                   <Label>Year Level</Label>
                                   <Select
                                     value={honorData.year_level}
-                                    onValueChange={(v) => setHonorData({ ...honorData, year_level: v, department_id: '', course_id: '', section_id: 'all' })}
+                                    onValueChange={(v) => setHonorData({ ...honorData, year_level: v, department_id: '', course_id: '', section_id: '' })}
                                   >
                                     <SelectTrigger><SelectValue placeholder="All year levels" /></SelectTrigger>
                                     <SelectContent>
@@ -1352,11 +1428,11 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                   <Label>Department</Label>
                                   <Select
                                     value={honorData.department_id}
-                                    onValueChange={(v) => setHonorData({ ...honorData, department_id: v, course_id: '', section_id: 'all' })}
+                                    onValueChange={(v) => setHonorData({ ...honorData, department_id: v, course_id: '', section_id: '' })}
                                   >
                                     <SelectTrigger><SelectValue placeholder="All departments" /></SelectTrigger>
                                     <SelectContent>
-                                      {departments.map(dept => (
+                                      {(filteredDepartmentsHonor.length > 0 ? filteredDepartmentsHonor : departments).map(dept => (
                                         <SelectItem key={dept.id} value={dept.id.toString()}>
                                           {dept.name} ({dept.code})
                                         </SelectItem>
@@ -1371,7 +1447,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                   <Label>Course</Label>
                                   <Select
                                     value={honorData.course_id}
-                                    onValueChange={(v) => setHonorData({ ...honorData, course_id: v, section_id: 'all' })}
+                                    onValueChange={(v) => setHonorData({ ...honorData, course_id: v, section_id: '' })}
                                     disabled={!honorData.department_id}
                                   >
                                     <SelectTrigger><SelectValue placeholder={honorData.department_id ? "All courses" : "Select department first"} /></SelectTrigger>
@@ -1497,7 +1573,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                 strand_id: '',
                                 department_id: '',
                                 course_id: '',
-                                section_id: 'all',
+                                section_id: '',
                               });
                             }}
                           >
@@ -1567,7 +1643,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                   value={archiveData.year_level}
                                   onValueChange={(v) => {
                                     console.log('[ADMIN ARCHIVE] Year Level Changed:', v);
-                                    setArchiveData({ ...archiveData, year_level: v, section_id: 'all' });
+                                    setArchiveData({ ...archiveData, year_level: v, section_id: '' });
                                   }}
                                 >
                                   <SelectTrigger><SelectValue placeholder="All year levels" /></SelectTrigger>
@@ -1614,7 +1690,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                   value={archiveData.year_level}
                                   onValueChange={(v) => {
                                     console.log('[ADMIN ARCHIVE] Year Level Changed:', v);
-                                    setArchiveData({ ...archiveData, year_level: v, track_id: 'all', strand_id: 'all', section_id: 'all' });
+                                    setArchiveData({ ...archiveData, year_level: v, track_id: 'all', strand_id: 'all', section_id: '' });
                                   }}
                                 >
                                   <SelectTrigger><SelectValue placeholder="All year levels" /></SelectTrigger>
@@ -1632,7 +1708,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                   value={archiveData.track_id}
                                   onValueChange={(v) => {
                                     console.log('[ADMIN ARCHIVE] Track Changed:', v);
-                                    setArchiveData({ ...archiveData, track_id: v, strand_id: 'all', section_id: 'all' });
+                                    setArchiveData({ ...archiveData, track_id: v, strand_id: 'all', section_id: '' });
                                   }}
                                 >
                                   <SelectTrigger><SelectValue placeholder="All tracks" /></SelectTrigger>
@@ -1653,7 +1729,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                   value={archiveData.strand_id}
                                   onValueChange={(v) => {
                                     console.log('[ADMIN ARCHIVE] Strand Changed:', v);
-                                    setArchiveData({ ...archiveData, strand_id: v, section_id: 'all' });
+                                    setArchiveData({ ...archiveData, strand_id: v, section_id: '' });
                                   }}
                                 >
                                   <SelectTrigger><SelectValue placeholder="All strands" /></SelectTrigger>
@@ -1702,7 +1778,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                   value={archiveData.year_level}
                                   onValueChange={(v) => {
                                     console.log('[ADMIN ARCHIVE] Year Level Changed:', v);
-                                    setArchiveData({ ...archiveData, year_level: v, department_id: 'all', course_id: 'all', section_id: 'all' });
+                                    setArchiveData({ ...archiveData, year_level: v, department_id: 'all', course_id: '', section_id: '' });
                                   }}
                                 >
                                   <SelectTrigger><SelectValue placeholder="All year levels" /></SelectTrigger>
@@ -1722,7 +1798,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                   value={archiveData.department_id}
                                   onValueChange={(v) => {
                                     console.log('[ADMIN ARCHIVE] Department Changed:', v);
-                                    setArchiveData({ ...archiveData, department_id: v, course_id: 'all', section_id: 'all' });
+                                    setArchiveData({ ...archiveData, department_id: v, course_id: '', section_id: '' });
                                   }}
                                 >
                                   <SelectTrigger><SelectValue placeholder="All departments" /></SelectTrigger>
@@ -1743,7 +1819,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                   value={archiveData.course_id}
                                   onValueChange={(v) => {
                                     console.log('[ADMIN ARCHIVE] Course Changed:', v);
-                                    setArchiveData({ ...archiveData, course_id: v, section_id: 'all' });
+                                    setArchiveData({ ...archiveData, course_id: v, section_id: '' });
                                   }}
                                 >
                                   <SelectTrigger><SelectValue placeholder="All courses" /></SelectTrigger>
@@ -1906,7 +1982,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                               strand_id: '',
                               department_id: '',
                               course_id: '',
-                              section_id: 'all',
+                              section_id: '',
                             });
                           }}
                         >
@@ -1958,7 +2034,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                   value={sectionData.year_level}
                                   onValueChange={(v) => {
                                     console.log('Year Level Changed:', v);
-                                    setSectionData({ ...sectionData, year_level: v, section_id: 'all' });
+                                    setSectionData({ ...sectionData, year_level: v, section_id: '' });
                                   }}
                                 >
                                   <SelectTrigger><SelectValue placeholder="Select year level" /></SelectTrigger>
@@ -2009,7 +2085,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                     value={sectionData.year_level}
                                     onValueChange={(v) => {
                                       console.log('Year Level Changed:', v);
-                                      setSectionData({ ...sectionData, year_level: v, track_id: '', strand_id: '', section_id: 'all' });
+                                      setSectionData({ ...sectionData, year_level: v, track_id: '', strand_id: '', section_id: '' });
                                     }}
                                   >
                                     <SelectTrigger><SelectValue placeholder="Select year level" /></SelectTrigger>
@@ -2028,7 +2104,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                     value={sectionData.track_id}
                                     onValueChange={(v) => {
                                       console.log('Track Changed:', v);
-                                      setSectionData({ ...sectionData, track_id: v, strand_id: '', section_id: 'all' });
+                                      setSectionData({ ...sectionData, track_id: v, strand_id: '', section_id: '' });
                                     }}
                                   >
                                     <SelectTrigger><SelectValue placeholder="Select track" /></SelectTrigger>
@@ -2051,7 +2127,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                     value={sectionData.strand_id}
                                     onValueChange={(v) => {
                                       console.log('Strand Changed:', v);
-                                      setSectionData({ ...sectionData, strand_id: v, section_id: 'all' });
+                                      setSectionData({ ...sectionData, strand_id: v, section_id: '' });
                                     }}
                                     disabled={!sectionData.track_id}
                                   >
@@ -2108,7 +2184,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                     value={sectionData.year_level}
                                     onValueChange={(v) => {
                                       console.log('Year Level Changed:', v);
-                                      setSectionData({ ...sectionData, year_level: v, department_id: '', course_id: '', section_id: 'all' });
+                                      setSectionData({ ...sectionData, year_level: v, department_id: '', course_id: '', section_id: '' });
                                     }}
                                   >
                                     <SelectTrigger><SelectValue placeholder="Select year level" /></SelectTrigger>
@@ -2127,7 +2203,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                     value={sectionData.department_id}
                                     onValueChange={(v) => {
                                       console.log('Department Changed:', v);
-                                      setSectionData({ ...sectionData, department_id: v, course_id: '', section_id: 'all' });
+                                      setSectionData({ ...sectionData, department_id: v, course_id: '', section_id: '' });
                                     }}
                                   >
                                     <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
@@ -2150,7 +2226,7 @@ export default function ReportsIndex({ user, academicLevels, schoolYears, curren
                                     value={sectionData.course_id}
                                     onValueChange={(v) => {
                                       console.log('Course Changed:', v);
-                                      setSectionData({ ...sectionData, course_id: v, section_id: 'all' });
+                                      setSectionData({ ...sectionData, course_id: v, section_id: '' });
                                     }}
                                     disabled={!sectionData.department_id}
                                   >

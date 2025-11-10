@@ -61,6 +61,14 @@ class Section extends Model
     }
 
     /**
+     * Student enrollments in this section.
+     */
+    public function studentEnrollments(): HasMany
+    {
+        return $this->hasMany(StudentSectionEnrollment::class);
+    }
+
+    /**
      * Get the effective school year for this section.
      * Returns the section's school_year or a default current year if not set.
      *

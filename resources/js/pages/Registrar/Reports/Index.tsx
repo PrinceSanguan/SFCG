@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useForm, usePage } from '@inertiajs/react';
 import { route } from 'ziggy-js';
 import { Button } from '@/components/ui/button';
@@ -52,6 +52,7 @@ interface GradingPeriod {
 interface HonorType {
     id: number;
     name: string;
+    scope: string;
 }
 
 interface Track {
@@ -181,8 +182,8 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
         track_id: 'all',
         strand_id: 'all',
         department_id: 'all',
-        course_id: '',
-        section_id: '',
+        course_id: 'all',
+        section_id: 'all',
         format: 'pdf',
     });
 
@@ -215,6 +216,27 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
         include_grades: false as boolean,
         format: 'pdf',
     });
+
+    // Filter honor types based on selected academic level
+    const filteredHonorTypes = useMemo(() => {
+        if (!honorData.academic_level_id || honorData.academic_level_id === 'all') {
+            // If no specific level selected, show all honor types
+            return honorTypes;
+        }
+
+        const selectedLevel = academicLevels.find(l => l.id.toString() === honorData.academic_level_id);
+        if (!selectedLevel) return honorTypes;
+
+        const isCollege = selectedLevel.key === 'college';
+
+        if (isCollege) {
+            // For College: show only college-scoped honor types
+            return honorTypes.filter(type => type.scope === 'college');
+        } else {
+            // For Elementary, JHS, SHS: show basic and advanced honor types (exclude college)
+            return honorTypes.filter(type => type.scope === 'basic' || type.scope === 'advanced');
+        }
+    }, [honorData.academic_level_id, honorTypes, academicLevels]);
 
     // Log initial data on mount for Class Section Report
     useEffect(() => {
@@ -2046,7 +2068,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                                 strand_id: '',
                                                                 department_id: '',
                                                                 course_id: '',
-                                                                section_id: '',
+                                                                section_id: 'all',
                                                             });
                                                         }}
                                                     >
@@ -2094,7 +2116,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                         </SelectTrigger>
                                                         <SelectContent>
                                                             <SelectItem value="all">All Types</SelectItem>
-                                                            {honorTypes.map((type) => (
+                                                            {filteredHonorTypes.map((type) => (
                                                                 <SelectItem key={type.id} value={type.id.toString()}>
                                                                     {type.name}
                                                                 </SelectItem>
@@ -2148,7 +2170,7 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                             <div className="space-y-2">
                                                                 <Label>Year Level</Label>
-                                                                <Select value={honorData.year_level} onValueChange={(v) => setHonorData({ ...honorData, year_level: v, section_id: '' })}>
+                                                                <Select value={honorData.year_level} onValueChange={(v) => setHonorData({ ...honorData, year_level: v, section_id: 'all' })}>
                                                                     <SelectTrigger><SelectValue placeholder="All year levels" /></SelectTrigger>
                                                                     <SelectContent>
                                                                         {yearLevelOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
@@ -2172,11 +2194,11 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                     return (
                                                         <div className="space-y-4">
                                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                                <div className="space-y-2"><Label>Year Level</Label><Select value={honorData.year_level} onValueChange={(v) => setHonorData({ ...honorData, year_level: v, track_id: '', strand_id: '', section_id: '' })}><SelectTrigger><SelectValue placeholder="All year levels" /></SelectTrigger><SelectContent><SelectItem value="grade_11">Grade 11</SelectItem><SelectItem value="grade_12">Grade 12</SelectItem></SelectContent></Select></div>
-                                                                <div className="space-y-2"><Label>Track</Label><Select value={honorData.track_id} onValueChange={(v) => setHonorData({ ...honorData, track_id: v, strand_id: '', section_id: '' })}><SelectTrigger><SelectValue placeholder="All tracks" /></SelectTrigger><SelectContent>{tracks.map(track => <SelectItem key={track.id} value={track.id.toString()}>{track.name} ({track.code})</SelectItem>)}</SelectContent></Select></div>
+                                                                <div className="space-y-2"><Label>Year Level</Label><Select value={honorData.year_level} onValueChange={(v) => setHonorData({ ...honorData, year_level: v, track_id: '', strand_id: '', section_id: 'all' })}><SelectTrigger><SelectValue placeholder="All year levels" /></SelectTrigger><SelectContent><SelectItem value="grade_11">Grade 11</SelectItem><SelectItem value="grade_12">Grade 12</SelectItem></SelectContent></Select></div>
+                                                                <div className="space-y-2"><Label>Track</Label><Select value={honorData.track_id} onValueChange={(v) => setHonorData({ ...honorData, track_id: v, strand_id: '', section_id: 'all' })}><SelectTrigger><SelectValue placeholder="All tracks" /></SelectTrigger><SelectContent>{tracks.map(track => <SelectItem key={track.id} value={track.id.toString()}>{track.name} ({track.code})</SelectItem>)}</SelectContent></Select></div>
                                                             </div>
                                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                                <div className="space-y-2"><Label>Strand</Label><Select value={honorData.strand_id} onValueChange={(v) => setHonorData({ ...honorData, strand_id: v, section_id: '' })} disabled={!honorData.track_id}><SelectTrigger><SelectValue placeholder={honorData.track_id ? "All strands" : "Select track first"} /></SelectTrigger><SelectContent>{filteredStrandsHonor.map(strand => <SelectItem key={strand.id} value={strand.id.toString()}>{strand.name} ({strand.code})</SelectItem>)}</SelectContent></Select></div>
+                                                                <div className="space-y-2"><Label>Strand</Label><Select value={honorData.strand_id} onValueChange={(v) => setHonorData({ ...honorData, strand_id: v, section_id: 'all' })} disabled={!honorData.track_id}><SelectTrigger><SelectValue placeholder={honorData.track_id ? "All strands" : "Select track first"} /></SelectTrigger><SelectContent>{filteredStrandsHonor.map(strand => <SelectItem key={strand.id} value={strand.id.toString()}>{strand.name} ({strand.code})</SelectItem>)}</SelectContent></Select></div>
                                                                 <div className="space-y-2"><Label>Section</Label><Select value={honorData.section_id} onValueChange={(v) => setHonorData({ ...honorData, section_id: v })}><SelectTrigger><SelectValue placeholder="All sections" /></SelectTrigger><SelectContent><SelectItem value="all">All Sections</SelectItem>{filteredSectionsHonor.map(section => <SelectItem key={section.id} value={section.id.toString()}>{section.name}</SelectItem>)}</SelectContent></Select></div>
                                                             </div>
                                                         </div>
@@ -2186,11 +2208,11 @@ export default function RegistrarReportsIndex({ user, academicLevels, schoolYear
                                                     return (
                                                         <div className="space-y-4">
                                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                                <div className="space-y-2"><Label>Year Level</Label><Select value={honorData.year_level} onValueChange={(v) => setHonorData({ ...honorData, year_level: v, department_id: '', course_id: '', section_id: '' })}><SelectTrigger><SelectValue placeholder="All year levels" /></SelectTrigger><SelectContent><SelectItem value="1st_year">1st Year</SelectItem><SelectItem value="2nd_year">2nd Year</SelectItem><SelectItem value="3rd_year">3rd Year</SelectItem><SelectItem value="4th_year">4th Year</SelectItem></SelectContent></Select></div>
-                                                                <div className="space-y-2"><Label>Department</Label><Select value={honorData.department_id} onValueChange={(v) => setHonorData({ ...honorData, department_id: v, course_id: '', section_id: '' })}><SelectTrigger><SelectValue placeholder="All departments" /></SelectTrigger><SelectContent>{departments.map(dept => <SelectItem key={dept.id} value={dept.id.toString()}>{dept.name} ({dept.code})</SelectItem>)}</SelectContent></Select></div>
+                                                                <div className="space-y-2"><Label>Year Level</Label><Select value={honorData.year_level} onValueChange={(v) => setHonorData({ ...honorData, year_level: v, department_id: '', course_id: '', section_id: 'all' })}><SelectTrigger><SelectValue placeholder="All year levels" /></SelectTrigger><SelectContent><SelectItem value="1st_year">1st Year</SelectItem><SelectItem value="2nd_year">2nd Year</SelectItem><SelectItem value="3rd_year">3rd Year</SelectItem><SelectItem value="4th_year">4th Year</SelectItem></SelectContent></Select></div>
+                                                                <div className="space-y-2"><Label>Department</Label><Select value={honorData.department_id} onValueChange={(v) => setHonorData({ ...honorData, department_id: v, course_id: '', section_id: 'all' })}><SelectTrigger><SelectValue placeholder="All departments" /></SelectTrigger><SelectContent>{departments.map(dept => <SelectItem key={dept.id} value={dept.id.toString()}>{dept.name} ({dept.code})</SelectItem>)}</SelectContent></Select></div>
                                                             </div>
                                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                                <div className="space-y-2"><Label>Course</Label><Select value={honorData.course_id} onValueChange={(v) => setHonorData({ ...honorData, course_id: v, section_id: '' })} disabled={!honorData.department_id}><SelectTrigger><SelectValue placeholder={honorData.department_id ? "All courses" : "Select department first"} /></SelectTrigger><SelectContent>{filteredCoursesHonor.map(course => <SelectItem key={course.id} value={course.id.toString()}>{course.name} ({course.code})</SelectItem>)}</SelectContent></Select></div>
+                                                                <div className="space-y-2"><Label>Course</Label><Select value={honorData.course_id} onValueChange={(v) => setHonorData({ ...honorData, course_id: v, section_id: 'all' })} disabled={!honorData.department_id}><SelectTrigger><SelectValue placeholder={honorData.department_id ? "All courses" : "Select department first"} /></SelectTrigger><SelectContent>{filteredCoursesHonor.map(course => <SelectItem key={course.id} value={course.id.toString()}>{course.name} ({course.code})</SelectItem>)}</SelectContent></Select></div>
                                                                 <div className="space-y-2"><Label>Section</Label><Select value={honorData.section_id} onValueChange={(v) => setHonorData({ ...honorData, section_id: v })}><SelectTrigger><SelectValue placeholder="All sections" /></SelectTrigger><SelectContent><SelectItem value="all">All Sections</SelectItem>{filteredSectionsHonor.map(section => <SelectItem key={section.id} value={section.id.toString()}>{section.name}</SelectItem>)}</SelectContent></Select></div>
                                                             </div>
                                                         </div>
