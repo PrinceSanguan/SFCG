@@ -246,13 +246,26 @@ class GradeManagementController extends Controller
             return back()->withErrors(['grade' => 'A grade already exists for this student, subject, and period.']);
         }
 
+        // Auto-populate year_of_study from student's specific_year_level if not provided
+        $yearOfStudy = $request->year_of_study;
+        if (!$yearOfStudy) {
+            $student = User::find($request->student_id);
+            if ($student && $student->specific_year_level) {
+                // Extract numeric value from specific_year_level
+                // e.g., "grade_1" -> 1, "1st_year" -> 1, "grade_10" -> 10
+                if (preg_match('/(\d+)/', $student->specific_year_level, $matches)) {
+                    $yearOfStudy = (int)$matches[1];
+                }
+            }
+        }
+
         $grade = StudentGrade::create([
             'student_id' => $request->student_id,
             'subject_id' => $request->subject_id,
             'academic_level_id' => $request->academic_level_id,
             'grading_period_id' => $request->grading_period_id,
             'school_year' => $request->school_year,
-            'year_of_study' => $request->year_of_study ?: null,
+            'year_of_study' => $yearOfStudy,
             'grade' => $request->grade,
         ]);
 

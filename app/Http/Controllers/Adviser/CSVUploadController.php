@@ -269,13 +269,23 @@ class CSVUploadController extends Controller
                         'grade' => $grade
                     ]);
                 } else {
+                    // Auto-populate year_of_study from student's specific_year_level if not provided
+                    $yearOfStudy = $requestData['year_of_study'] ?? null;
+                    if (!$yearOfStudy && $student->specific_year_level) {
+                        // Extract numeric value from specific_year_level
+                        // e.g., "grade_1" -> 1, "1st_year" -> 1, "grade_10" -> 10
+                        if (preg_match('/(\d+)/', $student->specific_year_level, $matches)) {
+                            $yearOfStudy = (int)$matches[1];
+                        }
+                    }
+
                     StudentGrade::create([
                         'student_id' => $student->id,
                         'subject_id' => $requestData['subject_id'],
                         'academic_level_id' => $requestData['academic_level_id'],
                         'grading_period_id' => $requestData['grading_period_id'] ?? null,
                         'school_year' => $requestData['school_year'],
-                        'year_of_study' => $requestData['year_of_study'] ?? null,
+                        'year_of_study' => $yearOfStudy,
                         'grade' => $grade,
                     ]);
                     \Log::info("CSV Upload - Grade created", [

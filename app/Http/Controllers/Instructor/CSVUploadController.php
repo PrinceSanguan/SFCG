@@ -532,6 +532,16 @@ class CSVUploadController extends Controller
                         'days_remaining' => $existingGrade->getDaysRemainingForEdit(),
                     ]);
                 } else {
+                    // Auto-populate year_of_study from student's specific_year_level if not provided
+                    $yearOfStudy = $requestData['year_of_study'] ?? null;
+                    if (!$yearOfStudy && $student->specific_year_level) {
+                        // Extract numeric value from specific_year_level
+                        // e.g., "grade_1" -> 1, "1st_year" -> 1, "grade_10" -> 10
+                        if (preg_match('/(\d+)/', $student->specific_year_level, $matches)) {
+                            $yearOfStudy = (int)$matches[1];
+                        }
+                    }
+
                     // Create new grade
                     StudentGrade::create([
                         'student_id' => $student->id,
@@ -539,7 +549,7 @@ class CSVUploadController extends Controller
                         'academic_level_id' => $academicLevelId,
                         'grading_period_id' => $gradingPeriodId,
                         'school_year' => $requestData['school_year'],
-                        'year_of_study' => $requestData['year_of_study'],
+                        'year_of_study' => $yearOfStudy,
                         'grade' => $grade,
                     ]);
                     Log::info('CSV upload: Grade created', [
@@ -685,13 +695,23 @@ class CSVUploadController extends Controller
                             $gradeProcessed = true;
                         }
                     } else {
+                        // Auto-populate year_of_study from student's specific_year_level if not provided
+                        $yearOfStudy = $requestData['year_of_study'] ?? null;
+                        if (!$yearOfStudy && $student->specific_year_level) {
+                            // Extract numeric value from specific_year_level
+                            // e.g., "grade_1" -> 1, "1st_year" -> 1, "grade_10" -> 10
+                            if (preg_match('/(\d+)/', $student->specific_year_level, $matches)) {
+                                $yearOfStudy = (int)$matches[1];
+                            }
+                        }
+
                         StudentGrade::create([
                             'student_id' => $student->id,
                             'subject_id' => $subjectId,
                             'academic_level_id' => $academicLevelId,
                             'grading_period_id' => $midtermPeriod->id,
                             'school_year' => $requestData['school_year'],
-                            'year_of_study' => $requestData['year_of_study'] ?? $row['course_year'],
+                            'year_of_study' => $yearOfStudy,
                             'grade' => $midtermGrade,
                         ]);
                         $gradeProcessed = true;
@@ -763,13 +783,23 @@ class CSVUploadController extends Controller
                             $gradeProcessed = true;
                         }
                     } else {
+                        // Auto-populate year_of_study from student's specific_year_level if not provided
+                        $yearOfStudy = $requestData['year_of_study'] ?? null;
+                        if (!$yearOfStudy && $student->specific_year_level) {
+                            // Extract numeric value from specific_year_level
+                            // e.g., "grade_1" -> 1, "1st_year" -> 1, "grade_10" -> 10
+                            if (preg_match('/(\d+)/', $student->specific_year_level, $matches)) {
+                                $yearOfStudy = (int)$matches[1];
+                            }
+                        }
+
                         StudentGrade::create([
                             'student_id' => $student->id,
                             'subject_id' => $subjectId,
                             'academic_level_id' => $academicLevelId,
                             'grading_period_id' => $finalPeriod->id,
                             'school_year' => $requestData['school_year'],
-                            'year_of_study' => $requestData['year_of_study'] ?? $row['course_year'],
+                            'year_of_study' => $yearOfStudy,
                             'grade' => $finalGrade,
                         ]);
                         $gradeProcessed = true;
