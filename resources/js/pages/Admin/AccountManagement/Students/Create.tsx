@@ -49,6 +49,7 @@ export default function CreateStudent({ user, errors, academicLevel, specificYea
         course_id: '',
         department_id: '',
         section_id: '',
+        school_year: '',
         student_number: '',
         // Personal Information
         birth_date: '',
@@ -186,7 +187,7 @@ export default function CreateStudent({ user, errors, academicLevel, specificYea
                                                         <SelectValue placeholder="Select year level" />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        {specificYearLevels && specificYearLevels[data.academic_level] && 
+                                                        {specificYearLevels && specificYearLevels[data.academic_level] &&
                                                             Object.entries(specificYearLevels[data.academic_level]).map(([key, label]) => (
                                                                 <SelectItem key={key} value={key}>{label}</SelectItem>
                                                             ))
@@ -200,6 +201,32 @@ export default function CreateStudent({ user, errors, academicLevel, specificYea
                                                 )}
                                             </div>
                                         )}
+
+                                        {/* School Year */}
+                                        <div className="space-y-2">
+                                            <Label htmlFor="school_year">School Year</Label>
+                                            <Input
+                                                id="school_year"
+                                                type="text"
+                                                placeholder="e.g., 2024-2025"
+                                                value={data.school_year}
+                                                onChange={(e) => setData('school_year', e.target.value)}
+                                            />
+                                            {errors?.school_year && (
+                                                <Alert variant="destructive">
+                                                    <AlertDescription>{errors.school_year}</AlertDescription>
+                                                </Alert>
+                                            )}
+                                            <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                                                <p className="text-sm text-blue-800 font-medium mb-1">School Year Format Guide:</p>
+                                                <ul className="text-xs text-blue-700 space-y-1 list-disc list-inside">
+                                                    <li>Format: YYYY-YYYY (e.g., 2024-2025, 2025-2026)</li>
+                                                    <li>First year must be one less than second year</li>
+                                                    <li>Used to track student enrollment for specific academic year</li>
+                                                    <li>Required when assigning students to sections</li>
+                                                </ul>
+                                            </div>
+                                        </div>
 
                                         {/* Strand Selection (Senior High School) */}
                                         {data.academic_level === 'senior_highschool' && data.specific_year_level && (

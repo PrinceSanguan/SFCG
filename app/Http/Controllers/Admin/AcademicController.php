@@ -682,10 +682,19 @@ class AcademicController extends Controller
      */
     private function getQualifiedElementaryStudents(string $schoolYear, ?string $gradeLevel = null, ?string $sectionId = null): array
     {
+        \Log::info('[ADMIN ELEMENTARY HONORS] Fetching qualified students', [
+            'school_year' => $schoolYear,
+            'filters' => [
+                'grade_level' => $gradeLevel,
+                'section_id' => $sectionId,
+            ]
+        ]);
+
         $elementaryService = new \App\Services\ElementaryHonorCalculationService();
         $elementaryLevel = \App\Models\AcademicLevel::where('key', 'elementary')->first();
-        
+
         if (!$elementaryLevel) {
+            \Log::warning('[ADMIN ELEMENTARY HONORS] Elementary academic level not found');
             return [];
         }
 
@@ -752,6 +761,18 @@ class AcademicController extends Controller
         usort($qualifiedStudents, function($a, $b) {
             return $b['average_grade'] <=> $a['average_grade'];
         });
+
+        \Log::info('[ADMIN ELEMENTARY HONORS] Qualified students result', [
+            'total_students_checked' => $students->count(),
+            'total_qualified' => count($qualifiedStudents),
+            'qualified_students_preview' => array_slice(array_map(function($qs) {
+                return [
+                    'student_name' => $qs['student']['name'],
+                    'average_grade' => $qs['average_grade'],
+                    'honor_type' => $qs['honor_type']['name'] ?? 'N/A',
+                ];
+            }, $qualifiedStudents), 0, 3),
+        ]);
 
         return $qualifiedStudents;
     }
@@ -1402,10 +1423,47 @@ class AcademicController extends Controller
             });
         }
 
+        Log::info('[COLLEGE HONORS] Fetching honor results', [
+            'school_year' => $currentSchoolYear,
+            'filters' => [
+                'grade_level' => $gradeLevel,
+                'department_id' => $departmentId,
+                'course_id' => $courseId,
+                'section_id' => $sectionId,
+            ]
+        ]);
+
         $honorResults = $honorResultsQuery->orderBy('created_at', 'desc')->get();
+
+        Log::info('[COLLEGE HONORS] Honor results fetched', [
+            'total_results' => $honorResults->count(),
+            'results' => $honorResults->map(function($result) {
+                return [
+                    'id' => $result->id,
+                    'student_id' => $result->student_id,
+                    'student_name' => $result->student?->name,
+                    'honor_type' => $result->honorType?->name,
+                    'is_approved' => $result->is_approved,
+                    'approved_at' => $result->approved_at,
+                    'approved_by' => $result->approved_by,
+                    'school_year' => $result->school_year,
+                ];
+            })->toArray()
+        ]);
 
         // Also get the qualified students data for backward compatibility
         $qualifiedStudents = $this->getQualifiedCollegeStudents($currentSchoolYear, $gradeLevel, $departmentId, $courseId, $sectionId);
+
+        Log::info('[COLLEGE HONORS] Qualified students fetched', [
+            'total_qualified' => count($qualifiedStudents),
+            'qualified' => array_map(function($qs) {
+                return [
+                    'student_id' => $qs['student']['id'] ?? null,
+                    'student_name' => $qs['student']['name'] ?? null,
+                    'qualifications_count' => count($qs['result']['qualifications'] ?? []),
+                ];
+            }, $qualifiedStudents)
+        ]);
 
         // Get available grade levels for college
         $gradeLevels = \App\Models\User::getSpecificYearLevels()['college'];

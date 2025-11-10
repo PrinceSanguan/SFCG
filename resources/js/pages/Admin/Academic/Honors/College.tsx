@@ -156,6 +156,26 @@ export default function CollegeHonors({ user, honorTypes, criteria, schoolYears,
         console.log('honor_type property (snake_case):', (criteria[0] as any).honor_type);
     }
 
+    // Debug logging for honor results and qualified students
+    console.log('[COLLEGE HONORS FRONTEND] Data received:', {
+        qualifiedStudentsCount: qualifiedStudents.length,
+        honorResultsCount: honorResults.length,
+        currentSchoolYear,
+        filters,
+        qualifiedStudentsPreview: qualifiedStudents.slice(0, 2).map(qs => ({
+            student_id: qs.student?.id,
+            student_name: qs.student?.name,
+            qualifications: qs.result?.qualifications?.map(q => q.honor_type?.name),
+        })),
+        honorResultsPreview: honorResults.slice(0, 2).map(hr => ({
+            id: hr.id,
+            student_id: hr.student_id,
+            student_name: hr.student?.name,
+            honor_type: hr.honor_type?.name || hr.honorType?.name,
+            is_approved: hr.is_approved,
+        })),
+    });
+
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const [selectedStudent, setSelectedStudent] = useState<QualifiedStudent | null>(null);
     const [showStudentDetails, setShowStudentDetails] = useState(false);
@@ -917,7 +937,131 @@ export default function CollegeHonors({ user, honorTypes, criteria, schoolYears,
                                 )}
                             </CardContent>
                         </Card>
-                        
+
+                        {/* Honor Results Pending Approval */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <CheckCircle className="h-5 w-5" />
+                                    Results of {honorResults.length} student{honorResults.length !== 1 ? 's' : ''} for approval
+                                </CardTitle>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                    School Year: {currentSchoolYear} • Students who have been submitted for chairperson/principal approval
+                                </p>
+                            </CardHeader>
+                            <CardContent>
+                                {honorResults.length === 0 ? (
+                                    <div className="text-center py-8 text-gray-500">
+                                        <Trophy className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                                        <p>No students have been submitted for approval yet</p>
+                                        <p className="text-sm">Use the "Submit for Approval" button above to submit qualified students.</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        <div className="grid gap-4">
+                                            {honorResults.map((result, index) => {
+                                                const student = result.student;
+                                                const honorType = result.honor_type || result.honorType;
+                                                const isApproved = result.is_approved;
+                                                const isPending = !result.is_approved && !result.approved_at;
+
+                                                return (
+                                                    <div
+                                                        key={result.id}
+                                                        className={`border rounded-lg p-4 shadow-sm ${
+                                                            isApproved ? 'bg-green-50 border-green-200' :
+                                                            isPending ? 'bg-yellow-50 border-yellow-200' :
+                                                            'bg-gray-50 border-gray-200'
+                                                        }`}
+                                                    >
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex-1">
+                                                                <div className="flex items-center gap-3 mb-2">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-sm font-medium text-gray-500">#{index + 1}</span>
+                                                                        <h4 className="font-semibold text-lg">{student?.name || 'Unknown Student'}</h4>
+                                                                    </div>
+                                                                    <div className="flex gap-2 flex-wrap">
+                                                                        <Badge variant="outline" className="text-xs">
+                                                                            {student?.student_number || 'N/A'}
+                                                                        </Badge>
+                                                                        {student?.specific_year_level && (
+                                                                            <Badge variant="secondary" className="text-xs">
+                                                                                {gradeLevels?.[student.specific_year_level] || student.specific_year_level.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                                                            </Badge>
+                                                                        )}
+                                                                        {student?.department && (
+                                                                            <Badge variant="outline" className="text-xs bg-green-50 text-green-700">
+                                                                                {student.department.name}
+                                                                            </Badge>
+                                                                        )}
+                                                                        {student?.course && (
+                                                                            <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700">
+                                                                                {student.course.name}
+                                                                            </Badge>
+                                                                        )}
+                                                                        {student?.section && (
+                                                                            <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700">
+                                                                                {student.section.name}
+                                                                            </Badge>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                                                                    <div className="bg-purple-50 p-2 rounded">
+                                                                        <span className="font-medium text-purple-700">Honor Type:</span>
+                                                                        <div className="font-bold">
+                                                                            {honorType?.name || 'N/A'}
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className={`p-2 rounded ${
+                                                                        isApproved ? 'bg-green-100' :
+                                                                        isPending ? 'bg-yellow-100' :
+                                                                        'bg-gray-100'
+                                                                    }`}>
+                                                                        <span className={`font-medium ${
+                                                                            isApproved ? 'text-green-700' :
+                                                                            isPending ? 'text-yellow-700' :
+                                                                            'text-gray-700'
+                                                                        }`}>Status:</span>
+                                                                        <div className="font-bold">
+                                                                            {isApproved ? (
+                                                                                <Badge className="bg-green-600 text-white">Approved</Badge>
+                                                                            ) : isPending ? (
+                                                                                <Badge className="bg-yellow-600 text-white">Pending</Badge>
+                                                                            ) : (
+                                                                                <Badge className="bg-gray-600 text-white">Submitted</Badge>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                    {result.approved_at && (
+                                                                        <div className="bg-blue-50 p-2 rounded">
+                                                                            <span className="font-medium text-blue-700">Approved Date:</span>
+                                                                            <div className="text-sm">
+                                                                                {new Date(result.approved_at).toLocaleDateString()}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                    {result.created_at && (
+                                                                        <div className="bg-gray-100 p-2 rounded">
+                                                                            <span className="font-medium text-gray-700">Submitted:</span>
+                                                                            <div className="text-sm">
+                                                                                {new Date(result.created_at).toLocaleDateString()}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
                         {selectedStudent && showStudentDetails && (
                             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                                 <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">

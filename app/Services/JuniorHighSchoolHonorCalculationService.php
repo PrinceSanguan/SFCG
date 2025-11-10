@@ -37,15 +37,28 @@ class JuniorHighSchoolHonorCalculationService
         }
 
         // Get all quarter grading periods for junior high school - use only Q1, Q2, Q3, Q4
+        // Note: We don't filter by is_active to ensure all quarters are included in calculations
         $periods = GradingPeriod::where('academic_level_id', $academicLevelId)
             ->where('type', 'quarter')
             ->where('period_type', 'quarter')
             ->whereIn('code', ['Q1', 'Q2', 'Q3', 'Q4'])
-            ->where('is_active', true)
             ->orderBy('sort_order')
             ->get();
 
+        \Log::info('[JHS HONOR] Grading periods fetched', [
+            'student_id' => $studentId,
+            'academic_level_id' => $academicLevelId,
+            'school_year' => $schoolYear,
+            'periods_found' => $periods->count(),
+            'period_codes' => $periods->pluck('code')->toArray(),
+            'period_ids' => $periods->pluck('id')->toArray(),
+        ]);
+
         if ($periods->isEmpty()) {
+            \Log::warning('[JHS HONOR] No grading periods found', [
+                'student_id' => $studentId,
+                'academic_level_id' => $academicLevelId,
+            ]);
             return [
                 'qualified' => false,
                 'reason' => 'No quarter grading periods found for junior high school level'
@@ -66,7 +79,20 @@ class JuniorHighSchoolHonorCalculationService
             ->with('subject')
             ->get();
 
+        \Log::info('[JHS HONOR] Grades fetched for student', [
+            'student_id' => $studentId,
+            'school_year' => $schoolYear,
+            'grades_count' => $grades->count(),
+            'grading_period_ids' => $grades->pluck('grading_period_id')->unique()->toArray(),
+            'subjects_count' => $grades->pluck('subject_id')->unique()->count(),
+        ]);
+
         if ($grades->isEmpty()) {
+            \Log::warning('[JHS HONOR] No grades found for student', [
+                'student_id' => $studentId,
+                'school_year' => $schoolYear,
+                'expected_period_ids' => $periods->pluck('id')->toArray(),
+            ]);
             return [
                 'qualified' => false,
                 'reason' => 'No grades found for the student in the specified school year'
@@ -155,6 +181,19 @@ class JuniorHighSchoolHonorCalculationService
 
         // Get grades breakdown with semester grouping
         $gradesBreakdown = $this->getGradesBreakdown($grades, $periods, $semesterGroups);
+
+        \Log::info('[JHS HONOR] Honor qualification calculated', [
+            'student_id' => $studentId,
+            'school_year' => $schoolYear,
+            'qualifies' => !empty($qualifications),
+            'average_grade' => $averageGrade,
+            'min_grade' => $minGrade,
+            'quarter_averages' => $quarterAverages,
+            'qualifications_count' => count($qualifications),
+            'honor_types' => array_map(function($q) {
+                return $q['honor_type']['name'] ?? 'Unknown';
+            }, $qualifications),
+        ]);
 
         return [
             'qualified' => !empty($qualifications),
@@ -247,11 +286,11 @@ class JuniorHighSchoolHonorCalculationService
      */
     private function checkConsistentHonorPerformance(int $studentId, int $academicLevelId, string $schoolYear): bool
     {
+        // Note: We don't filter by is_active to ensure all quarters are included in calculations
         $quarterPeriods = GradingPeriod::where('academic_level_id', $academicLevelId)
             ->where('type', 'quarter')
             ->where('period_type', 'quarter')
             ->whereIn('code', ['Q1', 'Q2', 'Q3', 'Q4'])
-            ->where('is_active', true)
             ->orderBy('sort_order')
             ->get();
 

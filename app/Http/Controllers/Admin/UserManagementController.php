@@ -1310,37 +1310,37 @@ class UserManagementController extends Controller
         if ($expectedAcademicLevel === 'senior_highschool') {
             // New workflow: track/strand/section provided separately, simplified CSV format
             if (!empty($providedTrackId) && !empty($providedStrandId) && !empty($providedSectionId)) {
-                $expected = ['name', 'email', 'password', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
-                $expectedColumnsString = 'name,email,password,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship';
+                $expected = ['name', 'email', 'password', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship', 'school_year'];
+                $expectedColumnsString = 'name,email,password,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship,school_year';
             } else {
                 // Old workflow: include all columns
-                $expected = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'academic_strand', 'track', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
-                $expectedColumnsString = 'name,email,password,academic_level,specific_year_level,academic_strand,track,section_name,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship';
+                $expected = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'academic_strand', 'track', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship', 'school_year'];
+                $expectedColumnsString = 'name,email,password,academic_level,specific_year_level,academic_strand,track,section_name,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship,school_year';
             }
         } elseif ($expectedAcademicLevel === 'college') {
             // New workflow: department/course/section provided separately, simplified CSV format
             if (!empty($providedDepartmentId) && !empty($providedCourseId) && !empty($providedSectionId)) {
-                $expected = ['name', 'email', 'password', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
-                $expectedColumnsString = 'name,email,password,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship';
+                $expected = ['name', 'email', 'password', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship', 'school_year'];
+                $expectedColumnsString = 'name,email,password,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship,school_year';
             } else {
                 // Old workflow: include all columns
-                $expected = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'department_name', 'course_name', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
-                $expectedColumnsString = 'name,email,password,academic_level,specific_year_level,department_name,course_name,section_name,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship';
+                $expected = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'department_name', 'course_name', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship', 'school_year'];
+                $expectedColumnsString = 'name,email,password,academic_level,specific_year_level,department_name,course_name,section_name,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship,school_year';
             }
         } elseif ($expectedAcademicLevel === 'elementary' || $expectedAcademicLevel === 'junior_highschool') {
             // New workflow: section provided separately, simplified CSV format
             if (!empty($providedSectionId)) {
-                $expected = ['name', 'email', 'password', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
-                $expectedColumnsString = 'name,email,password,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship';
+                $expected = ['name', 'email', 'password', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship', 'school_year'];
+                $expectedColumnsString = 'name,email,password,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship,school_year';
             } else {
                 // Old workflow: section in CSV
-                $expected = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
-                $expectedColumnsString = 'name,email,password,academic_level,specific_year_level,section_name,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship';
+                $expected = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship', 'school_year'];
+                $expectedColumnsString = 'name,email,password,academic_level,specific_year_level,section_name,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship,school_year';
             }
         } else {
             // Default for when no academic level is specified
-            $expected = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'strand_name', 'department_name', 'course_name', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship'];
-            $expectedColumnsString = 'name,email,password,academic_level,specific_year_level,strand_name,department_name,course_name,section_name,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship';
+            $expected = ['name', 'email', 'password', 'academic_level', 'specific_year_level', 'strand_name', 'department_name', 'course_name', 'section_name', 'student_number', 'birth_date', 'gender', 'phone_number', 'address', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship', 'school_year'];
+            $expectedColumnsString = 'name,email,password,academic_level,specific_year_level,strand_name,department_name,course_name,section_name,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship,school_year';
         }
 
         // Debug logging for header comparison
@@ -1391,7 +1391,7 @@ class UserManagementController extends Controller
             if ($expectedAcademicLevel === 'senior_highschool') {
                 // New workflow: simplified format without track/strand/section columns
                 if ($providedTrackId && $providedStrandId && $providedSectionId) {
-                    [$name, $email, $password, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship] = $row;
+                    [$name, $email, $password, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship, $schoolYear] = $row;
                     // Use provided values from request
                     $academicLevel = 'senior_highschool';
                     $specificYearLevel = $providedYearLevel ?: '';
@@ -1402,14 +1402,14 @@ class UserManagementController extends Controller
                     $courseName = '';
                 } else {
                     // Old workflow: full format with all columns
-                    [$name, $email, $password, $academicLevel, $specificYearLevel, $strandName, $trackName, $sectionName, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship] = $row;
+                    [$name, $email, $password, $academicLevel, $specificYearLevel, $strandName, $trackName, $sectionName, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship, $schoolYear] = $row;
                     $departmentName = '';
                     $courseName = '';
                 }
             } elseif ($expectedAcademicLevel === 'college') {
                 // New workflow: simplified format without academic_level, specific_year_level, department_name, course_name, section_name
                 if ($providedDepartmentId && $providedCourseId && $providedSectionId) {
-                    [$name, $email, $password, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship] = $row;
+                    [$name, $email, $password, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship, $schoolYear] = $row;
                     // Use provided values from request
                     $academicLevel = $expectedAcademicLevel;
                     $specificYearLevel = $providedYearLevel ?: '';
@@ -1420,14 +1420,14 @@ class UserManagementController extends Controller
                     $trackName = '';
                 } else {
                     // Old workflow: full format
-                    [$name, $email, $password, $academicLevel, $specificYearLevel, $departmentName, $courseName, $sectionName, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship] = $row;
+                    [$name, $email, $password, $academicLevel, $specificYearLevel, $departmentName, $courseName, $sectionName, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship, $schoolYear] = $row;
                     $strandName = '';
                     $trackName = '';
                 }
             } elseif ($expectedAcademicLevel === 'elementary' || $expectedAcademicLevel === 'junior_highschool') {
                 // New workflow: simplified format without academic_level, specific_year_level, section_name
                 if ($providedSectionId) {
-                    [$name, $email, $password, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship] = $row;
+                    [$name, $email, $password, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship, $schoolYear] = $row;
                     // Use provided values from request
                     $academicLevel = $expectedAcademicLevel;
                     $specificYearLevel = $providedYearLevel ?: '';
@@ -1438,7 +1438,7 @@ class UserManagementController extends Controller
                     $trackName = '';
                 } else {
                     // Old workflow: full format
-                    [$name, $email, $password, $academicLevel, $specificYearLevel, $sectionName, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship] = $row;
+                    [$name, $email, $password, $academicLevel, $specificYearLevel, $sectionName, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship, $schoolYear] = $row;
                     $strandName = '';
                     $departmentName = '';
                     $courseName = '';
@@ -1446,9 +1446,16 @@ class UserManagementController extends Controller
                 }
             } else {
                 // Default for when no academic level is specified
-                [$name, $email, $password, $academicLevel, $specificYearLevel, $strandName, $departmentName, $courseName, $sectionName, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship] = $row;
+                [$name, $email, $password, $academicLevel, $specificYearLevel, $strandName, $departmentName, $courseName, $sectionName, $studentNumber, $birthDate, $gender, $phoneNumber, $address, $emergencyContactName, $emergencyContactPhone, $emergencyContactRelationship, $schoolYear] = $row;
                 $trackName = '';
             }
+
+            // Log parsed school year
+            \Log::info('[ADMIN CSV UPLOAD] Parsed school year from CSV', [
+                'line_number' => $lineNumber,
+                'school_year_from_csv' => $schoolYear ?? 'null',
+                'email' => $email,
+            ]);
 
             // Validate academic level matches expected level if provided
             if ($expectedAcademicLevel && $academicLevel !== $expectedAcademicLevel) {
@@ -1632,6 +1639,51 @@ class UserManagementController extends Controller
                 ]);
 
                 // Note: Automatic subject enrollment is handled by User model's boot method
+
+                // Create enrollment record for this student in the section for the school year
+                if ($sectionId && !empty($schoolYear)) {
+                    try {
+                        $existingEnrollment = \App\Models\StudentSectionEnrollment::where([
+                            'student_id' => $student->id,
+                            'section_id' => $sectionId,
+                            'school_year' => $schoolYear,
+                        ])->first();
+
+                        if (!$existingEnrollment) {
+                            \App\Models\StudentSectionEnrollment::create([
+                                'student_id' => $student->id,
+                                'section_id' => $sectionId,
+                                'school_year' => $schoolYear,
+                                'enrolled_at' => now(),
+                            ]);
+
+                            \Log::info('[ADMIN CSV UPLOAD] Created enrollment record', [
+                                'student_id' => $student->id,
+                                'student_email' => $student->email,
+                                'section_id' => $sectionId,
+                                'school_year' => $schoolYear,
+                                'line_number' => $lineNumber,
+                            ]);
+                        } else {
+                            \Log::info('[ADMIN CSV UPLOAD] Enrollment record already exists', [
+                                'student_id' => $student->id,
+                                'student_email' => $student->email,
+                                'section_id' => $sectionId,
+                                'school_year' => $schoolYear,
+                                'line_number' => $lineNumber,
+                            ]);
+                        }
+                    } catch (\Exception $e) {
+                        \Log::error('[ADMIN CSV UPLOAD] Failed to create enrollment record', [
+                            'student_id' => $student->id,
+                            'student_email' => $student->email,
+                            'section_id' => $sectionId,
+                            'school_year' => $schoolYear,
+                            'line_number' => $lineNumber,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
 
                 // Send email to student with their credentials
                 try {

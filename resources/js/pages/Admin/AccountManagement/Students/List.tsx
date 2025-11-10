@@ -102,6 +102,7 @@ export default function StudentsList({ user, users, filters, roles, currentAcade
     const [csvModalOpen, setCsvModalOpen] = useState(false);
     const [selectedYearLevel, setSelectedYearLevel] = useState<string>('');
     const [selectedSection, setSelectedSection] = useState<string>('');
+    const [selectedSchoolYear, setSelectedSchoolYear] = useState<string>('');
     const [selectedTrack, setSelectedTrack] = useState<string>('');
     const [selectedStrand, setSelectedStrand] = useState<string>('');
     const [selectedDepartment, setSelectedDepartment] = useState<string>('');
@@ -372,6 +373,10 @@ export default function StudentsList({ user, users, filters, roles, currentAcade
         if (selectedSection) {
             formData.append('section_id', selectedSection);
         }
+        // School year
+        if (selectedSchoolYear) {
+            formData.append('school_year', selectedSchoolYear);
+        }
         router.post(route('admin.students.upload'), formData, {
             forceFormData: true,
             onSuccess: () => {
@@ -379,6 +384,7 @@ export default function StudentsList({ user, users, filters, roles, currentAcade
                 setCsvModalOpen(false);
                 setSelectedYearLevel('');
                 setSelectedSection('');
+                setSelectedSchoolYear('');
                 setSelectedTrack('');
                 setSelectedStrand('');
                 setSelectedDepartment('');
@@ -863,6 +869,26 @@ export default function StudentsList({ user, users, filters, roles, currentAcade
                                     ))}
                                 </SelectContent>
                             </Select>
+                        </div>
+
+                        {/* School Year */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">School Year</label>
+                            <Input
+                                type="text"
+                                placeholder="e.g., 2024-2025"
+                                value={selectedSchoolYear}
+                                onChange={(e) => setSelectedSchoolYear(e.target.value)}
+                            />
+                            <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                                <p className="text-sm text-blue-800 font-medium mb-1">School Year Format Guide:</p>
+                                <ul className="text-xs text-blue-700 space-y-1 list-disc list-inside">
+                                    <li>Format: YYYY-YYYY (e.g., 2024-2025, 2025-2026)</li>
+                                    <li>First year must be one less than second year</li>
+                                    <li>Used to track student enrollment for specific academic year</li>
+                                    <li>Will be included in the CSV template</li>
+                                </ul>
+                            </div>
                         </div>
 
                         {/* Instructions */}

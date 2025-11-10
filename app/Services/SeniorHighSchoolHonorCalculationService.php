@@ -87,8 +87,8 @@ class SeniorHighSchoolHonorCalculationService
         Log::info('[SHS HONOR] Student: ' . $student->name . ' (ID: ' . $student->id . ')');
 
         // Get all periods up to and including the current period (for cumulative grade check)
+        // Note: We don't filter by is_active to ensure all periods are included in calculations
         $allPeriods = GradingPeriod::where('academic_level_id', $academicLevelId)
-            ->where('is_active', true)
             ->where('sort_order', '<=', $period->sort_order)
             ->orderBy('sort_order')
             ->get();
@@ -268,9 +268,9 @@ class SeniorHighSchoolHonorCalculationService
             ];
         }
 
-        // Get all active grading periods for SHS
+        // Get all grading periods for SHS
+        // Note: We don't filter by is_active to ensure all periods are included in calculations
         $periods = GradingPeriod::where('academic_level_id', $academicLevelId)
-            ->where('is_active', true)
             ->orderBy('sort_order')
             ->get();
 

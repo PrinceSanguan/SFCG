@@ -491,10 +491,19 @@ class RegistrarAcademicController extends Controller
 
     private function getQualifiedElementaryStudents(string $schoolYear, ?string $gradeLevel = null, ?string $sectionId = null): array
     {
+        \Log::info('[REGISTRAR ELEMENTARY HONORS] Fetching qualified students', [
+            'school_year' => $schoolYear,
+            'filters' => [
+                'grade_level' => $gradeLevel,
+                'section_id' => $sectionId,
+            ]
+        ]);
+
         $elementaryService = new \App\Services\ElementaryHonorCalculationService();
         $elementaryLevel = \App\Models\AcademicLevel::where('key', 'elementary')->first();
 
         if (!$elementaryLevel) {
+            \Log::warning('[REGISTRAR ELEMENTARY HONORS] Elementary academic level not found');
             return [];
         }
 
@@ -561,6 +570,18 @@ class RegistrarAcademicController extends Controller
         usort($qualifiedStudents, function($a, $b) {
             return $b['average_grade'] <=> $a['average_grade'];
         });
+
+        \Log::info('[REGISTRAR ELEMENTARY HONORS] Qualified students result', [
+            'total_students_checked' => $students->count(),
+            'total_qualified' => count($qualifiedStudents),
+            'qualified_students_preview' => array_slice(array_map(function($qs) {
+                return [
+                    'student_name' => $qs['student']['name'],
+                    'average_grade' => $qs['average_grade'],
+                    'honor_type' => $qs['honor_type']['name'] ?? 'N/A',
+                ];
+            }, $qualifiedStudents), 0, 3),
+        ]);
 
         return $qualifiedStudents;
     }
