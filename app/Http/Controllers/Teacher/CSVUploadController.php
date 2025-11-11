@@ -159,7 +159,8 @@ class CSVUploadController extends Controller
             'csv_file' => 'required|file|mimes:csv,txt|max:2048',
             'subject_id' => 'required|exists:subjects,id',
             'academic_level_id' => 'required|exists:academic_levels,id',
-            'grading_period_id' => 'nullable|exists:grading_periods,id',
+            'grading_period_ids' => 'required|array|min:1',
+            'grading_period_ids.*' => 'required|exists:grading_periods,id',
             'school_year' => 'required|string|max:20',
             'year_of_study' => 'nullable|integer|min:1|max:10',
         ]);
@@ -187,14 +188,30 @@ class CSVUploadController extends Controller
             
             $results = $this->processGrades($csvData, $request->all(), $user, $academicLevel);
             
+            $periodCount = count($request->grading_period_ids);
+
             Log::info('Teacher CSV upload completed successfully', [
                 'teacher_id' => $user->id,
                 'subject_id' => $request->subject_id,
+                'grading_period_ids' => $request->grading_period_ids,
+                'period_count' => $periodCount,
                 'success_count' => $results['success'],
                 'error_count' => $results['errors']
             ]);
-            
-            return back()->with('success', "Successfully processed {$results['success']} grades. {$results['errors']} errors occurred.");
+
+            if ($results['errors'] > 0) {
+                $errorMessage = "{$results['errors']} errors occurred:\n" . implode("\n", array_slice($results['error_details'], 0, 5));
+                if (count($results['error_details']) > 5) {
+                    $errorMessage .= "\n... and " . (count($results['error_details']) - 5) . " more errors.";
+                }
+
+                return back()->with([
+                    'success' => "Successfully processed {$results['success']} grade entries across {$periodCount} grading period(s).",
+                    'warning' => $errorMessage
+                ]);
+            }
+
+            return back()->with('success', "Successfully processed {$results['success']} grade entries across {$periodCount} grading period(s)!");
             
         } catch (\Exception $e) {
             Log::error('Error in Teacher CSV upload', [
@@ -503,12 +520,14 @@ class CSVUploadController extends Controller
     /**
      * Process grades from CSV data for teachers.
      * Supports single-subject, multi-subject, and subject template modes.
+     * Now supports multiple grading periods - creates/updates grade for each selected period.
      */
     private function processGrades($csvData, $requestData, $user, $academicLevel)
     {
         $success = 0;
         $errors = 0;
         $errorDetails = [];
+        $periodIds = $requestData['grading_period_ids'] ?? [];
 
         Log::info('Starting CSV grade processing', [
             'teacher_id' => $user->id,
@@ -516,6 +535,9 @@ class CSVUploadController extends Controller
             'row_count' => count($csvData),
             'school_year' => $requestData['school_year'],
             'subject_id' => $requestData['subject_id'] ?? null,
+            'grading_period_ids' => $periodIds,
+            'period_count' => count($periodIds),
+            'estimated_operations' => count($csvData) * count($periodIds),
         ]);
 
         foreach ($csvData as $index => $row) {
@@ -598,17 +620,6 @@ class CSVUploadController extends Controller
                     continue;
                 }
 
-                // Determine grading_period_id (from CSV or form)
-                $gradingPeriodId = $requestData['grading_period_id'] ?? null;
-
-                if (!empty($row['grading_period_code'])) {
-                    // Look up grading period by code
-                    $gradingPeriod = \App\Models\GradingPeriod::where('code', $row['grading_period_code'])->first();
-                    if ($gradingPeriod) {
-                        $gradingPeriodId = $gradingPeriod->id;
-                    }
-                }
-
                 // Validate grade - Teachers use 1.0-5.0 grading scale (same as instructors)
                 $grade = floatval($row['grade']);
                 $isValidGrade = ($grade >= 1.0 && $grade <= 5.0);
@@ -626,85 +637,102 @@ class CSVUploadController extends Controller
                     continue;
                 }
 
-                // Check if grade already exists
-                $existingGrade = StudentGrade::where([
-                    'student_id' => $student->id,
-                    'subject_id' => $subjectId,
-                    'academic_level_id' => $academicLevelId,
-                    'grading_period_id' => $gradingPeriodId,
-                    'school_year' => $requestData['school_year'],
-                ])->first();
-
-                if ($existingGrade) {
-                    // Check if grade is still editable (5-day window and not submitted)
-                    if (!$existingGrade->isEditableByInstructor()) {
-                        $editStatus = $existingGrade->getEditStatus();
-                        $reason = $editStatus === 'locked'
-                            ? 'submitted for validation'
-                            : 'edit window expired (5 days)';
-
-                        Log::warning('CSV upload attempted to update non-editable grade', [
-                            'teacher_id' => $user->id,
-                            'grade_id' => $existingGrade->id,
+                // Loop through each selected grading period
+                foreach ($periodIds as $periodId) {
+                    try {
+                        // Check if grade already exists for THIS period
+                        $existingGrade = StudentGrade::where([
                             'student_id' => $student->id,
-                            'edit_status' => $editStatus,
-                            'reason' => $reason,
-                            'days_since_creation' => $existingGrade->created_at->diffInDays(now()),
-                        ]);
+                            'subject_id' => $subjectId,
+                            'academic_level_id' => $academicLevelId,
+                            'grading_period_id' => $periodId,
+                            'school_year' => $requestData['school_year'],
+                        ])->first();
 
-                        $errors++;
-                        continue; // Skip this grade and move to next
-                    }
+                        if ($existingGrade) {
+                            // Check if grade is still editable (5-day window and not submitted)
+                            if (!$existingGrade->isEditableByInstructor()) {
+                                $editStatus = $existingGrade->getEditStatus();
+                                $reason = $editStatus === 'locked'
+                                    ? 'submitted for validation'
+                                    : 'edit window expired (5 days)';
 
-                    // Update existing grade (only if editable)
-                    $existingGrade->update([
-                        'grade' => $grade,
-                        'updated_by' => $user->id,
-                        'updated_at' => now(),
-                    ]);
-                    Log::info('CSV upload: Grade updated', [
-                        'row' => $index + 1,
-                        'student_id' => $student->id,
-                        'student_name' => $student->name,
-                        'subject_id' => $subjectId,
-                        'grade' => $grade,
-                        'action' => 'update',
-                        'days_remaining' => $existingGrade->getDaysRemainingForEdit(),
-                    ]);
-                } else {
-                    // Auto-populate year_of_study from student's specific_year_level if not provided
-                    $yearOfStudy = $requestData['year_of_study'] ?? null;
-                    if (!$yearOfStudy && $student->specific_year_level) {
-                        // Extract numeric value from specific_year_level
-                        // e.g., "grade_1" -> 1, "1st_year" -> 1, "grade_10" -> 10
-                        if (preg_match('/(\d+)/', $student->specific_year_level, $matches)) {
-                            $yearOfStudy = (int)$matches[1];
+                                Log::warning('CSV upload attempted to update non-editable grade', [
+                                    'teacher_id' => $user->id,
+                                    'grade_id' => $existingGrade->id,
+                                    'student_id' => $student->id,
+                                    'grading_period_id' => $periodId,
+                                    'edit_status' => $editStatus,
+                                    'reason' => $reason,
+                                    'days_since_creation' => $existingGrade->created_at->diffInDays(now()),
+                                ]);
+
+                                $errors++;
+                                continue; // Skip this period and move to next
+                            }
+
+                            // Update existing grade (only if editable)
+                            $existingGrade->update([
+                                'grade' => $grade,
+                                'updated_by' => $user->id,
+                                'updated_at' => now(),
+                            ]);
+                            Log::info('CSV upload: Grade updated for period', [
+                                'row' => $index + 1,
+                                'student_id' => $student->id,
+                                'student_name' => $student->name,
+                                'subject_id' => $subjectId,
+                                'grading_period_id' => $periodId,
+                                'grade' => $grade,
+                                'action' => 'update',
+                                'days_remaining' => $existingGrade->getDaysRemainingForEdit(),
+                            ]);
+                        } else {
+                            // Auto-populate year_of_study from student's specific_year_level if not provided
+                            $yearOfStudy = $requestData['year_of_study'] ?? null;
+                            if (!$yearOfStudy && $student->specific_year_level) {
+                                // Extract numeric value from specific_year_level
+                                // e.g., "grade_1" -> 1, "1st_year" -> 1, "grade_10" -> 10
+                                if (preg_match('/(\d+)/', $student->specific_year_level, $matches)) {
+                                    $yearOfStudy = (int)$matches[1];
+                                }
+                            }
+
+                            // Create new grade for this period
+                            StudentGrade::create([
+                                'student_id' => $student->id,
+                                'subject_id' => $subjectId,
+                                'academic_level_id' => $academicLevelId,
+                                'grading_period_id' => $periodId,
+                                'school_year' => $requestData['school_year'],
+                                'year_of_study' => $yearOfStudy,
+                                'grade' => $grade,
+                                'created_by' => $user->id,
+                                'updated_by' => $user->id,
+                            ]);
+                            Log::info('CSV upload: Grade created for period', [
+                                'row' => $index + 1,
+                                'student_id' => $student->id,
+                                'student_name' => $student->name,
+                                'subject_id' => $subjectId,
+                                'grading_period_id' => $periodId,
+                                'grade' => $grade,
+                                'action' => 'create',
+                            ]);
                         }
+
+                        $success++;
+                    } catch (\Exception $e) {
+                        $errors++;
+                        $errorDetails[] = "Row " . ($index + 1) . ", Period {$periodId}: {$e->getMessage()}";
+                        Log::error('CSV upload: Period processing error', [
+                            'row' => $index + 1,
+                            'student_id' => $student->id,
+                            'grading_period_id' => $periodId,
+                            'error' => $e->getMessage()
+                        ]);
                     }
-
-                    // Create new grade
-                    StudentGrade::create([
-                        'student_id' => $student->id,
-                        'subject_id' => $subjectId,
-                        'academic_level_id' => $academicLevelId,
-                        'grading_period_id' => $gradingPeriodId,
-                        'school_year' => $requestData['school_year'],
-                        'year_of_study' => $yearOfStudy,
-                        'grade' => $grade,
-                        'created_by' => $user->id,
-                        'updated_by' => $user->id,
-                    ]);
-                    Log::info('CSV upload: Grade created', [
-                        'row' => $index + 1,
-                        'student_id' => $student->id,
-                        'student_name' => $student->name,
-                        'subject_id' => $subjectId,
-                        'grade' => $grade,
-                        'action' => 'create',
-                    ]);
                 }
-
-                $success++;
 
             } catch (\Exception $e) {
                 $errors++;
@@ -722,6 +750,8 @@ class CSVUploadController extends Controller
             'success_count' => $success,
             'error_count' => $errors,
             'total_rows' => count($csvData),
+            'periods_count' => count($periodIds),
+            'error_details' => $errorDetails
         ]);
 
         return [

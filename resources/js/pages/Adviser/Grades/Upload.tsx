@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useForm, usePage } from '@inertiajs/react';
 import { Upload as UploadIcon, Download, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
 
@@ -52,7 +53,7 @@ export default function AdviserGradesUpload({ user, assignedSubjects, academicLe
     csv_file: null as File | null,
     subject_id: '',
     academic_level_id: '',
-    grading_period_id: '0',
+    grading_period_ids: [] as string[],
     school_year: schoolYear || '2024-2025',
     year_of_study: '',
   });
@@ -130,7 +131,7 @@ export default function AdviserGradesUpload({ user, assignedSubjects, academicLe
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
                     <Label>Academic Level <span className="text-red-500">*</span></Label>
-                    <Select value={data.academic_level_id} onValueChange={(v) => setData({ ...data, academic_level_id: v, grading_period_id: '0' })}>
+                    <Select value={data.academic_level_id} onValueChange={(v) => setData({ ...data, academic_level_id: v, grading_period_ids: [] })}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select academic level" />
                       </SelectTrigger>
@@ -144,20 +145,24 @@ export default function AdviserGradesUpload({ user, assignedSubjects, academicLe
                   </div>
 
                   <div>
-                    <Label>Grading Period</Label>
-                    <Select value={data.grading_period_id} onValueChange={(v) => setData('grading_period_id', v)} disabled={!data.academic_level_id}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select grading period (optional)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="0">No Period</SelectItem>
-                        {data.academic_level_id && gradingPeriods
+                    <Label>Grading Periods <span className="text-red-500">*</span></Label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                      Select one or more grading periods to apply these grades to.
+                    </p>
+                    {!data.academic_level_id && (
+                      <p className="text-sm text-gray-500 italic py-3 px-4 border rounded-lg">
+                        Please select an academic level first
+                      </p>
+                    )}
+                    {data.academic_level_id && (
+                      <div className="space-y-2 border rounded-lg p-3 max-h-48 overflow-y-auto bg-white dark:bg-gray-800">
+                        {gradingPeriods
                           .filter(p => {
                             // Filter by academic level
                             if (p.academic_level_id?.toString() !== data.academic_level_id) {
                               return false;
                             }
-                            
+
                             // For semester-based levels (Senior High, College), only show root semesters
                             // For quarter-based levels (Elementary, Junior High), only show quarters
                             const academicLevel = academicLevels.find(l => l.id.toString() === data.academic_level_id);
@@ -170,10 +175,49 @@ export default function AdviserGradesUpload({ user, assignedSubjects, academicLe
                             }
                           })
                           .map(p => (
-                            <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
+                            <div key={p.id} className="flex items-center space-x-2 hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded">
+                              <Checkbox
+                                id={`period-${p.id}`}
+                                checked={data.grading_period_ids.includes(p.id.toString())}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setData('grading_period_ids', [...data.grading_period_ids, p.id.toString()]);
+                                  } else {
+                                    setData('grading_period_ids', data.grading_period_ids.filter(id => id !== p.id.toString()));
+                                  }
+                                }}
+                              />
+                              <Label
+                                htmlFor={`period-${p.id}`}
+                                className="cursor-pointer font-normal flex-1"
+                              >
+                                {p.name}
+                              </Label>
+                            </div>
                           ))}
-                      </SelectContent>
-                    </Select>
+                        {gradingPeriods.filter(p => {
+                          if (p.academic_level_id?.toString() !== data.academic_level_id) return false;
+                          const academicLevel = academicLevels.find(l => l.id.toString() === data.academic_level_id);
+                          if (academicLevel?.key === 'senior_highschool' || academicLevel?.key === 'college') {
+                            return !p.parent_id;
+                          }
+                          return true;
+                        }).length === 0 && (
+                          <p className="text-sm text-gray-500 italic">No grading periods available for this academic level</p>
+                        )}
+                      </div>
+                    )}
+                    {data.grading_period_ids.length > 0 && (
+                      <p className="text-sm text-blue-600 dark:text-blue-400 mt-2">
+                        ✓ {data.grading_period_ids.length} grading period{data.grading_period_ids.length > 1 ? 's' : ''} selected
+                      </p>
+                    )}
+                    {data.grading_period_ids.length === 0 && data.academic_level_id && (
+                      <p className="text-sm text-amber-600 dark:text-amber-400 mt-2">
+                        ⚠️ Please select at least one grading period
+                      </p>
+                    )}
+                    {errors.grading_period_ids && <p className="text-sm text-red-500 mt-1">{errors.grading_period_ids}</p>}
                   </div>
                 </div>
 
@@ -203,9 +247,11 @@ export default function AdviserGradesUpload({ user, assignedSubjects, academicLe
                   <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">📋 How to Upload Grades</h4>
                   <ol className="text-sm text-blue-800 dark:text-blue-200 space-y-1 list-decimal list-inside">
                     <li>Select the <strong>Subject</strong> and <strong>Academic Level</strong></li>
+                    <li>Select <strong>one or more Grading Periods</strong> to apply grades to</li>
                     <li>Click <strong>"Download Template"</strong> to get a CSV with enrolled students</li>
                     <li>Fill in the <strong>Grade</strong> column (values: 75-100)</li>
                     <li>Save the file and upload it using the form above</li>
+                    <li>Grades will be created/updated for <strong>ALL selected periods</strong></li>
                   </ol>
                 </div>
 
@@ -213,13 +259,15 @@ export default function AdviserGradesUpload({ user, assignedSubjects, academicLe
                   <div className="flex gap-3">
                     <Button
                       type="submit"
-                      disabled={processing || !data.subject_id || !data.academic_level_id || !data.csv_file}
+                      disabled={processing || !data.subject_id || !data.academic_level_id || !data.csv_file || data.grading_period_ids.length === 0}
                       className="flex items-center gap-2"
                       title={
                         !data.subject_id
                           ? 'Please select a subject'
                           : !data.academic_level_id
                           ? 'Please select an academic level'
+                          : data.grading_period_ids.length === 0
+                          ? 'Please select at least one grading period'
                           : !data.csv_file
                           ? 'Please select a CSV file'
                           : 'Upload grades from CSV'

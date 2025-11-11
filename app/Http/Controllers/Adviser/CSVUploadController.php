@@ -64,16 +64,12 @@ class CSVUploadController extends Controller
     {
         $user = Auth::user();
 
-        // Handle "0" value for grading_period_id (no period selected)
-        if ($request->grading_period_id === '0') {
-            $request->merge(['grading_period_id' => null]);
-        }
-
         $request->validate([
             'csv_file' => 'required|file|mimes:csv,txt|max:2048',
             'subject_id' => 'required|exists:subjects,id',
             'academic_level_id' => 'required|exists:academic_levels,id',
-            'grading_period_id' => 'nullable|exists:grading_periods,id',
+            'grading_period_ids' => 'required|array|min:1',
+            'grading_period_ids.*' => 'required|exists:grading_periods,id',
             'school_year' => 'required|string|max:20',
             'year_of_study' => 'nullable|integer|min:1|max:10',
         ]);
@@ -101,6 +97,7 @@ class CSVUploadController extends Controller
             }
 
             $results = $this->processGrades($csvData, $request->all());
+            $periodCount = count($request->grading_period_ids);
 
             if ($results['errors'] > 0) {
                 $errorMessage = "{$results['errors']} errors occurred:\n" . implode("\n", array_slice($results['error_details'], 0, 5));
@@ -109,12 +106,12 @@ class CSVUploadController extends Controller
                 }
 
                 return back()->with([
-                    'success' => "Successfully processed {$results['success']} grades.",
+                    'success' => "Successfully processed {$results['success']} grade entries across {$periodCount} grading period(s).",
                     'warning' => $errorMessage
                 ]);
             }
 
-            return back()->with('success', "Successfully processed {$results['success']} grades!");
+            return back()->with('success', "Successfully processed {$results['success']} grade entries across {$periodCount} grading period(s)!");
         } catch (\Exception $e) {
             return back()->withErrors(['csv_file' => 'Error processing CSV file: ' . $e->getMessage()]);
         }
@@ -217,6 +214,18 @@ class CSVUploadController extends Controller
         $success = 0;
         $errors = 0;
         $errorDetails = [];
+        $periodIds = $requestData['grading_period_ids'] ?? [];
+
+        \Log::info("CSV Upload - Started", [
+            'adviser_id' => Auth::id(),
+            'subject_id' => $requestData['subject_id'],
+            'academic_level_id' => $requestData['academic_level_id'],
+            'grading_period_ids' => $periodIds,
+            'period_count' => count($periodIds),
+            'csv_row_count' => count($csvData),
+            'estimated_operations' => count($csvData) * count($periodIds),
+            'school_year' => $requestData['school_year'],
+        ]);
 
         foreach ($csvData as $row) {
             try {
@@ -250,56 +259,71 @@ class CSVUploadController extends Controller
                     continue;
                 }
 
-                // Check for existing grade
-                $existing = StudentGrade::where([
-                    'student_id' => $student->id,
-                    'subject_id' => $requestData['subject_id'],
-                    'academic_level_id' => $requestData['academic_level_id'],
-                    'school_year' => $requestData['school_year'],
-                ])->when($requestData['grading_period_id'] ?? null, function ($q, $gp) {
-                    $q->where('grading_period_id', $gp);
-                })->when(!($requestData['grading_period_id'] ?? null), function ($q) {
-                    $q->whereNull('grading_period_id');
-                })->first();
+                // NEW: Loop through each selected grading period
+                foreach ($periodIds as $periodId) {
+                    try {
+                        // Check for existing grade for THIS period
+                        $existing = StudentGrade::where([
+                            'student_id' => $student->id,
+                            'subject_id' => $requestData['subject_id'],
+                            'academic_level_id' => $requestData['academic_level_id'],
+                            'school_year' => $requestData['school_year'],
+                            'grading_period_id' => $periodId,
+                        ])->first();
 
-                if ($existing) {
-                    $existing->update(['grade' => $grade]);
-                    \Log::info("CSV Upload - Grade updated", [
-                        'student_id' => $student->id,
-                        'grade' => $grade
-                    ]);
-                } else {
-                    // Auto-populate year_of_study from student's specific_year_level if not provided
-                    $yearOfStudy = $requestData['year_of_study'] ?? null;
-                    if (!$yearOfStudy && $student->specific_year_level) {
-                        // Extract numeric value from specific_year_level
-                        // e.g., "grade_1" -> 1, "1st_year" -> 1, "grade_10" -> 10
-                        if (preg_match('/(\d+)/', $student->specific_year_level, $matches)) {
-                            $yearOfStudy = (int)$matches[1];
+                        if ($existing) {
+                            // Update existing grade
+                            $existing->update(['grade' => $grade]);
+                            \Log::info("CSV Upload - Grade updated for period", [
+                                'student_id' => $student->id,
+                                'grading_period_id' => $periodId,
+                                'grade' => $grade
+                            ]);
+                        } else {
+                            // Create new grade
+                            // Auto-populate year_of_study from student's specific_year_level if not provided
+                            $yearOfStudy = $requestData['year_of_study'] ?? null;
+                            if (!$yearOfStudy && $student->specific_year_level) {
+                                // Extract numeric value from specific_year_level
+                                // e.g., "grade_1" -> 1, "1st_year" -> 1, "grade_10" -> 10
+                                if (preg_match('/(\d+)/', $student->specific_year_level, $matches)) {
+                                    $yearOfStudy = (int)$matches[1];
+                                }
+                            }
+
+                            StudentGrade::create([
+                                'student_id' => $student->id,
+                                'subject_id' => $requestData['subject_id'],
+                                'academic_level_id' => $requestData['academic_level_id'],
+                                'grading_period_id' => $periodId,
+                                'school_year' => $requestData['school_year'],
+                                'year_of_study' => $yearOfStudy,
+                                'grade' => $grade,
+                            ]);
+                            \Log::info("CSV Upload - Grade created for period", [
+                                'student_id' => $student->id,
+                                'grading_period_id' => $periodId,
+                                'grade' => $grade
+                            ]);
                         }
-                    }
 
-                    StudentGrade::create([
-                        'student_id' => $student->id,
-                        'subject_id' => $requestData['subject_id'],
-                        'academic_level_id' => $requestData['academic_level_id'],
-                        'grading_period_id' => $requestData['grading_period_id'] ?? null,
-                        'school_year' => $requestData['school_year'],
-                        'year_of_study' => $yearOfStudy,
-                        'grade' => $grade,
-                    ]);
-                    \Log::info("CSV Upload - Grade created", [
-                        'student_id' => $student->id,
-                        'grade' => $grade
-                    ]);
+                        $success++;
+                    } catch (\Exception $e) {
+                        $errors++;
+                        $errorDetails[] = "Line {$lineNum}, Period {$periodId}: {$e->getMessage()}";
+                        \Log::error("CSV Upload - Period processing error", [
+                            'line' => $lineNum,
+                            'grading_period_id' => $periodId,
+                            'error' => $e->getMessage()
+                        ]);
+                    }
                 }
 
-                $success++;
             } catch (\Exception $e) {
                 $errors++;
                 $lineNum = $row['line_number'] ?? 'Unknown';
                 $errorDetails[] = "Line {$lineNum}: {$e->getMessage()}";
-                \Log::error("CSV Upload - Processing error", [
+                \Log::error("CSV Upload - Row processing error", [
                     'line' => $lineNum,
                     'error' => $e->getMessage()
                 ]);
@@ -309,6 +333,7 @@ class CSVUploadController extends Controller
         \Log::info("CSV Upload - Completed", [
             'success' => $success,
             'errors' => $errors,
+            'periods_count' => count($periodIds),
             'error_details' => $errorDetails
         ]);
 

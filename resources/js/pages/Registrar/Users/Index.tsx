@@ -535,7 +535,7 @@ export default function UsersIndex({ user, users, filters, roles, currentRole, y
 
             {/* CSV Upload Manager Modal */}
             <Dialog open={csvModalOpen} onOpenChange={setCsvModalOpen}>
-                <DialogContent className="sm:max-w-[500px]">
+                <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
                     <DialogHeader>
                         <DialogTitle>CSV Upload Manager</DialogTitle>
                         <DialogDescription>
@@ -546,7 +546,7 @@ export default function UsersIndex({ user, users, filters, roles, currentRole, y
                                 : 'Enter the school year, then select the grade level and section, then download the template and upload your CSV file.'}
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4 py-4">
+                    <div className="space-y-4 py-4 overflow-y-auto flex-1">
                         {/* School Year Input (Required for all) */}
                         <div className="space-y-2">
                             <label className="text-sm font-medium">
@@ -762,7 +762,7 @@ export default function UsersIndex({ user, users, filters, roles, currentRole, y
                             </div>
                         )}
                     </div>
-                    <DialogFooter className="flex gap-2">
+                    <DialogFooter className="flex gap-2 flex-shrink-0">
                         <Button
                             variant="outline"
                             onClick={handleDownloadTemplate}

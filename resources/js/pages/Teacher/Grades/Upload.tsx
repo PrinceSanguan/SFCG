@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Sidebar } from '@/components/teacher/sidebar';
 import { Header } from '@/components/teacher/header';
@@ -72,6 +73,7 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
         csv_file: null as File | null,
         subject_id: '',
         academic_level_id: '',
+        grading_period_ids: [] as string[],
         school_year: '',
         year_of_study: '',
     });
@@ -107,8 +109,6 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
     };
 
     const handleSubjectChange = (subjectId: string) => {
-        setData('subject_id', subjectId);
-
         // Find the selected subject to auto-fill other fields
         const subject = assignedSubjects.find(s => s.subject.id.toString() === subjectId);
         if (subject) {
@@ -120,20 +120,27 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
                 schoolYear: subject.school_year
             });
 
-            setData('academic_level_id', subject.academicLevel.id.toString());
-            setData('school_year', subject.school_year);
+            setData({
+                ...data,
+                subject_id: subjectId,
+                academic_level_id: subject.academicLevel.id.toString(),
+                school_year: subject.school_year,
+                grading_period_ids: [] // Reset grading period selection when subject changes
+            });
 
             // Log available grading periods for this academic level
             const availablePeriods = gradingPeriods.filter(
                 period => period.academic_level_id.toString() === subject.academicLevel.id.toString()
             );
             console.log('Available grading periods for academic level:', availablePeriods);
+        } else {
+            setData('subject_id', subjectId);
         }
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         if (!selectedFile) {
             return;
         }
@@ -148,6 +155,11 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
         formData.append('academic_level_id', data.academic_level_id);
         formData.append('school_year', data.school_year);
         formData.append('year_of_study', data.year_of_study || '');
+
+        // Append each grading period ID
+        data.grading_period_ids.forEach((periodId) => {
+            formData.append('grading_period_ids[]', periodId);
+        });
 
         // Simulate upload progress
         const progressInterval = setInterval(() => {
@@ -286,7 +298,7 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
                                     {/* Academic Level */}
                                     <div>
                                         <Label htmlFor="academic_level_id">Academic Level *</Label>
-                                        <Select value={data.academic_level_id} onValueChange={(value) => setData('academic_level_id', value)}>
+                                        <Select value={data.academic_level_id} onValueChange={(value) => setData({ ...data, academic_level_id: value, grading_period_ids: [] })}>
                                             <SelectTrigger className={errors.academic_level_id ? 'border-red-500' : ''}>
                                                 <SelectValue placeholder="Select academic level" />
                                             </SelectTrigger>
@@ -301,6 +313,79 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
                                         {errors.academic_level_id && (
                                             <p className="text-sm text-red-500 mt-1">{errors.academic_level_id}</p>
                                         )}
+                                    </div>
+
+                                    {/* Grading Periods */}
+                                    <div>
+                                        <Label>Grading Periods <span className="text-red-500">*</span></Label>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                                            Select one or more grading periods to apply these grades to.
+                                        </p>
+                                        {!data.academic_level_id && (
+                                            <p className="text-sm text-gray-500 italic py-3 px-4 border rounded-lg">
+                                                Please select an academic level first
+                                            </p>
+                                        )}
+                                        {data.academic_level_id && (
+                                            <div className="space-y-2 border rounded-lg p-3 max-h-48 overflow-y-auto bg-white dark:bg-gray-800">
+                                                {gradingPeriods
+                                                    .filter(p => {
+                                                        // Filter by academic level
+                                                        if (p.academic_level_id?.toString() !== data.academic_level_id) {
+                                                            return false;
+                                                        }
+
+                                                        // For Senior High School, only show root semesters (no parent_id)
+                                                        const academicLevel = academicLevels.find(l => l.id.toString() === data.academic_level_id);
+                                                        if (academicLevel?.key === 'senior_highschool') {
+                                                            return !p.parent_id;
+                                                        }
+                                                        return true;
+                                                    })
+                                                    .map(p => (
+                                                        <div key={p.id} className="flex items-center space-x-2 hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded">
+                                                            <Checkbox
+                                                                id={`period-${p.id}`}
+                                                                checked={data.grading_period_ids.includes(p.id.toString())}
+                                                                onCheckedChange={(checked) => {
+                                                                    if (checked) {
+                                                                        setData('grading_period_ids', [...data.grading_period_ids, p.id.toString()]);
+                                                                    } else {
+                                                                        setData('grading_period_ids', data.grading_period_ids.filter(id => id !== p.id.toString()));
+                                                                    }
+                                                                }}
+                                                            />
+                                                            <Label
+                                                                htmlFor={`period-${p.id}`}
+                                                                className="cursor-pointer font-normal flex-1"
+                                                            >
+                                                                {p.name}
+                                                            </Label>
+                                                        </div>
+                                                    ))}
+                                                {gradingPeriods.filter(p => {
+                                                    if (p.academic_level_id?.toString() !== data.academic_level_id) return false;
+                                                    const academicLevel = academicLevels.find(l => l.id.toString() === data.academic_level_id);
+                                                    if (academicLevel?.key === 'senior_highschool') {
+                                                        return !p.parent_id;
+                                                    }
+                                                    return true;
+                                                }).length === 0 && (
+                                                    <p className="text-sm text-gray-500 italic">No grading periods available for this academic level</p>
+                                                )}
+                                            </div>
+                                        )}
+                                        {data.grading_period_ids.length > 0 && (
+                                            <p className="text-sm text-blue-600 dark:text-blue-400 mt-2">
+                                                ✓ {data.grading_period_ids.length} grading period{data.grading_period_ids.length > 1 ? 's' : ''} selected
+                                            </p>
+                                        )}
+                                        {data.grading_period_ids.length === 0 && data.academic_level_id && (
+                                            <p className="text-sm text-amber-600 dark:text-amber-400 mt-2">
+                                                ⚠️ Please select at least one grading period
+                                            </p>
+                                        )}
+                                        {errors.grading_period_ids && <p className="text-sm text-red-500 mt-1">{errors.grading_period_ids}</p>}
                                     </div>
 
                                     {/* School Year */}
@@ -367,8 +452,21 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
                                     <div className="space-y-3 pt-4">
                                         <Button
                                             type="submit"
-                                            disabled={processing || isUploading || !selectedFile || !data.subject_id || !data.academic_level_id || !data.school_year}
+                                            disabled={processing || isUploading || !selectedFile || !data.subject_id || !data.academic_level_id || !data.school_year || data.grading_period_ids.length === 0}
                                             className="w-full"
+                                            title={
+                                                !data.subject_id
+                                                    ? 'Please select a subject'
+                                                    : !data.academic_level_id
+                                                    ? 'Please select an academic level'
+                                                    : data.grading_period_ids.length === 0
+                                                    ? 'Please select at least one grading period'
+                                                    : !data.school_year
+                                                    ? 'Please enter school year'
+                                                    : !selectedFile
+                                                    ? 'Please select a CSV file'
+                                                    : 'Upload grades from CSV'
+                                            }
                                         >
                                             <UploadIcon className="h-4 w-4 mr-2" />
                                             {isUploading ? 'Uploading...' : 'Upload Grades'}
