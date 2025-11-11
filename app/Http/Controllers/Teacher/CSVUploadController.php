@@ -251,13 +251,19 @@ class CSVUploadController extends Controller
     {
         $user = Auth::user();
 
-        $request->validate([
-            'subject_id' => 'required|exists:subjects,id',
-            'school_year' => 'required|string|max:20',
-        ]);
-
+        // Get parameters from query string (GET request)
         $subjectId = $request->query('subject_id');
         $schoolYear = $request->query('school_year');
+
+        // Manual validation for required parameters
+        if (!$subjectId || !$schoolYear) {
+            Log::warning('Teacher attempted to download template without required parameters', [
+                'teacher_id' => $user->id,
+                'subject_id' => $subjectId,
+                'school_year' => $schoolYear,
+            ]);
+            return back()->withErrors(['error' => 'Subject ID and school year are required.']);
+        }
 
         // Verify teacher is assigned to this subject
         $assignment = TeacherSubjectAssignment::with(['subject.course', 'section', 'academicLevel', 'gradingPeriod'])

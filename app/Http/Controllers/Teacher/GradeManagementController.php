@@ -537,42 +537,96 @@ class GradeManagementController extends Controller
                     ];
                 });
 
-            // Get grading periods relevant to SHS (teachers only handle SHS)
-            $gradingPeriods = GradingPeriod::where('is_active', true)
-                ->where('academic_level_id', $academicLevel->id)
-                ->orderBy('sort_order')
-                ->get()
-                ->map(function($period) {
-                    return [
-                        'id' => $period->id,
-                        'name' => $period->name,
-                        'code' => $period->code,
-                        'type' => $period->type,
-                        'period_type' => $period->period_type,
-                        'parent_id' => $period->parent_id,
-                        'sort_order' => $period->sort_order,
-                        'is_active' => $period->is_active,
-                    ];
-                });
+            // Get grading periods based on teacher's assignments for THIS specific subject
+            $assignedGradingPeriodIds = TeacherSubjectAssignment::where('teacher_id', $user->id)
+                ->where('subject_id', $subject)
+                ->where('is_active', true)
+                ->whereNotNull('grading_period_id')
+                ->pluck('grading_period_id')
+                ->unique()
+                ->toArray();
 
-            // Log the grading periods for debugging
-            Log::info('[Teacher Grades] Grading Periods Retrieved', [
-                'teacher_id' => $user->id,
-                'student_id' => $student,
-                'subject_id' => $subject,
-                'academic_level' => $academicLevel->name,
-                'grading_periods_count' => $gradingPeriods->count(),
-                'grading_periods' => $gradingPeriods->map(function($p) {
-                    return [
-                        'id' => $p['id'],
-                        'name' => $p['name'],
-                        'code' => $p['code'],
-                        'parent_id' => $p['parent_id'],
-                        'type' => $p['type'],
-                        'period_type' => $p['period_type']
-                    ];
-                })
-            ]);
+            if (!empty($assignedGradingPeriodIds)) {
+                // Teacher has specific grading period assignments - show ONLY those periods
+                $assignedPeriods = GradingPeriod::where('is_active', true)
+                    ->whereIn('id', $assignedGradingPeriodIds)
+                    ->orderBy('sort_order')
+                    ->get();
+
+                // Get unique parent IDs from assigned periods
+                $parentIds = $assignedPeriods->whereNotNull('parent_id')->pluck('parent_id')->unique()->toArray();
+
+                if (!empty($parentIds)) {
+                    // Fetch parent semesters to enable grouped display
+                    $parentSemesters = GradingPeriod::where('is_active', true)
+                        ->whereIn('id', $parentIds)
+                        ->get();
+
+                    // Merge parents and children, then sort by sort_order
+                    $gradingPeriods = $assignedPeriods->merge($parentSemesters)
+                        ->sortBy('sort_order')
+                        ->values()
+                        ->map(function($period) {
+                            return [
+                                'id' => $period->id,
+                                'name' => $period->name,
+                                'code' => $period->code,
+                                'type' => $period->type,
+                                'period_type' => $period->period_type,
+                                'parent_id' => $period->parent_id,
+                                'sort_order' => $period->sort_order,
+                                'is_active' => $period->is_active,
+                            ];
+                        });
+                } else {
+                    $gradingPeriods = $assignedPeriods->map(function($period) {
+                        return [
+                            'id' => $period->id,
+                            'name' => $period->name,
+                            'code' => $period->code,
+                            'type' => $period->type,
+                            'period_type' => $period->period_type,
+                            'parent_id' => $period->parent_id,
+                            'sort_order' => $period->sort_order,
+                            'is_active' => $period->is_active,
+                        ];
+                    });
+                }
+
+                Log::info('[Teacher Grades] Grading Periods Filtered by Teacher Assignment', [
+                    'teacher_id' => $user->id,
+                    'subject_id' => $subject,
+                    'assigned_grading_period_ids' => $assignedGradingPeriodIds,
+                    'parent_ids_included' => $parentIds ?? [],
+                    'grading_periods_count' => $gradingPeriods->count(),
+                    'grading_periods' => $gradingPeriods->pluck('name', 'id')->toArray(),
+                ]);
+            } else {
+                // Fallback: No specific grading periods assigned, show all for academic level
+                $gradingPeriods = GradingPeriod::where('is_active', true)
+                    ->where('academic_level_id', $academicLevel->id)
+                    ->orderBy('sort_order')
+                    ->get()
+                    ->map(function($period) {
+                        return [
+                            'id' => $period->id,
+                            'name' => $period->name,
+                            'code' => $period->code,
+                            'type' => $period->type,
+                            'period_type' => $period->period_type,
+                            'parent_id' => $period->parent_id,
+                            'sort_order' => $period->sort_order,
+                            'is_active' => $period->is_active,
+                        ];
+                    });
+
+                Log::warning('[Teacher Grades] No specific grading period assignments - showing all', [
+                    'teacher_id' => $user->id,
+                    'subject_id' => $subject,
+                    'academic_level_id' => $academicLevel->id,
+                    'grading_periods_count' => $gradingPeriods->count(),
+                ]);
+            }
 
             // Log the student grades for debugging
             Log::info('[Teacher Grades] Student Grades Retrieved', [
