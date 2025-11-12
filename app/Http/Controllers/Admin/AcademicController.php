@@ -1227,24 +1227,32 @@ class AcademicController extends Controller
                 $schoolYear
             );
 
-            Log::info('SHS Honor Calculation: Student ' . $student->name . ' - Qualified: ' . ($result['qualified'] ? 'Yes' : 'No'), [
+            Log::info('[ADMIN SHS HONOR] Student processed: ' . $student->name . ' - Qualified: ' . ($result['qualified'] ? 'YES ✅' : 'NO ❌'), [
                 'student_id' => $student->id,
+                'student_number' => $student->student_number ?? 'N/A',
                 'average_grade' => $result['average_grade'] ?? 'N/A',
                 'min_grade' => $result['min_grade'] ?? 'N/A',
                 'qualifications_count' => count($result['qualifications'] ?? []),
-                'reason' => $result['reason'] ?? 'N/A'
+                'reason' => $result['reason'] ?? 'N/A',
+                'failed_grades' => $result['failed_grades'] ?? []
             ]);
 
-            // Only include actually qualified students
-            if ($result['qualified']) {
-                $qualifiedStudents[] = [
-                    'student' => $student,
-                    'result' => $result
-                ];
-            }
+            // Include ALL students to show their status (qualified or not)
+            // This helps troubleshoot why students aren't showing up
+            $qualifiedStudents[] = [
+                'student' => $student,
+                'result' => $result
+            ];
         }
 
-        Log::info('SHS Honor Calculation: Found ' . count($qualifiedStudents) . ' qualified students');
+        $actuallyQualified = collect($qualifiedStudents)->filter(fn($item) => $item['result']['qualified'])->count();
+        $notQualified = collect($qualifiedStudents)->filter(fn($item) => !$item['result']['qualified'])->count();
+
+        Log::info('[ADMIN SHS HONOR] Summary: Total=' . count($qualifiedStudents) . ', Qualified=' . $actuallyQualified . ', Not Qualified=' . $notQualified, [
+            'total_students' => count($qualifiedStudents),
+            'qualified_count' => $actuallyQualified,
+            'not_qualified_count' => $notQualified
+        ]);
 
         return $qualifiedStudents;
     }

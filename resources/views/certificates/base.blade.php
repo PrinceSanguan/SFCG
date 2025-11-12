@@ -25,6 +25,7 @@
     </head>
 <body>
     <div class="certificate-container">
+        {!! \App\Helpers\CertificateLogoHelper::getCenteredLogoHtml(80, 80, 20) !!}
         {!! $html !!}
     </div>
 </body>

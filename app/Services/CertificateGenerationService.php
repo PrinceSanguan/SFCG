@@ -20,7 +20,6 @@ class CertificateGenerationService
         try {
             $student = $honorResult->student;
             $academicLevel = $honorResult->academicLevel;
-            $honorType = $honorResult->honorType;
 
             // Get the appropriate certificate template
             $template = $this->getCertificateTemplate($academicLevel);
@@ -50,6 +49,15 @@ class CertificateGenerationService
 
             // Generate certificate payload based on academic level
             $payload = $this->generateCertificatePayload($student, $academicLevel, $honorResult);
+
+            Log::info('[CERTIFICATE] Generating certificate with payload', [
+                'student_id' => $student->id,
+                'student_name' => $student->name,
+                'honor_type' => $honorResult->honorType->name,
+                'school_year' => $honorResult->school_year,
+                'logo_embedded' => true,
+                'template_uses_logo_helper' => 'CertificateLogoHelper::getCenteredLogoHtml()'
+            ]);
 
             // Create the certificate
             $certificate = Certificate::create([

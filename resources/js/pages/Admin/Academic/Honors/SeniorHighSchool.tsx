@@ -738,31 +738,42 @@ export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                 {qualifiedStudents.length === 0 ? (
                                     <div className="text-center py-8 text-gray-500">
                                         <Trophy className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-                                        <p>No qualified students found</p>
+                                        <p>No students found</p>
                                         <p className="text-sm">Students need to meet honor criteria to appear here.</p>
                                     </div>
                                 ) : (
                                     <div className="space-y-4">
-                                        <div className="flex items-center justify-between pb-4 border-b">
-                                            <h3 className="text-lg font-semibold text-gray-900">
-                                                Ready to submit {qualifiedStudents.length} student{qualifiedStudents.length !== 1 ? 's' : ''} for approval
-                                            </h3>
-                                            <Button
-                                                onClick={() => {
-                                                    // Check if any qualified student already has an honor result
-                                                    const alreadySubmitted = qualifiedStudents.some((student: any) =>
-                                                        honorResults.some((result: HonorResult) =>
-                                                            result.student_id === student.student.id &&
-                                                            result.school_year === currentSchoolYear
-                                                        )
-                                                    );
+                                        {(() => {
+                                            const actuallyQualified = qualifiedStudents.filter((s: any) => s.result?.qualified);
+                                            const notQualified = qualifiedStudents.filter((s: any) => !s.result?.qualified);
 
-                                                    if (alreadySubmitted) {
-                                                        addToast('Some students have already been submitted for approval.', 'warning');
-                                                        return;
-                                                    }
+                                            return (
+                                                <>
+                                                    <div className="flex items-center justify-between pb-4 border-b">
+                                                        <div>
+                                                            <h3 className="text-lg font-semibold text-gray-900">
+                                                                Ready to submit {actuallyQualified.length} student{actuallyQualified.length !== 1 ? 's' : ''} for approval
+                                                            </h3>
+                                                            <p className="text-sm text-gray-500 mt-1">
+                                                                {actuallyQualified.length} qualified, {notQualified.length} not qualified
+                                                            </p>
+                                                        </div>
+                                                        <Button
+                                                            onClick={() => {
+                                                                // Check if any qualified student already has an honor result
+                                                                const alreadySubmitted = actuallyQualified.some((student: any) =>
+                                                                    honorResults.some((result: HonorResult) =>
+                                                                        result.student_id === student.student.id &&
+                                                                        result.school_year === currentSchoolYear
+                                                                    )
+                                                                );
 
-                                                    if (confirm(`Submit ${qualifiedStudents.length} qualified student(s) for principal approval?`)) {
+                                                                if (alreadySubmitted) {
+                                                                    addToast('Some students have already been submitted for approval.', 'warning');
+                                                                    return;
+                                                                }
+
+                                                                if (confirm(`Submit ${actuallyQualified.length} qualified student(s) for principal approval?`)) {
                                                         router.post(route('admin.academic.honors.senior-high-school.generate-results'), {
                                                             school_year: currentSchoolYear,
                                                         }, {
@@ -782,11 +793,15 @@ export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                             </Button>
                                         </div>
                                         <div className="grid gap-4">
-                                            {qualifiedStudents.map((qualifiedStudent, index) => (
-                                                <div 
-                                                    key={qualifiedStudent.student.id}
-                                                    className="border rounded-lg p-4 bg-white shadow-sm hover:shadow-md cursor-pointer transition-shadow"
-                                                >
+                                            {qualifiedStudents.map((qualifiedStudent, index) => {
+                                                const isQualified = qualifiedStudent.result?.qualified;
+                                                return (
+                                                    <div
+                                                        key={qualifiedStudent.student.id}
+                                                        className={`border rounded-lg p-4 shadow-sm hover:shadow-md cursor-pointer transition-shadow ${
+                                                            isQualified ? 'bg-white border-green-200' : 'bg-gray-50 border-gray-300 opacity-75'
+                                                        }`}
+                                                    >
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex-1">
                                                             <div className="flex items-center gap-3 mb-2">
@@ -795,6 +810,15 @@ export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                                                     <h4 className="font-semibold text-lg">{qualifiedStudent.student.name}</h4>
                                                                 </div>
                                                                 <div className="flex gap-2">
+                                                                    {isQualified ? (
+                                                                        <Badge className="text-xs bg-green-100 text-green-800 border-green-300">
+                                                                            ✅ Qualified
+                                                                        </Badge>
+                                                                    ) : (
+                                                                        <Badge className="text-xs bg-red-100 text-red-800 border-red-300">
+                                                                            ❌ Not Qualified
+                                                                        </Badge>
+                                                                    )}
                                                                     <Badge variant="outline" className="text-xs">
                                                                         {qualifiedStudent.student.student_number}
                                                                     </Badge>
@@ -810,6 +834,11 @@ export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                                                     )}
                                                                 </div>
                                                             </div>
+                                                            {!isQualified && qualifiedStudent.result?.reason && (
+                                                                <div className="mb-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2">
+                                                                    <strong>Reason:</strong> {qualifiedStudent.result.reason}
+                                                                </div>
+                                                            )}
                                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                                                                 <div className="bg-blue-50 p-2 rounded">
                                                                     <span className="font-medium text-blue-700">Average Grade:</span>
@@ -878,8 +907,12 @@ export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                                         </div>
                                                     </div>
                                                 </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
+                                                </>
+                                            );
+                                        })()}
                                     </div>
                                 )}
                             </CardContent>

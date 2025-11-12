@@ -113,6 +113,7 @@
     </style>
 </head>
 <body>
+    {!! \App\Helpers\CertificateLogoHelper::getCenteredLogoHtml(60, 60, 15) !!}
     <div class="header">
         <div class="school-title">San Francisco de la Cruz Graduate School</div>
         <div class="document-title">Honor Roll</div>
