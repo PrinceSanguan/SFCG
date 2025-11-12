@@ -188,13 +188,56 @@ class ReportsController extends Controller
 
             $honors = $query->orderBy('gpa', 'desc')->get();
 
-            Log::info('[REGISTRAR] Found ' . $honors->count() . ' honor records after filtering');
+            Log::info('[REGISTRAR HONOR STATS] Found ' . $honors->count() . ' honor records after filtering');
+
+            // Check if no honors were found - provide helpful, actionable error messages
+            if ($honors->count() === 0) {
+                Log::warning('[REGISTRAR HONOR STATS] No honors found for query. Checking data availability...');
+
+                // First, check if ANY honors exist for this school year at all
+                $totalHonorsInYear = HonorResult::where('school_year', $validated['school_year'])->count();
+
+                Log::info('[REGISTRAR HONOR STATS] Total honors in school year ' . $validated['school_year'] . ': ' . $totalHonorsInYear);
+
+                if ($totalHonorsInYear === 0) {
+                    // No honors at all for this school year - user needs to generate them first
+                    Log::warning('[REGISTRAR HONOR STATS] No honors exist for school year ' . $validated['school_year']);
+                    return response()->view('errors.no-data', [
+                        'message' => 'No honor records exist for school year ' . $validated['school_year'] . '.',
+                        'details' => 'No honors have been generated yet for this school year. Please use the Honor Tracking & Ranking system to generate honors for each academic level first, then try generating this report again.'
+                    ], 404);
+                }
+
+                // Honors exist, but not for the selected filters - show what IS available
+                $availableHonors = HonorResult::where('school_year', $validated['school_year'])
+                    ->with('academicLevel')
+                    ->get()
+                    ->groupBy('academic_level_id');
+
+                $availabilityList = [];
+                foreach ($availableHonors as $levelId => $levelHonors) {
+                    $levelName = $levelHonors->first()->academicLevel->name;
+                    $count = $levelHonors->count();
+                    $availabilityList[] = $levelName . ' (' . $count . ' student' . ($count !== 1 ? 's' : '') . ')';
+                }
+
+                $availabilityText = implode(', ', $availabilityList);
+
+                Log::warning('[REGISTRAR HONOR STATS] Honors available for other filters: ' . $availabilityText);
+
+                return response()->view('errors.no-data', [
+                    'message' => 'No honor records found matching your selected criteria.',
+                    'details' => 'However, honors are available for the following academic levels in ' . $validated['school_year'] . ': ' . $availabilityText . '. Please adjust your filters and try again, or generate honors for your desired academic level in the Honor Tracking & Ranking system.'
+                ], 404);
+            }
+
+            Log::info('[REGISTRAR HONOR STATS] Proceeding with report generation for ' . $honors->count() . ' honors');
 
             $statistics = $this->calculateHonorStatistics($honors);
 
             $filename = 'honor_statistics_' . $validated['school_year'] . '_' . now()->format('Y-m-d');
 
-            Log::info('[REGISTRAR] Generating ' . $validated['format'] . ' format with filename: ' . $filename);
+            Log::info('[REGISTRAR HONOR STATS] Generating ' . $validated['format'] . ' format with filename: ' . $filename);
 
             switch ($validated['format']) {
                 case 'pdf':
@@ -204,7 +247,7 @@ class ReportsController extends Controller
                 case 'csv':
                     return Excel::download(new HonorStatisticsExport($honors, $statistics), $filename . '.csv');
                 default:
-                    Log::error('[REGISTRAR] Invalid format selected: ' . $validated['format']);
+                    Log::error('[REGISTRAR HONOR STATS] Invalid format selected: ' . $validated['format']);
                     return back()->withErrors(['format' => 'Invalid format selected.']);
             }
         } catch (\Exception $e) {
