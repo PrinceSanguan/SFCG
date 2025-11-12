@@ -87,13 +87,13 @@
     </div>
 
     <div class="content">
-        <p>Dear <strong>{{ $recipient->name }}</strong>,</p>
+        <p>Hello <strong>{{ $recipient->name }}</strong>,</p>
 
         <div class="highlight">
-            <strong>Action Required:</strong> Honor results are awaiting your review and approval.
+            <strong>⏰ Action Required:</strong> Please review and take action on pending honor applications.
         </div>
 
-        <p>This is to inform you that honor results have been generated and are pending your approval.</p>
+        <p>There {{ $honorCount === 1 ? 'is' : 'are' }} <strong>{{ $honorCount }}</strong> student{{ $honorCount === 1 ? '' : 's' }} who {{ $honorCount === 1 ? 'has' : 'have' }} qualified for honors in {{ $academicLevel->name }} ({{ $schoolYear }}) awaiting your review and approval decision.</p>
 
         <div class="stats-box">
             <div class="stats-number">{{ $honorCount }}</div>
@@ -107,21 +107,21 @@
             <strong>Status:</strong> Pending Your Approval
         </div>
 
-        <p><strong>What you need to do:</strong></p>
+        <p><strong>Required Actions:</strong></p>
         <ul>
-            <li>Review the honor results for accuracy</li>
-            <li>Verify student qualifications against the honor criteria</li>
-            <li>Approve or reject each honor result as appropriate</li>
-            <li>Provide feedback if any results need revision</li>
+            <li><strong>Review:</strong> Examine each honor application for accuracy and eligibility</li>
+            <li><strong>Verify:</strong> Confirm student qualifications meet the honor criteria requirements</li>
+            <li><strong>Decide:</strong> Approve or decline each application based on your assessment</li>
+            <li><strong>Document:</strong> Provide a reason when declining any application</li>
         </ul>
 
-        <p>Please review and approve these honor results at your earliest convenience to ensure timely notification to students and their families.</p>
+        <p><strong>Time Sensitive:</strong> Please review and process these honor applications at your earliest convenience. Students and their families are awaiting notification of the results.</p>
 
         <center>
             @if($academicLevel->key === 'college')
-                <a href="{{ url('/chairperson/honors') }}" class="cta-button">Review Honor Results</a>
+                <a href="{{ url('/chairperson/honors') }}" class="cta-button">📋 Review & Process Applications</a>
             @else
-                <a href="{{ url('/principal/honors') }}" class="cta-button">Review Honor Results</a>
+                <a href="{{ url('/principal/honors') }}" class="cta-button">📋 Review & Process Applications</a>
             @endif
         </center>
 

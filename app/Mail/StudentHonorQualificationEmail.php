@@ -48,6 +48,9 @@ class StudentHonorQualificationEmail extends Mailable
      */
     public function content(): Content
     {
+        // Detect if the recipient is the student themselves
+        $isStudent = $this->student->id === $this->parent->id;
+
         return new Content(
             view: 'emails.student-honor-qualification',
             with: [
@@ -58,8 +61,10 @@ class StudentHonorQualificationEmail extends Mailable
                 'gpa' => $this->honorResult->gpa,
                 'schoolYear' => $this->honorResult->school_year,
                 'schoolName' => $this->schoolName,
-                'approvalStatus' => $this->getApprovalStatusText(),
-                'nextSteps' => $this->getNextStepsText(),
+                'isStudent' => $isStudent,
+                'recipientName' => $isStudent ? $this->student->name : $this->parent->name,
+                'approvalStatus' => $this->getApprovalStatusText($isStudent),
+                'nextSteps' => $this->getNextStepsText($isStudent),
             ],
         );
     }
@@ -67,10 +72,12 @@ class StudentHonorQualificationEmail extends Mailable
     /**
      * Get approval status text based on the honor result status.
      */
-    private function getApprovalStatusText(): string
+    private function getApprovalStatusText(bool $isStudent): string
     {
         if ($this->honorResult->is_approved) {
-            return 'This honor qualification has been officially approved and is now part of your child\'s academic record.';
+            return $isStudent
+                ? 'This honor qualification has been officially approved and is now part of your academic record.'
+                : 'This honor qualification has been officially approved and is now part of your child\'s academic record.';
         } elseif ($this->honorResult->is_rejected) {
             return 'This honor qualification was reviewed but not approved at this time.';
         } elseif ($this->honorResult->is_pending_approval) {
@@ -101,10 +108,12 @@ class StudentHonorQualificationEmail extends Mailable
     /**
      * Get next steps text based on the honor result status.
      */
-    private function getNextStepsText(): string
+    private function getNextStepsText(bool $isStudent): string
     {
         if ($this->honorResult->is_approved) {
-            return 'Please visit the school office to complete the necessary documentation and arrange for any recognition ceremonies. Bring a valid ID and this email notification.';
+            return $isStudent
+                ? 'Please visit the school office to complete the necessary documentation and arrange for any recognition ceremonies. Bring a valid ID and this email notification.'
+                : 'Please ensure your child visits the school office to complete the necessary documentation and arrange for any recognition ceremonies. They should bring a valid ID and this email notification.';
         } elseif ($this->honorResult->is_pending_approval) {
             return 'No action is required at this time. We will notify you once the approval process is complete.';
         } elseif ($this->honorResult->is_rejected) {

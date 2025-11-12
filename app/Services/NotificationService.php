@@ -688,8 +688,44 @@ class NotificationService
             $role = '';
 
             if ($academicLevel->key === 'college') {
-                // Send to Chairpersons
-                $chairpersons = User::where('user_role', 'chairperson')->get();
+                // Send to Chairpersons - department-specific only
+                Log::info('[HONOR NOTIFICATION] Getting department-specific chairpersons', [
+                    'academic_level' => $academicLevel->key,
+                    'school_year' => $schoolYear,
+                ]);
+
+                // Get unique department IDs from pending honors
+                $departmentIds = HonorResult::where('academic_level_id', $academicLevel->id)
+                    ->where('school_year', $schoolYear)
+                    ->where('is_pending_approval', true)
+                    ->whereHas('student.course')
+                    ->with('student.course')
+                    ->get()
+                    ->pluck('student.course.department_id')
+                    ->unique()
+                    ->filter(); // Remove nulls
+
+                Log::info('[HONOR NOTIFICATION] Found departments with pending honors', [
+                    'department_ids' => $departmentIds->toArray(),
+                ]);
+
+                // Only notify chairpersons for relevant departments
+                $chairpersons = User::where('user_role', 'chairperson')
+                    ->whereIn('department_id', $departmentIds)
+                    ->get();
+
+                Log::info('[HONOR NOTIFICATION] Chairpersons to notify', [
+                    'count' => $chairpersons->count(),
+                    'chairpersons' => $chairpersons->map(function($c) {
+                        return [
+                            'name' => $c->name,
+                            'email' => $c->email,
+                            'department_id' => $c->department_id,
+                            'department_name' => $c->department?->name ?? 'N/A',
+                        ];
+                    })->toArray(),
+                ]);
+
                 foreach ($chairpersons as $chairperson) {
                     $recipients[] = $chairperson->email;
                 }

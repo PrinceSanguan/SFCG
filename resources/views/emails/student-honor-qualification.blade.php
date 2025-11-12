@@ -143,13 +143,23 @@
             <p>Academic Excellence Recognition</p>
         </div>
 
+        @if($isStudent)
+        <div class="congratulations">
+            🎉 Congratulations! You have qualified for academic honors! 🎉
+        </div>
+
+        <p>Dear {{ $recipientName }},</p>
+
+        <p>We are delighted to inform you that <strong>you have demonstrated exceptional academic performance</strong> and have qualified for academic honors recognition.</p>
+        @else
         <div class="congratulations">
             🎉 Congratulations! Your child has qualified for academic honors! 🎉
         </div>
 
-        <p>Dear {{ $parentName }},</p>
+        <p>Dear {{ $recipientName }},</p>
 
         <p>We are delighted to inform you that your child, <strong>{{ $studentName }}</strong>, has demonstrated exceptional academic performance and has qualified for academic honors recognition.</p>
+        @endif
 
         <div class="honor-badge">
             🏆 {{ $honorType }}
@@ -202,7 +212,11 @@
             </ul>
         </div>
 
+        @if($isStudent)
+        <p>We are incredibly proud of your academic achievements and dedication to excellence. This honor is a testament to your hard work and commitment to academic success.</p>
+        @else
         <p>We are incredibly proud of {{ $studentName }}'s academic achievements and dedication to excellence. This honor is a testament to their hard work and your support as a parent.</p>
+        @endif
 
         <p>Congratulations once again on this outstanding accomplishment!</p>
 

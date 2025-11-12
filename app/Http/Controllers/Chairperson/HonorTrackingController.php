@@ -187,6 +187,31 @@ class HonorTrackingController extends Controller
     private function sendParentNotifications($honor, $certificate = null)
     {
         try {
+            // Send email directly to the student
+            if ($honor->student && $honor->student->email) {
+                Mail::to($honor->student->email)->send(
+                    new StudentHonorQualificationEmail(
+                        $honor->student,
+                        $honor->student, // Student as recipient
+                        $honor
+                    )
+                );
+
+                Log::info('[CHAIRPERSON APPROVAL] Student honor notification sent', [
+                    'student_id' => $honor->student_id,
+                    'student_name' => $honor->student->name,
+                    'student_email' => $honor->student->email,
+                    'honor_id' => $honor->id,
+                    'honor_type' => $honor->honorType?->name ?? 'Unknown',
+                    'gpa' => $honor->gpa,
+                    'school_year' => $honor->school_year,
+                    'approved_by' => 'chairperson',
+                    'chairperson_id' => Auth::id(),
+                    'chairperson_name' => Auth::user()->name,
+                    'timestamp' => now()->toDateTimeString(),
+                ]);
+            }
+
             // Get all parents for this student
             $parentRelationships = ParentStudentRelationship::with('parent')
                 ->where('student_id', $honor->student_id)
@@ -203,12 +228,17 @@ class HonorTrackingController extends Controller
                         )
                     );
                     
-            Log::info('Parent honor notification sent by chairperson', [
+            Log::info('[CHAIRPERSON APPROVAL] Parent honor notification sent', [
                 'parent_id' => $relationship->parent->id,
+                'parent_name' => $relationship->parent->name,
                 'parent_email' => $relationship->parent->email,
                 'student_id' => $honor->student_id,
+                'student_name' => $honor->student->name,
                 'honor_id' => $honor->id,
+                'honor_type' => $honor->honorType?->name ?? 'Unknown',
                 'approved_by' => 'chairperson',
+                'chairperson_id' => Auth::id(),
+                'timestamp' => now()->toDateTimeString(),
             ]);
                 }
             }

@@ -1667,6 +1667,15 @@ class RegistrarAcademicController extends Controller
                 // Don't fail the whole operation if notification fails
             }
 
+            \Log::info('[REGISTRAR] College honors generation completed', [
+                'school_year' => $validated['school_year'],
+                'total_honors_created' => $result['created'] ?? 0,
+                'notification_sent' => isset($notificationResult) && $notificationResult['success'],
+                'initiated_by' => auth()->user()->name,
+                'initiated_by_id' => auth()->id(),
+                'timestamp' => now()->toDateTimeString(),
+            ]);
+
             return back()->with('success', $result['message'] . ' Honor results have been submitted for chairperson approval.');
         } else {
             \Log::error('[REGISTRAR HONOR GENERATION] College honor generation failed', [
