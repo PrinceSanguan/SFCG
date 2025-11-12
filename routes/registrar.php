@@ -220,14 +220,22 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'code' => [
-                'required', 
-                'string', 
-                'max:20', 
+                'required',
+                'string',
+                'max:20',
                 \Illuminate\Validation\Rule::unique('grading_periods')->where(function ($query) use ($request) {
                     return $query->where('academic_level_id', $request->academic_level_id);
                 })
             ],
+            'type' => ['required', 'in:quarter,semester'],
             'academic_level_id' => ['required', 'exists:academic_levels,id'],
+            'parent_id' => ['nullable', 'exists:grading_periods,id'],
+            'period_type' => ['required', 'in:quarter,midterm,prefinal,final'],
+            'semester_number' => ['nullable', 'integer', 'min:1', 'max:2'],
+            'weight' => ['nullable', 'numeric', 'min:0', 'max:1'],
+            'is_calculated' => ['nullable', 'boolean'],
+            'include_midterm' => ['nullable', 'boolean'],
+            'include_prefinal' => ['nullable', 'boolean'],
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after:start_date'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
@@ -235,32 +243,48 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
         ]);
         $validated['sort_order'] = $validated['sort_order'] ?? 0;
         $validated['is_active'] = $validated['is_active'] ?? true;
+        $validated['weight'] = $validated['weight'] ?? 1.00;
+        $validated['is_calculated'] = $validated['is_calculated'] ?? false;
         \App\Models\GradingPeriod::create($validated);
-        return back();
+
+        // Use redirect to trigger fresh data load instead of back()
+        return redirect()->route('registrar.academic.grading');
     })->name('grading-periods.store');
     Route::put('/grading-periods/{gradingPeriod}', function(\Illuminate\Http\Request $request, \App\Models\GradingPeriod $gradingPeriod) {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'code' => [
-                'required', 
-                'string', 
-                'max:20', 
+                'required',
+                'string',
+                'max:20',
                 \Illuminate\Validation\Rule::unique('grading_periods')->where(function ($query) use ($request) {
                     return $query->where('academic_level_id', $request->academic_level_id);
                 })->ignore($gradingPeriod->id)
             ],
+            'type' => ['required', 'in:quarter,semester'],
             'academic_level_id' => ['required', 'exists:academic_levels,id'],
+            'parent_id' => ['nullable', 'exists:grading_periods,id'],
+            'period_type' => ['required', 'in:quarter,midterm,prefinal,final'],
+            'semester_number' => ['nullable', 'integer', 'min:1', 'max:2'],
+            'weight' => ['nullable', 'numeric', 'min:0', 'max:1'],
+            'is_calculated' => ['nullable', 'boolean'],
+            'include_midterm' => ['nullable', 'boolean'],
+            'include_prefinal' => ['nullable', 'boolean'],
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after:start_date'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'is_active' => ['nullable', 'boolean'],
         ]);
         $gradingPeriod->update($validated);
-        return back();
+
+        // Use redirect to trigger fresh data load instead of back()
+        return redirect()->route('registrar.academic.grading');
     })->name('grading-periods.update');
     Route::delete('/grading-periods/{gradingPeriod}', function(\App\Models\GradingPeriod $gradingPeriod) {
         $gradingPeriod->delete();
-        return back();
+
+        // Use redirect to trigger fresh data load instead of back()
+        return redirect()->route('registrar.academic.grading');
     })->name('grading-periods.destroy');
     Route::get('/subjects', [RegistrarAcademicController::class, 'subjects'])->name('subjects');
     Route::get('/programs', [RegistrarAcademicController::class, 'programs'])->name('programs');
