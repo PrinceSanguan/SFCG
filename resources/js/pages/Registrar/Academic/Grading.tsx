@@ -163,6 +163,11 @@ export default function Grading({ user, gradingPeriods, academicLevels }: Gradin
             .map(p => ({ value: p.id.toString(), label: p.name }));
     };
 
+    const shouldShowSemesterSelection = (academicLevelId: number) => {
+        const level = academicLevels.find(l => l.id === academicLevelId);
+        return level && (level.key === 'senior_highschool' || level.key === 'college');
+    };
+
     return (
         <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
             <Sidebar user={user} />
@@ -283,7 +288,7 @@ export default function Grading({ user, gradingPeriods, academicLevels }: Gradin
 
 
                                     {/* Show parent semester selection for quarters */}
-                                    {data.type === 'quarter' && (
+                                    {data.type === 'quarter' && shouldShowSemesterSelection(parseInt(data.academic_level_id)) && (
                                         <div>
                                             <Label htmlFor="parent_id">Which Semester? (Optional)</Label>
                                             {(() => {
@@ -324,7 +329,7 @@ export default function Grading({ user, gradingPeriods, academicLevels }: Gradin
                                     )}
 
                                     {/* Show period type selection for quarters */}
-                                    {data.type === 'quarter' && (
+                                    {data.type === 'quarter' && shouldShowSemesterSelection(parseInt(data.academic_level_id)) && (
                                         <div>
                                             <Label>Period Type</Label>
                                             <div className="space-y-2 mt-2">
