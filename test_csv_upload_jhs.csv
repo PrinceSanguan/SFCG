@@ -1,0 +1,4 @@
+school_year,name,email,password,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship
+2024-2025,Juan dela Cruz,juan.delacruz@test.com,password123,JHS-2024-001,2010-05-15,male,09171234567,123 Main St Manila,Rosa dela Cruz,09181234567,Mother
+2024-2025,Maria Clara Santos,maria.santos@test.com,password123,JHS-2024-002,2010-08-20,female,09172345678,456 Rizal Ave Quezon City,Pedro Santos,09182345678,Father
+2024-2025,Jose Rizal Reyes,jose.reyes@test.com,password123,JHS-2024-003,2011-01-10,male,09173456789,789 Bonifacio St Makati,Carmen Reyes,09183456789,Mother

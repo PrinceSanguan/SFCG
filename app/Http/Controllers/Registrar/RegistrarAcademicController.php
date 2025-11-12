@@ -840,7 +840,16 @@ class RegistrarAcademicController extends Controller
 
         $students = $studentsQuery->orderBy('name')->get();
 
+        \Log::info('[REGISTRAR SHS HONOR] Processing ' . $students->count() . ' students for qualification check', [
+            'school_year' => $schoolYear,
+            'grade_level' => $gradeLevel,
+            'section_id' => $sectionId,
+            'strand_id' => $strandId,
+        ]);
+
         $qualifiedStudents = [];
+        $studentsWithoutGrades = 0;
+        $studentsNotQualified = 0;
 
         foreach ($students as $student) {
             $result = $seniorHighSchoolService->calculateSeniorHighSchoolHonorQualification(
@@ -849,12 +858,40 @@ class RegistrarAcademicController extends Controller
                 $schoolYear
             );
 
-            // Include all students with computed results to surface data even if not yet qualified
-            $qualifiedStudents[] = [
-                'student' => $student,
-                'result' => $result
-            ];
+            // Check if student has any grades (period_results should have at least one entry with grades)
+            $hasGrades = !empty($result['period_results']) && collect($result['period_results'])->contains(function ($periodResult) {
+                // A period has grades if it doesn't have the "No grades found" reason
+                return !isset($periodResult['reason']) || !str_contains($periodResult['reason'], 'No grades found');
+            });
+
+            \Log::info('[REGISTRAR SHS HONOR] Student: ' . $student->name . ' - Has Grades: ' . ($hasGrades ? 'YES' : 'NO') . ', Qualified: ' . ($result['qualified'] ? 'YES' : 'NO'), [
+                'student_id' => $student->id,
+                'student_number' => $student->student_number ?? 'N/A',
+                'has_grades' => $hasGrades,
+                'qualified' => $result['qualified'],
+                'qualified_periods' => $result['qualified_periods'] ?? [],
+                'reason' => $result['reason'] ?? 'N/A',
+            ]);
+
+            // Only include students who have grades AND are qualified
+            if ($hasGrades && $result['qualified']) {
+                $qualifiedStudents[] = [
+                    'student' => $student,
+                    'result' => $result
+                ];
+            } elseif (!$hasGrades) {
+                $studentsWithoutGrades++;
+            } else {
+                $studentsNotQualified++;
+            }
         }
+
+        \Log::info('[REGISTRAR SHS HONOR] Summary', [
+            'total_students_checked' => $students->count(),
+            'qualified_students' => count($qualifiedStudents),
+            'students_without_grades' => $studentsWithoutGrades,
+            'students_not_qualified' => $studentsNotQualified,
+        ]);
 
         return $qualifiedStudents;
     }
@@ -1309,5 +1346,333 @@ class RegistrarAcademicController extends Controller
             'recentCertificates' => $recentCertificates,
             'schoolYears' => $schoolYears,
         ]);
+    }
+
+    /**
+     * Generate honor results for all qualified elementary students
+     */
+    public function generateElementaryHonorResults(Request $request)
+    {
+        $validated = $request->validate([
+            'school_year' => 'required|string',
+        ]);
+
+        \Log::info('[REGISTRAR HONOR GENERATION] Starting elementary honor generation', [
+            'school_year' => $validated['school_year'],
+            'initiated_by' => auth()->user()->name,
+        ]);
+
+        $elementaryLevel = \App\Models\AcademicLevel::where('key', 'elementary')->first();
+
+        if (!$elementaryLevel) {
+            \Log::error('[REGISTRAR HONOR GENERATION] Elementary level not found');
+            return back()->with('error', 'Elementary level not found.');
+        }
+
+        $elementaryService = new \App\Services\ElementaryHonorCalculationService();
+        $result = $elementaryService->generateElementaryHonorResults(
+            $elementaryLevel->id,
+            $validated['school_year']
+        );
+
+        if ($result['success']) {
+            \Log::info('[REGISTRAR HONOR GENERATION] Elementary honors generated successfully', [
+                'created_count' => $result['created'] ?? 0,
+                'message' => $result['message'],
+            ]);
+
+            // Send pending approval notification to Principal
+            try {
+                $notificationService = new \App\Services\NotificationService();
+
+                // Count pending honors for this academic level and school year
+                $honorCount = \App\Models\HonorResult::where('academic_level_id', $elementaryLevel->id)
+                    ->where('school_year', $validated['school_year'])
+                    ->where('approval_status', 'pending')
+                    ->count();
+
+                \Log::info('[REGISTRAR HONOR GENERATION] Sending elementary honor approval notification to Principal', [
+                    'academic_level' => $elementaryLevel->name,
+                    'school_year' => $validated['school_year'],
+                    'honor_count' => $honorCount,
+                ]);
+
+                $notificationResult = $notificationService->sendPendingHonorApprovalNotification(
+                    $elementaryLevel,
+                    $validated['school_year'],
+                    $honorCount
+                );
+
+                if ($notificationResult['success']) {
+                    \Log::info('[REGISTRAR HONOR GENERATION] Elementary honor approval notification sent successfully', [
+                        'notification_id' => $notificationResult['notification_id'],
+                        'recipient' => $notificationResult['recipient_name'] ?? 'Unknown',
+                    ]);
+                } else {
+                    \Log::warning('[REGISTRAR HONOR GENERATION] Elementary honor approval notification failed', [
+                        'error' => $notificationResult['error'] ?? 'Unknown error',
+                    ]);
+                }
+            } catch (\Exception $e) {
+                \Log::error('[REGISTRAR HONOR GENERATION] Exception while sending elementary honor approval notification', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+                // Don't fail the whole operation if notification fails
+            }
+
+            return back()->with('success', $result['message'] . ' Honor results have been submitted for principal approval.');
+        } else {
+            \Log::error('[REGISTRAR HONOR GENERATION] Elementary honor generation failed', [
+                'message' => $result['message'],
+            ]);
+            return back()->with('error', $result['message']);
+        }
+    }
+
+    /**
+     * Generate honor results for all qualified junior high school students
+     */
+    public function generateJuniorHighSchoolHonorResults(Request $request)
+    {
+        $validated = $request->validate([
+            'school_year' => 'required|string',
+        ]);
+
+        \Log::info('[REGISTRAR HONOR GENERATION] Starting junior high school honor generation', [
+            'school_year' => $validated['school_year'],
+            'initiated_by' => auth()->user()->name,
+        ]);
+
+        $juniorHighSchoolLevel = \App\Models\AcademicLevel::where('key', 'junior_highschool')->first();
+
+        if (!$juniorHighSchoolLevel) {
+            \Log::error('[REGISTRAR HONOR GENERATION] Junior High School level not found');
+            return back()->with('error', 'Junior High School level not found.');
+        }
+
+        $juniorHighSchoolService = new \App\Services\JuniorHighSchoolHonorCalculationService();
+        $result = $juniorHighSchoolService->generateJuniorHighSchoolHonorResults(
+            $juniorHighSchoolLevel->id,
+            $validated['school_year']
+        );
+
+        if ($result['success']) {
+            \Log::info('[REGISTRAR HONOR GENERATION] Junior high school honors generated successfully', [
+                'created_count' => $result['created'] ?? 0,
+                'message' => $result['message'],
+            ]);
+
+            // Send pending approval notification to Principal
+            try {
+                $notificationService = new \App\Services\NotificationService();
+
+                // Count pending honors for this academic level and school year
+                $honorCount = \App\Models\HonorResult::where('academic_level_id', $juniorHighSchoolLevel->id)
+                    ->where('school_year', $validated['school_year'])
+                    ->where('approval_status', 'pending')
+                    ->count();
+
+                \Log::info('[REGISTRAR HONOR GENERATION] Sending junior high school honor approval notification to Principal', [
+                    'academic_level' => $juniorHighSchoolLevel->name,
+                    'school_year' => $validated['school_year'],
+                    'honor_count' => $honorCount,
+                ]);
+
+                $notificationResult = $notificationService->sendPendingHonorApprovalNotification(
+                    $juniorHighSchoolLevel,
+                    $validated['school_year'],
+                    $honorCount
+                );
+
+                if ($notificationResult['success']) {
+                    \Log::info('[REGISTRAR HONOR GENERATION] Junior high school honor approval notification sent successfully', [
+                        'notification_id' => $notificationResult['notification_id'],
+                        'recipient' => $notificationResult['recipient_name'] ?? 'Unknown',
+                    ]);
+                } else {
+                    \Log::warning('[REGISTRAR HONOR GENERATION] Junior high school honor approval notification failed', [
+                        'error' => $notificationResult['error'] ?? 'Unknown error',
+                    ]);
+                }
+            } catch (\Exception $e) {
+                \Log::error('[REGISTRAR HONOR GENERATION] Exception while sending junior high school honor approval notification', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+                // Don't fail the whole operation if notification fails
+            }
+
+            return back()->with('success', $result['message'] . ' Honor results have been submitted for principal approval.');
+        } else {
+            \Log::error('[REGISTRAR HONOR GENERATION] Junior high school honor generation failed', [
+                'message' => $result['message'],
+            ]);
+            return back()->with('error', $result['message']);
+        }
+    }
+
+    /**
+     * Generate honor results for all qualified senior high school students
+     */
+    public function generateSeniorHighSchoolHonorResults(Request $request)
+    {
+        $validated = $request->validate([
+            'school_year' => 'required|string',
+        ]);
+
+        \Log::info('[REGISTRAR HONOR GENERATION] Starting senior high school honor generation', [
+            'school_year' => $validated['school_year'],
+            'initiated_by' => auth()->user()->name,
+        ]);
+
+        $seniorHighSchoolLevel = \App\Models\AcademicLevel::where('key', 'senior_highschool')->first();
+
+        if (!$seniorHighSchoolLevel) {
+            \Log::error('[REGISTRAR HONOR GENERATION] Senior High School level not found');
+            return back()->with('error', 'Senior High School level not found.');
+        }
+
+        $seniorHighSchoolService = new \App\Services\SeniorHighSchoolHonorCalculationService();
+        $result = $seniorHighSchoolService->generateSeniorHighSchoolHonorResults(
+            $seniorHighSchoolLevel->id,
+            $validated['school_year']
+        );
+
+        if ($result['success']) {
+            \Log::info('[REGISTRAR HONOR GENERATION] Senior high school honors generated successfully', [
+                'created_count' => $result['created'] ?? 0,
+                'message' => $result['message'],
+            ]);
+
+            // Send pending approval notification to Principal
+            try {
+                $notificationService = new \App\Services\NotificationService();
+
+                // Count pending honors for this academic level and school year
+                $honorCount = \App\Models\HonorResult::where('academic_level_id', $seniorHighSchoolLevel->id)
+                    ->where('school_year', $validated['school_year'])
+                    ->where('approval_status', 'pending')
+                    ->count();
+
+                \Log::info('[REGISTRAR HONOR GENERATION] Sending senior high school honor approval notification to Principal', [
+                    'academic_level' => $seniorHighSchoolLevel->name,
+                    'school_year' => $validated['school_year'],
+                    'honor_count' => $honorCount,
+                ]);
+
+                $notificationResult = $notificationService->sendPendingHonorApprovalNotification(
+                    $seniorHighSchoolLevel,
+                    $validated['school_year'],
+                    $honorCount
+                );
+
+                if ($notificationResult['success']) {
+                    \Log::info('[REGISTRAR HONOR GENERATION] Senior high school honor approval notification sent successfully', [
+                        'notification_id' => $notificationResult['notification_id'],
+                        'recipient' => $notificationResult['recipient_name'] ?? 'Unknown',
+                    ]);
+                } else {
+                    \Log::warning('[REGISTRAR HONOR GENERATION] Senior high school honor approval notification failed', [
+                        'error' => $notificationResult['error'] ?? 'Unknown error',
+                    ]);
+                }
+            } catch (\Exception $e) {
+                \Log::error('[REGISTRAR HONOR GENERATION] Exception while sending senior high school honor approval notification', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+                // Don't fail the whole operation if notification fails
+            }
+
+            return back()->with('success', $result['message'] . ' Honor results have been submitted for principal approval.');
+        } else {
+            \Log::error('[REGISTRAR HONOR GENERATION] Senior high school honor generation failed', [
+                'message' => $result['message'],
+            ]);
+            return back()->with('error', $result['message']);
+        }
+    }
+
+    /**
+     * Generate honor results for all qualified college students
+     */
+    public function generateCollegeHonorResults(Request $request)
+    {
+        $validated = $request->validate([
+            'school_year' => 'required|string',
+        ]);
+
+        \Log::info('[REGISTRAR HONOR GENERATION] Starting college honor generation', [
+            'school_year' => $validated['school_year'],
+            'initiated_by' => auth()->user()->name,
+        ]);
+
+        $collegeLevel = \App\Models\AcademicLevel::where('key', 'college')->first();
+
+        if (!$collegeLevel) {
+            \Log::error('[REGISTRAR HONOR GENERATION] College level not found');
+            return back()->with('error', 'College level not found.');
+        }
+
+        $collegeService = new \App\Services\CollegeHonorCalculationService();
+        $result = $collegeService->generateCollegeHonorResults(
+            $collegeLevel->id,
+            $validated['school_year']
+        );
+
+        if ($result['success']) {
+            \Log::info('[REGISTRAR HONOR GENERATION] College honors generated successfully', [
+                'created_count' => $result['created'] ?? 0,
+                'message' => $result['message'],
+            ]);
+
+            // Send pending approval notification to Chairperson
+            try {
+                $notificationService = new \App\Services\NotificationService();
+
+                // Count pending honors for this academic level and school year
+                $honorCount = \App\Models\HonorResult::where('academic_level_id', $collegeLevel->id)
+                    ->where('school_year', $validated['school_year'])
+                    ->where('approval_status', 'pending')
+                    ->count();
+
+                \Log::info('[REGISTRAR HONOR GENERATION] Sending college honor approval notification to Chairperson', [
+                    'academic_level' => $collegeLevel->name,
+                    'school_year' => $validated['school_year'],
+                    'honor_count' => $honorCount,
+                ]);
+
+                $notificationResult = $notificationService->sendPendingHonorApprovalNotification(
+                    $collegeLevel,
+                    $validated['school_year'],
+                    $honorCount
+                );
+
+                if ($notificationResult['success']) {
+                    \Log::info('[REGISTRAR HONOR GENERATION] College honor approval notification sent successfully', [
+                        'notification_id' => $notificationResult['notification_id'],
+                        'recipient' => $notificationResult['recipient_name'] ?? 'Unknown',
+                    ]);
+                } else {
+                    \Log::warning('[REGISTRAR HONOR GENERATION] College honor approval notification failed', [
+                        'error' => $notificationResult['error'] ?? 'Unknown error',
+                    ]);
+                }
+            } catch (\Exception $e) {
+                \Log::error('[REGISTRAR HONOR GENERATION] Exception while sending college honor approval notification', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+                // Don't fail the whole operation if notification fails
+            }
+
+            return back()->with('success', $result['message'] . ' Honor results have been submitted for chairperson approval.');
+        } else {
+            \Log::error('[REGISTRAR HONOR GENERATION] College honor generation failed', [
+                'message' => $result['message'],
+            ]);
+            return back()->with('error', $result['message']);
+        }
     }
 }

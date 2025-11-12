@@ -1,0 +1,4 @@
+school_year,name,email,password,student_number,birth_date,gender,phone_number,address,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship
+2024-2025,Anna Marie Lopez,anna.lopez@test.com,password123,SHS-2024-001,2008-03-12,female,09171111111,111 STEM Ave Quezon City,Roberto Lopez,09181111111,Father
+2024-2025,Carlos Miguel Torres,carlos.torres@test.com,password123,SHS-2024-002,2008-07-25,male,09172222222,222 Science St Manila,Elena Torres,09182222222,Mother
+2024-2025,Diana Rose Fernandez,diana.fernandez@test.com,password123,SHS-2024-003,2008-11-08,female,09173333333,333 Math Blvd Makati,Jose Fernandez,09183333333,Father

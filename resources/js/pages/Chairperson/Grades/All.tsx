@@ -264,15 +264,11 @@ export default function AllGrades({ user, grades, academicLevels, selectedAcadem
                                                         </td>
                                                         <td className="p-3">{groupedGrade.schoolYear}</td>
                                                         <td className="p-3">
-                                                            <div className="flex gap-2">
-                                                                {groupedGrade.grades.map((gradeItem: any) => (
-                                                                    <Button key={gradeItem.id} asChild size="sm" variant="outline" title={`View ${gradeItem.gradingPeriod?.name || 'grade'}`}>
-                                                                        <Link href={route('chairperson.grades.review', gradeItem.id)}>
-                                                                            <Eye className="h-4 w-4" />
-                                                                        </Link>
-                                                                    </Button>
-                                                                ))}
-                                                            </div>
+                                                            <Button asChild size="sm" variant="outline" title="View all grades for this student-subject">
+                                                                <Link href={route('chairperson.grades.review', groupedGrade.grades[0].id)}>
+                                                                    <Eye className="h-4 w-4" />
+                                                                </Link>
+                                                            </Button>
                                                         </td>
                                                     </tr>
                                                 ))}

@@ -162,7 +162,8 @@ class GradeManagementController extends Controller
 
         // Manually attach academic level to each grade since relationship loading doesn't work with grouped queries
         $grades->getCollection()->transform(function ($grade) use ($collegeLevel) {
-            $grade->academic_level = $collegeLevel;
+            $grade->setRelation('academicLevel', $collegeLevel);
+            $grade->academic_level = $collegeLevel; // Fallback for snake_case access
             return $grade;
         });
 

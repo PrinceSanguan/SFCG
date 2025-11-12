@@ -149,7 +149,7 @@
                 <td class="@if($grade->grade >= 90) grade-excellent @elseif($grade->grade >= 80) grade-good @elseif($grade->grade >= 70) grade-average @else grade-poor @endif">
                     {{ $grade->grade }}
                 </td>
-                <td>{{ $grade->year_of_study }}</td>
+                <td>{{ $grade->student->specific_year_level ? ucwords(str_replace('_', ' ', $grade->student->specific_year_level)) : 'N/A' }}</td>
             </tr>
             @endforeach
         </tbody>

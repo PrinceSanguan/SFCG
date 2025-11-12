@@ -1598,12 +1598,22 @@ class RegistrarUserManagementController extends Controller
         // Determine redirect route based on academic level
         $redirectRoute = 'registrar.students.index';
         if ($expectedAcademicLevel) {
-            $academicLevelRoute = str_replace('_', '-', $expectedAcademicLevel);
-            $redirectRoute = 'registrar.students.' . $academicLevelRoute;
+            // Route names use underscores, not hyphens
+            $redirectRoute = 'registrar.students.' . $expectedAcademicLevel;
         }
+
+        \Log::info('[REGISTRAR CSV UPLOAD] Upload complete', [
+            'created' => $created,
+            'errors_count' => count($errors),
+            'redirect_route' => $redirectRoute,
+        ]);
 
         if ($created > 0 && empty($errors)) {
             $message = "Successfully uploaded {$created} students.";
+            \Log::info('[REGISTRAR CSV UPLOAD] ✅ SUCCESS - All students uploaded', [
+                'created' => $created,
+                'message' => $message,
+            ]);
             return redirect()->route($redirectRoute)->with('success', $message);
         } elseif ($created > 0 && !empty($errors)) {
             $errorCount = count($errors);
@@ -1619,7 +1629,12 @@ class RegistrarUserManagementController extends Controller
                 $errorDetails = " {$errorCount} rows had errors. Please check the data format.";
             }
             $message = "Successfully uploaded {$created} students, but{$errorDetails}";
-            Log::warning('Student CSV upload partial success', ['created' => $created, 'errors' => $errors]);
+            \Log::warning('[REGISTRAR CSV UPLOAD] ⚠️  PARTIAL SUCCESS - Some students uploaded with errors', [
+                'created' => $created,
+                'errors_count' => count($errors),
+                'errors' => $errors,
+                'message' => $message,
+            ]);
             return redirect()->route($redirectRoute)->with('warning', $message);
         } else {
             $errorCount = count($errors);
@@ -1635,7 +1650,11 @@ class RegistrarUserManagementController extends Controller
                 $errorDetails = " {$errorCount} rows had errors. Please check the data format.";
             }
             $message = "No students were uploaded.{$errorDetails}";
-            Log::error('Student CSV upload failed', ['errors' => $errors]);
+            \Log::error('[REGISTRAR CSV UPLOAD] ❌ FAILED - No students uploaded', [
+                'errors_count' => count($errors),
+                'errors' => $errors,
+                'message' => $message,
+            ]);
             return redirect()->route($redirectRoute)->with('error', $message);
         }
     }
