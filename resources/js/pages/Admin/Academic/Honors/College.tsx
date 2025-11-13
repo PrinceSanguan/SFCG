@@ -176,6 +176,37 @@ export default function CollegeHonors({ user, honorTypes, criteria, schoolYears,
         })),
     });
 
+    // CRITICAL LOGGING: Check qualification status for all students
+    console.log('[COLLEGE HONORS] === QUALIFICATION STATUS CHECK ===');
+    console.log('[COLLEGE HONORS] Total students in qualifiedStudents array:', qualifiedStudents.length);
+
+    const actuallyQualified = qualifiedStudents.filter(qs => qs.result?.qualified === true);
+    const notQualified = qualifiedStudents.filter(qs => qs.result?.qualified === false);
+
+    console.log('[COLLEGE HONORS] Actually QUALIFIED students:', actuallyQualified.length);
+    console.log('[COLLEGE HONORS] NOT qualified students:', notQualified.length);
+
+    if (notQualified.length > 0) {
+        console.warn('[COLLEGE HONORS] ⚠️ WARNING: Found unqualified students in the list!');
+        console.log('[COLLEGE HONORS] Unqualified students details:', notQualified.map(qs => ({
+            student_id: qs.student?.id,
+            student_name: qs.student?.name,
+            qualified: qs.result?.qualified,
+            reason: qs.result?.reason,
+            average_grade: qs.result?.average_grade,
+            min_grade: qs.result?.min_grade,
+        })));
+    }
+
+    console.log('[COLLEGE HONORS] Qualified students details:', actuallyQualified.map(qs => ({
+        student_id: qs.student?.id,
+        student_name: qs.student?.name,
+        qualified: qs.result?.qualified,
+        average_grade: qs.result?.average_grade,
+        min_grade: qs.result?.min_grade,
+        qualifications: qs.result?.qualifications?.map(q => q.honor_type?.name),
+    })));
+
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const [selectedStudent, setSelectedStudent] = useState<QualifiedStudent | null>(null);
     const [showStudentDetails, setShowStudentDetails] = useState(false);
@@ -811,27 +842,37 @@ export default function CollegeHonors({ user, honorTypes, criteria, schoolYears,
                                 </div>
                             </CardHeader>
                             <CardContent>
-                                {qualifiedStudents.length === 0 ? (
+                                {actuallyQualified.length === 0 ? (
                                     <div className="text-center py-8 text-gray-500">
                                         <Trophy className="h-12 w-12 mx-auto mb-2 text-gray-300" />
                                         <p>No qualified students found</p>
                                         <p className="text-sm">Students need to meet honor criteria to appear here.</p>
+                                        {notQualified.length > 0 && (
+                                            <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-left">
+                                                <p className="text-sm font-semibold text-yellow-800 mb-2">
+                                                    ⚠️ Note: {notQualified.length} student{notQualified.length !== 1 ? 's' : ''} did not qualify for honors
+                                                </p>
+                                                <p className="text-xs text-yellow-700">
+                                                    Check browser console for details about why students were disqualified.
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
                                 ) : (
                                     <div className="space-y-4">
                                         <div className="flex items-center justify-between pb-4 border-b">
                                             <h3 className="text-lg font-semibold text-gray-900">
-                                                Ready to submit {qualifiedStudents.length} student{qualifiedStudents.length !== 1 ? 's' : ''} for approval
+                                                Ready to submit {actuallyQualified.length} student{actuallyQualified.length !== 1 ? 's' : ''} for approval
                                             </h3>
                                             <Button
                                                 onClick={() => {
                                                     console.log('[College Submit] Starting submission process...');
-                                                    console.log('[College Submit] Qualified students count:', qualifiedStudents.length);
+                                                    console.log('[College Submit] Actually qualified students count:', actuallyQualified.length);
                                                     console.log('[College Submit] Current school year:', currentSchoolYear);
                                                     console.log('[College Submit] Honor results count:', honorResults.length);
 
                                                     // Filter out students who already have honor results for this school year
-                                                    const studentsToSubmit = qualifiedStudents.filter((student: any) => {
+                                                    const studentsToSubmit = actuallyQualified.filter((student: any) => {
                                                         const hasExistingResult = honorResults.some((result: HonorResult) =>
                                                             result.student_id === student.student.id &&
                                                             result.school_year === currentSchoolYear
@@ -839,16 +880,16 @@ export default function CollegeHonors({ user, honorTypes, criteria, schoolYears,
                                                         return !hasExistingResult;
                                                     });
 
-                                                    const alreadySubmittedCount = qualifiedStudents.length - studentsToSubmit.length;
+                                                    const alreadySubmittedCount = actuallyQualified.length - studentsToSubmit.length;
 
-                                                    console.log('[College Submit] Total qualified students:', qualifiedStudents.length);
+                                                    console.log('[College Submit] Total qualified students:', actuallyQualified.length);
                                                     console.log('[College Submit] Already submitted count:', alreadySubmittedCount);
                                                     console.log('[College Submit] Students to submit count:', studentsToSubmit.length);
                                                     console.log('[College Submit] Student names to submit:', studentsToSubmit.map((s: any) => s.student.name));
 
                                                     if (alreadySubmittedCount > 0) {
                                                         console.log('[College Submit] Already submitted students:',
-                                                            qualifiedStudents.filter((student: any) =>
+                                                            actuallyQualified.filter((student: any) =>
                                                                 honorResults.some((result: HonorResult) =>
                                                                     result.student_id === student.student.id &&
                                                                     result.school_year === currentSchoolYear
@@ -890,7 +931,7 @@ export default function CollegeHonors({ user, honorTypes, criteria, schoolYears,
                                             </Button>
                                         </div>
                                         <div className="grid gap-4">
-                                            {qualifiedStudents.map((qualifiedStudent, index) => (
+                                            {actuallyQualified.map((qualifiedStudent, index) => (
                                                 <div 
                                                     key={qualifiedStudent.student.id}
                                                     onClick={() => handleStudentClick(qualifiedStudent)}

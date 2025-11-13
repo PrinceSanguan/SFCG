@@ -156,6 +156,37 @@ export default function CollegeHonors({ user, honorTypes, criteria, schoolYears,
         console.log('honor_type property (snake_case):', (criteria[0] as any).honor_type);
     }
 
+    // CRITICAL LOGGING: Check qualification status for all students (Registrar)
+    console.log('[REGISTRAR COLLEGE HONORS] === QUALIFICATION STATUS CHECK ===');
+    console.log('[REGISTRAR COLLEGE HONORS] Total students in qualifiedStudents array:', qualifiedStudents.length);
+
+    const actuallyQualified = qualifiedStudents.filter(qs => qs.result?.qualified === true);
+    const notQualified = qualifiedStudents.filter(qs => qs.result?.qualified === false);
+
+    console.log('[REGISTRAR COLLEGE HONORS] Actually QUALIFIED students:', actuallyQualified.length);
+    console.log('[REGISTRAR COLLEGE HONORS] NOT qualified students:', notQualified.length);
+
+    if (notQualified.length > 0) {
+        console.warn('[REGISTRAR COLLEGE HONORS] ⚠️ WARNING: Found unqualified students in the list!');
+        console.log('[REGISTRAR COLLEGE HONORS] Unqualified students details:', notQualified.map(qs => ({
+            student_id: qs.student?.id,
+            student_name: qs.student?.name,
+            qualified: qs.result?.qualified,
+            reason: qs.result?.reason,
+            average_grade: qs.result?.average_grade,
+            min_grade: qs.result?.min_grade,
+        })));
+    }
+
+    console.log('[REGISTRAR COLLEGE HONORS] Qualified students details:', actuallyQualified.map(qs => ({
+        student_id: qs.student?.id,
+        student_name: qs.student?.name,
+        qualified: qs.result?.qualified,
+        average_grade: qs.result?.average_grade,
+        min_grade: qs.result?.min_grade,
+        qualifications: qs.result?.qualifications?.map(q => q.honor_type?.name),
+    })));
+
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const [selectedStudent, setSelectedStudent] = useState<QualifiedStudent | null>(null);
     const [showStudentDetails, setShowStudentDetails] = useState(false);
@@ -610,7 +641,7 @@ export default function CollegeHonors({ user, honorTypes, criteria, schoolYears,
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
                                     <Trophy className="h-5 w-5" />
-                                    Qualified College Students ({qualifiedStudents.length})
+                                    Qualified College Students ({actuallyQualified.length})
                                 </CardTitle>
                                 <p className="text-sm text-gray-600 dark:text-gray-400">
                                     School Year: {currentSchoolYear} • Click on a student to view detailed grades and honor calculation
@@ -791,22 +822,32 @@ export default function CollegeHonors({ user, honorTypes, criteria, schoolYears,
                                 </div>
                             </CardHeader>
                             <CardContent>
-                                {qualifiedStudents.length === 0 ? (
+                                {actuallyQualified.length === 0 ? (
                                     <div className="text-center py-8 text-gray-500">
                                         <Trophy className="h-12 w-12 mx-auto mb-2 text-gray-300" />
                                         <p>No qualified students found</p>
                                         <p className="text-sm">Students need to meet honor criteria to appear here.</p>
+                                        {notQualified.length > 0 && (
+                                            <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-left">
+                                                <p className="text-sm font-semibold text-yellow-800 mb-2">
+                                                    ⚠️ Note: {notQualified.length} student{notQualified.length !== 1 ? 's' : ''} did not qualify for honors
+                                                </p>
+                                                <p className="text-xs text-yellow-700">
+                                                    Check browser console for details about why students were disqualified.
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
                                 ) : (
                                     <div className="space-y-4">
                                         <div className="flex items-center justify-between pb-4 border-b">
                                             <h3 className="text-lg font-semibold text-gray-900">
-                                                Ready to submit {qualifiedStudents.length} student{qualifiedStudents.length !== 1 ? 's' : ''} for approval
+                                                Ready to submit {actuallyQualified.length} student{actuallyQualified.length !== 1 ? 's' : ''} for approval
                                             </h3>
                                             <Button
                                                 onClick={() => {
                                                     // Check if any qualified student already has an honor result
-                                                    const alreadySubmitted = qualifiedStudents.some((student: any) =>
+                                                    const alreadySubmitted = actuallyQualified.some((student: any) =>
                                                         honorResults.some((result: HonorResult) =>
                                                             result.student_id === student.student.id &&
                                                             result.school_year === currentSchoolYear
@@ -818,12 +859,12 @@ export default function CollegeHonors({ user, honorTypes, criteria, schoolYears,
                                                         return;
                                                     }
 
-                                                    if (confirm(`Submit ${qualifiedStudents.length} qualified student(s) for chairperson approval?`)) {
+                                                    if (confirm(`Submit ${actuallyQualified.length} qualified student(s) for chairperson approval?`)) {
                                                         router.post(route('registrar.academic.honors.college.generate-results'), {
                                                             school_year: currentSchoolYear,
                                                         }, {
                                                             onSuccess: () => {
-                                                                addToast(`Successfully submitted ${qualifiedStudents.length} student(s) for approval!`, 'success');
+                                                                addToast(`Successfully submitted ${actuallyQualified.length} student(s) for approval!`, 'success');
                                                             },
                                                             onError: () => {
                                                                 addToast('Failed to submit students for approval. Please try again.', 'error');
@@ -838,7 +879,7 @@ export default function CollegeHonors({ user, honorTypes, criteria, schoolYears,
                                             </Button>
                                         </div>
                                         <div className="grid gap-4">
-                                            {qualifiedStudents.map((qualifiedStudent, index) => (
+                                            {actuallyQualified.map((qualifiedStudent, index) => (
                                                 <div 
                                                     key={qualifiedStudent.student.id}
                                                     onClick={() => handleStudentClick(qualifiedStudent)}

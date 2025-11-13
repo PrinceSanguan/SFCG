@@ -71,6 +71,11 @@ interface QualifiedStudent {
         quarter_averages: number[];
         total_subjects: number;
         reason: string;
+        failed_grades?: Array<{
+            subject: string;
+            period: string;
+            grade: number;
+        }>;
         grades_breakdown?: {
             periods?: Array<{
                 period: string;
@@ -869,6 +874,26 @@ export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                                             {!isQualified && qualifiedStudent.result?.reason && (
                                                                 <div className="mb-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2">
                                                                     <strong>Reason:</strong> {qualifiedStudent.result.reason}
+
+                                                                    {qualifiedStudent.result.failed_grades && qualifiedStudent.result.failed_grades.length > 0 && (
+                                                                        <div className="mt-2">
+                                                                            <p className="text-xs font-semibold mb-1">
+                                                                                Failed Grades ({qualifiedStudent.result.failed_grades.length}):
+                                                                            </p>
+                                                                            <ul className="text-xs space-y-1">
+                                                                                {qualifiedStudent.result.failed_grades.slice(0, 3).map((fg, idx) => (
+                                                                                    <li key={idx}>
+                                                                                        • {fg.subject} ({fg.period}): <span className="font-bold">{fg.grade.toFixed(2)}</span>
+                                                                                    </li>
+                                                                                ))}
+                                                                                {qualifiedStudent.result.failed_grades.length > 3 && (
+                                                                                    <li className="text-gray-500 italic">
+                                                                                        ... and {qualifiedStudent.result.failed_grades.length - 3} more (click "View Details" to see all)
+                                                                                    </li>
+                                                                                )}
+                                                                            </ul>
+                                                                        </div>
+                                                                    )}
                                                                 </div>
                                                             )}
                                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
@@ -1192,11 +1217,57 @@ export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                 </div>
                             )}
 
-                            {/* Qualification Reason */}
-                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                                <h3 className="font-semibold text-sm text-gray-700 mb-2">Qualification Status</h3>
-                                <p className="text-sm text-gray-900">{selectedStudent.result?.reason || 'N/A'}</p>
-                            </div>
+                            {/* Qualification Status with Failed Grades */}
+                            {!selectedStudent.result?.qualified && selectedStudent.result?.failed_grades && selectedStudent.result.failed_grades.length > 0 ? (
+                                <div className="bg-red-50 p-4 rounded-lg border-2 border-red-300">
+                                    <h3 className="font-semibold text-lg text-red-900 mb-3 flex items-center gap-2">
+                                        <X className="h-5 w-5" />
+                                        Disqualification Details
+                                    </h3>
+                                    <p className="text-sm text-red-800 mb-4">
+                                        <strong>Reason:</strong> {selectedStudent.result.reason}
+                                    </p>
+
+                                    <div className="bg-white rounded-lg border border-red-200 overflow-hidden">
+                                        <table className="w-full text-sm">
+                                            <thead className="bg-red-100 border-b border-red-200">
+                                                <tr>
+                                                    <th className="text-left p-3 font-semibold text-red-900">Subject</th>
+                                                    <th className="text-left p-3 font-semibold text-red-900">Period</th>
+                                                    <th className="text-center p-3 font-semibold text-red-900">Grade</th>
+                                                    <th className="text-center p-3 font-semibold text-red-900">Required</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {selectedStudent.result.failed_grades.map((failedGrade, idx) => (
+                                                    <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-red-50'}>
+                                                        <td className="p-3 font-medium text-gray-900">{failedGrade.subject}</td>
+                                                        <td className="p-3 text-gray-700">{failedGrade.period}</td>
+                                                        <td className="p-3 text-center">
+                                                            <Badge variant="destructive" className="font-bold">
+                                                                {failedGrade.grade.toFixed(2)}
+                                                            </Badge>
+                                                        </td>
+                                                        <td className="p-3 text-center text-gray-600">≥ 85</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    <div className="mt-3 p-3 bg-yellow-50 border border-yellow-300 rounded">
+                                        <p className="text-sm text-yellow-800">
+                                            💡 <strong>Note:</strong> To qualify for honors, ALL grades must be 85 or above,
+                                            even if the period average meets the honor threshold (90+).
+                                        </p>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                    <h3 className="font-semibold text-sm text-gray-700 mb-2">Qualification Status</h3>
+                                    <p className="text-sm text-gray-900">{selectedStudent.result?.reason || 'N/A'}</p>
+                                </div>
+                            )}
 
                             {/* Close Button */}
                             <div className="flex justify-end">
