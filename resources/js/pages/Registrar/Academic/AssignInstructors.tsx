@@ -987,51 +987,46 @@ export default function AssignInstructors({ user, assignments, instructors, depa
                                         <div className="border-t pt-3">
                                             <div className="text-xs text-gray-500 mb-2">Individual Subject Actions:</div>
                                             <div className="space-y-2">
-                                                {(() => {
-                                                    // Group by subject to avoid showing duplicate rows for the same subject
-                                                    const subjectGroups = group.assignments.reduce((acc, assignment) => {
-                                                        const subjectId = assignment.subject?.id || 'no-subject';
-                                                        if (!acc[subjectId]) {
-                                                            acc[subjectId] = {
-                                                                subject: assignment.subject,
-                                                                assignments: []
-                                                            };
-                                                        }
-                                                        acc[subjectId].assignments.push(assignment);
-                                                        return acc;
-                                                    }, {} as Record<string, { subject: Subject | null, assignments: InstructorCourseAssignment[] }>);
-
-                                                    return Object.values(subjectGroups).map((subjectGroup, subIdx) => (
-                                                        <div key={subIdx} className="flex items-center justify-between bg-gray-50 rounded px-3 py-2">
+                                                {group.assignments.map((assignment, assignmentIdx) => (
+                                                    <div key={assignment.id} className="flex items-center justify-between bg-gray-50 rounded px-3 py-2">
+                                                        <div className="flex flex-col space-y-1">
                                                             <div className="flex items-center space-x-2">
                                                                 <BookOpen className="h-3 w-3 text-gray-400" />
                                                                 <span className="text-sm font-medium">
-                                                                    {subjectGroup.subject?.name || 'All Course Subjects'}
+                                                                    {assignment.subject?.name || 'All Course Subjects'}
                                                                 </span>
-                                                                {subjectGroup.subject && (
-                                                                    <span className="text-xs text-gray-500">({subjectGroup.subject.code})</span>
+                                                                {assignment.subject && (
+                                                                    <span className="text-xs text-gray-500">({assignment.subject.code})</span>
                                                                 )}
                                                             </div>
-                                                            <div className="flex items-center space-x-2">
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    onClick={() => openEditModal(subjectGroup.assignments[0])}
-                                                                >
-                                                                    <Edit className="h-3 w-3" />
-                                                                </Button>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    onClick={() => destroyAssignment(subjectGroup.assignments[0].id)}
-                                                                    className="text-red-600 hover:text-red-700"
-                                                                >
-                                                                    <Trash2 className="h-3 w-3" />
-                                                                </Button>
-                                                            </div>
+                                                            {assignment.gradingPeriod && (
+                                                                <div className="flex items-center space-x-1 ml-5">
+                                                                    <Calendar className="h-3 w-3 text-gray-400" />
+                                                                    <span className="text-xs text-gray-500">
+                                                                        {assignment.gradingPeriod.name}
+                                                                    </span>
+                                                                </div>
+                                                            )}
                                                         </div>
-                                                    ));
-                                                })()}
+                                                        <div className="flex items-center space-x-2">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => openEditModal(assignment)}
+                                                            >
+                                                                <Edit className="h-3 w-3" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => destroyAssignment(assignment.id)}
+                                                                className="text-red-600 hover:text-red-700"
+                                                            >
+                                                                <Trash2 className="h-3 w-3" />
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                ))}
                                             </div>
                                         </div>
 
