@@ -1183,10 +1183,10 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                     );
                                                 })()}
 
-                                                {/* Section field for College - show after Department and Course are selected */}
+                                                {/* Section field for College - show after Department, Course, and Year Level are selected */}
                                                 {(() => {
                                                     const selectedLevel = academicLevels.find(level => level.id.toString() === subjectForm.academic_level_id);
-                                                    if (selectedLevel?.key !== 'college' || !subjectForm.department_id || !subjectForm.course_id) return null;
+                                                    if (selectedLevel?.key !== 'college' || !subjectForm.department_id || !subjectForm.course_id || !subjectForm.college_year_level) return null;
                                                     
                                                     return (
                                                         <div>
@@ -1201,14 +1201,19 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
                                                                 </SelectTrigger>
                                                                 <SelectContent>
                                                                     {(() => {
-                                                                        // Filter sections by college level, department, and course
+                                                                        // Filter sections by college level, department, course, and year level
                                                                         const collegeSections = sections.filter(section => {
                                                                             const level = academicLevels.find(l => l.id === section.academic_level_id);
-                                                                            return level?.key === 'college' && 
+                                                                            return level?.key === 'college' &&
                                                                                    section.department_id?.toString() === subjectForm.department_id &&
-                                                                                   section.course_id?.toString() === subjectForm.course_id;
+                                                                                   section.course_id?.toString() === subjectForm.course_id &&
+                                                                                   section.specific_year_level === subjectForm.college_year_level;
                                                                         });
-                                                                        
+
+                                                                        if (collegeSections.length === 0) {
+                                                                            return <SelectItem value="no-sections" disabled>No sections available for selected filters</SelectItem>;
+                                                                        }
+
                                                                         return collegeSections.map((section) => (
                                                                             <SelectItem key={section.id} value={section.id.toString()}>
                                                                                 {section.name}
