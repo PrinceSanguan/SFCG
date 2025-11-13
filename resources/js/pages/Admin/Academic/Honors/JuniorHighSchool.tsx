@@ -834,30 +834,48 @@ export default function JuniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                                             console.log('[JHS Submit] Current school year:', safeCurrentSchoolYear);
                                                             console.log('[JHS Submit] Honor results count:', safeHonorResults.length);
 
-                                                            // Check if any qualified student already has an honor result
-                                                            const alreadySubmitted = safeQualifiedStudents.some((student: any) =>
-                                                                safeHonorResults.some((result: HonorResult) =>
+                                                            // Filter out students who already have honor results for this school year
+                                                            const studentsToSubmit = safeQualifiedStudents.filter((student: any) => {
+                                                                const hasExistingResult = safeHonorResults.some((result: HonorResult) =>
                                                                     result.student_id === student.student.id &&
                                                                     result.school_year === safeCurrentSchoolYear
-                                                                )
-                                                            );
+                                                                );
+                                                                return !hasExistingResult;
+                                                            });
 
-                                                            console.log('[JHS Submit] Already submitted check:', alreadySubmitted);
+                                                            const alreadySubmittedCount = safeQualifiedStudents.length - studentsToSubmit.length;
 
-                                                            if (alreadySubmitted) {
-                                                                console.log('[JHS Submit] Blocking submission - students already submitted');
-                                                                addToast('Some students have already been submitted for approval.', 'warning');
+                                                            console.log('[JHS Submit] Total qualified students:', safeQualifiedStudents.length);
+                                                            console.log('[JHS Submit] Already submitted count:', alreadySubmittedCount);
+                                                            console.log('[JHS Submit] Students to submit count:', studentsToSubmit.length);
+                                                            console.log('[JHS Submit] Student names to submit:', studentsToSubmit.map((s: any) => s.student.name));
+
+                                                            if (alreadySubmittedCount > 0) {
+                                                                console.log('[JHS Submit] Already submitted students:',
+                                                                    safeQualifiedStudents.filter((student: any) =>
+                                                                        safeHonorResults.some((result: HonorResult) =>
+                                                                            result.student_id === student.student.id &&
+                                                                            result.school_year === safeCurrentSchoolYear
+                                                                        )
+                                                                    ).map((s: any) => s.student.name)
+                                                                );
+                                                            }
+
+                                                            if (studentsToSubmit.length === 0) {
+                                                                console.log('[JHS Submit] All students already submitted - blocking submission');
+                                                                addToast('All qualified students have already been submitted for approval.', 'warning');
                                                                 return;
                                                             }
 
-                                                            if (confirm(`Submit ${safeQualifiedStudents.length} qualified student(s) for principal approval?`)) {
+                                                            if (confirm(`Submit ${studentsToSubmit.length} qualified student(s) for principal approval?`)) {
                                                                 const submitData = { school_year: safeCurrentSchoolYear };
                                                                 console.log('[JHS Submit] User confirmed. Sending data:', submitData);
+                                                                console.log('[JHS Submit] Submitting students:', studentsToSubmit.map((s: any) => ({ id: s.student.id, name: s.student.name })));
 
                                                                 router.post(route('admin.academic.honors.junior-high-school.generate-results'), submitData, {
                                                                     onSuccess: (response) => {
                                                                         console.log('[JHS Submit] Success response:', response);
-                                                                        addToast(`Successfully submitted ${safeQualifiedStudents.length} student(s) for approval!`, 'success');
+                                                                        addToast(`Successfully submitted ${studentsToSubmit.length} student(s) for approval!`, 'success');
                                                                     },
                                                                     onError: (errors) => {
                                                                         console.error('[JHS Submit] Error response:', errors);

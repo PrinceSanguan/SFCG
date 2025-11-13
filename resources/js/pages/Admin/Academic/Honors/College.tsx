@@ -825,30 +825,62 @@ export default function CollegeHonors({ user, honorTypes, criteria, schoolYears,
                                             </h3>
                                             <Button
                                                 onClick={() => {
-                                                    // Check if any qualified student already has an honor result
-                                                    const alreadySubmitted = qualifiedStudents.some((student: any) =>
-                                                        honorResults.some((result: HonorResult) =>
+                                                    console.log('[College Submit] Starting submission process...');
+                                                    console.log('[College Submit] Qualified students count:', qualifiedStudents.length);
+                                                    console.log('[College Submit] Current school year:', currentSchoolYear);
+                                                    console.log('[College Submit] Honor results count:', honorResults.length);
+
+                                                    // Filter out students who already have honor results for this school year
+                                                    const studentsToSubmit = qualifiedStudents.filter((student: any) => {
+                                                        const hasExistingResult = honorResults.some((result: HonorResult) =>
                                                             result.student_id === student.student.id &&
                                                             result.school_year === currentSchoolYear
-                                                        )
-                                                    );
+                                                        );
+                                                        return !hasExistingResult;
+                                                    });
 
-                                                    if (alreadySubmitted) {
-                                                        addToast('Some students have already been submitted for approval.', 'warning');
+                                                    const alreadySubmittedCount = qualifiedStudents.length - studentsToSubmit.length;
+
+                                                    console.log('[College Submit] Total qualified students:', qualifiedStudents.length);
+                                                    console.log('[College Submit] Already submitted count:', alreadySubmittedCount);
+                                                    console.log('[College Submit] Students to submit count:', studentsToSubmit.length);
+                                                    console.log('[College Submit] Student names to submit:', studentsToSubmit.map((s: any) => s.student.name));
+
+                                                    if (alreadySubmittedCount > 0) {
+                                                        console.log('[College Submit] Already submitted students:',
+                                                            qualifiedStudents.filter((student: any) =>
+                                                                honorResults.some((result: HonorResult) =>
+                                                                    result.student_id === student.student.id &&
+                                                                    result.school_year === currentSchoolYear
+                                                                )
+                                                            ).map((s: any) => s.student.name)
+                                                        );
+                                                    }
+
+                                                    if (studentsToSubmit.length === 0) {
+                                                        console.log('[College Submit] All students already submitted - blocking submission');
+                                                        addToast('All qualified students have already been submitted for approval.', 'warning');
                                                         return;
                                                     }
 
-                                                    if (confirm(`Submit ${qualifiedStudents.length} qualified student(s) for chairperson approval?`)) {
+                                                    if (confirm(`Submit ${studentsToSubmit.length} qualified student(s) for chairperson approval?`)) {
+                                                        console.log('[College Submit] User confirmed. Sending data...');
+                                                        console.log('[College Submit] Submitting students:', studentsToSubmit.map((s: any) => ({ id: s.student.id, name: s.student.name })));
+
                                                         router.post(route('admin.academic.honors.college.generate-results'), {
                                                             school_year: currentSchoolYear,
                                                         }, {
-                                                            onSuccess: () => {
-                                                                addToast(`Successfully submitted ${qualifiedStudents.length} student(s) for approval!`, 'success');
+                                                            onSuccess: (response) => {
+                                                                console.log('[College Submit] Success response:', response);
+                                                                addToast(`Successfully submitted ${studentsToSubmit.length} student(s) for approval!`, 'success');
                                                             },
-                                                            onError: () => {
+                                                            onError: (errors) => {
+                                                                console.error('[College Submit] Error response:', errors);
                                                                 addToast('Failed to submit students for approval. Please try again.', 'error');
                                                             }
                                                         });
+                                                    } else {
+                                                        console.log('[College Submit] User cancelled submission');
                                                     }
                                                 }}
                                                 className="flex items-center gap-2"

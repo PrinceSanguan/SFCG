@@ -950,30 +950,62 @@ export default function ElementaryHonors({ user, honorTypes, criteria, schoolYea
                                                     </h3>
                                                     <Button
                                                         onClick={() => {
-                                                            // Check if any qualified student already has an honor result
-                                                            const alreadySubmitted = safeQualifiedStudents.some((student: any) =>
-                                                                safeHonorResults.some((result: HonorResult) =>
+                                                            console.log('[Elementary Submit] Starting submission process...');
+                                                            console.log('[Elementary Submit] Qualified students count:', safeQualifiedStudents.length);
+                                                            console.log('[Elementary Submit] Current school year:', safeCurrentSchoolYear);
+                                                            console.log('[Elementary Submit] Honor results count:', safeHonorResults.length);
+
+                                                            // Filter out students who already have honor results for this school year
+                                                            const studentsToSubmit = safeQualifiedStudents.filter((student: any) => {
+                                                                const hasExistingResult = safeHonorResults.some((result: HonorResult) =>
                                                                     result.student_id === student.student.id &&
                                                                     result.school_year === safeCurrentSchoolYear
-                                                                )
-                                                            );
+                                                                );
+                                                                return !hasExistingResult;
+                                                            });
 
-                                                            if (alreadySubmitted) {
-                                                                addToast('Some students have already been submitted for approval.', 'warning');
+                                                            const alreadySubmittedCount = safeQualifiedStudents.length - studentsToSubmit.length;
+
+                                                            console.log('[Elementary Submit] Total qualified students:', safeQualifiedStudents.length);
+                                                            console.log('[Elementary Submit] Already submitted count:', alreadySubmittedCount);
+                                                            console.log('[Elementary Submit] Students to submit count:', studentsToSubmit.length);
+                                                            console.log('[Elementary Submit] Student names to submit:', studentsToSubmit.map((s: any) => s.student.name));
+
+                                                            if (alreadySubmittedCount > 0) {
+                                                                console.log('[Elementary Submit] Already submitted students:',
+                                                                    safeQualifiedStudents.filter((student: any) =>
+                                                                        safeHonorResults.some((result: HonorResult) =>
+                                                                            result.student_id === student.student.id &&
+                                                                            result.school_year === safeCurrentSchoolYear
+                                                                        )
+                                                                    ).map((s: any) => s.student.name)
+                                                                );
+                                                            }
+
+                                                            if (studentsToSubmit.length === 0) {
+                                                                console.log('[Elementary Submit] All students already submitted - blocking submission');
+                                                                addToast('All qualified students have already been submitted for approval.', 'warning');
                                                                 return;
                                                             }
 
-                                                            if (confirm(`Submit ${safeQualifiedStudents.length} qualified student(s) for principal approval?`)) {
+                                                            if (confirm(`Submit ${studentsToSubmit.length} qualified student(s) for principal approval?`)) {
+                                                                console.log('[Elementary Submit] User confirmed. Sending data...');
+                                                                console.log('[Elementary Submit] Submitting students:', studentsToSubmit.map((s: any) => ({ id: s.student.id, name: s.student.name })));
+
                                                                 router.post(route('admin.academic.honors.elementary.generate-results'), {
                                                                     school_year: safeCurrentSchoolYear,
                                                                 }, {
-                                                                    onSuccess: () => {
-                                                                        addToast(`Successfully submitted ${safeQualifiedStudents.length} student(s) for approval!`, 'success');
+                                                                    onSuccess: (response) => {
+                                                                        console.log('[Elementary Submit] Success response:', response);
+                                                                        addToast(`Successfully submitted ${studentsToSubmit.length} student(s) for approval!`, 'success');
                                                                     },
-                                                                    onError: () => {
+                                                                    onError: (errors) => {
+                                                                        console.error('[Elementary Submit] Error response:', errors);
                                                                         addToast('Failed to submit students for approval. Please try again.', 'error');
                                                                     }
                                                                 });
+                                                            } else {
+                                                                console.log('[Elementary Submit] User cancelled submission');
                                                             }
                                                         }}
                                                         className="flex items-center gap-2"
