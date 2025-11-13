@@ -34,7 +34,7 @@ interface GradingPeriod {
     type?: string;
     parent_id?: number | null;
     semester_number?: number | null;
-    period_type?: string;
+    period_type?: string | null;
 }
 
 interface Department {
@@ -84,6 +84,7 @@ interface InstructorCourseAssignment {
     academic_level_id: number;
     year_level: string | null;
     grading_period_id: number | null;
+    section_id: number | null;
     school_year: string;
     notes: string | null;
     is_active: boolean;
@@ -409,6 +410,20 @@ export default function AssignInstructors({ user, assignments, instructors, depa
             setFilteredCourses(filtered);
         }
 
+        // Filter sections for this course and year level
+        if (assignment.course_id && assignment.year_level) {
+            const filteredSect = sections.filter(s => {
+                const matchesCourse = s.course_id === assignment.course_id;
+                const matchesYearLevel = !assignment.year_level || s.specific_year_level === assignment.year_level;
+                return matchesCourse && matchesYearLevel;
+            });
+            console.log('[EDIT_MODAL] Filtered sections:', {
+                count: filteredSect.length,
+                sections: filteredSect.map(s => ({ id: s.id, name: s.name, code: s.code, yearLevel: s.specific_year_level }))
+            });
+            setFilteredSections(filteredSect);
+        }
+
         // MULTI-PERIOD EDIT: Find ALL assignments for this instructor-course-subject-year
         // and collect all their grading_period_ids to pre-populate the checkboxes
         const relatedAssignments = assignments.filter(a =>
@@ -464,7 +479,7 @@ export default function AssignInstructors({ user, assignments, instructors, depa
             department_id: departmentId,
             course_id: assignment.course_id.toString(),
             subject_id: assignment.subject?.id.toString() || '',
-            section_id: '',
+            section_id: assignment.section_id?.toString() || '',
             academic_level_id: assignment.academic_level_id.toString(),
             semester_ids: semesterIds,
             grading_period_ids: gradingPeriodIds,
@@ -1241,6 +1256,15 @@ export default function AssignInstructors({ user, assignments, instructors, depa
                                     onValueChange={(value) => {
                                         console.log('[ADMIN EDIT] Course changed to:', value);
                                         setAssignmentForm({ ...assignmentForm, course_id: value, section_id: '', subject_id: '' });
+
+                                        // Filter sections for the new course and current year level
+                                        const filteredSect = sections.filter(s => {
+                                            const matchesCourse = s.course_id === parseInt(value);
+                                            const matchesYearLevel = !assignmentForm.year_level || s.specific_year_level === assignmentForm.year_level;
+                                            return matchesCourse && matchesYearLevel;
+                                        });
+                                        setFilteredSections(filteredSect);
+
                                         setSectionJustSelected(false);
                                         console.log('[ADMIN EDIT] sectionJustSelected reset to false (course changed)');
                                     }}
@@ -1261,6 +1285,32 @@ export default function AssignInstructors({ user, assignments, instructors, depa
                                     </SelectContent>
                                 </Select>
                             </div>
+                        </div>
+
+                        <div>
+                            <Label htmlFor="edit_section_id">Section</Label>
+                            <Select
+                                value={assignmentForm.section_id}
+                                onValueChange={(value) => {
+                                    console.log('[ADMIN EDIT] Section changed to:', value);
+                                    setAssignmentForm({ ...assignmentForm, section_id: value });
+                                }}
+                                disabled={!assignmentForm.course_id || filteredSections.length === 0}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder={assignmentForm.course_id ? (filteredSections.length > 0 ? "Select section" : "No sections available") : "Select course first"} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {filteredSections.map((section) => (
+                                        <SelectItem key={section.id} value={section.id.toString()}>
+                                            {section.name}{section.code ? ` (${section.code})` : ''}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <p className="text-xs text-gray-500 mt-1">
+                                Optional: Section assignment for this instructor
+                            </p>
                         </div>
 
                         <div>
@@ -1343,7 +1393,7 @@ export default function AssignInstructors({ user, assignments, instructors, depa
                                         const periodsForSemester = allCollegeGradingPeriods
                                             .filter(period => {
                                                 const matchesParent = period.parent_id?.toString() === semesterId;
-                                                const isFinalPeriod = (period as any).period_type === 'final';
+                                                const isFinalPeriod = period.period_type === 'final';
                                                 return matchesParent && !isFinalPeriod;
                                             })
                                             .filter((p, i, arr) => arr.findIndex(x => x.name.toLowerCase() === p.name.toLowerCase()) === i);
@@ -1352,7 +1402,7 @@ export default function AssignInstructors({ user, assignments, instructors, depa
                                             semester_id: semesterId,
                                             semester_name: semester?.name,
                                             periods_count: periodsForSemester.length,
-                                            periods: periodsForSemester.map(p => ({ id: p.id, name: p.name, period_type: (p as any).period_type }))
+                                            periods: periodsForSemester.map(p => ({ id: p.id, name: p.name, period_type: p.period_type }))
                                         }, null, 2));
 
                                         return (
