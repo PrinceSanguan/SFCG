@@ -217,9 +217,9 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
 
     // Get current academic level key for grade validation
     const getCurrentAcademicLevelKey = () => {
-        // For teachers, always use college grading scale since they work with SHS students
-        // SHS uses the same 1.0-5.0 scale as college
-        return 'college';
+        // For teachers, always use Senior High School grading scale (75-100)
+        // SHS uses percentage grading (75-100), NOT the 1.0-5.0 scale
+        return 'senior_highschool';
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -322,12 +322,21 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                                 <Input
                                                     id="grade"
                                                     type="number"
-                                                    step="0.1"
-                                                    min="1.0"
-                                                    max="5.0"
-                                                    placeholder="Enter grade (1.0-5.0)"
+                                                    step="1"
+                                                    min="75"
+                                                    max="100"
+                                                    placeholder="Enter grade (75-100)"
                                                     value={data.grade}
-                                                    onChange={(e) => setData('grade', e.target.value)}
+                                                    onChange={(e) => {
+                                                        const value = e.target.value;
+                                                        setData('grade', value);
+                                                        if (value) {
+                                                            console.log('[SHS_GRADE_INPUT] Grade changed:', {
+                                                                grade: parseFloat(value),
+                                                                scale: '75-100'
+                                                            });
+                                                        }
+                                                    }}
                                                     className={errors.grade ? 'border-red-500' : ''}
                                                     autoFocus
                                                 />
@@ -335,7 +344,7 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                                     <p className="text-sm text-red-500 mt-1">{errors.grade}</p>
                                                 )}
                                                 <p className="text-sm text-muted-foreground mt-1">
-                                                    Senior High School: 1.0 (highest) to 5.0 (lowest). 3.0 is passing (equivalent to 75).
+                                                    Senior High School: 75 (passing) to 100 (highest). Use whole numbers or decimals.
                                                 </p>
                                             </div>
 
@@ -631,22 +640,28 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                         <Input
                                             id="grade"
                                             type="number"
-                                            step="0.01"
-                                            min={getCurrentAcademicLevelKey() === 'college' ? '1.0' : '75'}
-                                            max={getCurrentAcademicLevelKey() === 'college' ? '5.0' : '100'}
-                                            placeholder={getCurrentAcademicLevelKey() === 'college' ? 'Enter grade (1.0-5.0)' : 'Enter grade (0-100)'}
+                                            step="1"
+                                            min="75"
+                                            max="100"
+                                            placeholder="Enter grade (75-100)"
                                             value={data.grade}
-                                            onChange={(e) => setData('grade', e.target.value)}
+                                            onChange={(e) => {
+                                                const value = e.target.value;
+                                                setData('grade', value);
+                                                if (value) {
+                                                    console.log('[SHS_GRADE_INPUT] Grade changed:', {
+                                                        grade: parseFloat(value),
+                                                        scale: '75-100'
+                                                    });
+                                                }
+                                            }}
                                             className={errors.grade ? 'border-red-500' : ''}
                                         />
                                         {errors.grade && (
                                             <p className="text-sm text-red-500 mt-1">{errors.grade}</p>
                                         )}
                                         <p className="text-sm text-muted-foreground mt-1">
-                                            {getCurrentAcademicLevelKey() === 'college' 
-                                                ? 'College: 1.0 (highest) to 5.0 (lowest). 3.0 is passing (equivalent to 75).' 
-                                                : 'Elementary to Senior High: 75 (passing) to 100 (highest).'
-                                            }
+                                            Senior High School: 75 (passing) to 100 (highest). Use whole numbers or decimals.
                                         </p>
                                     </div>
 
@@ -680,7 +695,7 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                         • <strong>Subject:</strong> Automatically populated when student is selected
                                     </p>
                                     <p>
-                                        • <strong>Grade Scale:</strong> College uses 1.0-5.0 scale (1.0 highest, 3.0 passing), Elementary/Senior High uses 75-100 scale (75 passing)
+                                        • <strong>Grade Scale:</strong> Senior High School uses 75-100 percentage scale (75 passing, 100 highest)
                                     </p>
                                     <p>
                                         • <strong>Validation:</strong> Grades are automatically submitted for validation after saving

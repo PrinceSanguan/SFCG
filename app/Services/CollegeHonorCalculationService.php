@@ -119,6 +119,28 @@ class CollegeHonorCalculationService
         // Get the BEST grade (lowest number) for display
         $bestGrade = !empty($allGrades) ? min($allGrades) : 0;
 
+        // Comprehensive logging of college honor calculation
+        \Log::info('[COLLEGE_HONOR_CALC] GPA Calculation Complete', [
+            'student_id' => $studentId,
+            'student_name' => $student->name,
+            'school_year' => $schoolYear,
+            'gpa' => $averageGrade,
+            'gpa_percentage' => $this->gradeToPercentage($averageGrade),
+            'gpa_quality' => $this->getQualityDescription($averageGrade),
+            'best_grade' => $bestGrade,
+            'best_grade_percentage' => $this->gradeToPercentage($bestGrade),
+            'worst_grade' => $worstGrade,
+            'worst_grade_percentage' => $this->gradeToPercentage($worstGrade),
+            'total_grades' => count($allGrades),
+            'all_grades_with_percentages' => array_map(function($grade) {
+                return [
+                    'grade' => $grade,
+                    'percentage' => $this->gradeToPercentage($grade),
+                    'quality' => $this->getQualityDescription($grade)
+                ];
+            }, $allGrades)
+        ]);
+
         // Get all honor criteria for college level, ordered by strictness
         // Order by max_gpa ASC so strictest (lowest max_gpa = highest honor) comes first
         $criteria = HonorCriterion::where('academic_level_id', $academicLevelId)
@@ -175,6 +197,16 @@ class CollegeHonorCalculationService
             }
 
             if ($qualifies) {
+                \Log::info('[COLLEGE_HONOR_CALC] Student Qualified for Honor', [
+                    'student_id' => $studentId,
+                    'student_name' => $student->name,
+                    'honor_type' => $criterion->honorType->name,
+                    'gpa' => $averageGrade,
+                    'gpa_percentage' => $this->gradeToPercentage($averageGrade),
+                    'required_max_gpa' => $criterion->max_gpa,
+                    'required_min_gpa' => $criterion->min_gpa
+                ]);
+
                 $qualifications[] = [
                     'honor_type' => $criterion->honorType,
                     'criterion' => $criterion,
@@ -441,5 +473,44 @@ class CollegeHonorCalculationService
             'total_qualified' => $totalQualified,
             'results' => $results
         ];
+    }
+
+    /**
+     * Convert college grade to percentage equivalent.
+     *
+     * @param float $grade
+     * @return string
+     */
+    private function gradeToPercentage($grade)
+    {
+        $gradeMap = [
+            1.1 => '97-98%', 1.2 => '95-96%', 1.3 => '93-94%', 1.4 => '91-92%',
+            1.5 => '90%', 1.6 => '89%', 1.7 => '88%', 1.8 => '87%', 1.9 => '86%',
+            2.0 => '85%', 2.1 => '84%', 2.2 => '83%', 2.3 => '82%', 2.4 => '81%',
+            2.5 => '80%', 2.6 => '79%', 2.7 => '78%', 2.8 => '77%', 2.9 => '76%',
+            3.0 => '75%', 3.1 => '74%', 3.2 => '73%', 3.3 => '72%', 3.4 => '71%',
+            3.5 => '70%', 5.0 => 'Below 70%',
+        ];
+        return $gradeMap[$grade] ?? 'N/A';
+    }
+
+    /**
+     * Get quality description for college grade.
+     *
+     * @param float $grade
+     * @return string
+     */
+    private function getQualityDescription($grade)
+    {
+        if ($grade >= 1.0 && $grade <= 1.2) return 'Excellent';
+        if ($grade >= 1.3 && $grade <= 1.5) return 'Superior';
+        if ($grade >= 1.6 && $grade <= 1.8) return 'Very Good';
+        if ($grade >= 1.9 && $grade <= 2.1) return 'Good';
+        if ($grade >= 2.2 && $grade <= 2.4) return 'Average';
+        if ($grade >= 2.5 && $grade <= 2.7) return 'Satisfactory';
+        if ($grade >= 2.8 && $grade <= 3.0) return 'Fair';
+        if ($grade > 3.0 && $grade <= 3.5) return 'Conditional';
+        if ($grade == 5.0) return 'Failing';
+        return 'N/A';
     }
 }

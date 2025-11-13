@@ -357,11 +357,21 @@ class GradeManagementController extends Controller
         ]);
         
         // Custom validation for grade based on academic level
-        // SHS uses 1.0-5.0 scale (same as college)
+        // SHS uses 75-100 percentage scale
         $academicLevel = AcademicLevel::find($request->academic_level_id);
         if ($academicLevel) {
-            if ($academicLevel->key === 'college' || $academicLevel->key === 'senior_highschool') {
+            if ($academicLevel->key === 'senior_highschool') {
+                $validator->addRules(['grade' => 'required|numeric|min:75|max:100']);
+                Log::info('[SHS_GRADE_VALIDATION] Applied Senior High School grade validation (75-100 scale)', [
+                    'requested_grade' => $request->grade,
+                    'academic_level' => 'senior_highschool'
+                ]);
+            } elseif ($academicLevel->key === 'college') {
+                // In case a teacher handles college courses (unlikely but handle it)
                 $validator->addRules(['grade' => 'numeric|min:1.0|max:5.0']);
+                Log::info('[COLLEGE_GRADE_VALIDATION] Applied college grade validation for teacher', [
+                    'requested_grade' => $request->grade
+                ]);
             } else {
                 $validator->addRules(['grade' => 'numeric|min:0|max:100']);
             }
@@ -441,12 +451,26 @@ class GradeManagementController extends Controller
         // Create the grade
         try {
             $grade = StudentGrade::create($gradeData);
-            Log::info('Teacher grade created successfully', [
+
+            // Enhanced logging for SHS grades
+            $logData = [
                 'teacher_id' => $user->id,
                 'grade_id' => $grade->id,
-                'grade_data' => $gradeData
-            ]);
-            
+                'student_id' => $grade->student_id,
+                'subject_id' => $grade->subject_id,
+                'grade_value' => $grade->grade,
+                'grading_period_id' => $grade->grading_period_id,
+                'school_year' => $grade->school_year,
+                'academic_level_id' => $grade->academic_level_id,
+                'created_at' => $grade->created_at->toDateTimeString()
+            ];
+
+            if ($academicLevel && $academicLevel->key === 'senior_highschool') {
+                Log::info('[SHS_GRADE_CREATE] === SENIOR HIGH SCHOOL GRADE CREATED SUCCESSFULLY ===', $logData);
+            } else {
+                Log::info('Teacher grade created successfully', $logData);
+            }
+
             return redirect()->route('teacher.grades.index')
                 ->with('success', 'Grade created successfully.');
         } catch (\Exception $e) {
@@ -909,28 +933,51 @@ class GradeManagementController extends Controller
             // Custom validation for grade based on academic level
             $academicLevel = AcademicLevel::find($gradeData->academic_level_id);
             if ($academicLevel) {
-                if ($academicLevel->key === 'college') {
+                if ($academicLevel->key === 'senior_highschool') {
+                    $validator->addRules(['grade' => 'required|numeric|min:75|max:100']);
+                    Log::info('[SHS_GRADE_UPDATE_VALIDATION] Applied Senior High School grade validation', [
+                        'grade_id' => $grade,
+                        'old_grade' => $gradeData->grade,
+                        'new_grade' => $request->grade
+                    ]);
+                } elseif ($academicLevel->key === 'college') {
                     $validator->addRules(['grade' => 'numeric|min:1.0|max:5.0']);
                 } else {
                     $validator->addRules(['grade' => 'numeric|min:0|max:100']);
                 }
             }
-            
+
             if ($validator->fails()) {
+                Log::error('[SHS_GRADE_UPDATE] Validation failed', [
+                    'errors' => $validator->errors()->toArray(),
+                    'grade_id' => $grade
+                ]);
                 return back()->withErrors($validator)->withInput();
             }
-            
+
             // Update the grade
             $gradeData->update([
                 'grade' => $request->grade,
                 'grading_period_id' => $request->grading_period_id === '0' ? null : $request->grading_period_id,
             ]);
-            
-            Log::info('Teacher grade updated successfully', [
-                'teacher_id' => $user->id,
-                'grade_id' => $grade,
-                'new_grade' => $request->grade
-            ]);
+
+            // Enhanced logging
+            if ($academicLevel && $academicLevel->key === 'senior_highschool') {
+                Log::info('[SHS_GRADE_UPDATE] === SENIOR HIGH SCHOOL GRADE UPDATED SUCCESSFULLY ===', [
+                    'teacher_id' => $user->id,
+                    'grade_id' => $grade,
+                    'student_id' => $gradeData->student_id,
+                    'subject_id' => $gradeData->subject_id,
+                    'new_grade' => $gradeData->grade,
+                    'updated_at' => $gradeData->updated_at->toDateTimeString()
+                ]);
+            } else {
+                Log::info('Teacher grade updated successfully', [
+                    'teacher_id' => $user->id,
+                    'grade_id' => $grade,
+                    'new_grade' => $request->grade
+                ]);
+            }
             
             return redirect()->route('teacher.grades.index')
                 ->with('success', 'Grade updated successfully.');

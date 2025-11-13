@@ -469,8 +469,19 @@ class CSVUploadController extends Controller
                 $isValidGrade = false;
 
                 if ($rowAcademicLevel && $rowAcademicLevel->key === 'college') {
-                    // College: 1.0 to 5.0, where 3.0 is passing
-                    $isValidGrade = ($grade >= 1.0 && $grade <= 5.0);
+                    // College: 1.1-3.5 (0.1 increments) and 5.0 for failing
+                    $isValidGrade = $this->validateCollegeGrade($grade);
+
+                    if ($isValidGrade) {
+                        Log::info('[COLLEGE_CSV_GRADE_VALIDATION] Valid college grade from CSV', [
+                            'row' => $index + 1,
+                            'student_id' => $student->id,
+                            'student_name' => $student->name,
+                            'grade' => $grade,
+                            'percentage' => $this->gradeToPercentage($grade),
+                            'quality' => $this->getQualityDescription($grade)
+                        ]);
+                    }
                 } else {
                     // Elementary to Senior High: 75 to 100, where 75 is passing
                     $isValidGrade = ($grade >= 75 && $grade <= 100);
@@ -478,8 +489,11 @@ class CSVUploadController extends Controller
 
                 if (!$isValidGrade) {
                     $errors++;
-                    $errorDetails[] = "Row " . ($index + 1) . ": Invalid grade value - " . $grade;
-                    Log::warning('CSV upload: Invalid grade', [
+                    $errorMessage = ($rowAcademicLevel && $rowAcademicLevel->key === 'college')
+                        ? "Row " . ($index + 1) . ": Invalid college grade - " . $grade . " (must be 1.1-3.5 or 5.0)"
+                        : "Row " . ($index + 1) . ": Invalid grade value - " . $grade;
+                    $errorDetails[] = $errorMessage;
+                    Log::warning('[CSV_UPLOAD] Invalid grade', [
                         'row' => $index + 1,
                         'student_id' => $student->id,
                         'grade' => $grade,
@@ -662,7 +676,16 @@ class CSVUploadController extends Controller
             // Validate grade
             $isValidGrade = false;
             if ($rowAcademicLevel->key === 'college') {
-                $isValidGrade = ($midtermGrade >= 1.0 && $midtermGrade <= 5.0);
+                $isValidGrade = $this->validateCollegeGrade($midtermGrade);
+                if ($isValidGrade) {
+                    Log::info('[COLLEGE_CSV_MIDTERM] Valid midterm grade', [
+                        'row' => $index + 1,
+                        'student_name' => $student->name,
+                        'grade' => $midtermGrade,
+                        'percentage' => $this->gradeToPercentage($midtermGrade),
+                        'quality' => $this->getQualityDescription($midtermGrade)
+                    ]);
+                }
             } else {
                 $isValidGrade = ($midtermGrade >= 75 && $midtermGrade <= 100);
             }
@@ -750,7 +773,16 @@ class CSVUploadController extends Controller
             // Validate grade
             $isValidGrade = false;
             if ($rowAcademicLevel->key === 'college') {
-                $isValidGrade = ($finalGrade >= 1.0 && $finalGrade <= 5.0);
+                $isValidGrade = $this->validateCollegeGrade($finalGrade);
+                if ($isValidGrade) {
+                    Log::info('[COLLEGE_CSV_FINAL] Valid final term grade', [
+                        'row' => $index + 1,
+                        'student_name' => $student->name,
+                        'grade' => $finalGrade,
+                        'percentage' => $this->gradeToPercentage($finalGrade),
+                        'quality' => $this->getQualityDescription($finalGrade)
+                    ]);
+                }
             } else {
                 $isValidGrade = ($finalGrade >= 75 && $finalGrade <= 100);
             }
@@ -836,5 +868,77 @@ class CSVUploadController extends Controller
             'errors' => $errors,
             'error_message' => $errorMessage,
         ];
+    }
+
+    /**
+     * Validate college grade according to Saint Francis College grading scale.
+     * Valid grades: 1.1-3.5 (in 0.1 increments) and 5.0 for failing
+     *
+     * @param float $grade
+     * @return bool
+     */
+    private function validateCollegeGrade($grade)
+    {
+        // Convert to float to handle string inputs
+        $grade = floatval($grade);
+
+        // Check if it's exactly 5.0 (failing grade)
+        if ($grade == 5.0) {
+            return true;
+        }
+
+        // Check if it's within 1.1 to 3.5 range with 0.1 increments
+        if ($grade >= 1.1 && $grade <= 3.5) {
+            // Check if it's a valid 0.1 increment
+            $rounded = round($grade * 10) / 10;
+            return abs($grade - $rounded) < 0.001;
+        }
+
+        return false;
+    }
+
+    /**
+     * Convert college grade to percentage equivalent.
+     *
+     * @param float $grade
+     * @return string
+     */
+    private function gradeToPercentage($grade)
+    {
+        $grade = floatval($grade);
+
+        $gradeMap = [
+            1.1 => '97-98%', 1.2 => '95-96%', 1.3 => '93-94%', 1.4 => '91-92%',
+            1.5 => '90%', 1.6 => '89%', 1.7 => '88%', 1.8 => '87%', 1.9 => '86%',
+            2.0 => '85%', 2.1 => '84%', 2.2 => '83%', 2.3 => '82%', 2.4 => '81%',
+            2.5 => '80%', 2.6 => '79%', 2.7 => '78%', 2.8 => '77%', 2.9 => '76%',
+            3.0 => '75%', 3.1 => '74%', 3.2 => '73%', 3.3 => '72%', 3.4 => '71%',
+            3.5 => '70%', 5.0 => 'Below 70%',
+        ];
+
+        return $gradeMap[$grade] ?? 'Invalid';
+    }
+
+    /**
+     * Get quality description for college grade.
+     *
+     * @param float $grade
+     * @return string
+     */
+    private function getQualityDescription($grade)
+    {
+        $grade = floatval($grade);
+
+        if ($grade >= 1.0 && $grade <= 1.2) return 'Excellent';
+        if ($grade >= 1.3 && $grade <= 1.5) return 'Superior';
+        if ($grade >= 1.6 && $grade <= 1.8) return 'Very Good';
+        if ($grade >= 1.9 && $grade <= 2.1) return 'Good';
+        if ($grade >= 2.2 && $grade <= 2.4) return 'Average';
+        if ($grade >= 2.5 && $grade <= 2.7) return 'Satisfactory';
+        if ($grade >= 2.8 && $grade <= 3.0) return 'Fair';
+        if ($grade > 3.0 && $grade <= 3.5) return 'Conditional';
+        if ($grade == 5.0) return 'Failing';
+
+        return 'Invalid';
     }
 }

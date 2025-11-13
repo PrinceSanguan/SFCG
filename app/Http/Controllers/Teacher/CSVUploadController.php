@@ -620,18 +620,27 @@ class CSVUploadController extends Controller
                     continue;
                 }
 
-                // Validate grade - Teachers use 1.0-5.0 grading scale (same as instructors)
+                // Validate grade - SHS uses 75-100 percentage scale
                 $grade = floatval($row['grade']);
-                $isValidGrade = ($grade >= 1.0 && $grade <= 5.0);
+                $isValidGrade = ($grade >= 75 && $grade <= 100);
+
+                if ($isValidGrade) {
+                    Log::info('[SHS_CSV_GRADE_VALIDATION] Valid SHS grade from CSV', [
+                        'row' => $index + 1,
+                        'student_id' => $student->id,
+                        'student_name' => $student->name,
+                        'grade' => $grade
+                    ]);
+                }
 
                 if (!$isValidGrade) {
                     $errors++;
-                    $errorDetails[] = "Row " . ($index + 1) . ": Invalid grade value - " . $grade . " (must be 1.0-5.0)";
-                    Log::warning('CSV upload: Invalid grade', [
+                    $errorDetails[] = "Row " . ($index + 1) . ": Invalid SHS grade - " . $grade . " (must be 75-100)";
+                    Log::warning('[SHS_CSV_UPLOAD] Invalid grade', [
                         'row' => $index + 1,
                         'student_id' => $student->id,
                         'grade' => $grade,
-                        'expected_range' => '1.0-5.0',
+                        'expected_range' => '75-100',
                         'academic_level' => $rowAcademicLevel ? $rowAcademicLevel->key : 'unknown',
                     ]);
                     continue;
@@ -832,8 +841,16 @@ class CSVUploadController extends Controller
         if (!empty($row['midterm'])) {
             $midtermGrade = floatval($row['midterm']);
 
-            // Validate grade - Teachers use 1.0-5.0 scale (same as instructors)
-            $isValidGrade = ($midtermGrade >= 1.0 && $midtermGrade <= 5.0);
+            // Validate grade - SHS uses 75-100 percentage scale
+            $isValidGrade = ($midtermGrade >= 75 && $midtermGrade <= 100);
+
+            if ($isValidGrade) {
+                Log::info('[SHS_CSV_MIDTERM] Valid SHS midterm grade', [
+                    'row' => $index + 1,
+                    'student_name' => $student->name,
+                    'grade' => $midtermGrade
+                ]);
+            }
 
             if ($isValidGrade && $midtermPeriod) {
                 try {
@@ -920,8 +937,16 @@ class CSVUploadController extends Controller
         if (!empty($row['final_term'])) {
             $finalGrade = floatval($row['final_term']);
 
-            // Validate grade - Teachers use 1.0-5.0 scale (same as instructors)
-            $isValidGrade = ($finalGrade >= 1.0 && $finalGrade <= 5.0);
+            // Validate grade - SHS uses 75-100 percentage scale
+            $isValidGrade = ($finalGrade >= 75 && $finalGrade <= 100);
+
+            if ($isValidGrade) {
+                Log::info('[SHS_CSV_FINAL] Valid SHS final term grade', [
+                    'row' => $index + 1,
+                    'student_name' => $student->name,
+                    'grade' => $finalGrade
+                ]);
+            }
 
             if ($isValidGrade && $finalPeriod) {
                 try {

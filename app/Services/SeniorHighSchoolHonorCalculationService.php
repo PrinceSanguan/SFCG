@@ -120,9 +120,22 @@ class SeniorHighSchoolHonorCalculationService
         $periodAverage = $currentPeriodGrades->avg('grade');
         $periodAverage = round($periodAverage, 2);
 
-        Log::info('[SHS HONOR] Period Average: ' . $periodAverage, [
+        // Comprehensive logging of all grades in period
+        $gradesDetail = $currentPeriodGrades->map(function($grade) {
+            return [
+                'subject' => $grade->subject->name ?? 'Unknown',
+                'grade' => $grade->grade
+            ];
+        })->toArray();
+
+        Log::info('[SHS_HONOR_CALC] === PERIOD AVERAGE CALCULATED ===', [
+            'student_id' => $studentId,
+            'student_name' => $student->name,
             'period' => $period->name,
-            'grades_count' => $currentPeriodGrades->count()
+            'period_average' => $periodAverage,
+            'grades_count' => $currentPeriodGrades->count(),
+            'all_grades_in_period' => $gradesDetail,
+            'school_year' => $schoolYear
         ]);
 
         // Check if period average meets minimum honor requirement (90+)
@@ -178,9 +191,22 @@ class SeniorHighSchoolHonorCalculationService
         // Determine honor level based on period average
         $honorLevel = $this->determineHonorLevel($periodAverage);
 
+        if ($honorLevel) {
+            Log::info('[SHS_HONOR_CALC] ✅ STUDENT QUALIFIED FOR HONOR', [
+                'student_id' => $studentId,
+                'student_name' => $student->name,
+                'honor_level' => $honorLevel['name'],
+                'honor_range' => $honorLevel['range'],
+                'period_average' => $periodAverage,
+                'period' => $period->name,
+                'total_grades_checked' => $allGradesUpToNow->count()
+            ]);
+        }
+
         if (!$honorLevel) {
-            Log::warning('[SHS HONOR] Could not determine honor level for average', [
-                'period_average' => $periodAverage
+            Log::warning('[SHS_HONOR_CALC] Could not determine honor level for average', [
+                'period_average' => $periodAverage,
+                'student_id' => $studentId
             ]);
             return [
                 'qualified' => false,

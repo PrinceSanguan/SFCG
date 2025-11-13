@@ -349,8 +349,8 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
                                     <Alert>
                                         <AlertCircle className="h-4 w-4" />
                                         <AlertDescription>
-                                            <strong>Grade System:</strong> {isCollegeLevel ? 
-                                                'College uses 1.0-5.0 scale (1.0 highest, 3.0 passing)' : 
+                                            <strong>Grade System:</strong> {isCollegeLevel ?
+                                                'College uses 1.0-5.0 scale. Valid grades: 1.1-3.5 (0.1 increments) or 5.0. Examples: 1.1=97-98% (Excellent), 1.5=90% (Superior), 2.0=85% (Good), 3.0=75% (Fair-Passing), 5.0=Below 70% (Failing)' :
                                                 'Elementary to Senior High uses 75-100 scale (75 passing)'
                                             }
                                         </AlertDescription>
@@ -456,7 +456,17 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
                                     <div>
                                         <h4 className="font-medium mb-2">Grade Values:</h4>
                                         <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                                            <li>• <strong>College:</strong> 1.0 to 5.0 (3.0 = passing)</li>
+                                            <li>• <strong>College:</strong> Valid grades are 1.1-3.5 (in 0.1 increments) or 5.0
+                                                <ul className="ml-4 mt-1 space-y-0.5">
+                                                    <li>◦ 1.1-1.2 = Excellent (97-98%)</li>
+                                                    <li>◦ 1.3-1.5 = Superior (90-94%)</li>
+                                                    <li>◦ 1.6-1.8 = Very Good (87-89%)</li>
+                                                    <li>◦ 1.9-2.1 = Good (84-86%)</li>
+                                                    <li>◦ 2.8-3.0 = Fair (75-77%, Passing)</li>
+                                                    <li>◦ 3.1-3.5 = Conditional (70-74%)</li>
+                                                    <li>◦ 5.0 = Failing (Below 70%)</li>
+                                                </ul>
+                                            </li>
                                             <li>• <strong>Elementary/Senior High:</strong> 75 to 100 (75 = passing)</li>
                                         </ul>
                                     </div>

@@ -407,8 +407,23 @@ class GradeManagementController extends Controller
             ]);
 
             if ($academicLevel->key === 'college') {
-                $validator->addRules(['grade' => 'numeric|min:1.0|max:5.0']);
-                Log::info('Applied college grade validation (1.0-5.0)');
+                // College uses 1.0-5.0 scale with specific valid grades
+                $validator->addRules([
+                    'grade' => [
+                        'required',
+                        'numeric',
+                        function ($attribute, $value, $fail) {
+                            if (!$this->validateCollegeGrade($value)) {
+                                $fail('Invalid college grade. Must be between 1.1-3.5 (in 0.1 increments) or 5.0 for failing.');
+                            }
+                        }
+                    ]
+                ]);
+                Log::info('[COLLEGE_GRADE_VALIDATION] Applied college grade validation (1.0-5.0 scale)', [
+                    'requested_grade' => $request->grade,
+                    'percentage' => $this->gradeToPercentage($request->grade),
+                    'quality' => $this->getQualityDescription($request->grade)
+                ]);
             } else {
                 $validator->addRules(['grade' => 'numeric|min:0|max:100']);
                 Log::info('Applied standard grade validation (0-100)');
@@ -529,15 +544,26 @@ class GradeManagementController extends Controller
             Log::info('Attempting to create grade in database');
             $grade = StudentGrade::create($gradeData);
 
-            Log::info('=== GRADE CREATED SUCCESSFULLY ===', [
+            // Enhanced logging for college grades
+            $logData = [
                 'grade_id' => $grade->id,
                 'student_id' => $grade->student_id,
                 'subject_id' => $grade->subject_id,
                 'grade_value' => $grade->grade,
                 'grading_period_id' => $grade->grading_period_id,
                 'school_year' => $grade->school_year,
+                'academic_level_id' => $grade->academic_level_id,
                 'created_at' => $grade->created_at->toDateTimeString()
-            ]);
+            ];
+
+            // Add college-specific grade information
+            if ($academicLevel && $academicLevel->key === 'college') {
+                $logData['percentage_equivalent'] = $this->gradeToPercentage($grade->grade);
+                $logData['quality_description'] = $this->getQualityDescription($grade->grade);
+                Log::info('[COLLEGE_GRADE_CREATE] === COLLEGE GRADE CREATED SUCCESSFULLY ===', $logData);
+            } else {
+                Log::info('=== GRADE CREATED SUCCESSFULLY ===', $logData);
+            }
 
             return redirect()->route('instructor.grades.index')
                 ->with('success', 'Grade created successfully.');
@@ -807,28 +833,65 @@ class GradeManagementController extends Controller
         $academicLevel = $grade->academicLevel;
         if ($academicLevel) {
             if ($academicLevel->key === 'college') {
-                $validator->addRules(['grade' => 'numeric|min:1.0|max:5.0']);
+                // College uses 1.0-5.0 scale with specific valid grades
+                $validator->addRules([
+                    'grade' => [
+                        'required',
+                        'numeric',
+                        function ($attribute, $value, $fail) {
+                            if (!$this->validateCollegeGrade($value)) {
+                                $fail('Invalid college grade. Must be between 1.1-3.5 (in 0.1 increments) or 5.0 for failing.');
+                            }
+                        }
+                    ]
+                ]);
+                Log::info('[COLLEGE_GRADE_UPDATE_VALIDATION] Applied college grade validation', [
+                    'grade_id' => $grade->id,
+                    'old_grade' => $grade->grade,
+                    'new_grade' => $request->grade,
+                    'old_percentage' => $this->gradeToPercentage($grade->grade),
+                    'new_percentage' => $this->gradeToPercentage($request->grade),
+                    'old_quality' => $this->getQualityDescription($grade->grade),
+                    'new_quality' => $this->getQualityDescription($request->grade)
+                ]);
             } else {
                 $validator->addRules(['grade' => 'numeric|min:0|max:100']);
             }
         }
-        
+
         if ($validator->fails()) {
+            Log::error('[COLLEGE_GRADE_UPDATE] Validation failed', [
+                'errors' => $validator->errors()->toArray(),
+                'grade_id' => $grade->id
+            ]);
             return back()->withErrors($validator)->withInput();
         }
-        
+
         // Prepare update data
         $updateData = [
             'grade' => $request->grade,
         ];
-        
+
         // Handle grading period update
         if ($request->has('grading_period_id')) {
             $updateData['grading_period_id'] = $request->grading_period_id === '0' ? null : $request->grading_period_id;
         }
-        
+
         $grade->update($updateData);
-        
+
+        // Log successful update
+        if ($academicLevel && $academicLevel->key === 'college') {
+            Log::info('[COLLEGE_GRADE_UPDATE] === COLLEGE GRADE UPDATED SUCCESSFULLY ===', [
+                'grade_id' => $grade->id,
+                'student_id' => $grade->student_id,
+                'subject_id' => $grade->subject_id,
+                'new_grade' => $grade->grade,
+                'percentage_equivalent' => $this->gradeToPercentage($grade->grade),
+                'quality_description' => $this->getQualityDescription($grade->grade),
+                'updated_at' => $grade->updated_at->toDateTimeString()
+            ]);
+        }
+
         return redirect()->route('instructor.grades.index')
             ->with('success', 'Grade updated successfully.');
     }
@@ -991,5 +1054,111 @@ class GradeManagementController extends Controller
     public function getAcademicLevels()
     {
         return AcademicLevel::all();
+    }
+
+    /**
+     * Validate college grade according to Saint Francis College grading scale.
+     * Valid grades: 1.1-3.5 (in 0.1 increments) and 5.0 for failing
+     *
+     * @param float $grade
+     * @return bool
+     */
+    private function validateCollegeGrade($grade)
+    {
+        // Convert to float to handle string inputs
+        $grade = floatval($grade);
+
+        // Check if it's exactly 5.0 (failing grade)
+        if ($grade == 5.0) {
+            return true;
+        }
+
+        // Check if it's within 1.1 to 3.5 range with 0.1 increments
+        // Must be between 1.1 and 3.5, and when multiplied by 10, should be an integer
+        if ($grade >= 1.1 && $grade <= 3.5) {
+            // Check if it's a valid 0.1 increment (e.g., 1.1, 1.2, ..., 3.4, 3.5)
+            $rounded = round($grade * 10) / 10; // Round to nearest 0.1
+            return abs($grade - $rounded) < 0.001; // Allow small float precision errors
+        }
+
+        return false;
+    }
+
+    /**
+     * Convert college grade to percentage equivalent.
+     * Based on Saint Francis College Guihulugan grading scale.
+     *
+     * @param float $grade
+     * @return string
+     */
+    private function gradeToPercentage($grade)
+    {
+        $grade = floatval($grade);
+
+        // Grading scale mapping
+        $gradeMap = [
+            1.1 => '97-98%',
+            1.2 => '95-96%',
+            1.3 => '93-94%',
+            1.4 => '91-92%',
+            1.5 => '90%',
+            1.6 => '89%',
+            1.7 => '88%',
+            1.8 => '87%',
+            1.9 => '86%',
+            2.0 => '85%',
+            2.1 => '84%',
+            2.2 => '83%',
+            2.3 => '82%',
+            2.4 => '81%',
+            2.5 => '80%',
+            2.6 => '79%',
+            2.7 => '78%',
+            2.8 => '77%',
+            2.9 => '76%',
+            3.0 => '75%',
+            3.1 => '74%',
+            3.2 => '73%',
+            3.3 => '72%',
+            3.4 => '71%',
+            3.5 => '70%',
+            5.0 => 'Below 70%',
+        ];
+
+        return $gradeMap[$grade] ?? 'Invalid';
+    }
+
+    /**
+     * Get quality description for college grade.
+     * Based on Saint Francis College Guihulugan quality descriptors.
+     *
+     * @param float $grade
+     * @return string
+     */
+    private function getQualityDescription($grade)
+    {
+        $grade = floatval($grade);
+
+        if ($grade >= 1.0 && $grade <= 1.2) {
+            return 'Excellent';
+        } elseif ($grade >= 1.3 && $grade <= 1.5) {
+            return 'Superior';
+        } elseif ($grade >= 1.6 && $grade <= 1.8) {
+            return 'Very Good';
+        } elseif ($grade >= 1.9 && $grade <= 2.1) {
+            return 'Good';
+        } elseif ($grade >= 2.2 && $grade <= 2.4) {
+            return 'Average';
+        } elseif ($grade >= 2.5 && $grade <= 2.7) {
+            return 'Satisfactory';
+        } elseif ($grade >= 2.8 && $grade <= 3.0) {
+            return 'Fair';
+        } elseif ($grade > 3.0 && $grade <= 3.5) {
+            return 'Conditional';
+        } elseif ($grade == 5.0) {
+            return 'Failing';
+        }
+
+        return 'Invalid';
     }
 }

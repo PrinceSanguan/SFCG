@@ -76,22 +76,30 @@ class HonorCriteriaSeeder extends Seeder
             ]);
         }
 
-        // Senior High School uses 1.0-5.0 grading scale (1.0 is highest, 3.0 is passing)
-        // So we use max_gpa instead of min_gpa (lower is better)
+        // Senior High School uses 75-100 percentage grading scale
+        // Honor criteria based on period average:
+        // - With Honors: 90-94 average
+        // - With High Honors: 95-97 average
+        // - With Highest Honors: 98-100 average
+        // Note: Actual logic is in SeniorHighSchoolHonorCalculationService
         if ($seniorHigh) {
             if ($withHonors) {
                 HonorCriterion::updateOrCreate([
                     'academic_level_id' => $seniorHigh->id,
                     'honor_type_id' => $withHonors->id,
                 ], [
-                    'min_gpa' => null,
-                    'max_gpa' => 3.0,  // GPA must be 3.0 or lower (better)
-                    'min_grade' => null,
-                    'min_grade_all' => null,
+                    'min_gpa' => 90.00,  // Minimum 90% average
+                    'max_gpa' => 94.99,  // Maximum 94.99% (below 95)
+                    'min_grade' => 85,   // All individual grades must be 85 or above
+                    'min_grade_all' => 85,  // ALL grades must be 85 or above
                     'min_year' => null,
                     'max_year' => null,
                     'require_consistent_honor' => false,
-                    'additional_rules' => null,
+                    'additional_rules' => json_encode([
+                        'scale' => '75-100 percentage',
+                        'range' => '90-94',
+                        'min_all_grades' => 85
+                    ]),
                 ]);
             }
             if ($withHighHonors) {
@@ -99,14 +107,18 @@ class HonorCriteriaSeeder extends Seeder
                     'academic_level_id' => $seniorHigh->id,
                     'honor_type_id' => $withHighHonors->id,
                 ], [
-                    'min_gpa' => null,
-                    'max_gpa' => 2.0,  // GPA must be 2.0 or lower (better)
-                    'min_grade' => null,
-                    'min_grade_all' => 2.5,  // No grade higher than 2.5 (all grades must be 2.5 or lower)
+                    'min_gpa' => 95.00,  // Minimum 95% average
+                    'max_gpa' => 97.99,  // Maximum 97.99% (below 98)
+                    'min_grade' => 85,
+                    'min_grade_all' => 85,  // ALL grades must be 85 or above
                     'min_year' => null,
                     'max_year' => null,
                     'require_consistent_honor' => false,
-                    'additional_rules' => null,
+                    'additional_rules' => json_encode([
+                        'scale' => '75-100 percentage',
+                        'range' => '95-97',
+                        'min_all_grades' => 85
+                    ]),
                 ]);
             }
             if ($withHighestHonors) {
@@ -114,21 +126,26 @@ class HonorCriteriaSeeder extends Seeder
                     'academic_level_id' => $seniorHigh->id,
                     'honor_type_id' => $withHighestHonors->id,
                 ], [
-                    'min_gpa' => null,
-                    'max_gpa' => 1.5,  // GPA must be 1.5 or lower (best)
-                    'min_grade' => null,
-                    'min_grade_all' => 2.0,  // No grade higher than 2.0 (all grades must be 2.0 or lower)
+                    'min_gpa' => 98.00,  // Minimum 98% average
+                    'max_gpa' => 100.00,  // Maximum 100%
+                    'min_grade' => 85,
+                    'min_grade_all' => 85,  // ALL grades must be 85 or above
                     'min_year' => null,
                     'max_year' => null,
                     'require_consistent_honor' => false,
-                    'additional_rules' => null,
+                    'additional_rules' => json_encode([
+                        'scale' => '75-100 percentage',
+                        'range' => '98-100',
+                        'min_all_grades' => 85
+                    ]),
                 ]);
             }
         }
 
         // College uses 1.0-5.0 grading scale (1.0 is highest, 3.0 is passing)
+        // With percentage equivalents: 1.1=97-98%, 1.5=90%, 2.0=85%, 3.0=75%, 5.0=Below 70%
         // College uses Latin honors: Cum Laude, Magna Cum Laude, Summa Cum Laude
-        // We use max_gpa instead of min_gpa (lower is better)
+        // We use max_gpa instead of min_gpa (lower number = better grade)
         if ($college) {
             if ($cumLaude) {
                 HonorCriterion::updateOrCreate([
@@ -136,13 +153,16 @@ class HonorCriteriaSeeder extends Seeder
                     'honor_type_id' => $cumLaude->id,
                 ], [
                     'min_gpa' => null,
-                    'max_gpa' => 2.0,  // GPA must be 2.0 or lower (Good standing)
+                    'max_gpa' => 2.0,  // GPA must be 2.0 or lower (85% - Good standing)
                     'min_grade' => null,
                     'min_grade_all' => null,
                     'min_year' => null,
                     'max_year' => null,
                     'require_consistent_honor' => false,
-                    'additional_rules' => null,
+                    'additional_rules' => json_encode([
+                        'scale' => '1.0-5.0 (lower is better)',
+                        'max_gpa_percentage' => '85% equivalent'
+                    ]),
                 ]);
             }
             if ($magnaCumLaude) {
@@ -151,13 +171,17 @@ class HonorCriteriaSeeder extends Seeder
                     'honor_type_id' => $magnaCumLaude->id,
                 ], [
                     'min_gpa' => null,
-                    'max_gpa' => 1.75,  // GPA must be 1.75 or lower (Very Good)
+                    'max_gpa' => 1.75,  // GPA must be 1.75 or lower (~88% - Very Good)
                     'min_grade' => null,
-                    'min_grade_all' => 2.0,  // No grade higher than 2.0 (all grades must be 2.0 or lower)
+                    'min_grade_all' => 2.0,  // No grade higher than 2.0 (all grades 85% or better)
                     'min_year' => 2,  // Must be 2nd year or above
                     'max_year' => 3,  // Up to 3rd year
                     'require_consistent_honor' => true,  // Must have consistent honor standing
-                    'additional_rules' => null,
+                    'additional_rules' => json_encode([
+                        'scale' => '1.0-5.0 (lower is better)',
+                        'max_gpa_percentage' => '~88% equivalent',
+                        'min_grade_all_percentage' => '85% all subjects'
+                    ]),
                 ]);
             }
             if ($summaCumLaude) {

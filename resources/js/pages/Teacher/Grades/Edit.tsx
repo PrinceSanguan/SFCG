@@ -178,12 +178,22 @@ export default function Edit({ user, grade, gradingPeriods }: EditProps) {
                                             <Input
                                                 id="grade"
                                                 type="number"
-                                                step="0.01"
-                                                min={getCurrentAcademicLevelKey() === 'college' ? '1.0' : '75'}
-                                                max={getCurrentAcademicLevelKey() === 'college' ? '5.0' : '100'}
-                                                placeholder={getCurrentAcademicLevelKey() === 'college' ? 'Enter grade (1.0-5.0)' : 'Enter grade (0-100)'}
+                                                step="1"
+                                                min="75"
+                                                max="100"
+                                                placeholder="Enter grade (75-100)"
                                                 value={data.grade}
-                                                onChange={(e) => setData('grade', e.target.value)}
+                                                onChange={(e) => {
+                                                    const value = e.target.value;
+                                                    setData('grade', value);
+                                                    if (value) {
+                                                        console.log('[SHS_GRADE_EDIT] Grade changed:', {
+                                                            grade: parseFloat(value),
+                                                            scale: '75-100',
+                                                            student: grade.student.name
+                                                        });
+                                                    }
+                                                }}
                                                 className={errors.grade ? 'border-red-500' : ''}
                                                 autoFocus
                                             />
@@ -191,10 +201,7 @@ export default function Edit({ user, grade, gradingPeriods }: EditProps) {
                                                 <p className="text-sm text-red-500 mt-1">{errors.grade}</p>
                                             )}
                                             <p className="text-sm text-muted-foreground mt-1">
-                                                {getCurrentAcademicLevelKey() === 'college' 
-                                                    ? 'College: 1.0 (highest) to 5.0 (lowest). 3.0 is passing (equivalent to 75).' 
-                                                    : 'Elementary to Senior High: 75 (passing) to 100 (highest).'
-                                                }
+                                                Senior High School: 75 (passing) to 100 (highest). Use whole numbers or decimals.
                                             </p>
                                         </div>
 

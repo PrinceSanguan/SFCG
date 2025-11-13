@@ -101,6 +101,33 @@ interface CreateProps {
 }
 
 export default function Create({ user, academicLevels, gradingPeriods, assignedSubjects, selectedStudent, selectedGradingPeriodId, selectedAssignmentId }: CreateProps) {
+    // Helper functions for college grade conversion
+    const gradeToPercentage = (grade: number): string => {
+        const gradeMap: { [key: number]: string } = {
+            1.1: '97-98%', 1.2: '95-96%', 1.3: '93-94%', 1.4: '91-92%',
+            1.5: '90%', 1.6: '89%', 1.7: '88%', 1.8: '87%', 1.9: '86%',
+            2.0: '85%', 2.1: '84%', 2.2: '83%', 2.3: '82%', 2.4: '81%',
+            2.5: '80%', 2.6: '79%', 2.7: '78%', 2.8: '77%', 2.9: '76%',
+            3.0: '75%', 3.1: '74%', 3.2: '73%', 3.3: '72%', 3.4: '71%',
+            3.5: '70%', 5.0: 'Below 70%',
+        };
+        const roundedGrade = Math.round(grade * 10) / 10;
+        return gradeMap[roundedGrade] || '';
+    };
+
+    const getQualityDescription = (grade: number): string => {
+        if (grade >= 1.0 && grade <= 1.2) return 'Excellent';
+        if (grade >= 1.3 && grade <= 1.5) return 'Superior';
+        if (grade >= 1.6 && grade <= 1.8) return 'Very Good';
+        if (grade >= 1.9 && grade <= 2.1) return 'Good';
+        if (grade >= 2.2 && grade <= 2.4) return 'Average';
+        if (grade >= 2.5 && grade <= 2.7) return 'Satisfactory';
+        if (grade >= 2.8 && grade <= 3.0) return 'Fair';
+        if (grade > 3.0 && grade <= 3.5) return 'Conditional';
+        if (grade === 5.0) return 'Failing';
+        return '';
+    };
+
     // Get URL parameters for initial form state
     const urlParams = new URLSearchParams(window.location.search);
     const initialStudentId = urlParams.get('student_id') || '';
@@ -424,18 +451,46 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                                     step={getCurrentAcademicLevelKey() === 'college' ? '0.1' : '0.01'}
                                                     min={getCurrentAcademicLevelKey() === 'college' ? '1.0' : '75'}
                                                     max={getCurrentAcademicLevelKey() === 'college' ? '5.0' : '100'}
-                                                    placeholder={getCurrentAcademicLevelKey() === 'college' ? 'Enter grade (1.0-5.0)' : 'Enter grade (0-100)'}
+                                                    placeholder={getCurrentAcademicLevelKey() === 'college' ? 'Valid: 1.1-3.5 or 5.0' : 'Enter grade (0-100)'}
                                                     value={data.grade}
-                                                    onChange={(e) => setData('grade', e.target.value)}
+                                                    onChange={(e) => {
+                                                        const value = e.target.value;
+                                                        setData('grade', value);
+                                                        if (value && getCurrentAcademicLevelKey() === 'college') {
+                                                            const numGrade = parseFloat(value);
+                                                            console.log('[GRADE_INPUT] Grade changed:', {
+                                                                grade: numGrade,
+                                                                percentage: gradeToPercentage(numGrade),
+                                                                quality: getQualityDescription(numGrade)
+                                                            });
+                                                        }
+                                                    }}
                                                     className={errors.grade ? 'border-red-500' : ''}
                                                     autoFocus
                                                 />
                                                 {errors.grade && (
                                                     <p className="text-sm text-red-500 mt-1">{errors.grade}</p>
                                                 )}
+                                                {data.grade && getCurrentAcademicLevelKey() === 'college' && (
+                                                    <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-950 rounded-md border border-blue-200 dark:border-blue-800">
+                                                        <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                                                            {gradeToPercentage(parseFloat(data.grade)) && (
+                                                                <>
+                                                                    {gradeToPercentage(parseFloat(data.grade))}
+                                                                    {getQualityDescription(parseFloat(data.grade)) &&
+                                                                        ` - ${getQualityDescription(parseFloat(data.grade))}`
+                                                                    }
+                                                                </>
+                                                            )}
+                                                            {!gradeToPercentage(parseFloat(data.grade)) && (
+                                                                <span className="text-red-600 dark:text-red-400">Invalid grade (use 1.1-3.5 or 5.0)</span>
+                                                            )}
+                                                        </p>
+                                                    </div>
+                                                )}
                                                 <p className="text-sm text-muted-foreground mt-1">
-                                                    {getCurrentAcademicLevelKey() === 'college' 
-                                                        ? 'College: 1.0 (highest) to 5.0 (lowest). 3.0 is passing (equivalent to 75).' 
+                                                    {getCurrentAcademicLevelKey() === 'college'
+                                                        ? 'Valid grades: 1.1-3.5 (0.1 increments) or 5.0. 3.0 is passing (75%).'
                                                         : 'Elementary to Senior High: 75 (passing) to 100 (highest).'
                                                     }
                                                 </p>
@@ -676,17 +731,45 @@ export default function Create({ user, academicLevels, gradingPeriods, assignedS
                                             step={getCurrentAcademicLevelKey() === 'college' ? '0.1' : '0.01'}
                                             min={getCurrentAcademicLevelKey() === 'college' ? '1.0' : '75'}
                                             max={getCurrentAcademicLevelKey() === 'college' ? '5.0' : '100'}
-                                            placeholder={getCurrentAcademicLevelKey() === 'college' ? 'Enter grade (1.0-5.0)' : 'Enter grade (0-100)'}
+                                            placeholder={getCurrentAcademicLevelKey() === 'college' ? 'Valid: 1.1-3.5 or 5.0' : 'Enter grade (0-100)'}
                                             value={data.grade}
-                                            onChange={(e) => setData('grade', e.target.value)}
+                                            onChange={(e) => {
+                                                const value = e.target.value;
+                                                setData('grade', value);
+                                                if (value && getCurrentAcademicLevelKey() === 'college') {
+                                                    const numGrade = parseFloat(value);
+                                                    console.log('[GRADE_INPUT] Grade changed:', {
+                                                        grade: numGrade,
+                                                        percentage: gradeToPercentage(numGrade),
+                                                        quality: getQualityDescription(numGrade)
+                                                    });
+                                                }
+                                            }}
                                             className={errors.grade ? 'border-red-500' : ''}
                                         />
                                         {errors.grade && (
                                             <p className="text-sm text-red-500 mt-1">{errors.grade}</p>
                                         )}
+                                        {data.grade && getCurrentAcademicLevelKey() === 'college' && (
+                                            <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-950 rounded-md border border-blue-200 dark:border-blue-800">
+                                                <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                                                    {gradeToPercentage(parseFloat(data.grade)) && (
+                                                        <>
+                                                            {gradeToPercentage(parseFloat(data.grade))}
+                                                            {getQualityDescription(parseFloat(data.grade)) &&
+                                                                ` - ${getQualityDescription(parseFloat(data.grade))}`
+                                                            }
+                                                        </>
+                                                    )}
+                                                    {!gradeToPercentage(parseFloat(data.grade)) && (
+                                                        <span className="text-red-600 dark:text-red-400">Invalid grade (use 1.1-3.5 or 5.0)</span>
+                                                    )}
+                                                </p>
+                                            </div>
+                                        )}
                                         <p className="text-sm text-muted-foreground mt-1">
-                                            {getCurrentAcademicLevelKey() === 'college' 
-                                                ? 'College: 1.0 (highest) to 5.0 (lowest). 3.0 is passing (equivalent to 75).' 
+                                            {getCurrentAcademicLevelKey() === 'college'
+                                                ? 'Valid grades: 1.1-3.5 (0.1 increments) or 5.0. 3.0 is passing (75%).'
                                                 : 'Elementary to Senior High: 75 (passing) to 100 (highest).'
                                             }
                                         </p>

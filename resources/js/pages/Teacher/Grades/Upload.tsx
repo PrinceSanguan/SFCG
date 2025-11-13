@@ -426,7 +426,7 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
                                     <Alert>
                                         <AlertCircle className="h-4 w-4" />
                                         <AlertDescription>
-                                            <strong>Grade System:</strong> Teachers use 1.0-5.0 scale (1.0 highest, 3.0 passing)
+                                            <strong>Grade System:</strong> Senior High School uses 75-100 percentage scale (75 = passing, 100 = highest)
                                         </AlertDescription>
                                     </Alert>
 
@@ -516,7 +516,7 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
                                         <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1 mb-3">
                                             <li>• Select a subject and school year above</li>
                                             <li>• Click "Download Subject Template" to get a pre-filled CSV with enrolled students</li>
-                                            <li>• Fill in <strong>MIDTERM</strong> and <strong>FINAL TERM</strong> grade columns (1.0-5.0 scale)</li>
+                                            <li>• Fill in <strong>MIDTERM</strong> and <strong>FINAL TERM</strong> grade columns (75-100 scale)</li>
                                             <li>• Upload the completed CSV</li>
                                             <li>• The system will create separate grade entries for midterm and final periods</li>
                                         </ul>
@@ -556,8 +556,9 @@ export default function Upload({ user, assignedSubjects, academicLevels, grading
                                     <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
                                         <h4 className="font-medium mb-2">Grade Values:</h4>
                                         <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                                            <li>• <strong>Grading Scale:</strong> 1.0 to 5.0 (1.0 = highest, 3.0 = passing)</li>
-                                            <li>• <strong>Sample Grades:</strong> 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 4.0, 5.0</li>
+                                            <li>• <strong>Grading Scale:</strong> 75 to 100 (75 = passing, 100 = highest)</li>
+                                            <li>• <strong>Sample Grades:</strong> 75, 80, 85, 90, 92, 95, 98, 100</li>
+                                            <li>• <strong>Honor Thresholds:</strong> 90-94 (With Honors), 95-97 (With High Honors), 98-100 (With Highest Honors)</li>
                                         </ul>
                                     </div>
                                 </div>
