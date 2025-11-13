@@ -1017,14 +1017,26 @@ export default function AssignInstructors({ user, assignments, instructors, depa
                                                         })()}
                                                     </div>
                                                     <div className="flex flex-wrap gap-2">
-                                                        {group.assignments.map(assignment => assignment.subject).filter(Boolean).map((subject, subIdx) => (
-                                                            <Badge key={subIdx} variant="secondary" className="text-xs">
-                                                                {subject!.name} ({subject!.code})
-                                                            </Badge>
-                                                        ))}
-                                                        {group.assignments.filter(a => a.subject).length === 0 && (
-                                                            <span className="text-xs text-gray-400 italic">No specific subjects assigned</span>
-                                                        )}
+                                                        {(() => {
+                                                            // Get unique subjects using a Map to deduplicate by subject ID
+                                                            const subjectsMap = new Map();
+                                                            group.assignments.forEach(assignment => {
+                                                                if (assignment.subject) {
+                                                                    subjectsMap.set(assignment.subject.id, assignment.subject);
+                                                                }
+                                                            });
+                                                            const uniqueSubjects = Array.from(subjectsMap.values());
+
+                                                            return uniqueSubjects.length > 0 ? (
+                                                                uniqueSubjects.map((subject, subIdx) => (
+                                                                    <Badge key={subIdx} variant="secondary" className="text-xs">
+                                                                        {subject.name} ({subject.code})
+                                                                    </Badge>
+                                                                ))
+                                                            ) : (
+                                                                <span className="text-xs text-gray-400 italic">No specific subjects assigned</span>
+                                                            );
+                                                        })()}
                                                     </div>
                                                 </div>
                                             </div>
