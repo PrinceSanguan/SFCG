@@ -240,7 +240,7 @@ export default function TeacherDashboard({
                                                                         </div>
                                                                         <div className="flex items-center space-x-2">
                                                                             <Badge variant="outline" className="text-xs">
-                                                                                {enrollment.semester || 'No Semester'}
+                                                                                {enrollment.semester || enrollment.school_year || '-'}
                                                                             </Badge>
                                                                             <Badge variant={enrollment.is_active ? "default" : "secondary"} className="text-xs">
                                                                                 {enrollment.is_active ? "Active" : "Inactive"}

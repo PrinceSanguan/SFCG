@@ -155,7 +155,7 @@ export default function GradesIndex({ user, grades, assignedSubjects }: IndexPro
             if (grade <= 2.0) return 'Very Good';
             if (grade <= 2.5) return 'Good';
             if (grade <= 3.0) return 'Satisfactory';
-            return 'Failing';
+            return 'Not Qualified';
         }
 
         // Elementary and JHS use 75-100 scale
@@ -164,7 +164,7 @@ export default function GradesIndex({ user, grades, assignedSubjects }: IndexPro
         if (grade >= 85) return 'Good';
         if (grade >= 80) return 'Satisfactory';
         if (grade >= 75) return 'Fair';
-        return 'Failing';
+        return 'Not Qualified';
     };
 
     // Calculate semester average for a student

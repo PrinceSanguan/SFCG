@@ -83,6 +83,17 @@ class DashboardController extends Controller
                 ->unique('student_id') // Deduplicate by student_id
                 ->values()
                 ->map(function ($enrollment) {
+                    // Enhanced logging for semester field
+                    Log::info('[DASHBOARD] Student enrollment data', [
+                        'student_id' => $enrollment->student_id,
+                        'student_name' => $enrollment->student->name,
+                        'subject_id' => $enrollment->subject_id,
+                        'school_year' => $enrollment->school_year,
+                        'semester' => $enrollment->semester,
+                        'semester_is_null' => is_null($enrollment->semester),
+                        'is_active' => $enrollment->is_active
+                    ]);
+
                     return [
                         'id' => $enrollment->id,
                         'student' => $enrollment->student,

@@ -533,9 +533,19 @@ export default function ShowStudent({ user, student, subject, academicLevel, gra
             console.log(`🔍 [CALCULATION] Found ${semesterGrades.length} grades for semester "${parentSemester.name}":`, semesterGrades.map(g => ({ id: g.id, grade: g.grade, period: g.gradingPeriod?.name })));
 
             if (semesterGrades.length > 0) {
-                const avg = semesterGrades.reduce((sum, g) => sum + parseFloat(g.grade.toString()), 0) / semesterGrades.length;
+                // Calculate sum and count
+                const gradeSum = semesterGrades.reduce((sum, g) => sum + parseFloat(g.grade.toString()), 0);
+                const gradeCount = semesterGrades.length;
+                const avg = gradeSum / gradeCount;
+
                 semesterAverages[parentSemester.id] = avg;
-                console.log(`✅ [CALCULATION] Semester "${parentSemester.name}" (ID: ${parentSemester.id}) average: ${avg.toFixed(2)} (from ${semesterGrades.length} grades)`);
+                console.log(`✅ [CALCULATION] Semester "${parentSemester.name}" (ID: ${parentSemester.id}):`, {
+                    gradeCount,
+                    gradeSum: gradeSum.toFixed(2),
+                    average: avg.toFixed(2),
+                    grades: semesterGrades.map(g => g.grade),
+                    calculation: `${semesterGrades.map(g => g.grade).join(' + ')} = ${gradeSum.toFixed(2)}, divided by ${gradeCount} = ${avg.toFixed(2)}`
+                });
             } else {
                 semesterAverages[parentSemester.id] = null;
                 console.log(`⚠️ [CALCULATION] Semester "${parentSemester.name}" (ID: ${parentSemester.id}) has NO GRADES`);
@@ -556,8 +566,16 @@ export default function ShowStudent({ user, student, subject, academicLevel, gra
         console.log('🔍 [CALCULATION] Valid Semester Averages:', validSemesterAverages);
 
         if (validSemesterAverages.length > 0) {
-            overallAverage = validSemesterAverages.reduce((sum, avg) => sum + avg, 0) / validSemesterAverages.length;
-            console.log(`✅ [CALCULATION] Overall Average: ${overallAverage.toFixed(2)} (from ${validSemesterAverages.length} semester averages)`);
+            const overallSum = validSemesterAverages.reduce((sum, avg) => sum + avg, 0);
+            const overallCount = validSemesterAverages.length;
+            overallAverage = overallSum / overallCount;
+            console.log(`✅ [CALCULATION] Overall Average:`, {
+                semesterAverages: validSemesterAverages.map(avg => avg.toFixed(2)),
+                count: overallCount,
+                sum: overallSum.toFixed(2),
+                average: overallAverage.toFixed(2),
+                calculation: `(${validSemesterAverages.map(avg => avg.toFixed(2)).join(' + ')}) / ${overallCount} = ${overallSum.toFixed(2)} / ${overallCount} = ${overallAverage.toFixed(2)}`
+            });
         } else {
             console.log('⚠️ [CALCULATION] NO VALID SEMESTER AVERAGES FOUND - Overall Average is NULL');
         }
