@@ -633,14 +633,63 @@ class GradeManagementController extends Controller
                 return $gradeArray;
             });
 
-        // Get all grading periods for this academic level
-        $gradingPeriods = \App\Models\GradingPeriod::where('academic_level_id', $academicLevel->id)
+        // Get instructor's assigned grading periods for this subject
+        $instructorAssignments = InstructorSubjectAssignment::where('instructor_id', $user->id)
+            ->where('subject_id', $subjectId)
             ->where('is_active', true)
-            ->orderBy('sort_order')
+            ->whereHas('academicLevel', function ($query) {
+                $query->where('key', 'college');
+            })
             ->get();
-        
 
-        
+        // Get only the grading period IDs that the instructor is assigned to
+        $assignedGradingPeriodIds = $instructorAssignments->pluck('grading_period_id')->filter()->unique();
+
+        Log::info('[INSTRUCTOR GRADES SHOW] Instructor assignments for subject', [
+            'instructor_id' => $user->id,
+            'instructor_name' => $user->name,
+            'subject_id' => $subjectId,
+            'subject_name' => $subject->name,
+            'student_id' => $studentId,
+            'student_name' => $student->name,
+            'total_assignments' => $instructorAssignments->count(),
+            'assigned_grading_period_ids' => $assignedGradingPeriodIds->toArray(),
+            'assigned_grading_periods' => $instructorAssignments->map(function($a) {
+                return [
+                    'assignment_id' => $a->id,
+                    'grading_period_id' => $a->grading_period_id,
+                    'grading_period_name' => $a->gradingPeriod?->name ?? 'N/A'
+                ];
+            })->toArray()
+        ]);
+
+        // Get only grading periods that the instructor is assigned to
+        // If no specific grading periods assigned, show all (fallback for backward compatibility)
+        if ($assignedGradingPeriodIds->isEmpty()) {
+            Log::warning('[INSTRUCTOR GRADES SHOW] No specific grading periods assigned, showing all periods as fallback', [
+                'instructor_id' => $user->id,
+                'subject_id' => $subjectId
+            ]);
+
+            $gradingPeriods = \App\Models\GradingPeriod::where('academic_level_id', $academicLevel->id)
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->get();
+        } else {
+            $gradingPeriods = \App\Models\GradingPeriod::where('academic_level_id', $academicLevel->id)
+                ->whereIn('id', $assignedGradingPeriodIds)
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->get();
+
+            Log::info('[INSTRUCTOR GRADES SHOW] Filtered grading periods', [
+                'total_periods' => $gradingPeriods->count(),
+                'periods' => $gradingPeriods->map(function($p) {
+                    return ['id' => $p->id, 'name' => $p->name, 'code' => $p->code];
+                })->toArray()
+            ]);
+        }
+
         return Inertia::render('Instructor/Grades/Show', [
             'user' => $user,
             'student' => [
@@ -678,6 +727,18 @@ class GradeManagementController extends Controller
     {
         $user = Auth::user();
 
+        Log::info('[INSTRUCTOR GRADES EDIT] Edit page accessed', [
+            'instructor_id' => $user->id,
+            'instructor_name' => $user->name,
+            'grade_id' => $grade->id,
+            'student_id' => $grade->student_id,
+            'subject_id' => $grade->subject_id,
+            'current_grade' => $grade->grade,
+            'grading_period_id' => $grade->grading_period_id,
+            'is_submitted' => $grade->is_submitted_for_validation,
+            'created_at' => $grade->created_at->toDateTimeString(),
+        ]);
+
         // Verify the instructor is assigned to this subject
         $isAssigned = InstructorSubjectAssignment::where('instructor_id', $user->id)
             ->where('subject_id', $grade->subject_id)
@@ -688,6 +749,11 @@ class GradeManagementController extends Controller
             ->exists();
 
         if (!$isAssigned) {
+            Log::warning('[INSTRUCTOR GRADES EDIT] Unauthorized edit attempt', [
+                'instructor_id' => $user->id,
+                'grade_id' => $grade->id,
+                'subject_id' => $grade->subject_id,
+            ]);
             abort(403, 'You are not authorized to edit this grade.');
         }
 
@@ -698,7 +764,7 @@ class GradeManagementController extends Controller
                 ? 'This grade is locked because it has been submitted for validation.'
                 : 'This grade can no longer be edited. The 5-day edit window has expired.';
 
-            \Log::warning('Instructor attempted to edit grade outside edit window', [
+            Log::warning('[INSTRUCTOR GRADES EDIT] Edit attempt outside edit window', [
                 'instructor_id' => $user->id,
                 'grade_id' => $grade->id,
                 'edit_status' => $editStatus,
@@ -733,6 +799,21 @@ class GradeManagementController extends Controller
                 ->where('is_active', true)
                 ->get();
 
+            // Get the subject's grading_period_ids and semester_ids (like create() method does)
+            $subject = $assignment->subject;
+            $gradingPeriodIds = $subject->grading_period_ids ?? [];
+            $semesterIds = $subject->semester_ids ?? [];
+
+            Log::info('[INSTRUCTOR GRADES EDIT] Assignment grading period details', [
+                'assignment_id' => $assignment->id,
+                'assignment_grading_period_id' => $assignment->grading_period_id,
+                'assignment_grading_period_name' => $assignment->gradingPeriod ? $assignment->gradingPeriod->full_name : 'None',
+                'subject_id' => $subject->id,
+                'subject_name' => $subject->name,
+                'subject_grading_period_ids' => $gradingPeriodIds,
+                'subject_semester_ids' => $semesterIds
+            ]);
+
             return [
                 'id' => $assignment->id,
                 'subject_id' => $assignment->subject_id,
@@ -740,6 +821,8 @@ class GradeManagementController extends Controller
                     'id' => $assignment->subject->id,
                     'name' => $assignment->subject->name,
                     'code' => $assignment->subject->code,
+                    'grading_period_ids' => $gradingPeriodIds,
+                    'semester_ids' => $semesterIds,
                     'course' => $assignment->subject->course ? [
                         'id' => $assignment->subject->course->id,
                         'name' => $assignment->subject->course->name,
@@ -758,6 +841,8 @@ class GradeManagementController extends Controller
                     'type' => $assignment->gradingPeriod->type,
                     'full_name' => $assignment->gradingPeriod->full_name,
                 ] : null,
+                'grading_period_ids' => $gradingPeriodIds,
+                'semester_ids' => $semesterIds,
                 'school_year' => $assignment->school_year,
                 'is_active' => $assignment->is_active,
                 'enrolled_students' => $enrolledStudents->map(function($enrollment) {
@@ -777,9 +862,33 @@ class GradeManagementController extends Controller
             ];
         });
 
+        // Add editability fields to grade object (like index() and showStudent() methods do)
+        $gradeArray = $grade->toArray();
+        $gradeArray['is_editable'] = $grade->isEditableByInstructor();
+        $gradeArray['days_remaining'] = $grade->getDaysRemainingForEdit();
+        $gradeArray['edit_status'] = $grade->getEditStatus();
+
+        Log::info('[INSTRUCTOR GRADES EDIT] Grade editability info', [
+            'grade_id' => $grade->id,
+            'is_editable' => $gradeArray['is_editable'],
+            'days_remaining' => $gradeArray['days_remaining'],
+            'edit_status' => $gradeArray['edit_status'],
+            'created_at' => $grade->created_at->toDateTimeString(),
+            'is_submitted' => $grade->is_submitted_for_validation,
+        ]);
+
+        Log::info('[INSTRUCTOR GRADES EDIT] Rendering edit page', [
+            'grade_id' => $grade->id,
+            'total_grading_periods' => count($gradingPeriods),
+            'total_assigned_subjects' => $assignedSubjectsData->count(),
+            'grading_periods' => $gradingPeriods->map(function($p) {
+                return ['id' => $p->id, 'name' => $p->name, 'code' => $p->code];
+            })->toArray()
+        ]);
+
         return Inertia::render('Instructor/Grades/Edit', [
             'user' => $user,
-            'grade' => $grade,
+            'grade' => $gradeArray,
             'gradingPeriods' => $gradingPeriods,
             'assignedSubjects' => $assignedSubjectsData,
         ]);

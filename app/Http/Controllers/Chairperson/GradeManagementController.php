@@ -51,52 +51,36 @@ class GradeManagementController extends Controller
         }
 
         // Filter grades by College level and chairperson's department only
-        $gradesQuery = StudentGrade::query()
+        // Get the IDs of the latest grades for each student-subject-level-year combination
+        $latestGradeIds = StudentGrade::query()
             ->where('academic_level_id', $collegeLevel->id)
             ->whereHas('subject.course', function ($query) use ($departmentId) {
                 $query->where('department_id', $departmentId);
-            });
-
-        $grades = $gradesQuery->with(['student', 'subject.course.department', 'academicLevel'])
+            })
             ->select('student_id', 'subject_id', 'academic_level_id', 'school_year')
-            ->selectRaw('MAX(id) as id') // Get the latest grade ID
-            ->selectRaw('MAX(grade) as grade')
-            ->selectRaw('MAX(CASE WHEN is_approved = true THEN 1 ELSE 0 END) as is_approved')
-            ->selectRaw('MAX(CASE WHEN is_submitted_for_validation = true THEN 1 ELSE 0 END) as is_submitted_for_validation')
-            ->selectRaw('MAX(CASE WHEN is_returned = true THEN 1 ELSE 0 END) as is_returned')
-            ->selectRaw('MAX(submitted_at) as submitted_at')
-            ->selectRaw('MAX(approved_at) as approved_at')
-            ->selectRaw('MAX(returned_at) as returned_at')
+            ->selectRaw('MAX(id) as latest_id')
             ->groupBy('student_id', 'subject_id', 'academic_level_id', 'school_year')
-            ->orderByRaw('MAX(created_at) DESC')
+            ->get()
+            ->pluck('latest_id');
+
+        $grades = StudentGrade::query()
+            ->whereIn('id', $latestGradeIds)
+            ->with(['student', 'subject.course.department'])
+            ->orderBy('created_at', 'DESC')
             ->paginate(20);
 
-        // Calculate stats filtered by College level and department
-        $statsQuery = function($additionalConditions = []) use ($collegeLevel, $departmentId) {
-            $query = StudentGrade::query()
-                ->where('academic_level_id', $collegeLevel->id)
-                ->whereHas('subject.course', function ($q) use ($departmentId) {
-                    $q->where('department_id', $departmentId);
-                });
+        // Manually attach academic level to each grade since relationship loading doesn't work well with grouped queries
+        $grades->getCollection()->transform(function ($grade) use ($collegeLevel) {
+            $grade->setRelation('academicLevel', $collegeLevel);
+            $grade->academic_level = $collegeLevel; // Fallback for snake_case access
+            return $grade;
+        });
 
-            foreach ($additionalConditions as $condition) {
-                if (is_array($condition)) {
-                    $query->where($condition[0], $condition[1], $condition[2]);
-                } else {
-                    $query->where($condition, true);
-                }
-            }
-
-            return $query->select('student_id', 'subject_id', 'academic_level_id', 'school_year')
-                ->groupBy('student_id', 'subject_id', 'academic_level_id', 'school_year')
-                ->get()
-                ->count();
-        };
-
+        // Calculate stats by counting only the latest grades
         $stats = [
-            'total' => $statsQuery([]),
-            'approved' => $statsQuery(['is_approved']),
-            'submitted' => $statsQuery(['is_submitted_for_validation']),
+            'total' => $latestGradeIds->count(),
+            'approved' => StudentGrade::whereIn('id', $latestGradeIds)->where('is_approved', true)->count(),
+            'submitted' => StudentGrade::whereIn('id', $latestGradeIds)->where('is_submitted_for_validation', true)->where('is_approved', false)->count(),
         ];
 
         return Inertia::render('Chairperson/Grades/Index', [

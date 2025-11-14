@@ -13,6 +13,7 @@ use App\Services\ElementaryHonorCalculationService;
 use App\Services\JuniorHighSchoolHonorCalculationService;
 use App\Services\SeniorHighSchoolHonorCalculationService;
 use App\Services\CollegeHonorCalculationService;
+use App\Services\NotificationService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 
@@ -63,10 +64,16 @@ class AutomaticHonorCalculationService
             $honorResults = $this->performHonorCalculation($calculationService, $student->id, $academicLevel->id, $schoolYear);
 
             // Process each honor result
+            $newHonorsCreated = false;
             foreach ($honorResults as $honorData) {
                 if ($honorData['qualified']) {
                     $result = $this->createOrUpdateHonorResult($student, $academicLevel, $honorData, $schoolYear);
                     $results[] = $result;
+
+                    // Track if this is a new honor (not an update)
+                    if ($result->wasRecentlyCreated) {
+                        $newHonorsCreated = true;
+                    }
 
                     Log::info('Student qualified for honor', [
                         'student_id' => $student->id,
@@ -75,6 +82,11 @@ class AutomaticHonorCalculationService
                         'school_year' => $schoolYear,
                     ]);
                 }
+            }
+
+            // Send notification if new honors were created
+            if ($newHonorsCreated && !empty($results)) {
+                $this->sendHonorApprovalNotification($academicLevel, $schoolYear);
             }
 
         } catch (\Exception $e) {
@@ -267,5 +279,50 @@ class AutomaticHonorCalculationService
         }
 
         return $this->calculateHonorsForStudent($student, $schoolYear);
+    }
+
+    /**
+     * Send notification to chairperson/principal about pending honor approvals
+     */
+    private function sendHonorApprovalNotification(AcademicLevel $academicLevel, string $schoolYear): void
+    {
+        try {
+            // Count pending honors for this academic level and school year
+            $honorCount = HonorResult::where('academic_level_id', $academicLevel->id)
+                ->where('school_year', $schoolYear)
+                ->where('is_pending_approval', true)
+                ->where('is_approved', false)
+                ->where('is_rejected', false)
+                ->count();
+
+            if ($honorCount > 0) {
+                $notificationService = new NotificationService();
+                $result = $notificationService->sendPendingHonorApprovalNotification(
+                    $academicLevel,
+                    $schoolYear,
+                    $honorCount
+                );
+
+                if ($result['success']) {
+                    Log::info('Honor approval notification sent successfully', [
+                        'academic_level' => $academicLevel->name,
+                        'school_year' => $schoolYear,
+                        'honor_count' => $honorCount,
+                    ]);
+                } else {
+                    Log::warning('Failed to send honor approval notification', [
+                        'academic_level' => $academicLevel->name,
+                        'school_year' => $schoolYear,
+                        'message' => $result['message'] ?? 'Unknown error',
+                    ]);
+                }
+            }
+        } catch (\Exception $e) {
+            Log::error('Error sending honor approval notification', [
+                'academic_level' => $academicLevel->name,
+                'school_year' => $schoolYear,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }

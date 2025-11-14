@@ -3,9 +3,10 @@ import { Head, Link } from '@inertiajs/react';
 import { Header } from '@/components/adviser/header';
 import { Sidebar } from '@/components/adviser/sidebar';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, BookOpen, GraduationCap, User } from 'lucide-react';
+import { ArrowLeft, BookOpen, Edit, GraduationCap, User } from 'lucide-react';
 import { Grade } from '@/types';
 
 interface GradingPeriod {
@@ -157,6 +158,36 @@ export default function AdviserStudentGradesShow({ user, student, subject, grade
               </CardContent>
             </Card>
 
+            {/* Edit Controls - Show edit button for latest grade if editable */}
+            {(() => {
+              const latestGrade = grades.length > 0 ? grades[0] : null;
+              return latestGrade && latestGrade.is_editable && (
+                <Card className="border-blue-200 bg-blue-50/50">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900 mb-1">Latest Grade Editable</h3>
+                        <p className="text-sm text-gray-600">
+                          You can edit the most recent grade for this student.
+                          {latestGrade.days_remaining !== undefined && latestGrade.days_remaining < 2 && (
+                            <span className="ml-2 text-orange-600 font-medium">
+                              ⏰ {latestGrade.days_remaining} {latestGrade.days_remaining === 1 ? 'day' : 'days'} remaining
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      <Link href={route('adviser.grades.edit', latestGrade.id)}>
+                        <Button variant="default" className="bg-blue-600 hover:bg-blue-700">
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit Grade
+                        </Button>
+                      </Link>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })()}
+
             {/* Grades Table */}
             <Card>
               <CardHeader>
@@ -271,15 +302,11 @@ export default function AdviserStudentGradesShow({ user, student, subject, grade
                             {new Date(grade.created_at).toLocaleDateString()}
                           </TableCell>
                           <TableCell>
-                            {grade.is_submitted_for_validation ? (
-                              <Badge variant="outline" className="text-green-600">
-                                Submitted
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-yellow-600">
-                                Draft
-                              </Badge>
-                            )}
+                            <Badge variant="outline" className={
+                              grade.is_submitted_for_validation ? "text-green-600" : "text-blue-600"
+                            }>
+                              {getGradeStatus(grade.grade, academicLevel.key)}
+                            </Badge>
                           </TableCell>
                         </TableRow>
                       ))}

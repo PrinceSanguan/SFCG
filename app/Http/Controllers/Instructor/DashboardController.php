@@ -23,12 +23,16 @@ class DashboardController extends Controller
         $schoolYear = request('school_year', '2024-2025'); // Default school year
         
         // Debug logging
-        Log::info('Dashboard accessed by user: ' . $user->id . ' - ' . $user->name . ' for school year: ' . $schoolYear);
-        
+        Log::info('[INSTRUCTOR DASHBOARD] Dashboard accessed', [
+            'user_id' => $user->id,
+            'user_name' => $user->name,
+            'school_year' => $schoolYear
+        ]);
+
         // Get instructor's assigned subjects (College level only)
         $assignedSubjects = InstructorSubjectAssignment::with([
-            'subject.course', 
-            'academicLevel', 
+            'subject.course',
+            'academicLevel',
             'gradingPeriod'
         ])
         ->where('instructor_id', $user->id)
@@ -38,20 +42,46 @@ class DashboardController extends Controller
             $query->where('key', 'college');
         })
         ->get();
-        
+
         // Debug logging
-        Log::info('Found assigned subjects: ' . $assignedSubjects->count() . ' for school year: ' . $schoolYear);
-        foreach($assignedSubjects as $subject) {
-            Log::info('Subject: ' . $subject->subject->name . ' (ID: ' . $subject->subject_id . ')');
-        }
-        
-        // Get students enrolled in each assigned subject
-        $subjectsWithStudents = $assignedSubjects->map(function ($assignment) use ($schoolYear) {
+        Log::info('[INSTRUCTOR DASHBOARD] Found assigned subjects', [
+            'total_assignments' => $assignedSubjects->count(),
+            'school_year' => $schoolYear,
+            'assignments' => $assignedSubjects->map(function($s) {
+                return [
+                    'assignment_id' => $s->id,
+                    'subject_id' => $s->subject_id,
+                    'subject_name' => $s->subject->name,
+                    'grading_period_id' => $s->grading_period_id,
+                    'grading_period_name' => $s->gradingPeriod?->name ?? 'N/A'
+                ];
+            })->toArray()
+        ]);
+
+        // Group assignments by subject_id to prevent duplicates
+        $groupedBySubject = $assignedSubjects->groupBy('subject_id');
+
+        Log::info('[INSTRUCTOR DASHBOARD] Grouped by subject', [
+            'unique_subjects' => $groupedBySubject->count(),
+            'subjects' => $groupedBySubject->keys()->toArray()
+        ]);
+
+        // Get students enrolled in each assigned subject (merged from all assignments)
+        $subjectsWithStudents = $groupedBySubject->map(function ($assignments, $subjectId) use ($schoolYear) {
+            // Use the first assignment for subject details
+            $firstAssignment = $assignments->first();
+
+            // Get all grading periods this instructor is assigned to for this subject
+            $assignedGradingPeriods = $assignments->pluck('gradingPeriod')->filter()->unique('id')->values();
+
+            // Get enrolled students for this subject (deduplicated by student_id)
             $enrolledStudents = StudentSubjectAssignment::with(['student'])
-                ->where('subject_id', $assignment->subject_id)
+                ->where('subject_id', $subjectId)
                 ->where('school_year', $schoolYear)
                 ->where('is_active', true)
                 ->get()
+                ->unique('student_id') // Deduplicate by student_id
+                ->values()
                 ->map(function ($enrollment) {
                     return [
                         'id' => $enrollment->id,
@@ -63,19 +93,25 @@ class DashboardController extends Controller
                 });
 
             // Debug logging
-            Log::info('Subject ' . $assignment->subject->name . ' has ' . $enrolledStudents->count() . ' students');
+            Log::info('[INSTRUCTOR DASHBOARD] Subject enrollment', [
+                'subject_id' => $subjectId,
+                'subject_name' => $firstAssignment->subject->name,
+                'enrolled_students' => $enrolledStudents->count(),
+                'grading_periods' => $assignedGradingPeriods->pluck('name')->toArray()
+            ]);
 
             return [
-                'id' => $assignment->id,
-                'subject' => $assignment->subject,
-                'academicLevel' => $assignment->academicLevel,
-                'gradingPeriod' => $assignment->gradingPeriod,
-                'school_year' => $assignment->school_year,
-                'is_active' => $assignment->is_active,
+                'id' => $firstAssignment->id,
+                'subject' => $firstAssignment->subject,
+                'academicLevel' => $firstAssignment->academicLevel,
+                'gradingPeriod' => $firstAssignment->gradingPeriod, // Primary grading period
+                'gradingPeriods' => $assignedGradingPeriods, // All assigned grading periods
+                'school_year' => $firstAssignment->school_year,
+                'is_active' => $firstAssignment->is_active,
                 'enrolled_students' => $enrolledStudents,
                 'student_count' => $enrolledStudents->count(),
             ];
-        });
+        })->values(); // Reset keys to ensure proper JSON encoding
         
         // Get recent grades entered by this instructor
         $recentGrades = StudentGrade::with(['student', 'subject', 'academicLevel', 'gradingPeriod'])

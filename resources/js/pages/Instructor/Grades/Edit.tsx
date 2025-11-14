@@ -35,6 +35,10 @@ interface StudentGrade {
     validated_by?: number;
     created_at: string;
     updated_at: string;
+    // Editability fields (5-day edit window)
+    is_editable?: boolean;
+    days_remaining?: number;
+    edit_status?: 'editable' | 'locked' | 'expired';
     student: {
         id: number;
         name: string;
@@ -268,6 +272,69 @@ export default function Edit({ user, grade, gradingPeriods, assignedSubjects }: 
                                 </div>
                             </div>
                         </div>
+
+                        {/* Edit Window Status - Days Remaining Warning */}
+                        {grade.days_remaining !== undefined && (
+                            <Card className={`max-w-2xl border-l-4 ${
+                                grade.days_remaining === 0 ? 'border-red-500 bg-red-50 dark:bg-red-900/20' :
+                                grade.days_remaining <= 1 ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' :
+                                grade.days_remaining <= 2 ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20' :
+                                'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                            }`}>
+                                <CardContent className="pt-6">
+                                    <div className="flex items-start gap-3">
+                                        <div className={`p-2 rounded-full ${
+                                            grade.days_remaining === 0 ? 'bg-red-100 dark:bg-red-800' :
+                                            grade.days_remaining <= 1 ? 'bg-orange-100 dark:bg-orange-800' :
+                                            grade.days_remaining <= 2 ? 'bg-yellow-100 dark:bg-yellow-800' :
+                                            'bg-blue-100 dark:bg-blue-800'
+                                        }`}>
+                                            <svg className={`h-5 w-5 ${
+                                                grade.days_remaining === 0 ? 'text-red-600 dark:text-red-300' :
+                                                grade.days_remaining <= 1 ? 'text-orange-600 dark:text-orange-300' :
+                                                grade.days_remaining <= 2 ? 'text-yellow-600 dark:text-yellow-300' :
+                                                'text-blue-600 dark:text-blue-300'
+                                            }`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                        </div>
+                                        <div className="flex-1">
+                                            <h3 className={`font-semibold ${
+                                                grade.days_remaining === 0 ? 'text-red-900 dark:text-red-100' :
+                                                grade.days_remaining <= 1 ? 'text-orange-900 dark:text-orange-100' :
+                                                grade.days_remaining <= 2 ? 'text-yellow-900 dark:text-yellow-100' :
+                                                'text-blue-900 dark:text-blue-100'
+                                            }`}>
+                                                {grade.days_remaining === 0 ? '⚠️ Last Day to Edit!' :
+                                                 grade.days_remaining === 1 ? '⏰ 1 Day Remaining' :
+                                                 `⏰ ${grade.days_remaining} Days Remaining`}
+                                            </h3>
+                                            <p className={`text-sm mt-1 ${
+                                                grade.days_remaining === 0 ? 'text-red-700 dark:text-red-200' :
+                                                grade.days_remaining <= 1 ? 'text-orange-700 dark:text-orange-200' :
+                                                grade.days_remaining <= 2 ? 'text-yellow-700 dark:text-yellow-200' :
+                                                'text-blue-700 dark:text-blue-200'
+                                            }`}>
+                                                {grade.days_remaining === 0
+                                                    ? 'This is your last opportunity to edit this grade before the 5-day window expires.'
+                                                    : grade.days_remaining === 1
+                                                    ? 'You have 1 day left to edit this grade within the 5-day edit window.'
+                                                    : `You have ${grade.days_remaining} days left to edit this grade within the 5-day edit window.`}
+                                                {grade.edit_status === 'locked' && ' Once submitted for validation, this grade cannot be edited.'}
+                                            </p>
+                                            <p className={`text-xs mt-2 ${
+                                                grade.days_remaining === 0 ? 'text-red-600 dark:text-red-300' :
+                                                grade.days_remaining <= 2 ? 'text-yellow-600 dark:text-yellow-300' :
+                                                'text-blue-600 dark:text-blue-300'
+                                            }`}>
+                                                Grade created: {new Date(grade.created_at).toLocaleString()} •
+                                                Status: {grade.is_submitted_for_validation ? 'Submitted for Validation' : 'Draft'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
 
                         {/* Grade Information Display */}
                         <Card className="max-w-2xl">

@@ -122,6 +122,76 @@ class StudentGrade extends Model
         return 'expired';
     }
 
+    /**
+     * Check if the grade is editable by adviser
+     * Edit window: 3 days from created_at AND not submitted for validation
+     */
+    public function isEditableByAdviser(): bool
+    {
+        // If grade is submitted for validation, it's locked
+        if ($this->is_submitted_for_validation) {
+            \Log::info('[ADVISER GRADE EDIT] Grade is locked (submitted for validation)', [
+                'grade_id' => $this->id,
+                'student_id' => $this->student_id,
+                'subject_id' => $this->subject_id,
+                'submitted_at' => $this->submitted_at,
+            ]);
+            return false;
+        }
+
+        // Check if within 3-day edit window from created_at
+        $createdDate = $this->created_at;
+        $threeDaysAgo = now()->subDays(3);
+        $isWithinWindow = $createdDate->isAfter($threeDaysAgo);
+
+        \Log::info('[ADVISER GRADE EDIT] Time window validation', [
+            'grade_id' => $this->id,
+            'student_id' => $this->student_id,
+            'subject_id' => $this->subject_id,
+            'created_at' => $createdDate->toDateTimeString(),
+            'three_days_ago' => $threeDaysAgo->toDateTimeString(),
+            'is_within_window' => $isWithinWindow,
+            'days_since_creation' => $createdDate->diffInDays(now()),
+        ]);
+
+        return $isWithinWindow;
+    }
+
+    /**
+     * Get the number of days remaining for editing by adviser
+     * Returns 0 if edit window has expired or grade is submitted
+     */
+    public function getDaysRemainingForEditByAdviser(): int
+    {
+        if ($this->is_submitted_for_validation) {
+            return 0;
+        }
+
+        $createdDate = $this->created_at;
+        $expiryDate = $createdDate->copy()->addDays(3);
+        $daysRemaining = now()->diffInDays($expiryDate, false);
+
+        // Return 0 if negative (expired)
+        return max(0, (int) ceil($daysRemaining));
+    }
+
+    /**
+     * Get the edit status for adviser frontend display
+     * Returns: 'editable', 'locked', or 'expired'
+     */
+    public function getEditStatusForAdviser(): string
+    {
+        if ($this->is_submitted_for_validation) {
+            return 'locked';
+        }
+
+        if ($this->isEditableByAdviser()) {
+            return 'editable';
+        }
+
+        return 'expired';
+    }
+
     protected static function booted(): void
     {
         // Trigger honor calculation when a grade is approved
