@@ -85,14 +85,14 @@ export default function AdviserGradesIndex({ user, grades, assignedSubjects }: I
             if (grade <= 2.0) return 'Very Good';
             if (grade <= 2.5) return 'Good';
             if (grade <= 3.0) return 'Satisfactory';
-            return 'Failing';
+            return 'Not Qualified';
         }
         if (grade >= 95) return 'Outstanding';
         if (grade >= 90) return 'Very Good';
         if (grade >= 85) return 'Good';
         if (grade >= 80) return 'Satisfactory';
         if (grade >= 75) return 'Fair';
-        return 'Failing';
+        return 'Not Qualified';
     };
 
     const getStudentsForSubject = (subjectId: string): StudentForSubject[] => {
@@ -266,7 +266,7 @@ export default function AdviserGradesIndex({ user, grades, assignedSubjects }: I
                                                             <td className="p-3 text-sm text-gray-600 dark:text-gray-400">{student.latestGradeDate ? new Date(student.latestGradeDate).toLocaleDateString() : 'N/A'}</td>
                                                             <td className="p-3">
                                                                 <div className="flex gap-2">
-                                                                    <Link href={route('adviser.grades.student.subject', { student: student.id, subject: student.actualGradeSubjectId })}>
+                                                                    <Link href={route('adviser.grades.show-student', { student: student.id, subject: student.actualGradeSubjectId })}>
                                                                         <Button
                                                                             variant="outline"
                                                                             size="sm"

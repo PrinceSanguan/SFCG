@@ -26,6 +26,13 @@ class GradeManagementController extends Controller
         $user = Auth::user();
         $schoolYear = $request->input('school_year', '2024-2025');
 
+        Log::info('[ADVISER GRADES INDEX] === PAGE LOAD ===', [
+            'adviser_id' => $user->id,
+            'adviser_name' => $user->name,
+            'school_year' => $schoolYear,
+            'timestamp' => now()->toDateTimeString()
+        ]);
+
         $assignments = ClassAdviserAssignment::with(['subject.course', 'academicLevel'])
             ->where('adviser_id', $user->id)
             ->where('school_year', $schoolYear)
@@ -35,6 +42,11 @@ class GradeManagementController extends Controller
                 $query->whereIn('key', ['elementary', 'junior_highschool']);
             })
             ->get();
+
+        Log::info('[ADVISER GRADES INDEX] Assignments loaded', [
+            'total_assignments' => $assignments->count(),
+            'subjects' => $assignments->pluck('subject.name')->toArray()
+        ]);
 
         $subjectIds = $assignments->pluck('subject_id')->filter()->unique();
 
@@ -283,8 +295,27 @@ class GradeManagementController extends Controller
         $user = Auth::user();
         $schoolYear = request('school_year', '2024-2025');
 
+        // Comprehensive logging for debugging
+        Log::info('[ADVISER SHOW STUDENT GRADES] === VIEWING STUDENT GRADES ===', [
+            'adviser_id' => $user->id,
+            'adviser_name' => $user->name,
+            'student_id' => $student->id,
+            'student_name' => $student->name,
+            'subject_id' => $subject->id,
+            'subject_name' => $subject->name,
+            'school_year' => $schoolYear,
+            'timestamp' => now()->toDateTimeString()
+        ]);
+
         // Load the academic level relationship
         $subject->load('academicLevel');
+
+        Log::info('[ADVISER SHOW STUDENT GRADES] Subject loaded with academic level', [
+            'subject_id' => $subject->id,
+            'academic_level_id' => $subject->academic_level_id,
+            'academic_level_name' => $subject->academicLevel ? $subject->academicLevel->name : 'NULL',
+            'academic_level_key' => $subject->academicLevel ? $subject->academicLevel->key : 'NULL'
+        ]);
 
         // Verify adviser is assigned to this subject
         $isAssigned = ClassAdviserAssignment::where('adviser_id', $user->id)
@@ -293,7 +324,18 @@ class GradeManagementController extends Controller
             ->where('is_active', true)
             ->exists();
 
+        Log::info('[ADVISER SHOW STUDENT GRADES] Assignment verification', [
+            'is_assigned' => $isAssigned,
+            'adviser_id' => $user->id,
+            'subject_id' => $subject->id,
+            'school_year' => $schoolYear
+        ]);
+
         if (!$isAssigned) {
+            Log::warning('[ADVISER SHOW STUDENT GRADES] Adviser not assigned to subject', [
+                'adviser_id' => $user->id,
+                'subject_id' => $subject->id
+            ]);
             return redirect()->route('adviser.grades.index')
                 ->with('error', 'You are not assigned to this subject.');
         }
@@ -305,7 +347,18 @@ class GradeManagementController extends Controller
             ->where('is_active', true)
             ->first();
 
+        Log::info('[ADVISER SHOW STUDENT GRADES] Enrollment verification', [
+            'enrollment_found' => $enrollment ? true : false,
+            'student_id' => $student->id,
+            'subject_id' => $subject->id,
+            'school_year' => $schoolYear
+        ]);
+
         if (!$enrollment) {
+            Log::warning('[ADVISER SHOW STUDENT GRADES] Student not enrolled in subject', [
+                'student_id' => $student->id,
+                'subject_id' => $subject->id
+            ]);
             return redirect()->route('adviser.grades.index')
                 ->with('error', 'Student is not enrolled in this subject.');
         }
@@ -372,6 +425,14 @@ class GradeManagementController extends Controller
                     'sort_order' => $period->sort_order,
                 ];
             });
+
+        Log::info('[ADVISER SHOW STUDENT GRADES] Data prepared successfully', [
+            'grades_count' => $transformedGrades->count(),
+            'grading_periods_count' => $gradingPeriods->count(),
+            'academic_level' => $subject->academicLevel ? $subject->academicLevel->key : 'NULL'
+        ]);
+
+        Log::info('[ADVISER SHOW STUDENT GRADES] === RENDERING VIEW ===');
 
         return Inertia::render('Adviser/Grades/Show', [
             'user' => $user,
