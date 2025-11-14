@@ -113,9 +113,22 @@ class SectionController extends Controller
 
         $section = Section::create($validator->validated());
 
-        Log::info('Section created', ['section_id' => $section->id, 'name' => $section->name, 'academic_level' => $academicLevel->key ?? 'unknown']);
+        // Determine if user is registrar or admin
+        $isRegistrar = Auth::user()->user_role === 'registrar';
+        $routeName = $isRegistrar ? 'registrar.academic.sections.manage' : 'admin.academic.sections.manage';
+        $levelKey = $academicLevel->key ?? 'elementary';
 
-        return back()->with('success', 'Section created successfully.');
+        Log::info('[SECTION CREATE] Section created successfully', [
+            'section_id' => $section->id,
+            'name' => $section->name,
+            'academic_level' => $levelKey,
+            'user_role' => Auth::user()->user_role,
+            'redirect_route' => $routeName,
+            'level_key' => $levelKey
+        ]);
+
+        return redirect()->route($routeName, ['levelKey' => $levelKey])
+            ->with('success', 'Section created successfully.');
     }
 
     public function update(Request $request, Section $section)
@@ -172,7 +185,22 @@ class SectionController extends Controller
 
         $section->update($validator->validated());
 
-        return back()->with('success', 'Section updated successfully.');
+        // Determine if user is registrar or admin
+        $isRegistrar = Auth::user()->user_role === 'registrar';
+        $routeName = $isRegistrar ? 'registrar.academic.sections.manage' : 'admin.academic.sections.manage';
+        $levelKey = $academicLevel->key ?? 'elementary';
+
+        Log::info('[SECTION UPDATE] Section updated successfully', [
+            'section_id' => $section->id,
+            'name' => $section->name,
+            'academic_level' => $levelKey,
+            'user_role' => Auth::user()->user_role,
+            'redirect_route' => $routeName,
+            'level_key' => $levelKey
+        ]);
+
+        return redirect()->route($routeName, ['levelKey' => $levelKey])
+            ->with('success', 'Section updated successfully.');
     }
 
     public function destroy(Section $section)

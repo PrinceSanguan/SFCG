@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { router, usePage } from '@inertiajs/react';
+import { router, usePage, useForm } from '@inertiajs/react';
 import { Header } from '@/components/admin/header';
 import { Sidebar } from '@/components/admin/sidebar';
 import { Card, CardContent } from '@/components/ui/card';
@@ -130,7 +130,7 @@ export default function AssignInstructors({ user, assignments, instructors, depa
         }
     }, [props.flash]);
 
-    const [assignmentForm, setAssignmentForm] = useState({
+    const { data: assignmentForm, setData: setAssignmentForm, post: postAssignment, processing, reset: resetFormData } = useForm({
         instructor_id: '',
         year_level: '',
         department_id: '',
@@ -278,27 +278,37 @@ export default function AssignInstructors({ user, assignments, instructors, depa
     const submitAssignment = (e: React.FormEvent) => {
         e.preventDefault();
 
-        // FIXED: Send full array of grading_period_ids to support multiple periods
-        // Backend now accepts grading_period_ids as an array and creates separate assignments per period
-        console.log('[SUBMIT_ASSIGNMENT] Sending grading_period_ids array:', {
+        console.log('[ADMIN ASSIGN] Form submission started', {
+            timestamp: new Date().toISOString(),
+            instructor_id: assignmentForm.instructor_id,
+            subject_id: assignmentForm.subject_id,
+            section_id: assignmentForm.section_id,
             grading_period_ids: assignmentForm.grading_period_ids,
-            count: assignmentForm.grading_period_ids.length,
+            grading_period_ids_count: assignmentForm.grading_period_ids.length,
+            processing
         });
 
         // Remove semester_ids (not used for instructors), keep grading_period_ids
         const { semester_ids, ...restForm } = assignmentForm;
 
-        router.post('/admin/academic/assign-instructors', {
-            ...restForm,
-            grading_period_ids: assignmentForm.grading_period_ids, // Send full array
-            academic_level_id: collegeLevel?.id,
-        }, {
+        postAssignment('/admin/academic/assign-instructors', {
+            data: {
+                ...restForm,
+                grading_period_ids: assignmentForm.grading_period_ids, // Send full array
+                academic_level_id: collegeLevel?.id,
+            },
             onSuccess: () => {
+                console.log('[ADMIN ASSIGN] Assignment created successfully', {
+                    timestamp: new Date().toISOString()
+                });
                 setAssignmentModal(false);
                 resetForm();
             },
             onError: (errors) => {
-                console.error(errors);
+                console.error('[ADMIN ASSIGN] Assignment creation failed', {
+                    timestamp: new Date().toISOString(),
+                    errors
+                });
             },
         });
     };
@@ -524,20 +534,7 @@ export default function AssignInstructors({ user, assignments, instructors, depa
     };
 
     const resetForm = () => {
-        setAssignmentForm({
-            instructor_id: '',
-            year_level: '',
-            department_id: '',
-            course_id: '',
-            section_id: '',
-            subject_id: '',
-            academic_level_id: '',
-            semester_ids: [],
-            grading_period_ids: [],
-            school_year: '',
-            notes: '',
-            is_active: true,
-        });
+        resetFormData();
         setFilteredCourses([]);
         setFilteredSubjects([]);
         setFilteredSections([]);
@@ -547,37 +544,41 @@ export default function AssignInstructors({ user, assignments, instructors, depa
 
     // Helper functions for checkbox handling
     const handleSemesterChange = (semesterId: string, checked: boolean) => {
-        const updatedSemesters = checked
-            ? [...assignmentForm.semester_ids, semesterId]
-            : assignmentForm.semester_ids.filter(id => id !== semesterId);
+        setAssignmentForm(data => {
+            const updatedSemesters = checked
+                ? [...data.semester_ids, semesterId]
+                : data.semester_ids.filter(id => id !== semesterId);
 
-        // If unchecking a semester, also uncheck its grading periods
-        let updatedGradingPeriods = assignmentForm.grading_period_ids;
-        if (!checked) {
-            const periodsToRemove = allCollegeGradingPeriods
-                .filter(period => period.parent_id?.toString() === semesterId)
-                .map(period => period.id.toString());
+            // If unchecking a semester, also uncheck its grading periods
+            let updatedGradingPeriods = data.grading_period_ids;
+            if (!checked) {
+                const periodsToRemove = allCollegeGradingPeriods
+                    .filter(period => period.parent_id?.toString() === semesterId)
+                    .map(period => period.id.toString());
 
-            updatedGradingPeriods = assignmentForm.grading_period_ids.filter(
-                periodId => !periodsToRemove.includes(periodId)
-            );
-        }
+                updatedGradingPeriods = data.grading_period_ids.filter(
+                    periodId => !periodsToRemove.includes(periodId)
+                );
+            }
 
-        setAssignmentForm({
-            ...assignmentForm,
-            semester_ids: updatedSemesters,
-            grading_period_ids: updatedGradingPeriods,
+            return {
+                ...data,
+                semester_ids: updatedSemesters,
+                grading_period_ids: updatedGradingPeriods,
+            };
         });
     };
 
     const handleGradingPeriodChange = (periodId: string, checked: boolean) => {
-        const updatedPeriods = checked
-            ? [...assignmentForm.grading_period_ids, periodId]
-            : assignmentForm.grading_period_ids.filter(id => id !== periodId);
+        setAssignmentForm(data => {
+            const updatedPeriods = checked
+                ? [...data.grading_period_ids, periodId]
+                : data.grading_period_ids.filter(id => id !== periodId);
 
-        setAssignmentForm({
-            ...assignmentForm,
-            grading_period_ids: updatedPeriods,
+            return {
+                ...data,
+                grading_period_ids: updatedPeriods,
+            };
         });
     };
 
@@ -947,10 +948,13 @@ export default function AssignInstructors({ user, assignments, instructors, depa
                                     type="button"
                                     variant="outline"
                                     onClick={() => setAssignmentModal(false)}
+                                    disabled={processing}
                                 >
                                     Cancel
                                 </Button>
-                                <Button type="submit">Assign Instructor to Subject</Button>
+                                <Button type="submit" disabled={processing}>
+                                    {processing ? 'Assigning...' : 'Assign Instructor to Subject'}
+                                </Button>
                             </div>
                         </form>
                     </DialogContent>

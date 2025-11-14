@@ -129,7 +129,7 @@ export default function ShowStudent({ user, student, subject, academicLevel, gra
             if (grade <= 2.0) return 'Very Good';
             if (grade <= 2.5) return 'Good';
             if (grade <= 3.0) return 'Satisfactory';
-            return 'Failing';
+            return 'Not Qualified';
         } else {
             // Elementary and JHS use 75-100 scale
             if (grade >= 95) return 'Outstanding';
@@ -137,7 +137,7 @@ export default function ShowStudent({ user, student, subject, academicLevel, gra
             if (grade >= 85) return 'Good';
             if (grade >= 80) return 'Satisfactory';
             if (grade >= 75) return 'Fair';
-            return 'Failing';
+            return 'Not Qualified';
         }
     };
 
@@ -470,7 +470,19 @@ export default function ShowStudent({ user, student, subject, academicLevel, gra
     // For SHS/College: Each semester average = (Midterm + Pre-Final) / 2
     // Overall average = (Semester 1 Average + Semester 2 Average) / 2
     const calculateSemesterAverages = () => {
+        console.log('🔍 [CALCULATION] ========== CALCULATING SEMESTER AVERAGES ==========');
+        console.log('🔍 [CALCULATION] Academic Level:', academicLevelKey);
+        console.log('🔍 [CALCULATION] Total Grades:', grades.length);
+        console.log('🔍 [CALCULATION] Grades Data:', grades.map(g => ({
+            id: g.id,
+            grade: g.grade,
+            period_id: g.grading_period_id,
+            period_name: g.gradingPeriod?.name,
+            period_parent_id: g.gradingPeriod?.parent_id
+        })));
+
         const isSemesterBased = ['college', 'senior_highschool'].includes(academicLevelKey);
+        console.log('🔍 [CALCULATION] Is Semester Based:', isSemesterBased);
 
         if (!isSemesterBased) {
             // For Elementary and Junior High, use simple average of all valid grades
@@ -478,13 +490,18 @@ export default function ShowStudent({ user, student, subject, academicLevel, gra
                 .filter(g => g.grade !== null && g.grade !== undefined)
                 .map(g => g.grade);
 
+            console.log('🔍 [CALCULATION] Valid Grades (Elementary/JHS):', validGrades);
+
             if (validGrades.length > 0) {
+                const avg = validGrades.reduce((sum, grade) => sum + grade, 0) / validGrades.length;
+                console.log('🔍 [CALCULATION] Overall Average (Elementary/JHS):', avg);
                 return {
                     semester1Average: null,
                     semester2Average: null,
-                    overallAverage: validGrades.reduce((sum, grade) => sum + grade, 0) / validGrades.length
+                    overallAverage: avg
                 };
             }
+            console.log('🔍 [CALCULATION] No valid grades found');
             return { semester1Average: null, semester2Average: null, overallAverage: null };
         }
 
@@ -492,30 +509,36 @@ export default function ShowStudent({ user, student, subject, academicLevel, gra
         // First, get all parent semesters from gradingPeriods
         const parentSemesters = gradingPeriods.filter(p => p.parent_id === null && p.type === 'semester');
 
-        console.log('🔍 Parent semesters for average calculation:', parentSemesters.map(p => ({ id: p.id, name: p.name })));
+        console.log('🔍 [CALCULATION] Parent semesters found:', parentSemesters.map(p => ({ id: p.id, name: p.name })));
 
         // Calculate average for each semester
         const semesterAverages: { [key: number]: number | null } = {};
 
         parentSemesters.forEach(parentSemester => {
+            console.log(`🔍 [CALCULATION] Processing semester: "${parentSemester.name}" (ID: ${parentSemester.id})`);
+
             // Get all grades for this semester (where grading_period.parent_id = parentSemester.id)
             const semesterGrades = grades.filter(g => {
                 // Check if this grade's period is a child of this parent semester
                 const gradingPeriod = gradingPeriods.find(gp => gp.id === g.grading_period_id);
-                return gradingPeriod &&
-                       gradingPeriod.parent_id === parentSemester.id &&
-                       gradingPeriod.period_type !== 'final' &&
-                       g.grade !== null &&
-                       g.grade !== undefined;
+                const isChild = gradingPeriod && gradingPeriod.parent_id === parentSemester.id;
+                const notFinal = gradingPeriod && gradingPeriod.period_type !== 'final';
+                const hasGrade = g.grade !== null && g.grade !== undefined;
+
+                console.log(`🔍 [CALCULATION]   Grade ID ${g.id}: period=${g.grading_period_id}, isChild=${isChild}, notFinal=${notFinal}, hasGrade=${hasGrade}, grade=${g.grade}`);
+
+                return isChild && notFinal && hasGrade;
             });
+
+            console.log(`🔍 [CALCULATION] Found ${semesterGrades.length} grades for semester "${parentSemester.name}":`, semesterGrades.map(g => ({ id: g.id, grade: g.grade, period: g.gradingPeriod?.name })));
 
             if (semesterGrades.length > 0) {
                 const avg = semesterGrades.reduce((sum, g) => sum + parseFloat(g.grade.toString()), 0) / semesterGrades.length;
                 semesterAverages[parentSemester.id] = avg;
-                console.log(`🔍 Semester "${parentSemester.name}" (ID: ${parentSemester.id}) average:`, avg, 'from', semesterGrades.length, 'grades');
+                console.log(`✅ [CALCULATION] Semester "${parentSemester.name}" (ID: ${parentSemester.id}) average: ${avg.toFixed(2)} (from ${semesterGrades.length} grades)`);
             } else {
                 semesterAverages[parentSemester.id] = null;
-                console.log(`🔍 Semester "${parentSemester.name}" (ID: ${parentSemester.id}) has no grades`);
+                console.log(`⚠️ [CALCULATION] Semester "${parentSemester.name}" (ID: ${parentSemester.id}) has NO GRADES`);
             }
         });
 
@@ -523,20 +546,29 @@ export default function ShowStudent({ user, student, subject, academicLevel, gra
         const semester1Average = parentSemesters[0] ? semesterAverages[parentSemesters[0].id] : null;
         const semester2Average = parentSemesters[1] ? semesterAverages[parentSemesters[1].id] : null;
 
+        console.log('🔍 [CALCULATION] Semester 1 Average:', semester1Average);
+        console.log('🔍 [CALCULATION] Semester 2 Average:', semester2Average);
+
         // Calculate Overall Average from semester averages
         let overallAverage = null;
         const validSemesterAverages = Object.values(semesterAverages).filter((avg): avg is number => avg !== null);
 
+        console.log('🔍 [CALCULATION] Valid Semester Averages:', validSemesterAverages);
+
         if (validSemesterAverages.length > 0) {
             overallAverage = validSemesterAverages.reduce((sum, avg) => sum + avg, 0) / validSemesterAverages.length;
+            console.log(`✅ [CALCULATION] Overall Average: ${overallAverage.toFixed(2)} (from ${validSemesterAverages.length} semester averages)`);
+        } else {
+            console.log('⚠️ [CALCULATION] NO VALID SEMESTER AVERAGES FOUND - Overall Average is NULL');
         }
 
-        console.log('🔍 Semester averages:', {
+        console.log('🔍 [CALCULATION] Final Result:', {
             semester1Average,
             semester2Average,
             overallAverage,
             allSemesterAverages: semesterAverages
         });
+        console.log('🔍 [CALCULATION] ========== END CALCULATION ==========');
 
         return { semester1Average, semester2Average, overallAverage };
     };

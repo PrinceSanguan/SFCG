@@ -124,16 +124,16 @@ export default function Show({ user, student, subject, academicLevel, grades, gr
             if (grade <= 2.0) return 'Very Good';
             if (grade <= 2.5) return 'Good';
             if (grade <= 3.0) return 'Satisfactory';
-            return 'Failing';
+            return 'Not Qualified';
         }
-        
+
         // Elementary to Senior High grading system: 75 (passing) to 100 (highest)
         if (grade >= 95) return 'Outstanding';
         if (grade >= 90) return 'Very Good';
         if (grade >= 85) return 'Good';
         if (grade >= 80) return 'Satisfactory';
         if (grade >= 75) return 'Fair';
-        return 'Failing';
+        return 'Not Qualified';
     };
 
     return (

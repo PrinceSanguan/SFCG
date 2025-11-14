@@ -305,7 +305,7 @@ export default function AdviserStudentGradesShow({ user, student, subject, grade
                             <Badge variant="outline" className={
                               grade.is_submitted_for_validation ? "text-green-600" : "text-blue-600"
                             }>
-                              {getGradeStatus(grade.grade, academicLevel.key)}
+                              {getGradeStatus(grade.grade, subject.academicLevel?.key || '')}
                             </Badge>
                           </TableCell>
                         </TableRow>

@@ -71,7 +71,8 @@ class CollegeHonorCalculationService
         });
 
         // Get all grades for the student across all selected periods
-        $grades = StudentGrade::where('student_id', $studentId)
+        $grades = StudentGrade::with('academicLevel')
+            ->where('student_id', $studentId)
             ->where('academic_level_id', $academicLevelId)
             ->where('school_year', $schoolYear)
             ->whereIn('grading_period_id', $periods->pluck('id'))
@@ -84,58 +85,87 @@ class CollegeHonorCalculationService
             ];
         }
 
+        // Convert all grades to college scale (1.0-5.0) for proper calculation
+        $convertedGrades = $grades->map(function($grade) {
+            $originalGrade = $grade->grade;
+            $collegeScaleGrade = $grade->getCollegeScaleGrade();
+
+            \Log::info('[COLLEGE SCALE] Individual grade conversion', [
+                'grade_id' => $grade->id,
+                'subject_id' => $grade->subject_id,
+                'original_percentage' => $originalGrade,
+                'college_scale' => $collegeScaleGrade,
+            ]);
+
+            return [
+                'original' => $originalGrade,
+                'college_scale' => $collegeScaleGrade,
+                'grading_period_id' => $grade->grading_period_id,
+            ];
+        });
+
         // Calculate overall average across all selected periods using weights if present
         $totalWeightedGrade = 0;
         $totalWeight = 0;
         $allGrades = [];
-        
+
         foreach ($periods as $period) {
-            $periodGrades = $grades->where('grading_period_id', $period->id);
+            $periodGrades = $convertedGrades->where('grading_period_id', $period->id);
             if ($periodGrades->isNotEmpty()) {
-                $periodAverage = $periodGrades->avg('grade');
+                // Use college scale grades for averaging
+                $periodAverage = collect($periodGrades)->avg('college_scale');
                 $weight = $period->weight ?? 1.0;
-                
+
                 $totalWeightedGrade += ($periodAverage * $weight);
                 $totalWeight += $weight;
-                
-                // Collect all individual grades for minimum grade calculation
-                $allGrades = array_merge($allGrades, $periodGrades->pluck('grade')->toArray());
+
+                // Collect all individual college scale grades
+                $allGrades = array_merge($allGrades, collect($periodGrades)->pluck('college_scale')->toArray());
+
+                \Log::info('[COLLEGE SCALE] Period average calculated', [
+                    'period_id' => $period->id,
+                    'period_name' => $period->name,
+                    'period_average_college_scale' => round($periodAverage, 2),
+                    'weight' => $weight,
+                    'grades_count' => $periodGrades->count(),
+                ]);
             }
         }
-        
+
         if ($totalWeight == 0) {
             return [
                 'qualified' => false,
                 'reason' => 'No semester averages could be calculated'
             ];
         }
-        
+
         $averageGrade = $totalWeightedGrade / $totalWeight;
         $averageGrade = round($averageGrade, 2);
 
         // For college: 1.0 = highest/best, 5.0 = lowest/worst
-        // Get the WORST grade (highest number) for criteria checking
-        $worstGrade = !empty($allGrades) ? max($allGrades) : 0;
-        // Get the BEST grade (lowest number) for display
-        $bestGrade = !empty($allGrades) ? min($allGrades) : 0;
+        // Get the WORST grade (highest number) - for min_grade_all criteria
+        $worstGrade = !empty($allGrades) ? max($allGrades) : 5.0;
+        // Get the BEST grade (lowest number) - for display
+        $bestGrade = !empty($allGrades) ? min($allGrades) : 1.0;
 
         // Comprehensive logging of college honor calculation
-        \Log::info('[COLLEGE_HONOR_CALC] GPA Calculation Complete', [
+        \Log::info('[COLLEGE SCALE] GPA Calculation Complete (College Scale 1.0-5.0)', [
             'student_id' => $studentId,
             'student_name' => $student->name,
             'school_year' => $schoolYear,
-            'gpa' => $averageGrade,
-            'gpa_percentage' => $this->gradeToPercentage($averageGrade),
+            'gpa_college_scale' => $averageGrade,
+            'gpa_percentage_equivalent' => $this->gradeToPercentage($averageGrade),
             'gpa_quality' => $this->getQualityDescription($averageGrade),
-            'best_grade' => $bestGrade,
-            'best_grade_percentage' => $this->gradeToPercentage($bestGrade),
-            'worst_grade' => $worstGrade,
-            'worst_grade_percentage' => $this->gradeToPercentage($worstGrade),
+            'best_grade_college_scale' => $bestGrade,
+            'best_grade_percentage_equivalent' => $this->gradeToPercentage($bestGrade),
+            'worst_grade_college_scale' => $worstGrade,
+            'worst_grade_percentage_equivalent' => $this->gradeToPercentage($worstGrade),
             'total_grades' => count($allGrades),
-            'all_grades_with_percentages' => array_map(function($grade) {
+            'note' => 'All grades have been converted from percentage (75-100) to college scale (1.0-5.0)',
+            'all_grades_college_scale' => array_map(function($grade) {
                 return [
-                    'grade' => $grade,
-                    'percentage' => $this->gradeToPercentage($grade),
+                    'college_scale' => $grade,
+                    'percentage_equivalent' => $this->gradeToPercentage($grade),
                     'quality' => $this->getQualityDescription($grade)
                 ];
             }, $allGrades)

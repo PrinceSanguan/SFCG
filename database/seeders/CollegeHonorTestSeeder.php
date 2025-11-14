@@ -304,38 +304,63 @@ class CollegeHonorTestSeeder extends Seeder
 
     private function createGradesForStudents(array $students, array $subjects, array $gradingPeriods, int $academicLevelId, string $schoolYear): void
     {
+        // College grades use percentage scale (75-100) which will be converted to 1.0-5.0 by the system
+        // We generate percentages here, and the StudentGrade model will handle conversion
+
         foreach ($students as $student) {
             $sectionCode = $student->section->code;
-            
-            // Determine grade range based on section
+
+            // Determine grade range based on section (using percentages)
             $isHighHonorsSection = in_array($sectionCode, ['FY-CS-A', 'FY-IT-A', 'SY-CS-A', 'SY-IT-A', 'TY-CS-A', 'TY-IT-A', 'FOY-CS-A', 'FOY-IT-A']);
-            
+
             if ($isHighHonorsSection) {
-                // High Honors students: GPA 95-97, no grade below 90
-                $baseGrade = 95;
-                $gradeVariation = 3; // 95-97 range
-                $minGrade = 90;
+                // High Honors students: Percentage 95-98 (converts to 1.1-1.3 college scale)
+                // Target: Summa Cum Laude (max_gpa 1.5, min_grade_all 1.75)
+                $basePercentage = 96;
+                $percentageVariation = 2; // 94-98 range
+                $minPercentage = 93; // Should qualify for highest honors
             } else {
-                // Honors students: GPA 90-94, no grade below 85
-                $baseGrade = 92;
-                $gradeVariation = 4; // 90-94 range
-                $minGrade = 85;
+                // Honors students: Percentage 90-94 (converts to 1.5-2.0 college scale)
+                // Target: Magna Cum Laude (max_gpa 1.75, min_grade_all 2.0)
+                $basePercentage = 92;
+                $percentageVariation = 3; // 89-95 range
+                $minPercentage = 88; // Should qualify for honors
             }
+
+            \Log::info('[COLLEGE TEST SEEDER] Creating grades for student', [
+                'student_id' => $student->id,
+                'student_name' => $student->name,
+                'section' => $sectionCode,
+                'is_high_honors_section' => $isHighHonorsSection,
+                'base_percentage' => $basePercentage,
+                'min_percentage' => $minPercentage,
+            ]);
 
             foreach ($subjects as $subject) {
                 foreach ($gradingPeriods as $period) {
-                    // Generate grades with some variation but maintaining honor standards
-                    $grade = $baseGrade + rand(-$gradeVariation, $gradeVariation);
-                    
-                    // Ensure minimum grade requirement
-                    if ($grade < $minGrade) {
-                        $grade = $minGrade;
+                    // Generate percentage grades with some variation but maintaining honor standards
+                    $percentage = $basePercentage + rand(-$percentageVariation, $percentageVariation);
+
+                    // Ensure minimum percentage requirement
+                    if ($percentage < $minPercentage) {
+                        $percentage = $minPercentage;
                     }
-                    
+
                     // Cap at 100
-                    if ($grade > 100) {
-                        $grade = 100;
+                    if ($percentage > 100) {
+                        $percentage = 100;
                     }
+
+                    // Convert to college scale for logging
+                    $collegeScale = \App\Models\StudentGrade::percentageToCollegeScale($percentage);
+
+                    \Log::info('[COLLEGE TEST SEEDER] Grade created', [
+                        'student_id' => $student->id,
+                        'subject_id' => $subject->id,
+                        'period_id' => $period->id,
+                        'percentage' => $percentage,
+                        'college_scale_equivalent' => $collegeScale,
+                    ]);
 
                     StudentGrade::updateOrCreate(
                         [
@@ -346,7 +371,7 @@ class CollegeHonorTestSeeder extends Seeder
                             'school_year' => $schoolYear,
                         ],
                         [
-                            'grade' => $grade,
+                            'grade' => $percentage, // Store as percentage, will be converted during honor calculation
                         ]
                     );
                 }
