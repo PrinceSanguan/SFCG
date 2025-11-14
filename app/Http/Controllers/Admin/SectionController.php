@@ -115,8 +115,20 @@ class SectionController extends Controller
 
         // Determine if user is registrar or admin
         $isRegistrar = Auth::user()->user_role === 'registrar';
-        $routeName = $isRegistrar ? 'registrar.academic.sections.manage' : 'admin.academic.sections.manage';
         $levelKey = $academicLevel->key ?? 'elementary';
+
+        // Map level key to route suffix
+        $routeSuffix = match($levelKey) {
+            'junior_highschool' => 'junior',
+            'senior_highschool' => 'senior',
+            'elementary' => 'elementary',
+            'college' => 'college',
+            default => 'elementary',
+        };
+
+        $routeName = $isRegistrar
+            ? "registrar.academic.sections.{$routeSuffix}"
+            : "admin.academic.sections.{$routeSuffix}";
 
         Log::info('[SECTION CREATE] Section created successfully', [
             'section_id' => $section->id,
@@ -124,10 +136,10 @@ class SectionController extends Controller
             'academic_level' => $levelKey,
             'user_role' => Auth::user()->user_role,
             'redirect_route' => $routeName,
-            'level_key' => $levelKey
+            'route_suffix' => $routeSuffix
         ]);
 
-        return redirect()->route($routeName, ['levelKey' => $levelKey])
+        return redirect()->route($routeName)
             ->with('success', 'Section created successfully.');
     }
 
@@ -187,8 +199,20 @@ class SectionController extends Controller
 
         // Determine if user is registrar or admin
         $isRegistrar = Auth::user()->user_role === 'registrar';
-        $routeName = $isRegistrar ? 'registrar.academic.sections.manage' : 'admin.academic.sections.manage';
         $levelKey = $academicLevel->key ?? 'elementary';
+
+        // Map level key to route suffix
+        $routeSuffix = match($levelKey) {
+            'junior_highschool' => 'junior',
+            'senior_highschool' => 'senior',
+            'elementary' => 'elementary',
+            'college' => 'college',
+            default => 'elementary',
+        };
+
+        $routeName = $isRegistrar
+            ? "registrar.academic.sections.{$routeSuffix}"
+            : "admin.academic.sections.{$routeSuffix}";
 
         Log::info('[SECTION UPDATE] Section updated successfully', [
             'section_id' => $section->id,
@@ -196,10 +220,10 @@ class SectionController extends Controller
             'academic_level' => $levelKey,
             'user_role' => Auth::user()->user_role,
             'redirect_route' => $routeName,
-            'level_key' => $levelKey
+            'route_suffix' => $routeSuffix
         ]);
 
-        return redirect()->route($routeName, ['levelKey' => $levelKey])
+        return redirect()->route($routeName)
             ->with('success', 'Section updated successfully.');
     }
 
