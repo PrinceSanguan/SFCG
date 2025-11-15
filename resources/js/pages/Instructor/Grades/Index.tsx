@@ -351,22 +351,30 @@ export default function GradesIndex({ user, grades, assignedSubjects }: IndexPro
         if (subjectAssignments.length === 1) {
             // Single assignment - navigate directly to grade input
             const assignment = subjectAssignments[0];
+            console.log('=== SINGLE ASSIGNMENT NAVIGATION ===');
             console.log('Creating grade for subject (single period):', {
                 subjectId: assignment.subject.id,
                 subjectName: assignment.subject.name,
                 studentId: student.id,
-                gradingPeriod: assignment.gradingPeriod?.full_name || assignment.gradingPeriod?.name
+                gradingPeriod: assignment.gradingPeriod?.full_name || assignment.gradingPeriod?.name,
+                academic_level_id: assignment.academicLevel.id
             });
 
-            router.visit(route('instructor.grades.create', {
-                student_id: student.id,
-                subject_id: assignment.subject.id,
-                assignment_id: assignment.id,
-                academic_level_id: assignment.academic_level_id,
+            // Build the URL with query parameters explicitly
+            // Use academicLevel.id instead of academic_level_id
+            // Use gradingPeriod.id instead of grading_period_id
+            const params = new URLSearchParams({
+                student_id: student.id.toString(),
+                subject_id: assignment.subject.id.toString(),
+                assignment_id: assignment.id.toString(),
+                academic_level_id: assignment.academicLevel.id.toString(),
                 academic_level_key: assignment.academicLevel.key,
-                grading_period_id: assignment.grading_period_id,
+                grading_period_id: (assignment.gradingPeriod?.id || '0').toString(),
                 school_year: assignment.school_year
-            }));
+            });
+
+            console.log('Navigation URL:', route('instructor.grades.create') + '?' + params.toString());
+            router.visit(route('instructor.grades.create') + '?' + params.toString());
         } else {
             // Multiple assignments - need to select grading period first
             console.log('Multiple assignments found, showing period selector');
@@ -614,18 +622,35 @@ export default function GradesIndex({ user, grades, assignedSubjects }: IndexPro
                                         key={assignment.id}
                                         onClick={() => {
                                             const student = (window as any).__pendingGradeStudent;
+                                            console.log('=== GRADING PERIOD SELECTED ===');
                                             console.log('Selected grading period:', assignment.gradingPeriod?.full_name || assignment.gradingPeriod?.name);
+                                            console.log('Full assignment object:', assignment);
+                                            console.log('Assignment details:', {
+                                                assignment_id: assignment.id,
+                                                academic_level_id: assignment.academic_level_id,
+                                                grading_period_id: assignment.grading_period_id,
+                                                subject_id: assignment.subject.id,
+                                                student_id: student?.id,
+                                                academicLevel: assignment.academicLevel,
+                                                gradingPeriod: assignment.gradingPeriod
+                                            });
 
                                             if (student) {
-                                                router.visit(route('instructor.grades.create', {
-                                                    student_id: student.id,
-                                                    subject_id: assignment.subject.id,
-                                                    assignment_id: assignment.id,
-                                                    academic_level_id: assignment.academic_level_id,
+                                                // Build the URL with query parameters explicitly
+                                                // Use academicLevel.id instead of academic_level_id
+                                                // Use gradingPeriod.id instead of grading_period_id
+                                                const params = new URLSearchParams({
+                                                    student_id: student.id.toString(),
+                                                    subject_id: assignment.subject.id.toString(),
+                                                    assignment_id: assignment.id.toString(),
+                                                    academic_level_id: assignment.academicLevel.id.toString(),
                                                     academic_level_key: assignment.academicLevel.key,
-                                                    grading_period_id: assignment.grading_period_id,
+                                                    grading_period_id: (assignment.gradingPeriod?.id || '0').toString(),
                                                     school_year: assignment.school_year
-                                                }));
+                                                });
+
+                                                console.log('Navigation URL:', route('instructor.grades.create') + '?' + params.toString());
+                                                router.visit(route('instructor.grades.create') + '?' + params.toString());
                                             }
 
                                             setShowPeriodSelector(false);

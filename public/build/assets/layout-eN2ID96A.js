@@ -1,0 +1,1 @@
+import{K as e,j as t}from"./app-BTlaici0.js";import{A as n,a as i}from"./app-shell-CSZ3Nd98.js";import{S as o,a as d}from"./app-sidebar-BnO3BPN1.js";function x({children:a}){const{props:r}=e(),s=(r==null?void 0:r.user)??{};return t.jsxs(n,{variant:"sidebar",children:[t.jsx(o,{user:s}),t.jsxs(i,{variant:"sidebar",children:[t.jsx(d,{user:s}),a]})]})}export{x as S};

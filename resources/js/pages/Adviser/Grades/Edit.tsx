@@ -109,7 +109,7 @@ export default function Edit({ user, grade, gradingPeriods, assignedSubjects }: 
     // Helper functions for college grade conversion
     const gradeToPercentage = (grade: number): string => {
         const gradeMap: { [key: number]: string } = {
-            1.1: '97-98%', 1.2: '95-96%', 1.3: '93-94%', 1.4: '91-92%',
+            1.0: '99-100%', 1.1: '97-98%', 1.2: '95-96%', 1.3: '93-94%', 1.4: '91-92%',
             1.5: '90%', 1.6: '89%', 1.7: '88%', 1.8: '87%', 1.9: '86%',
             2.0: '85%', 2.1: '84%', 2.2: '83%', 2.3: '82%', 2.4: '81%',
             2.5: '80%', 2.6: '79%', 2.7: '78%', 2.8: '77%', 2.9: '76%',
@@ -391,7 +391,7 @@ export default function Edit({ user, grade, gradingPeriods, assignedSubjects }: 
                                                 step={getCurrentAcademicLevelKey() === 'college' ? '0.1' : '0.01'}
                                                 min={getCurrentAcademicLevelKey() === 'college' ? '1.0' : '75'}
                                                 max={getCurrentAcademicLevelKey() === 'college' ? '5.0' : '100'}
-                                                placeholder={getCurrentAcademicLevelKey() === 'college' ? 'Valid: 1.1-3.5 or 5.0' : 'Enter grade (0-100)'}
+                                                placeholder={getCurrentAcademicLevelKey() === 'college' ? 'Valid: 1.0-3.5 or 5.0' : 'Enter grade (0-100)'}
                                                 value={data.grade}
                                                 onChange={(e) => {
                                                     const value = e.target.value;
@@ -424,14 +424,14 @@ export default function Edit({ user, grade, gradingPeriods, assignedSubjects }: 
                                                             </>
                                                         )}
                                                         {!gradeToPercentage(parseFloat(data.grade)) && (
-                                                            <span className="text-red-600 dark:text-red-400">Invalid grade (use 1.1-3.5 or 5.0)</span>
+                                                            <span className="text-red-600 dark:text-red-400">Invalid grade (use 1.0-3.5 or 5.0)</span>
                                                         )}
                                                     </p>
                                                 </div>
                                             )}
                                             <p className="text-sm text-muted-foreground mt-1">
                                                 {getCurrentAcademicLevelKey() === 'college'
-                                                    ? 'Valid grades: 1.1-3.5 (0.1 increments) or 5.0. 3.0 is passing (75%).'
+                                                    ? 'Valid grades: 1.0-3.5 (0.1 increments) or 5.0. 3.0 is passing (75%).'
                                                     : 'Elementary to Senior High: 75 (passing) to 100 (highest).'
                                                 }
                                             </p>
