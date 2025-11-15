@@ -106,14 +106,14 @@ export default function ShowStudent({ user, student, subject, academicLevel, gra
     });
 
     const getGradeColor = (grade: number, academicLevelKey: string) => {
-        // SHS and College both use 1.0-5.0 scale (1.0 is highest, 5.0 is lowest, 3.0 is passing)
-        if (academicLevelKey === 'college' || academicLevelKey === 'senior_highschool') {
+        // College uses 1.0-5.0 GPA scale (1.0 is highest, 5.0 is lowest, 3.0 is passing)
+        if (academicLevelKey === 'college') {
             if (grade <= 1.5) return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
             if (grade <= 2.5) return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
             if (grade <= 3.0) return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
             return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
         } else {
-            // Elementary and JHS use 75-100 scale
+            // SHS, Elementary, and JHS use 75-100 percentage scale
             if (grade >= 95) return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
             if (grade >= 90) return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
             if (grade >= 85) return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
@@ -123,15 +123,15 @@ export default function ShowStudent({ user, student, subject, academicLevel, gra
     };
 
     const getGradeStatus = (grade: number, academicLevelKey: string) => {
-        // SHS and College both use 1.0-5.0 scale (1.0 is highest, 5.0 is lowest, 3.0 is passing)
-        if (academicLevelKey === 'college' || academicLevelKey === 'senior_highschool') {
+        // College uses 1.0-5.0 GPA scale (1.0 is highest, 5.0 is lowest, 3.0 is passing)
+        if (academicLevelKey === 'college') {
             if (grade <= 1.5) return 'Superior';
             if (grade <= 2.0) return 'Very Good';
             if (grade <= 2.5) return 'Good';
             if (grade <= 3.0) return 'Satisfactory';
             return 'Not Qualified';
         } else {
-            // Elementary and JHS use 75-100 scale
+            // SHS, Elementary, and JHS use 75-100 percentage scale
             if (grade >= 95) return 'Outstanding';
             if (grade >= 90) return 'Very Good';
             if (grade >= 85) return 'Good';
