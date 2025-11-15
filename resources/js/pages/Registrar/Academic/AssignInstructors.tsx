@@ -98,6 +98,7 @@ interface Section {
     name: string;
     code: string;
     course_id: number;
+    academic_level_id: number;
     specific_year_level?: string | null;
 }
 
@@ -128,7 +129,7 @@ export default function AssignInstructors({ user, assignments, instructors, depa
         }
     }, [props.flash]);
 
-    const { data: assignmentForm, setData: setAssignmentForm, post: postAssignment, processing, reset: resetFormData } = useForm({
+    const { data: assignmentForm, setData: setAssignmentForm, processing, reset: resetFormData } = useForm({
         instructor_id: '',
         year_level: '',
         department_id: '',
@@ -276,31 +277,90 @@ export default function AssignInstructors({ user, assignments, instructors, depa
     const submitAssignment = (e: React.FormEvent) => {
         e.preventDefault();
 
-        console.log('[REGISTRAR ASSIGN] Form submission started', {
+        console.log('[REGISTRAR ASSIGN] === DEBUGGING DATA EXTRACTION ===', {
+            'assignmentForm.section_id': assignmentForm.section_id,
+            'assignmentForm.subject_id': assignmentForm.subject_id,
+            'assignmentForm.academic_level_id': assignmentForm.academic_level_id,
+            'sections array': sections.map(s => ({ id: s.id, name: s.name, academic_level_id: s.academic_level_id })),
+            'subjects array': subjects.map(s => ({ id: s.id, name: s.name, academic_level_id: s.academic_level_id })),
+            'collegeLevel': collegeLevel
+        });
+
+        // Get academic_level_id from selected section or subject
+        let academic_level_id = assignmentForm.academic_level_id;
+
+        console.log('[REGISTRAR ASSIGN] Step 1 - Initial academic_level_id:', academic_level_id);
+
+        // If not set in form, try to get from selected section
+        if (!academic_level_id && assignmentForm.section_id) {
+            console.log('[REGISTRAR ASSIGN] Step 2 - Trying to get from section, section_id:', assignmentForm.section_id);
+            const selectedSection = sections.find(s => s.id.toString() === assignmentForm.section_id);
+            console.log('[REGISTRAR ASSIGN] Step 2 - Found section:', selectedSection);
+            if (selectedSection) {
+                academic_level_id = selectedSection.academic_level_id?.toString();
+                console.log('[REGISTRAR ASSIGN] Step 2 - Extracted academic_level_id from section:', academic_level_id);
+            }
+        }
+
+        // If still not set, try to get from selected subject
+        if (!academic_level_id && assignmentForm.subject_id) {
+            console.log('[REGISTRAR ASSIGN] Step 3 - Trying to get from subject, subject_id:', assignmentForm.subject_id);
+            const selectedSubject = subjects.find(s => s.id.toString() === assignmentForm.subject_id);
+            console.log('[REGISTRAR ASSIGN] Step 3 - Found subject:', selectedSubject);
+            if (selectedSubject) {
+                academic_level_id = selectedSubject.academic_level_id?.toString();
+                console.log('[REGISTRAR ASSIGN] Step 3 - Extracted academic_level_id from subject:', academic_level_id);
+            }
+        }
+
+        // Fallback to collegeLevel if available
+        if (!academic_level_id && collegeLevel) {
+            console.log('[REGISTRAR ASSIGN] Step 4 - Using collegeLevel fallback');
+            academic_level_id = collegeLevel.id.toString();
+            console.log('[REGISTRAR ASSIGN] Step 4 - Extracted academic_level_id from collegeLevel:', academic_level_id);
+        }
+
+        console.log('[REGISTRAR ASSIGN] Final academic_level_id:', academic_level_id);
+
+        console.log('[REGISTRAR ASSIGN] === FORM SUBMISSION STARTED ===', {
             timestamp: new Date().toISOString(),
             instructor_id: assignmentForm.instructor_id,
             subject_id: assignmentForm.subject_id,
             section_id: assignmentForm.section_id,
+            course_id: assignmentForm.course_id,
+            year_level: assignmentForm.year_level,
+            department_id: assignmentForm.department_id,
+            semester_ids: assignmentForm.semester_ids,
             grading_period_ids: assignmentForm.grading_period_ids,
+            school_year: assignmentForm.school_year,
+            notes: assignmentForm.notes,
+            is_active: assignmentForm.is_active,
+            academic_level_id: academic_level_id,
+            academic_level_id_source: assignmentForm.academic_level_id ? 'form' : assignmentForm.section_id ? 'section' : assignmentForm.subject_id ? 'subject' : 'collegeLevel',
             processing
         });
 
-        postAssignment('/registrar/academic/assign-instructors', {
-            data: {
-                ...assignmentForm,
-                academic_level_id: collegeLevel?.id,
-            },
+        const dataToSubmit = {
+            ...assignmentForm,
+            academic_level_id: academic_level_id,
+        };
+
+        console.log('[REGISTRAR ASSIGN] Data being sent to backend:', dataToSubmit);
+
+        router.post('/registrar/academic/assign-instructors', dataToSubmit, {
             onSuccess: () => {
-                console.log('[REGISTRAR ASSIGN] Assignment created successfully', {
+                console.log('[REGISTRAR ASSIGN] === ASSIGNMENT CREATED SUCCESSFULLY ===', {
                     timestamp: new Date().toISOString()
                 });
                 setAssignmentModal(false);
                 resetForm();
             },
             onError: (errors) => {
-                console.error('[REGISTRAR ASSIGN] Assignment creation failed', {
+                console.error('[REGISTRAR ASSIGN] === ASSIGNMENT CREATION FAILED ===', {
                     timestamp: new Date().toISOString(),
-                    errors
+                    errors,
+                    errorKeys: Object.keys(errors),
+                    errorMessages: Object.values(errors)
                 });
             },
         });
@@ -310,9 +370,33 @@ export default function AssignInstructors({ user, assignments, instructors, depa
         e.preventDefault();
         if (!editAssignment) return;
 
+        // Get academic_level_id from selected section or subject
+        let academic_level_id = assignmentForm.academic_level_id;
+
+        // If not set in form, try to get from selected section
+        if (!academic_level_id && assignmentForm.section_id) {
+            const selectedSection = sections.find(s => s.id.toString() === assignmentForm.section_id);
+            if (selectedSection) {
+                academic_level_id = selectedSection.academic_level_id.toString();
+            }
+        }
+
+        // If still not set, try to get from selected subject
+        if (!academic_level_id && assignmentForm.subject_id) {
+            const selectedSubject = subjects.find(s => s.id.toString() === assignmentForm.subject_id);
+            if (selectedSubject) {
+                academic_level_id = selectedSubject.academic_level_id.toString();
+            }
+        }
+
+        // Fallback to collegeLevel if available
+        if (!academic_level_id && collegeLevel) {
+            academic_level_id = collegeLevel.id.toString();
+        }
+
         router.put(`/registrar/academic/assign-instructors/${editAssignment.id}`, {
             ...assignmentForm,
-            academic_level_id: collegeLevel?.id,
+            academic_level_id: academic_level_id,
         }, {
             onSuccess: () => {
                 setEditModal(false);
@@ -963,11 +1047,24 @@ export default function AssignInstructors({ user, assignments, instructors, depa
                                                         })()}
                                                     </div>
                                                     <div className="flex flex-wrap gap-2">
-                                                        {group.assignments.map(assignment => assignment.subject).filter(Boolean).map((subject, subIdx) => (
-                                                            <Badge key={subIdx} variant="secondary" className="text-xs">
-                                                                {subject!.name} ({subject!.code})
-                                                            </Badge>
-                                                        ))}
+                                                        {(() => {
+                                                            // Get unique subjects to avoid duplicates
+                                                            const uniqueSubjects = new Map();
+                                                            group.assignments.forEach(assignment => {
+                                                                if (assignment.subject) {
+                                                                    const key = assignment.subject.id;
+                                                                    if (!uniqueSubjects.has(key)) {
+                                                                        uniqueSubjects.set(key, assignment.subject);
+                                                                    }
+                                                                }
+                                                            });
+
+                                                            return Array.from(uniqueSubjects.values()).map((subject, subIdx) => (
+                                                                <Badge key={subIdx} variant="secondary" className="text-xs">
+                                                                    {subject.name} ({subject.code})
+                                                                </Badge>
+                                                            ));
+                                                        })()}
                                                         {group.assignments.filter(a => a.subject).length === 0 && (
                                                             <span className="text-xs text-gray-400 italic">No specific subjects assigned</span>
                                                         )}

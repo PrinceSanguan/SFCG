@@ -372,6 +372,13 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
     })->name('test-create-assignment');
     
     Route::post('/assign-instructors', function(\Illuminate\Http\Request $request) {
+        \Illuminate\Support\Facades\Log::info('[REGISTRAR ASSIGN] === INCOMING REQUEST ===', [
+            'timestamp' => now()->toDateTimeString(),
+            'user_id' => \Illuminate\Support\Facades\Auth::id(),
+            'user_name' => \Illuminate\Support\Facades\Auth::user()->name,
+            'all_request_data' => $request->all()
+        ]);
+
         $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
             'instructor_id' => 'required|exists:users,id',
             'subject_id' => 'required|exists:subjects,id',
@@ -388,26 +395,52 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
         ]);
 
         if ($validator->fails()) {
+            \Illuminate\Support\Facades\Log::error('[REGISTRAR ASSIGN] Validation failed', [
+                'errors' => $validator->errors()->toArray(),
+                'input' => $request->all()
+            ]);
             return back()->withErrors($validator)->withInput();
         }
+
+        \Illuminate\Support\Facades\Log::info('[REGISTRAR ASSIGN] Validation passed');
 
         // Check if instructor has the correct role
         $instructor = \App\Models\User::find($request->instructor_id);
         if (!$instructor || $instructor->user_role !== 'instructor') {
+            \Illuminate\Support\Facades\Log::error('[REGISTRAR ASSIGN] Invalid instructor', [
+                'instructor_id' => $request->instructor_id,
+                'instructor_exists' => $instructor !== null,
+                'instructor_role' => $instructor ? $instructor->user_role : 'NULL'
+            ]);
             return back()->with('error', 'Selected user is not an instructor.');
         }
 
-        \Illuminate\Support\Facades\Log::info('[REGISTRAR POST] Creating instructor subject assignments', [
+        \Illuminate\Support\Facades\Log::info('[REGISTRAR ASSIGN] Instructor validated', [
+            'instructor_id' => $instructor->id,
+            'instructor_name' => $instructor->name,
+            'instructor_role' => $instructor->user_role
+        ]);
+
+        \Illuminate\Support\Facades\Log::info('[REGISTRAR ASSIGN] Creating instructor subject assignments', [
             'instructor_id' => $request->instructor_id,
             'subject_id' => $request->subject_id,
             'section_id' => $request->section_id,
+            'course_id' => $request->course_id,
+            'academic_level_id' => $request->academic_level_id,
+            'year_level' => $request->year_level,
             'grading_period_ids' => $request->grading_period_ids,
+            'grading_period_count' => count($request->grading_period_ids),
             'school_year' => $request->school_year,
         ]);
 
         // Create one assignment for each grading period
         $createdAssignments = [];
-        foreach ($request->grading_period_ids as $gradingPeriodId) {
+        foreach ($request->grading_period_ids as $index => $gradingPeriodId) {
+            \Illuminate\Support\Facades\Log::info('[REGISTRAR ASSIGN] Processing grading period', [
+                'index' => $index + 1,
+                'total' => count($request->grading_period_ids),
+                'grading_period_id' => $gradingPeriodId
+            ]);
             // Check for existing assignment
             $existingAssignment = \App\Models\InstructorSubjectAssignment::where([
                 'instructor_id' => $request->instructor_id,
@@ -419,27 +452,55 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
             ])->first();
 
             if ($existingAssignment) {
+                \Illuminate\Support\Facades\Log::warning('[REGISTRAR ASSIGN] Assignment already exists, skipping', [
+                    'grading_period_id' => $gradingPeriodId,
+                    'existing_assignment_id' => $existingAssignment->id
+                ]);
                 continue; // Skip if already exists
             }
 
-            $assignment = \App\Models\InstructorSubjectAssignment::create([
-                'instructor_id' => $request->instructor_id,
-                'subject_id' => $request->subject_id,
-                'section_id' => $request->section_id,
-                'academic_level_id' => $request->academic_level_id,
-                'grading_period_id' => $gradingPeriodId,
-                'school_year' => $request->school_year,
-                'assigned_by' => \Illuminate\Support\Facades\Auth::id(),
-                'notes' => $request->notes,
-                'is_active' => true,
+            \Illuminate\Support\Facades\Log::info('[REGISTRAR ASSIGN] Creating new assignment', [
+                'grading_period_id' => $gradingPeriodId
             ]);
 
-            $createdAssignments[] = $assignment;
+            try {
+                $assignment = \App\Models\InstructorSubjectAssignment::create([
+                    'instructor_id' => $request->instructor_id,
+                    'subject_id' => $request->subject_id,
+                    'section_id' => $request->section_id,
+                    'academic_level_id' => $request->academic_level_id,
+                    'grading_period_id' => $gradingPeriodId,
+                    'school_year' => $request->school_year,
+                    'assigned_by' => \Illuminate\Support\Facades\Auth::id(),
+                    'notes' => $request->notes,
+                    'is_active' => true,
+                ]);
+
+                \Illuminate\Support\Facades\Log::info('[REGISTRAR ASSIGN] Assignment created successfully', [
+                    'assignment_id' => $assignment->id,
+                    'grading_period_id' => $gradingPeriodId
+                ]);
+
+                $createdAssignments[] = $assignment;
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('[REGISTRAR ASSIGN] Failed to create assignment', [
+                    'grading_period_id' => $gradingPeriodId,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+                throw $e;
+            }
         }
 
         if (count($createdAssignments) === 0) {
+            \Illuminate\Support\Facades\Log::warning('[REGISTRAR ASSIGN] No assignments created - all already exist');
             return back()->with('error', 'All selected grading periods already have assignments for this instructor and subject.');
         }
+
+        \Illuminate\Support\Facades\Log::info('[REGISTRAR ASSIGN] Total assignments created', [
+            'count' => count($createdAssignments),
+            'assignment_ids' => array_map(fn($a) => $a->id, $createdAssignments)
+        ]);
 
         $firstAssignment = $createdAssignments[0];
 
@@ -459,10 +520,14 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
             ],
         ]);
 
-        \Illuminate\Support\Facades\Log::info('[REGISTRAR POST] Created assignments successfully', [
+        \Illuminate\Support\Facades\Log::info('[REGISTRAR ASSIGN] Activity log created');
+
+        \Illuminate\Support\Facades\Log::info('[REGISTRAR ASSIGN] === COMPLETED SUCCESSFULLY ===', [
             'count' => count($createdAssignments),
             'instructor' => $instructor->name,
             'subject' => $firstAssignment->subject->name,
+            'section' => $firstAssignment->section->name,
+            'school_year' => $request->school_year
         ]);
 
         return back()->with('success', 'Instructor assigned to subject successfully for ' . count($createdAssignments) . ' grading period(s)!');

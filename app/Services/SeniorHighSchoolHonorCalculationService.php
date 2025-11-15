@@ -328,16 +328,41 @@ class SeniorHighSchoolHonorCalculationService
 
         $overallQualified = !empty($qualifiedPeriods);
 
+        // Calculate aggregate grade statistics from all periods
+        $periodAverages = array_filter(array_column($periodResults, 'period_average'));
+        $average_grade = !empty($periodAverages) ? round(array_sum($periodAverages) / count($periodAverages), 2) : 0;
+        $min_grade = !empty($periodAverages) ? min($periodAverages) : 0;
+        $max_grade = !empty($periodAverages) ? max($periodAverages) : 0;
+        $quarter_averages = $periodAverages;
+
+        // Count total subjects checked (from first period with grades)
+        $total_subjects = 0;
+        foreach ($periodResults as $result) {
+            if (isset($result['total_grades_checked']) && $result['total_grades_checked'] > $total_subjects) {
+                $total_subjects = $result['total_grades_checked'];
+            }
+        }
+
         Log::info('[SHS HONOR] === SHS HONOR CALCULATION END ===', [
             'overall_qualified' => $overallQualified,
             'qualified_periods_count' => count($qualifiedPeriods),
-            'qualified_periods' => $qualifiedPeriods
+            'qualified_periods' => $qualifiedPeriods,
+            'average_grade' => $average_grade,
+            'min_grade' => $min_grade,
+            'max_grade' => $max_grade,
+            'quarter_averages' => $quarter_averages,
+            'total_subjects' => $total_subjects
         ]);
 
         return [
             'qualified' => $overallQualified,
             'period_results' => $periodResults,
             'qualified_periods' => $qualifiedPeriods,
+            'average_grade' => $average_grade,
+            'min_grade' => $min_grade,
+            'max_grade' => $max_grade,
+            'quarter_averages' => $quarter_averages,
+            'total_subjects' => $total_subjects,
             'reason' => $overallQualified
                 ? 'Qualified for honors in ' . count($qualifiedPeriods) . ' period(s)'
                 : 'Did not qualify for honors in any period'
