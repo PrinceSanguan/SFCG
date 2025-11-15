@@ -1091,50 +1091,64 @@ export default function AssignInstructors({ user, assignments, instructors, depa
                                             </div>
                                         </div>
 
-                                        {/* Individual assignment actions */}
+                                        {/* Individual assignment actions - grouped by subject */}
                                         <div className="border-t pt-3">
                                             <div className="text-xs text-gray-500 mb-2">Individual Subject Actions:</div>
                                             <div className="space-y-2">
-                                                {group.assignments.map((assignment, assignmentIdx) => (
-                                                    <div key={assignment.id} className="flex items-center justify-between bg-gray-50 rounded px-3 py-2">
-                                                        <div className="flex flex-col space-y-1">
+                                                {(() => {
+                                                    // Group assignments by subject within this instructor-course-year group
+                                                    const subjectGroups = group.assignments.reduce((acc, assignment) => {
+                                                        const subjectKey = assignment.subject?.id || 'all';
+                                                        if (!acc[subjectKey]) {
+                                                            acc[subjectKey] = {
+                                                                subject: assignment.subject,
+                                                                assignments: []
+                                                            };
+                                                        }
+                                                        acc[subjectKey].assignments.push(assignment);
+                                                        return acc;
+                                                    }, {} as Record<string, { subject: typeof group.assignments[0]['subject'], assignments: typeof group.assignments }>);
+
+                                                    return Object.values(subjectGroups).map((subjectGroup, sgIdx) => (
+                                                        <div key={sgIdx} className="flex items-center justify-between bg-gray-50 rounded px-3 py-2">
                                                             <div className="flex items-center space-x-2">
                                                                 <BookOpen className="h-3 w-3 text-gray-400" />
                                                                 <span className="text-sm font-medium">
-                                                                    {assignment.subject?.name || 'All Course Subjects'}
+                                                                    {subjectGroup.subject?.name || 'All Course Subjects'}
                                                                 </span>
-                                                                {assignment.subject && (
-                                                                    <span className="text-xs text-gray-500">({assignment.subject.code})</span>
+                                                                {subjectGroup.subject && (
+                                                                    <span className="text-xs text-gray-500">({subjectGroup.subject.code})</span>
                                                                 )}
                                                             </div>
-                                                            {assignment.gradingPeriod && (
-                                                                <div className="flex items-center space-x-1 ml-5">
-                                                                    <Calendar className="h-3 w-3 text-gray-400" />
-                                                                    <span className="text-xs text-gray-500">
-                                                                        {assignment.gradingPeriod.name}
-                                                                    </span>
-                                                                </div>
-                                                            )}
+                                                            <div className="flex items-center space-x-2">
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => openEditModal(subjectGroup.assignments[0])}
+                                                                    title="Edit assignment (will load all grading periods)"
+                                                                >
+                                                                    <Edit className="h-3 w-3" />
+                                                                </Button>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => {
+                                                                        if (confirm(`Delete ALL grading periods for this subject (${subjectGroup.assignments.length} assignments)?`)) {
+                                                                            // Delete all assignments for this subject
+                                                                            subjectGroup.assignments.forEach(assignment => {
+                                                                                destroyAssignment(assignment.id);
+                                                                            });
+                                                                        }
+                                                                    }}
+                                                                    className="text-red-600 hover:text-red-700"
+                                                                    title={`Delete all ${subjectGroup.assignments.length} grading periods for this subject`}
+                                                                >
+                                                                    <Trash2 className="h-3 w-3" />
+                                                                </Button>
+                                                            </div>
                                                         </div>
-                                                        <div className="flex items-center space-x-2">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() => openEditModal(assignment)}
-                                                            >
-                                                                <Edit className="h-3 w-3" />
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() => destroyAssignment(assignment.id)}
-                                                                className="text-red-600 hover:text-red-700"
-                                                            >
-                                                                <Trash2 className="h-3 w-3" />
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                ))}
+                                                    ));
+                                                })()}
                                             </div>
                                         </div>
 

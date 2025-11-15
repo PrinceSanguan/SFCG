@@ -100,6 +100,7 @@ interface Section {
     name: string;
     code: string;
     course_id: number;
+    academic_level_id: number;
     specific_year_level?: string | null;
 }
 
@@ -130,7 +131,7 @@ export default function AssignInstructors({ user, assignments, instructors, depa
         }
     }, [props.flash]);
 
-    const { data: assignmentForm, setData: setAssignmentForm, post: postAssignment, processing, reset: resetFormData } = useForm({
+    const { data: assignmentForm, setData: setAssignmentForm, processing, reset: resetFormData } = useForm({
         instructor_id: '',
         year_level: '',
         department_id: '',
@@ -278,36 +279,88 @@ export default function AssignInstructors({ user, assignments, instructors, depa
     const submitAssignment = (e: React.FormEvent) => {
         e.preventDefault();
 
-        console.log('[ADMIN ASSIGN] Form submission started', {
+        console.log('[ADMIN ASSIGN] === DEBUGGING DATA EXTRACTION ===', {
+            'assignmentForm.section_id': assignmentForm.section_id,
+            'assignmentForm.subject_id': assignmentForm.subject_id,
+            'assignmentForm.academic_level_id': assignmentForm.academic_level_id,
+            'sections array': sections.map(s => ({ id: s.id, name: s.name, academic_level_id: s.academic_level_id })),
+            'subjects array': subjects.map(s => ({ id: s.id, name: s.name, academic_level_id: s.academic_level_id })),
+            'collegeLevel': collegeLevel
+        });
+
+        // Get academic_level_id from selected section or subject
+        let academic_level_id = assignmentForm.academic_level_id;
+
+        console.log('[ADMIN ASSIGN] Step 1 - Initial academic_level_id:', academic_level_id);
+
+        // If not set in form, try to get from selected section
+        if (!academic_level_id && assignmentForm.section_id) {
+            console.log('[ADMIN ASSIGN] Step 2 - Trying to get from section, section_id:', assignmentForm.section_id);
+            const selectedSection = sections.find(s => s.id.toString() === assignmentForm.section_id);
+            console.log('[ADMIN ASSIGN] Step 2 - Found section:', selectedSection);
+            if (selectedSection) {
+                academic_level_id = selectedSection.academic_level_id?.toString();
+                console.log('[ADMIN ASSIGN] Step 2 - Extracted academic_level_id from section:', academic_level_id);
+            }
+        }
+
+        // If still not set, try to get from selected subject
+        if (!academic_level_id && assignmentForm.subject_id) {
+            console.log('[ADMIN ASSIGN] Step 3 - Trying to get from subject, subject_id:', assignmentForm.subject_id);
+            const selectedSubject = subjects.find(s => s.id.toString() === assignmentForm.subject_id);
+            console.log('[ADMIN ASSIGN] Step 3 - Found subject:', selectedSubject);
+            if (selectedSubject) {
+                academic_level_id = selectedSubject.academic_level_id?.toString();
+                console.log('[ADMIN ASSIGN] Step 3 - Extracted academic_level_id from subject:', academic_level_id);
+            }
+        }
+
+        // Fallback to collegeLevel if available
+        if (!academic_level_id && collegeLevel) {
+            console.log('[ADMIN ASSIGN] Step 4 - Using collegeLevel fallback');
+            academic_level_id = collegeLevel.id.toString();
+            console.log('[ADMIN ASSIGN] Step 4 - Extracted academic_level_id from collegeLevel:', academic_level_id);
+        }
+
+        console.log('[ADMIN ASSIGN] Final academic_level_id:', academic_level_id);
+
+        console.log('[ADMIN ASSIGN] === FORM SUBMISSION STARTED ===', {
             timestamp: new Date().toISOString(),
             instructor_id: assignmentForm.instructor_id,
             subject_id: assignmentForm.subject_id,
             section_id: assignmentForm.section_id,
             grading_period_ids: assignmentForm.grading_period_ids,
             grading_period_ids_count: assignmentForm.grading_period_ids.length,
+            academic_level_id: academic_level_id,
+            academic_level_id_source: assignmentForm.academic_level_id ? 'form' : assignmentForm.section_id ? 'section' : assignmentForm.subject_id ? 'subject' : 'collegeLevel',
             processing
         });
 
         // Remove semester_ids (not used for instructors), keep grading_period_ids
         const { semester_ids, ...restForm } = assignmentForm;
 
-        postAssignment('/admin/academic/assign-instructors', {
-            data: {
-                ...restForm,
-                grading_period_ids: assignmentForm.grading_period_ids, // Send full array
-                academic_level_id: collegeLevel?.id,
-            },
+        const dataToSubmit = {
+            ...restForm,
+            grading_period_ids: assignmentForm.grading_period_ids,
+            academic_level_id: academic_level_id,
+        };
+
+        console.log('[ADMIN ASSIGN] Data being sent to backend:', dataToSubmit);
+
+        router.post('/admin/academic/assign-instructors', dataToSubmit, {
             onSuccess: () => {
-                console.log('[ADMIN ASSIGN] Assignment created successfully', {
+                console.log('[ADMIN ASSIGN] === ASSIGNMENT CREATED SUCCESSFULLY ===', {
                     timestamp: new Date().toISOString()
                 });
                 setAssignmentModal(false);
                 resetForm();
             },
             onError: (errors) => {
-                console.error('[ADMIN ASSIGN] Assignment creation failed', {
+                console.error('[ADMIN ASSIGN] === ASSIGNMENT CREATION FAILED ===', {
                     timestamp: new Date().toISOString(),
-                    errors
+                    errors,
+                    errorKeys: Object.keys(errors),
+                    errorMessages: Object.values(errors)
                 });
             },
         });
@@ -317,11 +370,36 @@ export default function AssignInstructors({ user, assignments, instructors, depa
         e.preventDefault();
         if (!editAssignment) return;
 
+        // Get academic_level_id from selected section or subject
+        let academic_level_id = assignmentForm.academic_level_id;
+
+        // If not set in form, try to get from selected section
+        if (!academic_level_id && assignmentForm.section_id) {
+            const selectedSection = sections.find(s => s.id.toString() === assignmentForm.section_id);
+            if (selectedSection) {
+                academic_level_id = selectedSection.academic_level_id?.toString();
+            }
+        }
+
+        // If still not set, try to get from selected subject
+        if (!academic_level_id && assignmentForm.subject_id) {
+            const selectedSubject = subjects.find(s => s.id.toString() === assignmentForm.subject_id);
+            if (selectedSubject) {
+                academic_level_id = selectedSubject.academic_level_id?.toString();
+            }
+        }
+
+        // Fallback to collegeLevel if available
+        if (!academic_level_id && collegeLevel) {
+            academic_level_id = collegeLevel.id.toString();
+        }
+
         // FIXED: Send full array of grading_period_ids to support multi-period editing
         // Backend now handles adding/removing periods based on the array
         console.log('[UPDATE_ASSIGNMENT] Sending grading_period_ids array:', {
             grading_period_ids: assignmentForm.grading_period_ids,
             count: assignmentForm.grading_period_ids.length,
+            academic_level_id: academic_level_id
         });
 
         // Remove semester_ids (not used for instructors), keep grading_period_ids
@@ -330,7 +408,7 @@ export default function AssignInstructors({ user, assignments, instructors, depa
         router.put(`/admin/academic/assign-instructors/${editAssignment.id}`, {
             ...restForm,
             grading_period_ids: assignmentForm.grading_period_ids, // Send full array
-            academic_level_id: collegeLevel?.id,
+            academic_level_id: academic_level_id,
         }, {
             onSuccess: () => {
                 setEditModal(false);
