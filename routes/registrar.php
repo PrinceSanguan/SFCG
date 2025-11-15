@@ -683,6 +683,15 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
             'subject' => $subjectName,
         ]);
 
+        \Illuminate\Support\Facades\Log::info('[REGISTRAR DELETE] Preparing redirect', [
+            'referer' => request()->headers->get('referer'),
+            'previous_url' => url()->previous(),
+            'current_url' => request()->url(),
+            'request_method' => request()->method(),
+            'is_inertia' => request()->header('X-Inertia') ? 'yes' : 'no',
+        ]);
+
+        // Return back() - Inertia will handle this correctly with preserveState
         return back()->with('success', 'Instructor assignment(s) removed successfully!');
     })->name('assign-instructors.destroy');
     Route::get('/assign-teachers', [RegistrarAcademicController::class, 'assignTeachers'])->name('assign-teachers');

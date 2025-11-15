@@ -407,17 +407,85 @@ export default function AssignInstructors({ user, assignments, instructors, depa
         });
     };
 
-    const destroyAssignment = (id: number) => {
-        if (confirm('Are you sure you want to delete this assignment?')) {
-            router.delete(`/registrar/academic/assign-instructors/${id}`, {
-                onSuccess: () => {
-                    // Flash message will be handled by useEffect
+    const destroyAssignment = (id: number, skipConfirm: boolean = false) => {
+        const shouldDelete = skipConfirm || confirm('Are you sure you want to delete this assignment?');
+
+        if (shouldDelete) {
+            console.log('[DELETE] ========== STARTING DELETE ==========');
+            console.log('[DELETE] Assignment ID:', id);
+            console.log('[DELETE] Backend will delete ALL related assignments');
+            console.log('[DELETE] Route:', route('registrar.academic.assign-instructors.destroy', id));
+
+            router.delete(route('registrar.academic.assign-instructors.destroy', id), {
+                onSuccess: (page) => {
+                    console.log('[DELETE] ✓ Successfully deleted assignment and related assignments');
+                    console.log('[DELETE] Navigating to assign-instructors page...');
+
+                    // Navigate to refresh the page after successful deletion
+                    router.visit(route('registrar.academic.assign-instructors'), {
+                        preserveScroll: true,
+                        preserveState: false,
+                        onSuccess: () => {
+                            console.log('[DELETE] Navigation successful');
+                        },
+                        onError: (errors) => {
+                            console.error('[DELETE] Navigation failed:', errors);
+                        }
+                    });
                 },
                 onError: (errors) => {
-                    console.error(errors);
+                    console.error('[DELETE] ✗ Error deleting assignment:', errors);
                 },
+                onFinish: () => {
+                    console.log('[DELETE] ========== FINISHED DELETE ==========');
+                },
+                preserveScroll: true,
             });
         }
+    };
+
+    // Helper function to delete assignments sequentially
+    const destroyAssignmentsSequentially = (assignmentIds: number[]) => {
+        console.log('[SEQUENTIAL DELETE] ========== STARTING SEQUENTIAL DELETE ==========');
+        console.log('[SEQUENTIAL DELETE] Total assignments:', assignmentIds.length);
+        console.log('[SEQUENTIAL DELETE] IDs:', assignmentIds);
+
+        const deleteNext = (index: number) => {
+            if (index >= assignmentIds.length) {
+                console.log('[SEQUENTIAL DELETE] ========== ALL DELETIONS COMPLETE ==========');
+                console.log('[SEQUENTIAL DELETE] Current URL:', window.location.href);
+                console.log('[SEQUENTIAL DELETE] Current pathname:', window.location.pathname);
+                console.log('[SEQUENTIAL DELETE] Target route:', route('registrar.academic.assign-instructors'));
+
+                // Navigate to the page explicitly instead of reload
+                console.log('[SEQUENTIAL DELETE] Navigating to assign-instructors page...');
+                router.visit(route('registrar.academic.assign-instructors'), {
+                    preserveScroll: true,
+                    preserveState: false,
+                    replace: true,
+                    onError: (errors) => {
+                        console.error('[SEQUENTIAL DELETE] Navigation failed:', errors);
+                        console.error('[SEQUENTIAL DELETE] Current URL when failed:', window.location.href);
+                    },
+                    onSuccess: () => {
+                        console.log('[SEQUENTIAL DELETE] Navigation successful');
+                    }
+                });
+                return;
+            }
+
+            const assignmentId = assignmentIds[index];
+            const remaining = assignmentIds.length - index;
+            console.log(`[SEQUENTIAL DELETE] Deleting ${index + 1}/${assignmentIds.length} (ID: ${assignmentId}, ${remaining} remaining)`);
+
+            destroyAssignment(assignmentId, true, () => {
+                // After this deletion completes, delete the next one
+                deleteNext(index + 1);
+            });
+        };
+
+        // Start the chain
+        deleteNext(0);
     };
 
     const openEditModal = (assignment: InstructorCourseAssignment) => {
@@ -1132,12 +1200,19 @@ export default function AssignInstructors({ user, assignments, instructors, depa
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="sm"
-                                                                    onClick={() => {
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
                                                                         if (confirm(`Delete ALL grading periods for this subject (${subjectGroup.assignments.length} assignments)?`)) {
-                                                                            // Delete all assignments for this subject
-                                                                            subjectGroup.assignments.forEach(assignment => {
-                                                                                destroyAssignment(assignment.id);
-                                                                            });
+                                                                            console.log('[BULK DELETE] ========== USER CONFIRMED BULK DELETE ==========');
+                                                                            console.log('[BULK DELETE] Total assignments:', subjectGroup.assignments.length);
+                                                                            console.log('[BULK DELETE] Subject:', subjectGroup.subject?.name || 'All Course Subjects');
+                                                                            console.log('[BULK DELETE] Using first assignment ID:', subjectGroup.assignments[0].id);
+                                                                            console.log('[BULK DELETE] Backend will automatically delete ALL related assignments');
+
+                                                                            // Delete ONLY the first assignment - backend handles bulk deletion
+                                                                            destroyAssignment(subjectGroup.assignments[0].id, true);
+                                                                        } else {
+                                                                            console.log('[BULK DELETE] User cancelled bulk delete');
                                                                         }
                                                                     }}
                                                                     className="text-red-600 hover:text-red-700"
