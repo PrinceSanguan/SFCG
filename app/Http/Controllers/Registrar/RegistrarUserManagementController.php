@@ -126,14 +126,15 @@ class RegistrarUserManagementController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,' . $user->id,
-            'user_role' => 'required|string|in:' . implode(',', array_keys(User::getAvailableRoles())),
+            // Personal Information validation
+            'birth_date' => 'nullable|date|before:today',
+            'gender' => 'nullable|in:male,female,other',
+            'phone_number' => 'nullable|string|max:20',
+            'address' => 'nullable|string|max:500',
+            'emergency_contact_name' => 'nullable|string|max:255',
+            'emergency_contact_phone' => 'nullable|string|max:20',
+            'emergency_contact_relationship' => 'nullable|string|max:50',
         ]);
-
-        // Registrars cannot change users to admin role
-        if ($validated['user_role'] === 'admin') {
-            abort(403, 'Access denied. Cannot assign admin role.');
-        }
 
         $user->update($validated);
 

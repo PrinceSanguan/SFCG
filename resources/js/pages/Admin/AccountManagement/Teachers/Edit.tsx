@@ -31,8 +31,6 @@ interface EditProps {
 export default function EditTeacher({ user, targetUser, roles, errors }: EditProps) {
     const { data, setData, put, processing } = useForm({
         name: targetUser?.name || '',
-        email: targetUser?.email || '',
-        user_role: targetUser?.user_role || '',
     });
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const { errors: pageErrors } = usePage().props;
@@ -149,44 +147,28 @@ export default function EditTeacher({ user, targetUser, roles, errors }: EditPro
                                             )}
                                         </div>
 
-                                        {/* Email */}
+                                        {/* Email - Read Only */}
                                         <div className="space-y-2">
-                                            <Label htmlFor="email">Email Address *</Label>
-                                            <Input
-                                                id="email"
-                                                type="email"
-                                                value={data.email}
-                                                onChange={(e) => setData('email', e.target.value)}
-                                                placeholder="Enter email address"
-                                                required
-                                            />
-                                            {errors?.email && (
-                                                <Alert variant="destructive">
-                                                    <AlertDescription>{errors.email}</AlertDescription>
-                                                </Alert>
-                                            )}
+                                            <Label>Email Address</Label>
+                                            <div className="p-3 bg-gray-50 rounded border dark:bg-gray-800">
+                                                {targetUser.email}
+                                            </div>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                Email addresses cannot be changed for security reasons.
+                                            </p>
                                         </div>
 
-                                        {/* Role */}
+                                        {/* Role - Read Only */}
                                         <div className="space-y-2">
-                                            <Label htmlFor="user_role">User Role *</Label>
-                                            <Select value={data.user_role} onValueChange={(value) => setData('user_role', value)}>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select a role" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {roles && Object.entries(roles).map(([key, label]) => (
-                                                        <SelectItem key={key} value={key}>
-                                                            {label}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            {errors?.user_role && (
-                                                <Alert variant="destructive">
-                                                    <AlertDescription>{errors.user_role}</AlertDescription>
-                                                </Alert>
-                                            )}
+                                            <Label>User Role</Label>
+                                            <div className="p-3 bg-gray-50 rounded border dark:bg-gray-800 flex items-center gap-2">
+                                                <Badge variant={getRoleBadgeVariant(targetUser.user_role)}>
+                                                    {roles[targetUser.user_role] || targetUser.user_role}
+                                                </Badge>
+                                            </div>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                User roles cannot be changed after account creation.
+                                            </p>
                                         </div>
 
                                         {/* Last Login Info */}
@@ -200,16 +182,6 @@ export default function EditTeacher({ user, targetUser, roles, errors }: EditPro
                                             </div>
                                         </div>
                                     </div>
-
-                                    {/* Role Change Warning */}
-                                    {data.user_role !== targetUser.user_role && (
-                                        <Alert>
-                                            <AlertDescription>
-                                                <strong>Warning:</strong> Changing the user role will affect their access permissions. 
-                                                The user will have access to features specific to the new role: <strong>{roles[data.user_role]}</strong>.
-                                            </AlertDescription>
-                                        </Alert>
-                                    )}
 
                                     {/* Submit Buttons */}
                                     <div className="flex items-center gap-4 pt-6">

@@ -59,6 +59,17 @@ interface EditProps {
     departments?: Department[];
 }
 
+// Helper function to format date for HTML date input (YYYY-MM-DD)
+const formatDateForInput = (dateString: string | undefined) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '';
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 export default function EditStudent({ user, targetUser, roles, errors, yearLevels, specificYearLevels, strands, courses, departments }: EditProps) {
     const { data, setData, put, processing } = useForm({
         name: targetUser?.name || '',
@@ -72,7 +83,7 @@ export default function EditStudent({ user, targetUser, roles, errors, yearLevel
         section_id: targetUser?.section_id?.toString() || '',
         student_number: targetUser?.student_number || '',
         // Personal Information
-        birth_date: targetUser?.birth_date || '',
+        birth_date: formatDateForInput(targetUser?.birth_date),
         gender: targetUser?.gender || '',
         phone_number: targetUser?.phone_number || '',
         address: targetUser?.address || '',

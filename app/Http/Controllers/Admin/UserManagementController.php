@@ -232,8 +232,6 @@ class UserManagementController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
-            'user_role' => 'required|in:admin,registrar,instructor,teacher,adviser,chairperson,principal,student,parent',
             'student_number' => 'nullable|string|max:40|unique:users,student_number,' . $user->id,
         ]);
 
@@ -245,9 +243,7 @@ class UserManagementController extends Controller
 
         $user->update([
             'name' => $request->name,
-            'email' => $request->email,
-            'user_role' => $request->user_role,
-            'student_number' => $request->user_role === 'student' ? $request->student_number : $user->student_number,
+            'student_number' => $user->user_role === 'student' ? $request->student_number : $user->student_number,
         ]);
 
         // Log the activity
@@ -581,7 +577,17 @@ class UserManagementController extends Controller
     public function storeByRole(Request $request)
     {
         $role = $this->getRoleFromRoute();
-        
+
+        // Prevent creating multiple admin accounts
+        if ($role === 'admin') {
+            $existingAdmin = User::where('user_role', 'admin')->first();
+            if ($existingAdmin) {
+                return back()
+                    ->withErrors(['user_role' => 'Only one administrator account is allowed. An administrator already exists.'])
+                    ->withInput();
+            }
+        }
+
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
@@ -1809,8 +1815,6 @@ class UserManagementController extends Controller
 
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
-            'user_role' => 'required|in:admin,registrar,instructor,teacher,adviser,chairperson,principal,student,parent',
             'academic_level' => 'required_if:user_role,student|string|in:elementary,junior_highschool,senior_highschool,college|nullable',
             'specific_year_level' => 'nullable|string',
             'year_level' => 'required_if:user_role,principal|string|in:elementary,junior_highschool,senior_highschool|nullable',
@@ -1843,7 +1847,7 @@ class UserManagementController extends Controller
         }
 
         // Principal must have academic level and it cannot be college
-        if ($request->user_role === 'principal' && $request->year_level === 'college') {
+        if ($user->user_role === 'principal' && $request->year_level === 'college') {
             $validator->errors()->add('year_level', 'Principals cannot be assigned to College level.');
         }
 
@@ -1855,8 +1859,6 @@ class UserManagementController extends Controller
 
         $updateData = [
             'name' => $request->name,
-            'email' => $request->email,
-            'user_role' => $request->user_role,
         ];
 
         // Add student-specific fields

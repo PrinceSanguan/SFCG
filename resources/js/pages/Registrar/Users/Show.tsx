@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Link } from '@inertiajs/react';
-import { ArrowLeft, Edit, User, Calendar, Mail, Shield, Key, GraduationCap, School, Users } from 'lucide-react';
+import { ArrowLeft, Edit, User, Calendar, Mail, Shield, Key, GraduationCap, School, Users, Phone, MapPin, UserCircle } from 'lucide-react';
 import { useState } from 'react';
 import PasswordResetModal from '@/components/registrar/PasswordResetModal';
 
@@ -21,6 +21,13 @@ interface User {
         id: number;
         name: string;
     };
+    birth_date?: string;
+    gender?: string;
+    phone_number?: string;
+    address?: string;
+    emergency_contact_name?: string;
+    emergency_contact_phone?: string;
+    emergency_contact_relationship?: string;
     parents?: Array<{
         id: number;
         name: string;
@@ -170,6 +177,69 @@ export default function UsersShow({ user, targetUser, activityLogs }: UsersShowP
                                                 <div>
                                                     <label className="text-sm font-medium text-gray-500">Section</label>
                                                     <p className="text-sm">{targetUser.section.name}</p>
+                                                </div>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                )}
+
+                                {/* Personal Information (for students) */}
+                                {targetUser.user_role === 'student' && (targetUser.birth_date || targetUser.gender || targetUser.phone_number || targetUser.address || targetUser.emergency_contact_name) && (
+                                    <Card className="mt-6">
+                                        <CardHeader>
+                                            <CardTitle className="flex items-center gap-2">
+                                                <UserCircle className="h-5 w-5" />
+                                                Personal Information
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="space-y-4">
+                                            {targetUser.birth_date && (
+                                                <div>
+                                                    <label className="text-sm font-medium text-gray-500">Birth Date</label>
+                                                    <p className="text-sm">{new Date(targetUser.birth_date).toLocaleDateString()}</p>
+                                                </div>
+                                            )}
+                                            {targetUser.gender && (
+                                                <div>
+                                                    <label className="text-sm font-medium text-gray-500">Gender</label>
+                                                    <p className="text-sm capitalize">{targetUser.gender}</p>
+                                                </div>
+                                            )}
+                                            {targetUser.phone_number && (
+                                                <div>
+                                                    <label className="text-sm font-medium text-gray-500">Phone Number</label>
+                                                    <p className="text-sm">{targetUser.phone_number}</p>
+                                                </div>
+                                            )}
+                                            {targetUser.address && (
+                                                <div>
+                                                    <label className="text-sm font-medium text-gray-500">Address</label>
+                                                    <p className="text-sm">{targetUser.address}</p>
+                                                </div>
+                                            )}
+                                            {(targetUser.emergency_contact_name || targetUser.emergency_contact_phone || targetUser.emergency_contact_relationship) && (
+                                                <div className="pt-3 border-t">
+                                                    <label className="text-sm font-medium text-gray-500 mb-2 block">Emergency Contact</label>
+                                                    <div className="space-y-2">
+                                                        {targetUser.emergency_contact_name && (
+                                                            <div>
+                                                                <label className="text-xs text-gray-400">Name</label>
+                                                                <p className="text-sm">{targetUser.emergency_contact_name}</p>
+                                                            </div>
+                                                        )}
+                                                        {targetUser.emergency_contact_phone && (
+                                                            <div>
+                                                                <label className="text-xs text-gray-400">Phone</label>
+                                                                <p className="text-sm">{targetUser.emergency_contact_phone}</p>
+                                                            </div>
+                                                        )}
+                                                        {targetUser.emergency_contact_relationship && (
+                                                            <div>
+                                                                <label className="text-xs text-gray-400">Relationship</label>
+                                                                <p className="text-sm capitalize">{targetUser.emergency_contact_relationship}</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             )}
                                         </CardContent>
