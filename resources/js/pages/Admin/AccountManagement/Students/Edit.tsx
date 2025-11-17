@@ -97,6 +97,7 @@ export default function EditStudent({ user, targetUser, roles, errors, yearLevel
     const [loadingSections, setLoadingSections] = React.useState<boolean>(false);
 
     const [showPasswordModal, setShowPasswordModal] = useState(false);
+    const [sectionError, setSectionError] = useState<string>('');
     const { errors: pageErrors } = usePage().props;
 
     // Safety check for user data
@@ -132,6 +133,24 @@ export default function EditStudent({ user, targetUser, roles, errors, yearLevel
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
+
+        // Validate section selection
+        if (!data.section_id || data.section_id === '') {
+            setSectionError('Please select a section. This field is required.');
+            // Scroll to section field
+            document.getElementById('section_id')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+
+        // Check if no sections are available
+        if (sections.length === 0) {
+            setSectionError('No sections are available for the selected academic level and course. Please contact the administrator to create sections first.');
+            return;
+        }
+
+        // Clear any previous errors
+        setSectionError('');
+
         put(route('admin.students.update', targetUser.id));
     };
 
@@ -415,10 +434,13 @@ export default function EditStudent({ user, targetUser, roles, errors, yearLevel
                                                 <Label htmlFor="section_id">Section *</Label>
                                                 <Select
                                                     value={data.section_id}
-                                                    onValueChange={(value) => setData('section_id', value)}
+                                                    onValueChange={(value) => {
+                                                        setData('section_id', value);
+                                                        setSectionError(''); // Clear error when user selects a section
+                                                    }}
                                                     disabled={loadingSections || (!data.specific_year_level && data.academic_level !== 'college')}
                                                 >
-                                                    <SelectTrigger>
+                                                    <SelectTrigger id="section_id">
                                                         <SelectValue placeholder={loadingSections ? 'Loading sections...' : (sections.length ? 'Select a section' : 'No sections available')}/>
                                                     </SelectTrigger>
                                                     <SelectContent>
@@ -430,9 +452,16 @@ export default function EditStudent({ user, targetUser, roles, errors, yearLevel
                                                         ))}
                                                     </SelectContent>
                                                 </Select>
-                                                {errors?.section_id && (
+                                                {(errors?.section_id || sectionError) && (
                                                     <Alert variant="destructive">
-                                                        <AlertDescription>{errors.section_id}</AlertDescription>
+                                                        <AlertDescription>{errors?.section_id || sectionError}</AlertDescription>
+                                                    </Alert>
+                                                )}
+                                                {sections.length === 0 && !loadingSections && (
+                                                    <Alert>
+                                                        <AlertDescription>
+                                                            No sections are available for the selected academic level and course combination. Please contact the administrator to create sections before adding students.
+                                                        </AlertDescription>
                                                     </Alert>
                                                 )}
                                             </div>
@@ -604,7 +633,11 @@ export default function EditStudent({ user, targetUser, roles, errors, yearLevel
 
                                     {/* Submit Buttons */}
                                     <div className="flex items-center gap-4 pt-6">
-                                        <Button type="submit" disabled={processing} className="flex items-center gap-2">
+                                        <Button
+                                            type="submit"
+                                            disabled={processing || sections.length === 0 || !data.section_id}
+                                            className="flex items-center gap-2"
+                                        >
                                             <Save className="h-4 w-4" />
                                             {processing ? 'Updating...' : 'Update Student'}
                                         </Button>
