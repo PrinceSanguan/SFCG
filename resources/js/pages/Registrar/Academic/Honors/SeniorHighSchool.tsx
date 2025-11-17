@@ -832,9 +832,15 @@ export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                                                     <span className="font-medium text-purple-700">Honor:</span>
                                                                     <div className="font-bold">
                                                                         {(() => {
+                                                                            console.log('[Registrar SHS Honor Column] Student:', qualifiedStudent.student.name);
+                                                                            console.log('[Registrar SHS Honor Column] Result:', qualifiedStudent.result);
+                                                                            console.log('[Registrar SHS Honor Column] Qualifications:', qualifiedStudent.result?.qualifications);
+                                                                            console.log('[Registrar SHS Honor Column] Average Grade:', qualifiedStudent.result?.average_grade);
+
                                                                             // First try to get from qualifications
                                                                             if (qualifiedStudent.result?.qualifications?.length > 0) {
                                                                                 const honorName = qualifiedStudent.result.qualifications[0]?.honor_type?.name;
+                                                                                console.log('[Registrar SHS Honor Column] Honor from qualifications:', honorName);
                                                                                 if (honorName) {
                                                                                     return (
                                                                                         <Badge className="bg-purple-100 text-purple-800 border-purple-200">
@@ -846,6 +852,7 @@ export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, sch
 
                                                                             // Fallback to deriving from average
                                                                             const derived = deriveHonorFromAverage(qualifiedStudent.result?.average_grade);
+                                                                            console.log('[Registrar SHS Honor Column] Derived honor from average:', derived);
                                                                             if (derived) {
                                                                                 return (
                                                                                     <Badge className="bg-purple-100 text-purple-800 border-purple-200">
@@ -856,6 +863,7 @@ export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, sch
 
                                                                             // If still no honor, show computing message if student is qualified
                                                                             if (qualifiedStudent.result?.qualified) {
+                                                                                console.log('[Registrar SHS Honor Column] Showing Computing... (qualified but no honor)');
                                                                                 return (
                                                                                     <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">
                                                                                         Computing...
@@ -863,6 +871,7 @@ export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                                                                 );
                                                                             }
 
+                                                                            console.log('[Registrar SHS Honor Column] Showing N/A (not qualified)');
                                                                             return <span className="text-gray-500">N/A</span>;
                                                                         })()}
                                                                     </div>
@@ -874,6 +883,9 @@ export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                                                 variant="outline"
                                                                 size="sm"
                                                                 onClick={() => {
+                                                                    console.log('[Registrar SHS Modal] Opening details for:', qualifiedStudent.student.name);
+                                                                    console.log('[Registrar SHS Modal] Student result:', qualifiedStudent.result);
+                                                                    console.log('[Registrar SHS Modal] Qualifications array:', qualifiedStudent.result?.qualifications);
                                                                     setSelectedStudent(qualifiedStudent);
                                                                     setShowDetailsModal(true);
                                                                 }}
@@ -940,10 +952,17 @@ export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                     Honor Achievement
                                 </h3>
                                 <div className="space-y-2">
-                                    {selectedStudent.result?.qualifications?.length > 0 ? (
-                                        // Show only the highest honor (last in the qualifications array)
-                                        (() => {
+                                    {(() => {
+                                        console.log('[Registrar SHS Honor Achievement] Selected student:', selectedStudent.student.name);
+                                        console.log('[Registrar SHS Honor Achievement] Qualifications:', selectedStudent.result?.qualifications);
+                                        console.log('[Registrar SHS Honor Achievement] Qualifications length:', selectedStudent.result?.qualifications?.length);
+                                        console.log('[Registrar SHS Honor Achievement] Average grade:', selectedStudent.result?.average_grade);
+
+                                        if (selectedStudent.result?.qualifications?.length > 0) {
+                                            // Show only the highest honor (last in the qualifications array)
                                             const highestHonor = selectedStudent.result.qualifications[selectedStudent.result.qualifications.length - 1];
+                                            console.log('[Registrar SHS Honor Achievement] Highest honor:', highestHonor);
+                                            console.log('[Registrar SHS Honor Achievement] Honor type name:', highestHonor.honor_type?.name);
                                             return (
                                                 <div className="flex items-center gap-2">
                                                     <CheckCircle className="h-5 w-5 text-green-600" />
@@ -952,12 +971,16 @@ export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                                     </Badge>
                                                 </div>
                                             );
-                                        })()
-                                    ) : (
-                                        <p className="text-gray-600">
-                                            {deriveHonorFromAverage(selectedStudent.result?.average_grade) || 'No honor qualification found'}
-                                        </p>
-                                    )}
+                                        } else {
+                                            const derived = deriveHonorFromAverage(selectedStudent.result?.average_grade);
+                                            console.log('[Registrar SHS Honor Achievement] Derived honor from average:', derived);
+                                            return (
+                                                <p className="text-gray-600">
+                                                    {derived || 'No honor qualification found'}
+                                                </p>
+                                            );
+                                        }
+                                    })()}
                                 </div>
                             </div>
 
@@ -970,21 +993,21 @@ export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                         <p className="text-2xl font-bold text-blue-900">
                                             {selectedStudent.result?.average_grade?.toFixed(2) || 'N/A'}
                                         </p>
-                                        <p className="text-xs text-blue-600 mt-1">1.0 is highest</p>
+                                        <p className="text-xs text-blue-600 mt-1">100 is highest</p>
                                     </div>
                                     <div className="bg-green-50 p-3 rounded-lg border border-green-200">
                                         <span className="text-sm text-green-700 font-medium">Best Grade</span>
                                         <p className="text-2xl font-bold text-green-900">
-                                            {selectedStudent.result?.min_grade?.toFixed(2) || 'N/A'}
+                                            {selectedStudent.result?.max_grade?.toFixed(2) || 'N/A'}
                                         </p>
-                                        <p className="text-xs text-green-600 mt-1">Lowest number</p>
+                                        <p className="text-xs text-green-600 mt-1">Highest score</p>
                                     </div>
                                     <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
                                         <span className="text-sm text-yellow-700 font-medium">Worst Grade</span>
                                         <p className="text-2xl font-bold text-yellow-900">
-                                            {selectedStudent.result?.max_grade?.toFixed(2) || 'N/A'}
+                                            {selectedStudent.result?.min_grade?.toFixed(2) || 'N/A'}
                                         </p>
-                                        <p className="text-xs text-yellow-600 mt-1">Highest number</p>
+                                        <p className="text-xs text-yellow-600 mt-1">Lowest score</p>
                                     </div>
                                 </div>
                             </div>
@@ -1125,7 +1148,7 @@ export default function SeniorHighSchoolHonors({ user, honorTypes, criteria, sch
                                                 <p className="text-4xl font-bold text-green-900">
                                                     {selectedStudent.result?.average_grade?.toFixed(2) || 'N/A'}
                                                 </p>
-                                                <p className="text-sm text-green-600 mt-1">Final GPA (1.0 is highest)</p>
+                                                <p className="text-sm text-green-600 mt-1">Final GPA (100 is highest)</p>
                                             </div>
                                         </div>
                                     </div>

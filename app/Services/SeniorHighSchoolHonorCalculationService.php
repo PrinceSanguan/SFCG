@@ -343,6 +343,51 @@ class SeniorHighSchoolHonorCalculationService
             }
         }
 
+        // Build qualifications array from period results (get highest honor achieved)
+        $qualifications = [];
+        if ($overallQualified) {
+            // Find the highest honor type achieved across all periods
+            $highestHonor = null;
+            $highestHonorRank = 0; // 1=With Honors, 2=High Honors, 3=Highest Honors
+
+            foreach ($periodResults as $periodResult) {
+                if (isset($periodResult['qualified']) && $periodResult['qualified'] && isset($periodResult['honor_type_name'])) {
+                    $honorName = $periodResult['honor_type_name'];
+                    $rank = 0;
+
+                    if ($honorName === 'With Highest Honors') {
+                        $rank = 3;
+                    } elseif ($honorName === 'With High Honors') {
+                        $rank = 2;
+                    } elseif ($honorName === 'With Honors') {
+                        $rank = 1;
+                    }
+
+                    if ($rank > $highestHonorRank) {
+                        $highestHonorRank = $rank;
+                        $highestHonor = $periodResult;
+                    }
+                }
+            }
+
+            // If we found a highest honor, get the full HonorType object and build qualification
+            if ($highestHonor && isset($highestHonor['honor_type_id'])) {
+                $honorType = HonorType::find($highestHonor['honor_type_id']);
+
+                if ($honorType) {
+                    $qualifications[] = [
+                        'honor_type' => $honorType,
+                        'gpa' => $average_grade,
+                        'min_grade' => $min_grade,
+                        'max_grade' => $max_grade,
+                        'quarter_averages' => $quarter_averages,
+                        'qualified_periods_count' => count($qualifiedPeriods),
+                        'qualified_periods' => $qualifiedPeriods
+                    ];
+                }
+            }
+        }
+
         Log::info('[SHS HONOR] === SHS HONOR CALCULATION END ===', [
             'overall_qualified' => $overallQualified,
             'qualified_periods_count' => count($qualifiedPeriods),
@@ -351,11 +396,14 @@ class SeniorHighSchoolHonorCalculationService
             'min_grade' => $min_grade,
             'max_grade' => $max_grade,
             'quarter_averages' => $quarter_averages,
-            'total_subjects' => $total_subjects
+            'total_subjects' => $total_subjects,
+            'qualifications_count' => count($qualifications),
+            'highest_honor' => !empty($qualifications) ? $qualifications[0]['honor_type']->name : 'None'
         ]);
 
         return [
             'qualified' => $overallQualified,
+            'qualifications' => $qualifications,
             'period_results' => $periodResults,
             'qualified_periods' => $qualifiedPeriods,
             'average_grade' => $average_grade,
