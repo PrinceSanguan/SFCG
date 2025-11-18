@@ -320,7 +320,7 @@ export function Sidebar({ user }: SidebarProps) {
                     </div>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="ml-auto h-8 w-8">
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
                                 <ChevronDown size={16} />
                             </Button>
                         </DropdownMenuTrigger>

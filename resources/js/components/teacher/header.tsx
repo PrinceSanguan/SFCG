@@ -1,4 +1,3 @@
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Settings, LogOut, User } from 'lucide-react';
@@ -15,11 +14,7 @@ export function Header({ user }: { user: UserShape }) {
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="ghost" className="flex items-center gap-2">
-                            <Avatar className="h-8 w-8">
-                                <AvatarImage src="/api/placeholder/32/32" alt={user?.name ?? 'User'} />
-                                <AvatarFallback>{(user?.name ?? 'U').substring(0, 2).toUpperCase()}</AvatarFallback>
-                            </Avatar>
-                            <span className="hidden md:block">{user?.name ?? 'User'}</span>
+                            <span className="text-sm font-medium">{user?.name ?? 'User'}</span>
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56">
