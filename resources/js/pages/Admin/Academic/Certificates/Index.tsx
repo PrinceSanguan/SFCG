@@ -174,13 +174,15 @@ export default function CertificatesIndex({
             )
             .sort((a, b) => {
                 // Sort by year level first, then section, then GPA
+                // For GPA: Lower is better (1.0 is better than 2.0 in college grading)
                 if (a.year_level !== b.year_level) {
                     return (a.year_level || '').localeCompare(b.year_level || '');
                 }
                 if (a.section_id !== b.section_id) {
                     return (a.section_id || 0) - (b.section_id || 0);
                 }
-                return (b.gpa || 0) - (a.gpa || 0);
+                // ASCENDING order for GPA (lower GPA = higher rank)
+                return (a.gpa || 0) - (b.gpa || 0);
             });
     };
 

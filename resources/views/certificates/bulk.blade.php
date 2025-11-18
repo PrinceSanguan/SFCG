@@ -5,7 +5,7 @@
     <title>Bulk Certificates</title>
     <style>
         @page {
-            margin: 20px;
+            margin: 30px;
             size: A4 landscape;
         }
         body {
@@ -23,6 +23,14 @@
         }
         .page-break {
             page-break-after: always;
+        }
+        /* Logo styling for certificates */
+        img[alt="School Logo"] {
+            display: block;
+            margin: 0 auto;
+            max-width: 100px;
+            max-height: 100px;
+            object-fit: contain;
         }
     </style>
 </head>

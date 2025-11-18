@@ -4,7 +4,10 @@
     <meta charset="utf-8" />
     <title>Certificate</title>
     <style>
-        @page { margin: 30px; }
+        @page {
+            margin: 30px;
+            size: A4 landscape;
+        }
         body {
             font-family: DejaVu Sans, sans-serif;
             font-size: 12px;
@@ -17,15 +20,15 @@
         img[alt="School Logo"] {
             display: block;
             margin: 0 auto;
-            max-width: 80px;
-            max-height: 80px;
+            max-width: 100px;
+            max-height: 100px;
             object-fit: contain;
         }
     </style>
-    </head>
+</head>
 <body>
     <div class="certificate-container">
-        {!! \App\Helpers\CertificateLogoHelper::getCenteredLogoHtml(80, 80, 20) !!}
+        {!! \App\Helpers\CertificateLogoHelper::getCenteredLogoHtml(100, 100, 20) !!}
         {!! $html !!}
     </div>
 </body>

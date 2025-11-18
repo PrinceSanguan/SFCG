@@ -410,12 +410,28 @@ class CertificateController extends Controller
 
     public function download(Certificate $certificate)
     {
+        Log::info('[CERTIFICATE_DOWNLOAD] Starting certificate download', [
+            'certificate_id' => $certificate->id,
+            'serial_number' => $certificate->serial_number,
+            'student_id' => $certificate->student_id,
+            'student_name' => $certificate->student->name,
+            'academic_level' => $certificate->academicLevel->name,
+            'school_year' => $certificate->school_year,
+            'user_id' => Auth::id(),
+        ]);
+
         $html = $this->renderCertificateHtml($certificate);
-        $pdf = Pdf::loadView('certificates.base', ['html' => $html]);
+        $pdf = Pdf::loadView('certificates.base', ['html' => $html])
+            ->setPaper('a4', 'landscape');
 
         $certificate->update([
             'status' => 'downloaded',
             'downloaded_at' => now(),
+        ]);
+
+        Log::info('[CERTIFICATE_DOWNLOAD] Certificate downloaded successfully', [
+            'certificate_id' => $certificate->id,
+            'serial_number' => $certificate->serial_number,
         ]);
 
         return $pdf->download($certificate->serial_number . '.pdf');
@@ -423,13 +439,29 @@ class CertificateController extends Controller
 
     public function print(Certificate $certificate)
     {
+        Log::info('[CERTIFICATE_PRINT] Starting certificate print', [
+            'certificate_id' => $certificate->id,
+            'serial_number' => $certificate->serial_number,
+            'student_id' => $certificate->student_id,
+            'student_name' => $certificate->student->name,
+            'academic_level' => $certificate->academicLevel->name,
+            'school_year' => $certificate->school_year,
+            'user_id' => Auth::id(),
+        ]);
+
         $html = $this->renderCertificateHtml($certificate);
-        $pdf = Pdf::loadView('certificates.base', ['html' => $html]);
+        $pdf = Pdf::loadView('certificates.base', ['html' => $html])
+            ->setPaper('a4', 'landscape');
 
         $certificate->update([
             'status' => 'printed',
             'printed_at' => now(),
             'printed_by' => Auth::id(),
+        ]);
+
+        Log::info('[CERTIFICATE_PRINT] Certificate printed successfully', [
+            'certificate_id' => $certificate->id,
+            'serial_number' => $certificate->serial_number,
         ]);
 
         return $pdf->stream($certificate->serial_number . '.pdf');
@@ -797,23 +829,44 @@ class CertificateController extends Controller
             'certificate_ids.*' => ['exists:certificates,id'],
         ]);
 
+        Log::info('[BULK_CERTIFICATE_DOWNLOAD] Starting bulk certificate download', [
+            'certificate_count' => count($validated['certificate_ids']),
+            'certificate_ids' => $validated['certificate_ids'],
+            'user_id' => Auth::id(),
+        ]);
+
         $certificates = Certificate::with(['student', 'template', 'academicLevel'])
             ->whereIn('id', $validated['certificate_ids'])
             ->get();
 
         if ($certificates->isEmpty()) {
+            Log::warning('[BULK_CERTIFICATE_DOWNLOAD] No certificates found', [
+                'certificate_ids' => $validated['certificate_ids'],
+            ]);
             return back()->withErrors(['certificate_ids' => 'No certificates found.']);
         }
 
-        // Generate a combined PDF with all certificates
+        // Generate a combined PDF with all certificates, each with logo
         $htmlContent = '';
-        foreach ($certificates as $certificate) {
-            $htmlContent .= $this->renderCertificateHtml($certificate);
-            $htmlContent .= '<div style="page-break-after: always;"></div>';
-        }
+        foreach ($certificates as $index => $certificate) {
+            Log::info('[BULK_CERTIFICATE_DOWNLOAD] Adding certificate to PDF', [
+                'index' => $index + 1,
+                'certificate_id' => $certificate->id,
+                'serial_number' => $certificate->serial_number,
+                'student_name' => $certificate->student->name,
+            ]);
 
-        // Remove the last page break
-        $htmlContent = rtrim($htmlContent, '<div style="page-break-after: always;"></div>');
+            // Add logo for each certificate
+            $htmlContent .= '<div class="certificate-container">';
+            $htmlContent .= \App\Helpers\CertificateLogoHelper::getCenteredLogoHtml(100, 100, 20);
+            $htmlContent .= $this->renderCertificateHtml($certificate);
+            $htmlContent .= '</div>';
+
+            // Add page break except for the last certificate
+            if ($index < $certificates->count() - 1) {
+                $htmlContent .= '<div style="page-break-after: always;"></div>';
+            }
+        }
 
         $pdf = Pdf::loadView('certificates.bulk', ['html' => $htmlContent])
             ->setPaper('a4', 'landscape');
@@ -827,9 +880,9 @@ class CertificateController extends Controller
 
         $filename = 'bulk_certificates_' . now()->format('Y-m-d_H-i-s') . '.pdf';
 
-        Log::info('Bulk certificates printed', [
+        Log::info('[BULK_CERTIFICATE_DOWNLOAD] Bulk certificates download completed successfully', [
             'certificate_count' => $certificates->count(),
-            'certificate_ids' => $validated['certificate_ids'],
+            'filename' => $filename,
             'printed_by' => Auth::id(),
         ]);
 
