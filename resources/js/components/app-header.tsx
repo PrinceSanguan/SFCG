@@ -149,6 +149,17 @@ export function AppHeader({ breadcrumbs = [] }: AppHeaderProps) {
                                 ))}
                             </div>
                         </div>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="rounded-md px-3 py-2">
+                                    <span className="font-medium">{auth.user.name}</span>
+                                    <ChevronDown size={16} className="ml-2" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="w-56" align="end">
+                                <UserMenuContent user={auth.user} />
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
                 </div>
             </div>

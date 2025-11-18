@@ -23,6 +23,35 @@ export function ParentHeader({ user }: { user: UserProps }) {
         </div>
       </div>
       <div className="flex items-center gap-4">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="flex items-center gap-2">
+              <span className="text-sm font-medium">{user?.name ?? 'User'}</span>
+              <ChevronDown size={16} />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-56" align="end" forceMount>
+            <DropdownMenuItem asChild>
+              <Link href={route('parent.settings')} className="flex items-center">
+                <User className="mr-2 h-4 w-4" />
+                <span>Profile</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href={route('parent.settings')} className="flex items-center">
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Settings</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link href={route('auth.logout')} className="flex items-center">
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Log out</span>
+              </Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );

@@ -23,6 +23,31 @@ export function Header({ user }: { user: User }) {
                 <LayoutDashboard size={20} />
             </Button>
             <div className="flex flex-1 items-center justify-between">
+                <div className="ml-auto flex items-center gap-4">
+                    <Separator orientation="vertical" className="h-8" />
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="flex items-center gap-2">
+                                <span className="text-sm font-medium">{user.name}</span>
+                                <ChevronDown size={16} />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <Link href={route('user.settings')} className="w-full">
+                                <DropdownMenuItem className="flex w-full cursor-pointer items-center gap-2">
+                                    <Settings size={16} />
+                                    Settings
+                                </DropdownMenuItem>
+                            </Link>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem asChild>
+                                <Link href={route('auth.logout')} className="flex w-full cursor-pointer">
+                                    Logout
+                                </Link>
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
             </div>
         </header>
     );
