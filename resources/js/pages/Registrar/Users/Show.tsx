@@ -133,13 +133,13 @@ export default function UsersShow({ user, targetUser, activityLogs }: UsersShowP
                                                     Edit User
                                                 </Button>
                                             </Link>
-                                            <Button 
+                                            <Button
                                                 variant="outline"
                                                 className="w-full"
                                                 onClick={() => setShowPasswordModal(true)}
                                             >
                                                 <Key className="h-4 w-4 mr-2" />
-                                                Reset Password
+                                                Change Password
                                             </Button>
                                         </div>
                                     </CardContent>

@@ -444,14 +444,14 @@ export default function UsersIndex({ user, users, filters, roles, currentRole, y
                                                         Edit
                                                     </Button>
                                                 </Link>
-                                                <Button 
-                                                    variant="outline" 
-                                                    size="sm" 
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
                                                     onClick={() => handleResetPassword(userItem)}
                                                     className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                                                 >
                                                     <Key className="h-4 w-4 mr-2" />
-                                                    Reset Password
+                                                    Change Password
                                                 </Button>
                                                 <Button 
                                                     variant="outline" 
@@ -482,6 +482,30 @@ export default function UsersIndex({ user, users, filters, roles, currentRole, y
                                                     key={page}
                                                     variant={page === users.current_page ? 'default' : 'outline'}
                                                     size="sm"
+                                                    onClick={() => {
+                                                        const params = new URLSearchParams();
+                                                        if (filters?.search) params.set('search', filters.search);
+                                                        params.set('page', page.toString());
+
+                                                        // Determine the correct route based on current context
+                                                        let routeName = 'registrar.users.index';
+                                                        if (currentRole && currentRole !== 'student') {
+                                                            routeName = `registrar.${currentRole}s.index`;
+                                                        } else if (yearLevel) {
+                                                            const yearLevelRoutes: Record<string, string> = {
+                                                                'elementary': 'registrar.students.elementary',
+                                                                'junior_highschool': 'registrar.students.junior_highschool',
+                                                                'senior_highschool': 'registrar.students.senior_highschool',
+                                                                'college': 'registrar.students.college'
+                                                            };
+                                                            routeName = yearLevelRoutes[yearLevel] || 'registrar.students.index';
+                                                        }
+
+                                                        router.visit(route(routeName) + '?' + params.toString(), {
+                                                            preserveState: true,
+                                                            preserveScroll: false,
+                                                        });
+                                                    }}
                                                 >
                                                     {page}
                                                 </Button>

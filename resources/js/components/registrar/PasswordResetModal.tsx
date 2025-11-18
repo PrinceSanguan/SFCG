@@ -70,7 +70,7 @@ export default function PasswordResetModal({ user, isOpen, onClose, errors, rout
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <RotateCcw className="h-5 w-5" />
-                        Reset Password
+                        Change Password
                     </DialogTitle>
                     <DialogDescription>
                         Set a new password for <strong>{user.name}</strong> ({user.email})
@@ -158,13 +158,13 @@ export default function PasswordResetModal({ user, isOpen, onClose, errors, rout
                         <Button type="button" variant="outline" onClick={handleClose} disabled={isSubmitting}>
                             Cancel
                         </Button>
-                        <Button 
-                            type="submit" 
+                        <Button
+                            type="submit"
                             disabled={isSubmitting || !password || !passwordConfirmation}
                             className="flex items-center gap-2"
                         >
                             <RotateCcw className="h-4 w-4" />
-                            {isSubmitting ? 'Resetting...' : 'Reset Password'}
+                            {isSubmitting ? 'Changing...' : 'Change Password'}
                         </Button>
                     </DialogFooter>
                 </form>

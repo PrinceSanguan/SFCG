@@ -267,6 +267,14 @@ export default function PendingHonors({ user, honors }: PendingHonorsProps) {
                                 key={page}
                                 variant={page === honors.current_page ? 'default' : 'outline'}
                                 size="sm"
+                                onClick={() => {
+                                    const params = new URLSearchParams();
+                                    params.set('page', page.toString());
+                                    router.visit(route('principal.honors.pending') + '?' + params.toString(), {
+                                        preserveState: true,
+                                        preserveScroll: false,
+                                    });
+                                }}
                             >
                                 {page}
                             </Button>

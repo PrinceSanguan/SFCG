@@ -209,7 +209,7 @@ export default function ViewChairperson({ user, targetUser, activityLogs }: View
                                         onClick={() => setShowPasswordModal(true)}
                                     >
                                         <RotateCcw className="h-4 w-4" />
-                                        Reset Password
+                                        Change Password
                                     </Button>
                                 </div>
                             </CardContent>

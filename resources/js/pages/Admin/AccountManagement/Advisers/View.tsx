@@ -246,7 +246,7 @@ export default function ViewAdviser({ user, targetUser, activityLogs, adviserCla
                                         onClick={() => setShowPasswordModal(true)}
                                     >
                                         <RotateCcw className="h-4 w-4" />
-                                        Reset Password
+                                        Change Password
                                     </Button>
                                 </div>
                             </CardContent>

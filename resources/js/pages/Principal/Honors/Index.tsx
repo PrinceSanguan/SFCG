@@ -349,6 +349,14 @@ export default function HonorsIndex({ user, honors, honorTypes, academicLevels, 
                                 key={page}
                                 variant={page === honors.current_page ? 'default' : 'outline'}
                                 size="sm"
+                                onClick={() => {
+                                    const params = new URLSearchParams();
+                                    params.set('page', page.toString());
+                                    router.visit(route('principal.honors.index') + '?' + params.toString(), {
+                                        preserveState: true,
+                                        preserveScroll: false,
+                                    });
+                                }}
                             >
                                 {page}
                             </Button>

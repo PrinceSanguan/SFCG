@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Link } from '@inertiajs/react';
+import { Link, router } from '@inertiajs/react';
 import { ArrowLeft, Search, Filter, Download, BarChart, TrendingUp, Users, BookOpen } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -403,6 +403,17 @@ export default function AcademicPerformance({ user, grades, stats, filters, prin
                                 key={page}
                                 variant={page === grades.current_page ? 'default' : 'outline'}
                                 size="sm"
+                                onClick={() => {
+                                    const params = new URLSearchParams();
+                                    if (filters?.strand_id) params.set('strand_id', filters.strand_id);
+                                    if (filters?.year) params.set('year', filters.year);
+                                    if (filters?.period) params.set('period', filters.period);
+                                    params.set('page', page.toString());
+                                    router.visit(route('principal.reports.academic-performance') + '?' + params.toString(), {
+                                        preserveState: true,
+                                        preserveScroll: false,
+                                    });
+                                }}
                             >
                                 {page}
                             </Button>

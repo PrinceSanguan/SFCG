@@ -209,7 +209,7 @@ export default function AdministratorView({ user, targetUser, activityLogs }: Vi
                                         onClick={() => setShowPasswordModal(true)}
                                     >
                                         <RotateCcw className="h-4 w-4" />
-                                        Reset Password
+                                        Change Password
                                     </Button>
                                 </div>
                             </CardContent>

@@ -216,7 +216,7 @@ export default function EditChairperson({ user, targetUser, roles, errors }: Edi
                                         className="flex items-center gap-2"
                                     >
                                         <RotateCcw className="h-4 w-4" />
-                                        Reset Password
+                                        Change Password
                                     </Button>
                                 </div>
                             </CardContent>

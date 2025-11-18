@@ -244,7 +244,7 @@ export default function AccountManagementEdit({ user, targetUser, roles, errors 
                                         className="flex items-center gap-2"
                                     >
                                         <RotateCcw className="h-4 w-4" />
-                                        Reset Password
+                                        Change Password
                                     </Button>
                                 </div>
                             </CardContent>

@@ -805,7 +805,7 @@ export default function ViewStudent({ user, targetUser, activityLogs, assignedSu
                                         onClick={() => setShowPasswordModal(true)}
                                     >
                                         <RotateCcw className="h-4 w-4" />
-                                        Reset Password
+                                        Change Password
                                     </Button>
                                 </div>
                             </CardContent>

@@ -121,13 +121,13 @@ export default function ParentsIndex({ user, parents, filters }: ParentsIndexPro
                                                         Edit
                                                     </Button>
                                                 </Link>
-                                                <Button 
-                                                    variant="outline" 
+                                                <Button
+                                                    variant="outline"
                                                     size="sm"
                                                     onClick={() => setResetPasswordParent(parent)}
                                                 >
                                                     <Key className="h-4 w-4 mr-2" />
-                                                    Reset Password
+                                                    Change Password
                                                 </Button>
                                             </div>
                                         </div>
@@ -149,6 +149,15 @@ export default function ParentsIndex({ user, parents, filters }: ParentsIndexPro
                                                     key={page}
                                                     variant={page === parents.current_page ? 'default' : 'outline'}
                                                     size="sm"
+                                                    onClick={() => {
+                                                        const params = new URLSearchParams();
+                                                        if (filters?.search) params.set('search', filters.search);
+                                                        params.set('page', page.toString());
+                                                        router.visit(route('registrar.parents.index') + '?' + params.toString(), {
+                                                            preserveState: true,
+                                                            preserveScroll: false,
+                                                        });
+                                                    }}
                                                 >
                                                     {page}
                                                 </Button>

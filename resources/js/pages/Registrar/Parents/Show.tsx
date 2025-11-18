@@ -91,13 +91,13 @@ export default function ParentsShow({ user, parent }: ParentsShowProps) {
                                                     Edit Parent
                                                 </Button>
                                             </Link>
-                                            <Button 
+                                            <Button
                                                 variant="outline"
                                                 className="w-full"
                                                 onClick={() => setShowPasswordModal(true)}
                                             >
                                                 <Key className="h-4 w-4 mr-2" />
-                                                Reset Password
+                                                Change Password
                                             </Button>
                                         </div>
                                     </CardContent>

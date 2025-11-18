@@ -98,13 +98,13 @@ export default function ParentsEdit({ user, parent }: ParentsEditProps) {
                                             <Save className="h-4 w-4 mr-2" />
                                             {processing ? 'Saving...' : 'Save Changes'}
                                         </Button>
-                                        <Button 
-                                            type="button" 
+                                        <Button
+                                            type="button"
                                             variant="outline"
                                             onClick={() => setShowPasswordModal(true)}
                                         >
                                             <Key className="h-4 w-4 mr-2" />
-                                            Reset Password
+                                            Change Password
                                         </Button>
                                         <Link href={route('registrar.parents.show', parent.id)}>
                                             <Button type="button" variant="outline">
