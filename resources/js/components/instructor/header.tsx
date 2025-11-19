@@ -39,8 +39,8 @@ export function Header({ user }: HeaderProps) {
                 {/* User menu */}
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="flex items-center gap-2">
-                            <span className="text-sm font-medium">{user?.name ?? 'User'}</span>
+                        <Button variant="ghost" size="icon">
+                            <User size={20} />
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56">

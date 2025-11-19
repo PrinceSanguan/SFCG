@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Bell, Settings, LogOut, User } from 'lucide-react';
+import { Bell, Settings, LogOut, User, ChevronDown } from 'lucide-react';
 import { Link } from '@inertiajs/react';
 
 interface UserProps {
@@ -25,9 +25,8 @@ export function ParentHeader({ user }: { user: UserProps }) {
       <div className="flex items-center gap-4">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-2">
-              <span className="text-sm font-medium">{user?.name ?? 'User'}</span>
-              <ChevronDown size={16} />
+            <Button variant="ghost" size="icon">
+              <User size={20} />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56" align="end" forceMount>

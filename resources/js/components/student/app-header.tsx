@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
 import { Link } from '@inertiajs/react';
-import { ChevronDown, LayoutDashboard, Settings } from 'lucide-react';
+import { ChevronDown, LayoutDashboard, Settings, User } from 'lucide-react';
 
 interface User {
     name?: string;
@@ -27,9 +27,8 @@ export function StudentHeader({ user }: { user: User }) {
                     <Separator orientation="vertical" className="h-8" />
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="flex items-center gap-2">
-                                <span className="text-sm font-medium">{user?.name ?? 'User'}</span>
-                                <ChevronDown size={16} />
+                            <Button variant="ghost" size="icon">
+                                <User size={20} />
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">

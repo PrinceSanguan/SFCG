@@ -9,7 +9,7 @@ import { UserMenuContent } from '@/components/user-menu-content';
 import { cn } from '@/lib/utils';
 import { type BreadcrumbItem, type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { BookOpen, ChevronDown, Folder, LayoutGrid, Menu, Search } from 'lucide-react';
+import { BookOpen, ChevronDown, Folder, LayoutGrid, Menu, Search, User } from 'lucide-react';
 import AppLogo from './app-logo';
 import AppLogoIcon from './app-logo-icon';
 
@@ -151,9 +151,8 @@ export function AppHeader({ breadcrumbs = [] }: AppHeaderProps) {
                         </div>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="rounded-md px-3 py-2">
-                                    <span className="font-medium">{auth.user.name}</span>
-                                    <ChevronDown size={16} className="ml-2" />
+                                <Button variant="ghost" size="icon">
+                                    <User className="!size-5 opacity-80" />
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent className="w-56" align="end">
