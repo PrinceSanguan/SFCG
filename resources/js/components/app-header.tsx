@@ -13,6 +13,11 @@ import { BookOpen, ChevronDown, Folder, LayoutGrid, Menu, Search, User } from 'l
 import AppLogo from './app-logo';
 import AppLogoIcon from './app-logo-icon';
 
+function getInitials(name?: string): string {
+    if (!name) return 'U';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+}
+
 const mainNavItems: NavItem[] = [
     {
         title: 'Dashboard',
@@ -151,8 +156,12 @@ export function AppHeader({ breadcrumbs = [] }: AppHeaderProps) {
                         </div>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                    <User className="!size-5 opacity-80" />
+                                <Button variant="ghost" className="flex items-center gap-2">
+                                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-sm font-medium">
+                                        {getInitials(auth.user.name)}
+                                    </span>
+                                    <span className="text-sm font-medium">{auth.user.name}</span>
+                                    <ChevronDown size={16} />
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent className="w-56" align="end">

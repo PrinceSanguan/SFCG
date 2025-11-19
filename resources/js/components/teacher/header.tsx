@@ -1,9 +1,15 @@
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Settings, LogOut, User } from 'lucide-react';
+import { Settings, LogOut, User, ChevronDown } from 'lucide-react';
 import { Link } from '@inertiajs/react';
 
 interface UserShape { name?: string; email?: string; }
+
+function getInitials(name?: string): string {
+    if (!name) return 'U';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+}
+
 export function Header({ user }: { user: UserShape }) {
     return (
         <header className="flex h-16 items-center justify-between border-b bg-white px-4 dark:border-gray-700 dark:bg-gray-800">
@@ -13,8 +19,12 @@ export function Header({ user }: { user: UserShape }) {
             <div className="flex items-center gap-4">
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                            <User size={20} />
+                        <Button variant="ghost" className="flex items-center gap-2">
+                            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-sm font-medium">
+                                {getInitials(user?.name)}
+                            </span>
+                            <span className="text-sm font-medium">{user?.name ?? 'User'}</span>
+                            <ChevronDown size={16} />
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56">
