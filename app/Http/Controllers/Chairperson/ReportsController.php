@@ -603,16 +603,41 @@ class ReportsController extends Controller
     
     private function getStudentPerformance($grades)
     {
-        return $grades->groupBy('student_id')
+        Log::info('[Chairperson Reports] getStudentPerformance - Starting', [
+            'total_grades' => $grades->count()
+        ]);
+
+        $result = $grades->groupBy('student_id')
             ->map(function ($studentGrades) {
+                $avgGrade = round($studentGrades->avg('grade') ?? 0, 2);
+                $studentName = $studentGrades->first()->student->name ?? 'Unknown';
+
+                Log::info('[Chairperson Reports] Student Performance', [
+                    'student_name' => $studentName,
+                    'average_grade' => $avgGrade,
+                    'total_subjects' => $studentGrades->count()
+                ]);
+
                 return [
-                    'student_name' => $studentGrades->first()->student->name,
-                    'average_grade' => round($studentGrades->avg('grade') ?? 0, 2),
+                    'student_name' => $studentName,
+                    'average_grade' => $avgGrade,
                     'total_subjects' => $studentGrades->count(),
                 ];
             })
-            ->sortByDesc('average_grade')
+            // Sort by ASCENDING order - lower GPA is better in Philippine grading system
+            ->sortBy('average_grade')
             ->values();
+
+        Log::info('[Chairperson Reports] getStudentPerformance - Result', [
+            'students_count' => $result->count(),
+            'rankings' => $result->take(5)->map(fn($s, $i) => [
+                'rank' => $i + 1,
+                'name' => $s['student_name'],
+                'gpa' => $s['average_grade']
+            ])
+        ]);
+
+        return $result;
     }
     
     private function getStudentEnrollment($departmentId)
