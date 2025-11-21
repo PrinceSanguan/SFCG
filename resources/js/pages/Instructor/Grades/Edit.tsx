@@ -165,10 +165,13 @@ export default function Edit({ user, grade, gradingPeriods, assignedSubjects }: 
     // Filter grading periods based on the current grade's subject
     const allowedGradingPeriods = useMemo(() => {
         const currentSubjectId = grade.subject_id;
+        const currentGradingPeriodId = grade.grading_period_id;
 
         console.log('=== Edit Grading Period Filtering ===');
         console.log('Current grade subject_id:', currentSubjectId);
         console.log('Current grade subject:', grade.subject?.name);
+        console.log('Current grade grading_period_id:', currentGradingPeriodId);
+        console.log('Current grade grading_period:', grade.gradingPeriod);
 
         // Find the assignment for this subject
         const assignment = assignedSubjects.find(
@@ -193,8 +196,21 @@ export default function Edit({ user, grade, gradingPeriods, assignedSubjects }: 
         const filtered = gradingPeriods.filter(period => gradingPeriodIds.includes(period.id));
         console.log('Edit: Filtered grading periods:', filtered.length, filtered.map(p => ({ id: p.id, name: p.name })));
 
+        // IMPORTANT: Always include the grade's current grading period if it exists
+        // This ensures that when editing, the user can see the existing grading period
+        // even if it's not in the subject's assigned grading_period_ids
+        if (currentGradingPeriodId && !filtered.find(p => p.id === currentGradingPeriodId)) {
+            const currentPeriod = gradingPeriods.find(p => p.id === currentGradingPeriodId);
+            if (currentPeriod) {
+                console.log('Edit: Adding current grading period to list:', { id: currentPeriod.id, name: currentPeriod.name });
+                filtered.push(currentPeriod);
+                // Sort by sort_order to maintain proper ordering
+                filtered.sort((a, b) => a.sort_order - b.sort_order);
+            }
+        }
+
         return filtered;
-    }, [grade.subject_id, assignedSubjects, gradingPeriods]);
+    }, [grade.subject_id, grade.grading_period_id, grade.gradingPeriod, assignedSubjects, gradingPeriods]);
 
     // Get current academic level key for grade validation
     const getCurrentAcademicLevelKey = () => {

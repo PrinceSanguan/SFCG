@@ -414,7 +414,7 @@ class GradeManagementController extends Controller
                         'numeric',
                         function ($attribute, $value, $fail) {
                             if (!$this->validateCollegeGrade($value)) {
-                                $fail('Invalid college grade. Must be between 1.1-3.5 (in 0.1 increments) or 5.0 for failing.');
+                                $fail('Invalid college grade. Must be between 1.0-3.5 (in 0.1 increments) or 5.0 for failing.');
                             }
                         }
                     ]
@@ -879,10 +879,19 @@ class GradeManagementController extends Controller
 
         Log::info('[INSTRUCTOR GRADES EDIT] Rendering edit page', [
             'grade_id' => $grade->id,
+            'grade_grading_period_id' => $grade->grading_period_id,
+            'grade_grading_period_name' => $grade->gradingPeriod ? $grade->gradingPeriod->name : 'None',
             'total_grading_periods' => count($gradingPeriods),
             'total_assigned_subjects' => $assignedSubjectsData->count(),
             'grading_periods' => $gradingPeriods->map(function($p) {
                 return ['id' => $p->id, 'name' => $p->name, 'code' => $p->code];
+            })->toArray(),
+            'subject_grading_period_ids' => $assignedSubjectsData->map(function($s) {
+                return [
+                    'subject_id' => $s['subject_id'],
+                    'subject_name' => $s['subject']['name'] ?? 'Unknown',
+                    'grading_period_ids' => $s['grading_period_ids']
+                ];
             })->toArray()
         ]);
 
@@ -949,7 +958,7 @@ class GradeManagementController extends Controller
                         'numeric',
                         function ($attribute, $value, $fail) {
                             if (!$this->validateCollegeGrade($value)) {
-                                $fail('Invalid college grade. Must be between 1.1-3.5 (in 0.1 increments) or 5.0 for failing.');
+                                $fail('Invalid college grade. Must be between 1.0-3.5 (in 0.1 increments) or 5.0 for failing.');
                             }
                         }
                     ]
@@ -1167,7 +1176,7 @@ class GradeManagementController extends Controller
 
     /**
      * Validate college grade according to Saint Francis College grading scale.
-     * Valid grades: 1.1-3.5 (in 0.1 increments) and 5.0 for failing
+     * Valid grades: 1.0-3.5 (in 0.1 increments) and 5.0 for failing
      *
      * @param float $grade
      * @return bool
@@ -1177,18 +1186,38 @@ class GradeManagementController extends Controller
         // Convert to float to handle string inputs
         $grade = floatval($grade);
 
+        Log::info('[VALIDATE_COLLEGE_GRADE] Starting validation', [
+            'input_grade' => $grade,
+            'input_type' => gettype($grade)
+        ]);
+
         // Check if it's exactly 5.0 (failing grade)
         if ($grade == 5.0) {
+            Log::info('[VALIDATE_COLLEGE_GRADE] Grade is 5.0 (failing) - VALID');
             return true;
         }
 
-        // Check if it's within 1.1 to 3.5 range with 0.1 increments
-        // Must be between 1.1 and 3.5, and when multiplied by 10, should be an integer
-        if ($grade >= 1.1 && $grade <= 3.5) {
-            // Check if it's a valid 0.1 increment (e.g., 1.1, 1.2, ..., 3.4, 3.5)
+        // Check if it's within 1.0 to 3.5 range with 0.1 increments
+        // Must be between 1.0 and 3.5, and when multiplied by 10, should be an integer
+        if ($grade >= 1.0 && $grade <= 3.5) {
+            // Check if it's a valid 0.1 increment (e.g., 1.0, 1.1, 1.2, ..., 3.4, 3.5)
             $rounded = round($grade * 10) / 10; // Round to nearest 0.1
-            return abs($grade - $rounded) < 0.001; // Allow small float precision errors
+            $isValid = abs($grade - $rounded) < 0.001; // Allow small float precision errors
+
+            Log::info('[VALIDATE_COLLEGE_GRADE] Range check (1.0-3.5)', [
+                'grade' => $grade,
+                'rounded' => $rounded,
+                'difference' => abs($grade - $rounded),
+                'is_valid' => $isValid
+            ]);
+
+            return $isValid;
         }
+
+        Log::warning('[VALIDATE_COLLEGE_GRADE] Grade is INVALID - outside valid range', [
+            'grade' => $grade,
+            'valid_ranges' => '1.0-3.5 (0.1 increments) or 5.0'
+        ]);
 
         return false;
     }
@@ -1206,6 +1235,7 @@ class GradeManagementController extends Controller
 
         // Grading scale mapping
         $gradeMap = [
+            1.0 => '99-100%',
             1.1 => '97-98%',
             1.2 => '95-96%',
             1.3 => '93-94%',

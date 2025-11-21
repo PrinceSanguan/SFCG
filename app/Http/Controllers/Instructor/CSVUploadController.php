@@ -50,7 +50,18 @@ class CSVUploadController extends Controller
     public function upload(Request $request)
     {
         $user = Auth::user();
-        
+
+        Log::info('[CSV_UPLOAD_START] Instructor initiating CSV upload', [
+            'instructor_id' => $user->id,
+            'instructor_name' => $user->name,
+            'file_name' => $request->file('csv_file') ? $request->file('csv_file')->getClientOriginalName() : 'NO FILE',
+            'subject_id' => $request->subject_id,
+            'academic_level_id' => $request->academic_level_id,
+            'grading_period_id' => $request->grading_period_id,
+            'school_year' => $request->school_year,
+            'year_of_study' => $request->year_of_study,
+        ]);
+
         $request->validate([
             'csv_file' => 'required|file|mimes:csv,txt|max:2048',
             'subject_id' => 'nullable|exists:subjects,id',
@@ -59,9 +70,15 @@ class CSVUploadController extends Controller
             'school_year' => 'required|string|max:20',
             'year_of_study' => 'nullable|integer|min:1|max:10',
         ]);
-        
+
         // Get academic level for grade validation (optional if multi-subject)
         $academicLevel = $request->academic_level_id ? \App\Models\AcademicLevel::find($request->academic_level_id) : null;
+
+        Log::info('[CSV_UPLOAD_VALIDATION] Academic level info', [
+            'academic_level_id' => $request->academic_level_id,
+            'academic_level_key' => $academicLevel ? $academicLevel->key : 'not specified',
+            'academic_level_name' => $academicLevel ? $academicLevel->name : 'not specified',
+        ]);
 
         // If single subject mode, verify the instructor is assigned to this subject
         if ($request->subject_id) {
@@ -71,19 +88,46 @@ class CSVUploadController extends Controller
                 ->exists();
 
             if (!$isAssigned) {
+                Log::warning('[CSV_UPLOAD_ERROR] Instructor not assigned to subject', [
+                    'instructor_id' => $user->id,
+                    'subject_id' => $request->subject_id,
+                ]);
                 return back()->withErrors(['subject_id' => 'You are not assigned to this subject.']);
             }
         }
-        
+
         try {
             $file = $request->file('csv_file');
+
+            Log::info('[CSV_UPLOAD_PARSING] Starting CSV parse', [
+                'file_name' => $file->getClientOriginalName(),
+                'file_size' => $file->getSize(),
+                'mime_type' => $file->getMimeType(),
+            ]);
+
             $csvData = $this->parseCSV($file);
-            
+
+            Log::info('[CSV_UPLOAD_PARSED] CSV parsed successfully', [
+                'total_rows' => count($csvData),
+                'first_row_format' => isset($csvData[0]['format']) ? $csvData[0]['format'] : 'unknown',
+            ]);
+
             $results = $this->processGrades($csvData, $request->all(), $user, $academicLevel);
-            
+
+            Log::info('[CSV_UPLOAD_COMPLETE] CSV processing finished', [
+                'success_count' => $results['success'],
+                'error_count' => $results['errors'],
+                'total_rows' => count($csvData),
+            ]);
+
             return back()->with('success', "Successfully processed {$results['success']} grades. {$results['errors']} errors occurred.");
-            
+
         } catch (\Exception $e) {
+            Log::error('[CSV_UPLOAD_EXCEPTION] CSV upload failed with exception', [
+                'instructor_id' => $user->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             return back()->withErrors(['csv_file' => 'Error processing CSV file: ' . $e->getMessage()]);
         }
     }
@@ -490,7 +534,7 @@ class CSVUploadController extends Controller
                 if (!$isValidGrade) {
                     $errors++;
                     $errorMessage = ($rowAcademicLevel && $rowAcademicLevel->key === 'college')
-                        ? "Row " . ($index + 1) . ": Invalid college grade - " . $grade . " (must be 1.1-3.5 or 5.0)"
+                        ? "Row " . ($index + 1) . ": Invalid college grade - " . $grade . " (must be 1.0-3.5 or 5.0)"
                         : "Row " . ($index + 1) . ": Invalid grade value - " . $grade;
                     $errorDetails[] = $errorMessage;
                     Log::warning('[CSV_UPLOAD] Invalid grade', [
@@ -679,7 +723,7 @@ class CSVUploadController extends Controller
                 $isValidGrade = $this->validateCollegeGrade($midtermGrade);
                 if ($isValidGrade) {
                     Log::info('[COLLEGE_CSV_MIDTERM] Valid midterm grade', [
-                        'row' => $index + 1,
+                        'row' => $rowIndex + 1,
                         'student_name' => $student->name,
                         'grade' => $midtermGrade,
                         'percentage' => $this->gradeToPercentage($midtermGrade),
@@ -776,7 +820,7 @@ class CSVUploadController extends Controller
                 $isValidGrade = $this->validateCollegeGrade($finalGrade);
                 if ($isValidGrade) {
                     Log::info('[COLLEGE_CSV_FINAL] Valid final term grade', [
-                        'row' => $index + 1,
+                        'row' => $rowIndex + 1,
                         'student_name' => $student->name,
                         'grade' => $finalGrade,
                         'percentage' => $this->gradeToPercentage($finalGrade),
@@ -872,7 +916,7 @@ class CSVUploadController extends Controller
 
     /**
      * Validate college grade according to Saint Francis College grading scale.
-     * Valid grades: 1.1-3.5 (in 0.1 increments) and 5.0 for failing
+     * Valid grades: 1.0-3.5 (in 0.1 increments) and 5.0 for failing
      *
      * @param float $grade
      * @return bool
@@ -882,17 +926,37 @@ class CSVUploadController extends Controller
         // Convert to float to handle string inputs
         $grade = floatval($grade);
 
+        Log::info('[CSV_VALIDATE_COLLEGE_GRADE] Validating grade', [
+            'input_grade' => $grade,
+            'input_type' => gettype($grade)
+        ]);
+
         // Check if it's exactly 5.0 (failing grade)
         if ($grade == 5.0) {
+            Log::info('[CSV_VALIDATE_COLLEGE_GRADE] Grade is 5.0 (failing) - VALID');
             return true;
         }
 
-        // Check if it's within 1.1 to 3.5 range with 0.1 increments
-        if ($grade >= 1.1 && $grade <= 3.5) {
+        // Check if it's within 1.0 to 3.5 range with 0.1 increments
+        if ($grade >= 1.0 && $grade <= 3.5) {
             // Check if it's a valid 0.1 increment
             $rounded = round($grade * 10) / 10;
-            return abs($grade - $rounded) < 0.001;
+            $isValid = abs($grade - $rounded) < 0.001;
+
+            Log::info('[CSV_VALIDATE_COLLEGE_GRADE] Range check (1.0-3.5)', [
+                'grade' => $grade,
+                'rounded' => $rounded,
+                'difference' => abs($grade - $rounded),
+                'is_valid' => $isValid
+            ]);
+
+            return $isValid;
         }
+
+        Log::warning('[CSV_VALIDATE_COLLEGE_GRADE] Grade is INVALID - outside valid range', [
+            'grade' => $grade,
+            'valid_ranges' => '1.0-3.5 (0.1 increments) or 5.0'
+        ]);
 
         return false;
     }
@@ -908,7 +972,7 @@ class CSVUploadController extends Controller
         $grade = floatval($grade);
 
         $gradeMap = [
-            1.1 => '97-98%', 1.2 => '95-96%', 1.3 => '93-94%', 1.4 => '91-92%',
+            1.0 => '99-100%', 1.1 => '97-98%', 1.2 => '95-96%', 1.3 => '93-94%', 1.4 => '91-92%',
             1.5 => '90%', 1.6 => '89%', 1.7 => '88%', 1.8 => '87%', 1.9 => '86%',
             2.0 => '85%', 2.1 => '84%', 2.2 => '83%', 2.3 => '82%', 2.4 => '81%',
             2.5 => '80%', 2.6 => '79%', 2.7 => '78%', 2.8 => '77%', 2.9 => '76%',

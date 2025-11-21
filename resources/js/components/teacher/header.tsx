@@ -12,10 +12,7 @@ function getInitials(name?: string): string {
 
 export function Header({ user }: { user: UserShape }) {
     return (
-        <header className="flex h-16 items-center justify-between border-b bg-white px-4 dark:border-gray-700 dark:bg-gray-800">
-            <div className="flex items-center gap-4">
-                <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Teacher Portal</h1>
-            </div>
+        <header className="flex h-16 items-center justify-end border-b bg-white px-4 dark:border-gray-700 dark:bg-gray-800">
             <div className="flex items-center gap-4">
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>

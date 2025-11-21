@@ -26,20 +26,8 @@ function getInitials(name?: string): string {
 
 export function Header({ user }: HeaderProps) {
     return (
-        <header className="flex h-16 items-center justify-between border-b bg-white px-4 dark:border-gray-700 dark:bg-gray-800">
-            {/* Left side - Page title */}
-            <div className="flex items-center gap-4">
-                <img 
-                    src="/image/logo.jpg" 
-                    alt="School Logo" 
-                    className="h-6 w-6 object-contain rounded"
-                />
-                <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                    Instructor Portal
-                </h1>
-            </div>
-
-            {/* Right side - User menu */}
+        <header className="flex h-16 items-center justify-end border-b bg-white px-4 dark:border-gray-700 dark:bg-gray-800">
+            {/* User menu */}
             <div className="flex items-center gap-4">
                 {/* User menu */}
                 <DropdownMenu>
