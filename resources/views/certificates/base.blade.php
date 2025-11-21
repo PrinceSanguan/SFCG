@@ -15,6 +15,9 @@
         }
         .certificate-container {
             padding: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
         }
         /* Logo styling for certificates */
         img[alt="School Logo"] {

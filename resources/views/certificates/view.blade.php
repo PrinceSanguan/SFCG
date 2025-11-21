@@ -87,6 +87,10 @@
             padding: 20px;
             background: white;
             min-height: 400px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            overflow-x: auto;
         }
         
         .certificate-display h4 {
