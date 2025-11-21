@@ -714,7 +714,7 @@ export default function CertificatesIndex({
                                                                                     <Button
                                                                                         size="sm"
                                                                                         variant="outline"
-                                                                                        onClick={() => window.open(`/admin/academic/certificates/${certificate.id}/download`, '_blank')}
+                                                                                        onClick={() => window.open(route('admin.academic.certificates.download', certificate.id), '_blank')}
                                                                                         className="h-8 px-2"
                                                                                     >
                                                                                         <Download className="h-3 w-3" />
@@ -722,7 +722,7 @@ export default function CertificatesIndex({
                                                                                     <Button
                                                                                         size="sm"
                                                                                         variant="outline"
-                                                                                        onClick={() => window.open(`/admin/academic/certificates/${certificate.id}/print`, '_blank')}
+                                                                                        onClick={() => window.open(route('admin.academic.certificates.print', certificate.id), '_blank')}
                                                                                         className="h-8 px-2"
                                                                                     >
                                                                                         <Printer className="h-3 w-3" />

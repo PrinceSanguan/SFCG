@@ -301,7 +301,7 @@ export default function CreateStudent({ user, errors, academicLevel, specificYea
                                                     </SelectTrigger>
                                                     <SelectContent>
                                                         {courses && courses
-                                                            .filter(course => !data.department_id || course.department_id.toString() === data.department_id)
+                                                            .filter(course => !data.department_id || course.department_id?.toString() === data.department_id)
                                                             .map((course) => (
                                                                 <SelectItem key={course.id} value={course.id.toString()}>
                                                                     {course.name} ({course.code})
