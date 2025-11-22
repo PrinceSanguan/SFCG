@@ -87,17 +87,17 @@
             padding: 20px;
             background: white;
             min-height: 400px;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
             overflow-x: auto;
-        }
-        
-        .certificate-display h4 {
-            margin: 0 0 20px 0;
-            color: #495057;
             text-align: center;
-            font-size: 18px;
+        }
+
+        /* Logo styling for certificates */
+        .certificate-display img[alt="School Logo"] {
+            display: block;
+            margin: 0 auto 20px auto;
+            max-width: 100px;
+            max-height: 100px;
+            object-fit: contain;
         }
         
         .no-download-notice {
@@ -172,8 +172,12 @@
                 </div>
             </div>
             
+            <h4 style="text-align: center; color: #495057; margin-bottom: 15px;">Certificate Preview</h4>
+
             <div class="certificate-display">
-                <h4>Certificate Preview</h4>
+                {{-- Add school logo at top of certificate to match admin/registrar view --}}
+                {!! \App\Helpers\CertificateLogoHelper::getCenteredLogoHtml(100, 100, 20) !!}
+
                 {!! $html !!}
             </div>
             
