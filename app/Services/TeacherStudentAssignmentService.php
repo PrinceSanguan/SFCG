@@ -633,6 +633,149 @@ class TeacherStudentAssignmentService
     }
 
     /**
+     * Get teachers/instructors for a student's subject grouped by semester (parent grading period).
+     * Returns an array keyed by parent grading period ID (semester ID).
+     *
+     * @param User $student
+     * @param Subject $subject
+     * @return array<int, User|null> Array keyed by parent_id (semester ID) -> Teacher/Instructor
+     */
+    public function getTeachersForStudentSubjectBySemester(User $student, Subject $subject): array
+    {
+        $currentSchoolYear = $this->getCurrentSchoolYear();
+        $teachersBySemester = [];
+
+        Log::info('[TeacherStudentAssignmentService] Getting teachers by semester', [
+            'student_id' => $student->id,
+            'subject_id' => $subject->id,
+            'school_year' => $currentSchoolYear
+        ]);
+
+        // Get all grading periods for this subject's academic level to find parent semesters
+        $gradingPeriods = \App\Models\GradingPeriod::where('academic_level_id', $subject->academic_level_id)
+            ->where('is_active', true)
+            ->get();
+
+        // Find parent semesters (periods with parent_id = null and type = 'semester')
+        $parentSemesters = $gradingPeriods->filter(fn($p) => $p->parent_id === null && $p->type === 'semester');
+
+        Log::info('[TeacherStudentAssignmentService] Found parent semesters', [
+            'count' => $parentSemesters->count(),
+            'semesters' => $parentSemesters->map(fn($s) => ['id' => $s->id, 'name' => $s->name])->values()->toArray()
+        ]);
+
+        // Check for instructor assignments (college) - they have grading_period_id
+        $instructorAssignments = InstructorSubjectAssignment::with(['instructor', 'gradingPeriod'])
+            ->where([
+                'subject_id' => $subject->id,
+                'school_year' => $currentSchoolYear,
+                'is_active' => true,
+            ])->get();
+
+        Log::info('[TeacherStudentAssignmentService] Instructor assignments found', [
+            'count' => $instructorAssignments->count(),
+            'assignments' => $instructorAssignments->map(fn($a) => [
+                'id' => $a->id,
+                'instructor_id' => $a->instructor_id,
+                'instructor_name' => $a->instructor?->name,
+                'grading_period_id' => $a->grading_period_id,
+                'grading_period_name' => $a->gradingPeriod?->name,
+                'grading_period_parent_id' => $a->gradingPeriod?->parent_id
+            ])->toArray()
+        ]);
+
+        foreach ($instructorAssignments as $assignment) {
+            if (!$assignment->instructor) continue;
+
+            // Determine which semester this assignment belongs to
+            $semesterId = null;
+            if ($assignment->gradingPeriod) {
+                // If the assignment's grading period IS a parent semester
+                if ($assignment->gradingPeriod->parent_id === null && $assignment->gradingPeriod->type === 'semester') {
+                    $semesterId = $assignment->gradingPeriod->id;
+                }
+                // If the assignment's grading period has a parent (is a child period like Midterm/Pre-Final)
+                elseif ($assignment->gradingPeriod->parent_id) {
+                    $semesterId = $assignment->gradingPeriod->parent_id;
+                }
+            }
+
+            if ($semesterId) {
+                $teachersBySemester[$semesterId] = $assignment->instructor;
+                Log::info('[TeacherStudentAssignmentService] Mapped instructor to semester', [
+                    'instructor_name' => $assignment->instructor->name,
+                    'semester_id' => $semesterId,
+                    'grading_period_id' => $assignment->grading_period_id
+                ]);
+            }
+        }
+
+        // Check for teacher assignments (senior high) - they have grading_period_id
+        $teacherAssignments = TeacherSubjectAssignment::with(['teacher', 'gradingPeriod'])
+            ->where([
+                'subject_id' => $subject->id,
+                'school_year' => $currentSchoolYear,
+                'is_active' => true,
+            ])->get();
+
+        foreach ($teacherAssignments as $assignment) {
+            if (!$assignment->teacher) continue;
+
+            $semesterId = null;
+            if ($assignment->gradingPeriod) {
+                if ($assignment->gradingPeriod->parent_id === null && $assignment->gradingPeriod->type === 'semester') {
+                    $semesterId = $assignment->gradingPeriod->id;
+                } elseif ($assignment->gradingPeriod->parent_id) {
+                    $semesterId = $assignment->gradingPeriod->parent_id;
+                }
+            }
+
+            if ($semesterId) {
+                $teachersBySemester[$semesterId] = $assignment->teacher;
+            }
+        }
+
+        // Check for adviser assignments (elementary/high school) - they may have grading_period_ids array
+        $adviserAssignments = ClassAdviserAssignment::with('adviser')
+            ->where([
+                'subject_id' => $subject->id,
+                'school_year' => $currentSchoolYear,
+                'is_active' => true,
+            ])->get();
+
+        foreach ($adviserAssignments as $assignment) {
+            if (!$assignment->adviser) continue;
+
+            // For advisers, assign to all semesters if no specific period is set
+            if (!empty($assignment->grading_period_ids)) {
+                // Map each grading period to its parent semester
+                foreach ($assignment->grading_period_ids as $periodId) {
+                    $period = $gradingPeriods->find($periodId);
+                    if ($period && $period->parent_id) {
+                        $teachersBySemester[$period->parent_id] = $assignment->adviser;
+                    }
+                }
+            } else {
+                // If no specific periods, assign to all semesters
+                foreach ($parentSemesters as $semester) {
+                    if (!isset($teachersBySemester[$semester->id])) {
+                        $teachersBySemester[$semester->id] = $assignment->adviser;
+                    }
+                }
+            }
+        }
+
+        Log::info('[TeacherStudentAssignmentService] Final teachers by semester', [
+            'result' => collect($teachersBySemester)->map(fn($t, $k) => [
+                'semester_id' => $k,
+                'teacher_name' => $t?->name
+            ])->values()->toArray()
+        ]);
+
+        return $teachersBySemester;
+    }
+
+    /**
      * Automatically enroll a student in all subjects for their section/academic level.
      * This should be called when a student is assigned to a section.
      */

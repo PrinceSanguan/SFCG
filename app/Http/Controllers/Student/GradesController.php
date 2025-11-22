@@ -131,9 +131,32 @@ class GradesController extends Controller
                 ];
             });
 
-        // Get the teacher/adviser/instructor for this subject
+        // Get the teacher/adviser/instructor for this subject (default, for backwards compatibility)
         $teacherService = new \App\Services\TeacherStudentAssignmentService();
         $assignedTeacher = $teacherService->getTeacherForStudentSubject($user, $subject);
+
+        // Get teachers grouped by semester for semester-specific display
+        $teachersBySemester = $teacherService->getTeachersForStudentSubjectBySemester($user, $subject);
+
+        // Transform teachersBySemester to an array format for the frontend
+        // Key is the parent semester ID (grading period ID), value is teacher info
+        $teachersBySemesterFormatted = [];
+        foreach ($teachersBySemester as $semesterId => $teacher) {
+            $teachersBySemesterFormatted[$semesterId] = [
+                'id' => $teacher->id,
+                'name' => $teacher->name,
+                'role' => $teacher->user_role,
+            ];
+        }
+
+        \Illuminate\Support\Facades\Log::info('[Student GradesController] Teachers by semester', [
+            'student_id' => $user->id,
+            'subject_id' => $subject->id,
+            'teachers_by_semester' => collect($teachersBySemesterFormatted)->map(fn($t, $k) => [
+                'semester_id' => $k,
+                'teacher_name' => $t['name']
+            ])->values()->toArray()
+        ]);
 
         // Transform grades to include explicit grading period data and teacher information
         $transformedGrades = $grades->map(function($grade) use ($assignedTeacher) {
@@ -186,6 +209,7 @@ class GradesController extends Controller
                 'name' => $assignedTeacher->name,
                 'role' => $assignedTeacher->user_role,
             ] : null,
+            'teachersBySemester' => $teachersBySemesterFormatted, // New: teachers grouped by semester ID
         ]);
     }
 }

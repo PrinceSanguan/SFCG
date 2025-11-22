@@ -23,6 +23,11 @@ interface Teacher {
     role: string;
 }
 
+// Teachers grouped by semester ID (parent grading period ID)
+interface TeachersBySemester {
+    [semesterId: number]: Teacher;
+}
+
 interface Props {
     user: {
         id: number;
@@ -38,11 +43,15 @@ interface Props {
     grades: Grade[];
     gradingPeriods: GradingPeriod[];
     teacher?: Teacher | null;
+    teachersBySemester?: TeachersBySemester; // New: teachers grouped by semester
 }
 
-export default function StudentSubjectGradesShow({ user, subject, grades, gradingPeriods, teacher }: Props) {
+export default function StudentSubjectGradesShow({ user, subject, grades, gradingPeriods, teacher, teachersBySemester }: Props) {
     // Determine if this is a semester-based system
     const academicLevelId = subject.academic_level_id || grades[0]?.academic_level_id;
+
+    // Log teachersBySemester for debugging
+    console.log('🔍 [Student Grades] Teachers by semester:', teachersBySemester);
     const isSemesterBased = gradingPeriods.some(p => p.type === 'semester');
 
     console.log('🔍 Student Grades Show - Data:', {
@@ -109,6 +118,7 @@ export default function StudentSubjectGradesShow({ user, subject, grades, gradin
             if (!semesters[semesterNum]) {
                 semesters[semesterNum] = {
                     name: parentSemester.name,
+                    parentSemesterId: parentSemester.id, // Include parent semester ID for teacher lookup
                     periods: []
                 };
             }
@@ -377,7 +387,19 @@ export default function StudentSubjectGradesShow({ user, subject, grades, gradin
                                                     <td className="p-3 border-r border-gray-200">
                                                         <div className="flex items-center">
                                                             <GraduationCap className="h-4 w-4 mr-2 text-gray-400" />
-                                                            <div className="text-sm text-gray-600">{teacher ? teacher.name : 'N/A'}</div>
+                                                            <div className="text-sm text-gray-600">
+                                                                {/* Use semester-specific teacher if available, fall back to default teacher */}
+                                                                {(() => {
+                                                                    const semesterTeacher = teachersBySemester?.[semester.parentSemesterId];
+                                                                    if (semesterTeacher) {
+                                                                        return semesterTeacher.name;
+                                                                    }
+                                                                    // Fall back to default teacher only if no semester-specific mapping exists
+                                                                    return teachersBySemester && Object.keys(teachersBySemester).length > 0
+                                                                        ? 'N/A'  // Semester mapping exists but no teacher for this semester
+                                                                        : (teacher ? teacher.name : 'N/A');  // No mapping, use default
+                                                                })()}
+                                                            </div>
                                                         </div>
                                                     </td>
                                                     {semester.periods.map((period: any) => {
