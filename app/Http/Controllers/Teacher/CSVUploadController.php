@@ -10,7 +10,6 @@ use App\Models\Subject;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
 
 class CSVUploadController extends Controller
@@ -27,6 +26,7 @@ class CSVUploadController extends Controller
         
         try {
             // Get teacher's assigned subjects (Senior High School only)
+            // Group by subject_id to avoid duplicate subjects in dropdown
             $assignedSubjects = \App\Models\TeacherSubjectAssignment::with([
                 'subject.course',
                 'academicLevel',
@@ -38,13 +38,17 @@ class CSVUploadController extends Controller
                 $query->where('key', 'senior_highschool');
             })
             ->get()
-            ->map(function ($assignment) {
+            ->groupBy('subject_id')
+            ->map(function ($group) {
+                // Take the first assignment from each subject group
+                $assignment = $group->first();
+
                 $enrolledStudents = \App\Models\StudentSubjectAssignment::with(['student'])
                     ->where('subject_id', $assignment->subject_id)
                     ->where('school_year', $assignment->school_year)
                     ->where('is_active', true)
                     ->get();
-                
+
                 return [
                     'id' => $assignment->id,
                     'subject' => $assignment->subject,
@@ -55,7 +59,8 @@ class CSVUploadController extends Controller
                     'enrolled_students' => $enrolledStudents,
                     'student_count' => $enrolledStudents->count(),
                 ];
-            });
+            })
+            ->values();
 
             // Get academic levels (SHS only)
             $academicLevels = \App\Models\AcademicLevel::where('key', 'senior_highschool')->get();
@@ -229,11 +234,11 @@ class CSVUploadController extends Controller
         // Get academic level from query parameter (defaults to senior_highschool)
         $academicLevelKey = request()->get('academic_level', 'senior_highschool');
 
-        // Teachers use 1.0-5.0 grading scale (same as instructors/college)
+        // Teachers (Senior High School) use 75-100 percentage scale
         Log::info('Teacher CSV template download', [
             'user_id' => Auth::id(),
             'academic_level' => $academicLevelKey,
-            'grading_scale' => '1.0-5.0'
+            'grading_scale' => '75-100 (percentage)'
         ]);
 
         $headers = [
@@ -247,12 +252,12 @@ class CSVUploadController extends Controller
             // Add headers
             fputcsv($file, ['Student ID', 'Student Name', 'Grade', 'Notes']);
 
-            // Add sample data - Teachers use 1.0-5.0 scale (1.0 highest, 3.0 passing)
+            // Add sample data - Teachers (SHS) use 75-100 percentage scale (75 = passing, 100 = highest)
             $levelPrefix = strtoupper(substr($academicLevelKey, 0, 2));
-            fputcsv($file, [$levelPrefix . '-2024-001', 'John Doe', '1.25', 'Excellent performance']);
-            fputcsv($file, [$levelPrefix . '-2024-002', 'Jane Smith', '2.0', 'Very good work']);
-            fputcsv($file, [$levelPrefix . '-2024-003', 'Mike Johnson', '2.75', 'Good work']);
-            fputcsv($file, [$levelPrefix . '-2024-004', 'Sarah Williams', '3.0', 'Passing grade']);
+            fputcsv($file, [$levelPrefix . '-2024-001', 'John Doe', '95', 'Excellent performance']);
+            fputcsv($file, [$levelPrefix . '-2024-002', 'Jane Smith', '90', 'Very good work']);
+            fputcsv($file, [$levelPrefix . '-2024-003', 'Mike Johnson', '85', 'Good work']);
+            fputcsv($file, [$levelPrefix . '-2024-004', 'Sarah Williams', '75', 'Passing grade']);
 
             fclose($file);
         };
@@ -283,7 +288,8 @@ class CSVUploadController extends Controller
         }
 
         // Verify teacher is assigned to this subject
-        $assignment = TeacherSubjectAssignment::with(['subject.course', 'section', 'academicLevel', 'gradingPeriod'])
+        // Note: 'section' removed from eager loading as it doesn't exist on TeacherSubjectAssignment
+        $assignment = TeacherSubjectAssignment::with(['subject.course', 'academicLevel', 'gradingPeriod'])
             ->where('teacher_id', $user->id)
             ->where('subject_id', $subjectId)
             ->where('school_year', $schoolYear)
@@ -330,15 +336,12 @@ class CSVUploadController extends Controller
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
         ];
 
-        $callback = function() use ($students, $subject, $user, $assignment, $schoolYear) {
+        $callback = function() use ($students, $subject, $user, $schoolYear) {
             $file = fopen('php://output', 'w');
 
             // Add header information
             fputcsv($file, ['Teacher:', $user->name]);
             fputcsv($file, ['Subject:', $subject->name . ' (' . $subject->code . ')']);
-            if ($assignment->section) {
-                fputcsv($file, ['Section:', $assignment->section->name]);
-            }
             fputcsv($file, ['School Year:', $schoolYear]);
             fputcsv($file, []); // Empty row
 
@@ -846,7 +849,7 @@ class CSVUploadController extends Controller
 
             if ($isValidGrade) {
                 Log::info('[SHS_CSV_MIDTERM] Valid SHS midterm grade', [
-                    'row' => $index + 1,
+                    'row' => $rowIndex + 1,
                     'student_name' => $student->name,
                     'grade' => $midtermGrade
                 ]);
@@ -942,7 +945,7 @@ class CSVUploadController extends Controller
 
             if ($isValidGrade) {
                 Log::info('[SHS_CSV_FINAL] Valid SHS final term grade', [
-                    'row' => $index + 1,
+                    'row' => $rowIndex + 1,
                     'student_name' => $student->name,
                     'grade' => $finalGrade
                 ]);

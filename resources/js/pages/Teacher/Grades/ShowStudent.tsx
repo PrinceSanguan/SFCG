@@ -152,45 +152,17 @@ export default function ShowStudent({ user, student, subject, academicLevel, gra
             allGradingPeriods: gradingPeriods.map(p => ({ id: p.id, name: p.name, code: p.code }))
         });
 
-        // Filter periods for current academic level (improved matching for admin-created periods)
-        let relevantPeriods = gradingPeriods.filter(period => {
-            const currentAcademicLevel = academicLevelKey;
-            const periodName = period.name.toLowerCase();
-            const periodCode = period.code.toLowerCase();
+        // Trust the backend data - it already filters by academic level
+        // Use all provided grading periods (they're already filtered by the controller)
+        let relevantPeriods = gradingPeriods.filter(period => period.is_active !== false);
 
-            // Check multiple patterns for academic level matching
-            const levelPatterns = [
-                currentAcademicLevel.toLowerCase(),
-                currentAcademicLevel.toLowerCase().replace('_', ''),
-                currentAcademicLevel.toLowerCase().replace('_', ' '),
-            ];
-
-            // For college, also check common variations
-            if (currentAcademicLevel === 'college') {
-                levelPatterns.push('tertiary', 'university', 'higher');
-            }
-
-            // For senior_highschool, also check variations
-            if (currentAcademicLevel === 'senior_highschool') {
-                levelPatterns.push('senior high', 'shs', 'senior_high', 'seniorhigh');
-            }
-
-            // Check if period matches any of the level patterns
-            const isRelevant = levelPatterns.some(pattern =>
-                periodCode.includes(pattern) || periodName.includes(pattern)
-            );
-
-            console.log(`🔍 Period "${period.name}" (${period.code}) relevant for ${currentAcademicLevel}:`, isRelevant);
-            return isRelevant;
-        });
-
-        // If no level-specific periods found, use all active periods as fallback
+        // If no periods available, use all periods as fallback
         if (relevantPeriods.length === 0) {
-            console.log('🔍 No level-specific periods found, using all active periods as fallback');
-            relevantPeriods = gradingPeriods.filter(period => period.is_active);
+            console.log('🔍 No active periods found, using all provided periods as fallback');
+            relevantPeriods = [...gradingPeriods];
         }
 
-        console.log('🔍 DEBUG - Relevant periods after filtering:', relevantPeriods.map(p => ({ id: p.id, name: p.name, code: p.code })));
+        console.log('🔍 DEBUG - Relevant periods (trusting backend):', relevantPeriods.map(p => ({ id: p.id, name: p.name, code: p.code })));
 
         // Check if this is a semester-based system (Senior High/College)
         const isSemesterBased = ['senior_highschool', 'college'].includes(academicLevelKey);
