@@ -794,6 +794,9 @@ class NotificationService
                     ]);
 
                     $recipient = User::where('email', $recipientEmail)->first();
+
+                    // Use sendNow() to send immediately instead of queueing
+                    // This ensures emails are sent right away for testing
                     Mail::to($recipientEmail)->send(
                         new \App\Mail\PendingHonorApprovalEmail($recipient, $academicLevel, $schoolYear, $honorCount)
                     );
@@ -803,7 +806,8 @@ class NotificationService
                     Log::info('Honor approval email sent successfully', [
                         'notification_id' => $notification->id,
                         'recipient' => $recipientEmail,
-                        'role' => $role
+                        'role' => $role,
+                        'mail_driver' => config('mail.default'),
                     ]);
                 } catch (\Exception $e) {
                     $failedCount++;
@@ -811,7 +815,8 @@ class NotificationService
                     Log::error('Failed to send honor approval email', [
                         'notification_id' => $notification->id,
                         'recipient' => $recipientEmail,
-                        'error' => $e->getMessage()
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString(),
                     ]);
                 }
             }

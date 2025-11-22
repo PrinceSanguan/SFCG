@@ -174,15 +174,25 @@ export default function CertificatesIndex({
             )
             .sort((a, b) => {
                 // Sort by year level first, then section, then GPA
-                // For GPA: Lower is better (1.0 is better than 2.0 in college grading)
                 if (a.year_level !== b.year_level) {
                     return (a.year_level || '').localeCompare(b.year_level || '');
                 }
                 if (a.section_id !== b.section_id) {
                     return (a.section_id || 0) - (b.section_id || 0);
                 }
-                // ASCENDING order for GPA (lower GPA = higher rank)
-                return (a.gpa || 0) - (b.gpa || 0);
+
+                // GPA sorting depends on academic level grading scale:
+                // - College: 1.0-5.0 scale where LOWER is better (1.0 = highest honor, 5.0 = failing)
+                // - Elementary/JHS/SHS: 75-100 scale where HIGHER is better (100 = highest, 75 = passing)
+                const isCollege = categoryKey === 'college';
+
+                if (isCollege) {
+                    // ASCENDING order for College (lower GPA = higher rank, e.g., 1.0 = #1, 2.0 = #2)
+                    return (a.gpa || 0) - (b.gpa || 0);
+                } else {
+                    // DESCENDING order for Elementary/JHS/SHS (higher GPA = higher rank, e.g., 100 = #1, 90 = #2)
+                    return (b.gpa || 0) - (a.gpa || 0);
+                }
             });
     };
 
@@ -581,6 +591,11 @@ export default function CertificatesIndex({
                                                         </DropdownMenuItem>
                                                         <DropdownMenuItem
                                                             onClick={() => {
+                                                                console.log('[BULK DOWNLOAD] Starting bulk certificate download');
+                                                                console.log('[BULK DOWNLOAD] Selected students:', selectedStudents);
+                                                                console.log('[BULK DOWNLOAD] Selected category data:', selectedCategoryData);
+                                                                console.log('[BULK DOWNLOAD] Generated certificates:', generatedCertificates);
+
                                                                 const certificateIds = selectedCategoryData
                                                                     .filter(honor => selectedStudents.includes(honor.student.id))
                                                                     .map(honor => {
@@ -588,13 +603,28 @@ export default function CertificatesIndex({
                                                                             c.student.id === honor.student.id &&
                                                                             c.academic_level.id === honor.academic_level.id
                                                                         );
+                                                                        console.log(`[BULK DOWNLOAD] Student ${honor.student.name} - Certificate ID:`, cert?.id);
                                                                         return cert?.id;
                                                                     })
                                                                     .filter((id): id is number => id !== undefined);
 
+                                                                console.log('[BULK DOWNLOAD] Final certificate IDs:', certificateIds);
+
                                                                 if (certificateIds.length > 0) {
+                                                                    console.log('[BULK DOWNLOAD] Submitting form with certificate IDs:', certificateIds);
                                                                     setBulkPrintData({ certificate_ids: certificateIds });
-                                                                    postBulkPrint(route('admin.academic.certificates.bulk-print-pdf'));
+                                                                    postBulkPrint(route('admin.academic.certificates.bulk-print-pdf'), {
+                                                                        onSuccess: () => {
+                                                                            console.log('[BULK DOWNLOAD] Download successful');
+                                                                        },
+                                                                        onError: (errors) => {
+                                                                            console.error('[BULK DOWNLOAD] Download failed:', errors);
+                                                                            alert('Failed to download certificates. Please check console for errors.');
+                                                                        }
+                                                                    });
+                                                                } else {
+                                                                    console.warn('[BULK DOWNLOAD] No certificate IDs found - certificates may not be generated yet');
+                                                                    alert('No certificates found for selected students. Please generate certificates first.');
                                                                 }
                                                             }}
                                                             disabled={selectedStudents.length === 0 || bulkPrinting}
