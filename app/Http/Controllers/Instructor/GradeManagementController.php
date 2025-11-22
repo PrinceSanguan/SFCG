@@ -776,13 +776,48 @@ class GradeManagementController extends Controller
             abort(403, $message);
         }
 
-        $grade->load(['student', 'subject', 'academicLevel', 'gradingPeriod']);
+        $grade->load(['student', 'subject.academicLevel', 'academicLevel', 'gradingPeriod']);
+
+        // Determine the academic level ID - try grade first, then subject, then default to College
+        $academicLevelId = $grade->academic_level_id;
+
+        // If grade doesn't have academic_level_id, try to get it from the subject
+        if (!$academicLevelId && $grade->subject && $grade->subject->academic_level_id) {
+            $academicLevelId = $grade->subject->academic_level_id;
+            Log::info('[INSTRUCTOR GRADES EDIT] Using subject academic_level_id as fallback', [
+                'grade_id' => $grade->id,
+                'subject_academic_level_id' => $academicLevelId
+            ]);
+        }
+
+        // If still no academic level, default to College for instructors
+        if (!$academicLevelId) {
+            $collegeLevel = \App\Models\AcademicLevel::where('key', 'college')->first();
+            $academicLevelId = $collegeLevel ? $collegeLevel->id : null;
+            Log::info('[INSTRUCTOR GRADES EDIT] Using College academic level as fallback', [
+                'grade_id' => $grade->id,
+                'college_academic_level_id' => $academicLevelId
+            ]);
+        }
+
+        Log::info('[INSTRUCTOR GRADES EDIT] Academic level determination', [
+            'grade_id' => $grade->id,
+            'grade_academic_level_id' => $grade->academic_level_id,
+            'subject_academic_level_id' => $grade->subject ? $grade->subject->academic_level_id : null,
+            'final_academic_level_id' => $academicLevelId
+        ]);
 
         // Get all grading periods for this academic level
-        $gradingPeriods = \App\Models\GradingPeriod::where('academic_level_id', $grade->academic_level_id)
+        $gradingPeriods = \App\Models\GradingPeriod::where('academic_level_id', $academicLevelId)
             ->where('is_active', true)
             ->orderBy('sort_order')
             ->get();
+
+        Log::info('[INSTRUCTOR GRADES EDIT] Grading periods fetched', [
+            'academic_level_id' => $academicLevelId,
+            'grading_periods_count' => $gradingPeriods->count(),
+            'grading_periods' => $gradingPeriods->map(fn($p) => ['id' => $p->id, 'name' => $p->name, 'code' => $p->code])->toArray()
+        ]);
 
         // Get instructor's assigned subjects with enrolled students
         $assignedSubjects = InstructorSubjectAssignment::with(['subject.course', 'academicLevel', 'gradingPeriod.parent'])

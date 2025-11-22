@@ -22,20 +22,27 @@ class CSVUploadController extends Controller
     public function index()
     {
         $user = Auth::user();
-        
+
         // Get instructor's assigned subjects (new subject-based system)
+        // Group by subject_id to avoid duplicate subjects in dropdown
         $assignedSubjects = \App\Models\InstructorSubjectAssignment::with(['subject.course', 'academicLevel', 'gradingPeriod'])
             ->where('instructor_id', $user->id)
             ->where('is_active', true)
             ->whereHas('academicLevel', function ($query) {
                 $query->where('key', 'college');
             })
-            ->get();
-        
+            ->get()
+            ->groupBy('subject_id')
+            ->map(function ($group) {
+                // Take the first assignment from each subject group
+                return $group->first();
+            })
+            ->values();
+
         // Get academic levels (College only) and grading periods for the form
         $academicLevels = \App\Models\AcademicLevel::where('key', 'college')->orderBy('name')->get();
         $gradingPeriods = \App\Models\GradingPeriod::where('is_active', true)->orderBy('sort_order')->get();
-        
+
         return Inertia::render('Instructor/Grades/Upload', [
             'user' => $user,
             'assignedSubjects' => $assignedSubjects,

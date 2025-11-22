@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Head, useForm, Link } from '@inertiajs/react';
+import { useForm, Link } from '@inertiajs/react';
 import { ArrowLeft, Save, Edit as EditIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -236,7 +236,7 @@ export default function Edit({ user, grade, gradingPeriods, assignedSubjects }: 
         }
         
         // Check if the grade value itself suggests college level (1-5 scale)
-        const currentGrade = parseFloat(grade.grade);
+        const currentGrade = typeof grade.grade === 'string' ? parseFloat(grade.grade) : grade.grade;
         if (currentGrade >= 1 && currentGrade <= 5) {
             console.log('Using grade value fallback, assuming college level (1-5 scale)');
             return 'college';
@@ -464,7 +464,7 @@ export default function Edit({ user, grade, gradingPeriods, assignedSubjects }: 
                                                     {allowedGradingPeriods && allowedGradingPeriods.length > 0 ? (
                                                         <>
                                                             {/* First Semester - Only show if instructor teaches it */}
-                                                            {teachesFirstSemester && (
+                                                            {teachesFirstSemester && allowedGradingPeriods.filter(period => period.code.startsWith('COL_S1_') && !period.code.includes('_FA')).length > 0 && (
                                                                 <SelectGroup>
                                                                     <SelectLabel>First Semester</SelectLabel>
                                                                     {allowedGradingPeriods
@@ -480,7 +480,7 @@ export default function Edit({ user, grade, gradingPeriods, assignedSubjects }: 
                                                             )}
 
                                                             {/* Second Semester - Only show if instructor teaches it */}
-                                                            {teachesSecondSemester && (
+                                                            {teachesSecondSemester && allowedGradingPeriods.filter(period => period.code.startsWith('COL_S2_') && !period.code.includes('_FA')).length > 0 && (
                                                                 <SelectGroup>
                                                                     <SelectLabel>Second Semester</SelectLabel>
                                                                     {allowedGradingPeriods
@@ -494,6 +494,33 @@ export default function Edit({ user, grade, gradingPeriods, assignedSubjects }: 
                                                                     }
                                                                 </SelectGroup>
                                                             )}
+
+                                                            {/* Fallback: Show all periods if no semester-specific periods are showing */}
+                                                            {(() => {
+                                                                const s1Periods = allowedGradingPeriods.filter(period => period.code.startsWith('COL_S1_') && !period.code.includes('_FA'));
+                                                                const s2Periods = allowedGradingPeriods.filter(period => period.code.startsWith('COL_S2_') && !period.code.includes('_FA'));
+                                                                const showS1 = teachesFirstSemester && s1Periods.length > 0;
+                                                                const showS2 = teachesSecondSemester && s2Periods.length > 0;
+
+                                                                // If no semester-specific periods are shown, show all available periods
+                                                                if (!showS1 && !showS2) {
+                                                                    return (
+                                                                        <SelectGroup>
+                                                                            <SelectLabel>Available Grading Periods</SelectLabel>
+                                                                            {allowedGradingPeriods
+                                                                                .filter(period => !period.code.includes('_FA'))
+                                                                                .sort((a, b) => a.sort_order - b.sort_order)
+                                                                                .map((period) => (
+                                                                                    <SelectItem key={period.id} value={period.id.toString()}>
+                                                                                        {period.name}
+                                                                                    </SelectItem>
+                                                                                ))
+                                                                            }
+                                                                        </SelectGroup>
+                                                                    );
+                                                                }
+                                                                return null;
+                                                            })()}
                                                         </>
                                                     ) : (
                                                         <SelectItem value="none" disabled>No grading periods assigned to this subject</SelectItem>
