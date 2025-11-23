@@ -338,9 +338,26 @@ class GradeManagementController extends Controller
             abort(403, 'You can only review grades from your department.');
         }
 
-        // If academic level is not set on the grade, get it from the subject
-        if (!$grade->academicLevel && $grade->subject && $grade->subject->academicLevel) {
-            $grade->setRelation('academicLevel', $grade->subject->academicLevel);
+        // Ensure academic level is set - try multiple sources
+        if (!$grade->academicLevel) {
+            // Try to get from subject
+            if ($grade->subject && $grade->subject->academicLevel) {
+                $grade->setRelation('academicLevel', $grade->subject->academicLevel);
+            }
+            // If still not set, try to get from database using academic_level_id
+            elseif ($grade->academic_level_id) {
+                $academicLevel = AcademicLevel::find($grade->academic_level_id);
+                if ($academicLevel) {
+                    $grade->setRelation('academicLevel', $academicLevel);
+                }
+            }
+            // Last resort: set to College for chairperson grades
+            else {
+                $collegeLevel = AcademicLevel::where('key', 'college')->first();
+                if ($collegeLevel) {
+                    $grade->setRelation('academicLevel', $collegeLevel);
+                }
+            }
         }
 
         return Inertia::render('Chairperson/Grades/Review', [

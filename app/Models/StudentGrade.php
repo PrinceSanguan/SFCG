@@ -139,6 +139,11 @@ class StudentGrade extends Model
             return false;
         }
 
+        // Safety check: if created_at is null, allow editing
+        if (!$this->created_at) {
+            return true;
+        }
+
         // Check if within 3-day edit window from created_at
         $createdDate = $this->created_at;
         $threeDaysAgo = now()->subDays(3);
@@ -165,6 +170,11 @@ class StudentGrade extends Model
     {
         if ($this->is_submitted_for_validation) {
             return 0;
+        }
+
+        // Safety check: if created_at is null, return 3 days
+        if (!$this->created_at) {
+            return 3;
         }
 
         $createdDate = $this->created_at;

@@ -320,7 +320,18 @@ export default function GradeTrends({ user, trends, filters, principalAcademicLe
                         {trends.length === 0 && (
                             <div className="text-center py-8">
                                 <TrendingUp className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                                <p className="text-gray-500">No trend data available for the selected criteria.</p>
+                                {!principalAcademicLevel ? (
+                                    <>
+                                        <p className="text-gray-700 font-medium mb-2">No Academic Level Assigned</p>
+                                        <p className="text-gray-500">Please contact the administrator to assign an academic level to your account.</p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <p className="text-gray-700 font-medium mb-2">No Trend Data Available</p>
+                                        <p className="text-gray-500">No approved grades found to calculate trends for {principalAcademicLevel.name}.</p>
+                                        <p className="text-sm text-gray-400 mt-1">Try adjusting your filters or check back later.</p>
+                                    </>
+                                )}
                             </div>
                         )}
                     </div>

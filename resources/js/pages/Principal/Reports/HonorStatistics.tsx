@@ -73,20 +73,20 @@ interface HonorStatisticsProps {
     gradingPeriods: GradingPeriod[];
 }
 
+// College-only honor types that should ONLY appear for College level
+const COLLEGE_ONLY_HONOR_TYPES = [
+    'dean\'s list',
+    'college honors',
+    'cum laude',
+    'magna cum laude',
+    'summa cum laude'
+];
+
 export default function HonorStatistics({ user, honors, stats, filters, principalAcademicLevel, honorTypes, gradingPeriods }: HonorStatisticsProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedType, setSelectedType] = useState(filters.honor_type_id || '');
     const [selectedYear, setSelectedYear] = useState(filters.year || '');
     const [selectedPeriod, setSelectedPeriod] = useState(filters.period || '');
-
-    // College-only honor types that should ONLY appear for College level
-    const collegeOnlyHonorTypes = [
-        'dean\'s list',
-        'college honors',
-        'cum laude',
-        'magna cum laude',
-        'summa cum laude'
-    ];
 
     // Filter honor types based on academic level
     const filteredHonorTypes = useMemo(() => {
@@ -107,14 +107,14 @@ export default function HonorStatistics({ user, honors, stats, filters, principa
         } else {
             // For non-College (Elementary, JHS, SHS): filter OUT college-only honors
             const filtered = honorTypes.filter(type => {
-                const isCollegeOnly = collegeOnlyHonorTypes.includes(type.name.toLowerCase());
+                const isCollegeOnly = COLLEGE_ONLY_HONOR_TYPES.includes(type.name.toLowerCase());
                 return !isCollegeOnly;
             });
 
             console.log('[Principal Reports] Honor Statistics - Non-College level detected, filtering honor types', {
                 originalCount: honorTypes?.length || 0,
                 filteredCount: filtered.length,
-                filteredOutTypes: honorTypes.filter(type => collegeOnlyHonorTypes.includes(type.name.toLowerCase())).map(t => t.name),
+                filteredOutTypes: honorTypes.filter(type => COLLEGE_ONLY_HONOR_TYPES.includes(type.name.toLowerCase())).map(t => t.name),
                 remainingTypes: filtered.map(t => t.name),
             });
 
@@ -451,7 +451,18 @@ export default function HonorStatistics({ user, honors, stats, filters, principa
                         {filteredHonors.length === 0 && (
                             <div className="text-center py-8">
                                 <Award className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                                <p className="text-gray-500">No honors found matching your criteria.</p>
+                                {!principalAcademicLevel ? (
+                                    <>
+                                        <p className="text-gray-700 font-medium mb-2">No Academic Level Assigned</p>
+                                        <p className="text-gray-500">Please contact the administrator to assign an academic level to your account.</p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <p className="text-gray-700 font-medium mb-2">No Honors Available</p>
+                                        <p className="text-gray-500">No approved honors found for {principalAcademicLevel.name}.</p>
+                                        <p className="text-sm text-gray-400 mt-1">Try adjusting your filters or check back later.</p>
+                                    </>
+                                )}
                             </div>
                         )}
                     </div>

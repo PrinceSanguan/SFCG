@@ -511,13 +511,34 @@ class GradeManagementController extends Controller
             abort(403, $message);
         }
 
-        $grade->load(['student', 'subject', 'academicLevel', 'gradingPeriod']);
+        $grade->load(['student', 'subject', 'subject.academicLevel', 'academicLevel', 'gradingPeriod']);
+
+        // Ensure academic level is set - try multiple sources
+        if (!$grade->academicLevel) {
+            // Try to get from subject
+            if ($grade->subject && $grade->subject->academicLevel) {
+                $grade->setRelation('academicLevel', $grade->subject->academicLevel);
+            }
+            // If still not set, try to get from database using academic_level_id
+            elseif ($grade->academic_level_id) {
+                $academicLevel = AcademicLevel::find($grade->academic_level_id);
+                if ($academicLevel) {
+                    $grade->setRelation('academicLevel', $academicLevel);
+                }
+            }
+        }
+
+        // Get the academic level ID from the loaded relationship or the grade field
+        $academicLevelId = $grade->academicLevel ? $grade->academicLevel->id : $grade->academic_level_id;
 
         // Get all grading periods for this academic level
-        $gradingPeriods = GradingPeriod::where('academic_level_id', $grade->academic_level_id)
-            ->where('is_active', true)
-            ->orderBy('sort_order')
-            ->get();
+        $gradingPeriods = collect([]);
+        if ($academicLevelId) {
+            $gradingPeriods = GradingPeriod::where('academic_level_id', $academicLevelId)
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->get();
+        }
 
         // Get adviser's assigned sections with enrolled students
         $assignedSections = ClassAdviserAssignment::with(['section', 'subject.course', 'academicLevel', 'gradingPeriod'])

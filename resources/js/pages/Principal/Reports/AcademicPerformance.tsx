@@ -387,7 +387,19 @@ export default function AcademicPerformance({ user, grades, stats, filters, prin
                         ))}
                         {filteredGrades.length === 0 && (
                             <div className="text-center py-8">
-                                <p className="text-gray-500">No grades found matching your criteria.</p>
+                                <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                                {!principalAcademicLevel ? (
+                                    <>
+                                        <p className="text-gray-700 font-medium mb-2">No Academic Level Assigned</p>
+                                        <p className="text-gray-500">Please contact the administrator to assign an academic level to your account.</p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <p className="text-gray-700 font-medium mb-2">No Grades Available</p>
+                                        <p className="text-gray-500">No approved grades found for {principalAcademicLevel.name}.</p>
+                                        <p className="text-sm text-gray-400 mt-1">Try adjusting your filters or check back later.</p>
+                                    </>
+                                )}
                             </div>
                         )}
                     </div>

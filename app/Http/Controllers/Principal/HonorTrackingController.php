@@ -218,22 +218,46 @@ class HonorTrackingController extends Controller
     private function sendParentNotifications($honor, $certificate = null)
     {
         try {
+            Log::info('Starting parent notifications for honor approval', [
+                'honor_id' => $honor->id,
+                'student_id' => $honor->student_id,
+                'student_name' => $honor->student?->name ?? 'Unknown',
+                'has_student' => $honor->student !== null,
+                'student_email' => $honor->student?->email ?? 'N/A',
+            ]);
+
             // Send email directly to the student
             if ($honor->student && $honor->student->email) {
-                Mail::to($honor->student->email)->send(
-                    new StudentHonorQualificationEmail(
-                        $honor->student,
-                        $honor->student, // Student as recipient
-                        $honor
-                    )
-                );
+                try {
+                    Mail::to($honor->student->email)->send(
+                        new StudentHonorQualificationEmail(
+                            $honor->student,
+                            $honor->student, // Student as recipient
+                            $honor
+                        )
+                    );
 
-                Log::info('Student honor notification sent by principal', [
-                    'student_id' => $honor->student_id,
-                    'student_email' => $honor->student->email,
+                    Log::info('Student honor notification queued by principal', [
+                        'student_id' => $honor->student_id,
+                        'student_email' => $honor->student->email,
+                        'honor_id' => $honor->id,
+                        'honor_type' => $honor->honorType?->name ?? 'Unknown',
+                        'approved_by' => 'principal',
+                    ]);
+                } catch (\Exception $e) {
+                    Log::error('Failed to send student honor notification', [
+                        'student_id' => $honor->student_id,
+                        'student_email' => $honor->student->email,
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString(),
+                    ]);
+                }
+            } else {
+                Log::warning('Cannot send student honor notification - missing student or email', [
                     'honor_id' => $honor->id,
-                    'honor_type' => $honor->honorType?->name ?? 'Unknown',
-                    'approved_by' => 'principal',
+                    'student_id' => $honor->student_id,
+                    'has_student' => $honor->student !== null,
+                    'student_email' => $honor->student?->email ?? 'N/A',
                 ]);
             }
 
@@ -242,31 +266,74 @@ class HonorTrackingController extends Controller
                 ->where('student_id', $honor->student_id)
                 ->get();
 
+            Log::info('Found parent relationships for student', [
+                'student_id' => $honor->student_id,
+                'parent_count' => $parentRelationships->count(),
+                'parent_ids' => $parentRelationships->pluck('parent.id')->toArray(),
+                'parent_emails' => $parentRelationships->pluck('parent.email')->filter()->toArray(),
+            ]);
+
+            if ($parentRelationships->isEmpty()) {
+                Log::warning('No parent relationships found for student', [
+                    'student_id' => $honor->student_id,
+                    'student_name' => $honor->student?->name ?? 'Unknown',
+                    'honor_id' => $honor->id,
+                ]);
+            }
+
             foreach ($parentRelationships as $relationship) {
                 if ($relationship->parent && $relationship->parent->email) {
-                    // Use the new comprehensive honor qualification email
-                    Mail::to($relationship->parent->email)->send(
-                        new StudentHonorQualificationEmail(
-                            $honor->student,
-                            $relationship->parent,
-                            $honor
-                        )
-                    );
+                    try {
+                        // Use the new comprehensive honor qualification email
+                        Mail::to($relationship->parent->email)->send(
+                            new StudentHonorQualificationEmail(
+                                $honor->student,
+                                $relationship->parent,
+                                $honor
+                            )
+                        );
 
-                    Log::info('Parent honor notification sent by principal', [
-                        'parent_id' => $relationship->parent->id,
-                        'parent_email' => $relationship->parent->email,
+                        Log::info('Parent honor notification queued by principal', [
+                            'parent_id' => $relationship->parent->id,
+                            'parent_name' => $relationship->parent->name,
+                            'parent_email' => $relationship->parent->email,
+                            'student_id' => $honor->student_id,
+                            'student_name' => $honor->student?->name ?? 'Unknown',
+                            'honor_id' => $honor->id,
+                            'honor_type' => $honor->honorType?->name ?? 'Unknown',
+                            'approved_by' => 'principal',
+                        ]);
+                    } catch (\Exception $e) {
+                        Log::error('Failed to send parent honor notification', [
+                            'parent_id' => $relationship->parent->id,
+                            'parent_email' => $relationship->parent->email,
+                            'student_id' => $honor->student_id,
+                            'error' => $e->getMessage(),
+                            'trace' => $e->getTraceAsString(),
+                        ]);
+                    }
+                } else {
+                    Log::warning('Cannot send parent honor notification - missing parent or email', [
+                        'relationship_id' => $relationship->id,
+                        'has_parent' => $relationship->parent !== null,
+                        'parent_email' => $relationship->parent?->email ?? 'N/A',
                         'student_id' => $honor->student_id,
-                        'honor_id' => $honor->id,
-                        'approved_by' => 'principal',
                     ]);
                 }
             }
+
+            Log::info('Completed parent notifications for honor approval', [
+                'honor_id' => $honor->id,
+                'student_id' => $honor->student_id,
+                'total_parents' => $parentRelationships->count(),
+                'parents_with_email' => $parentRelationships->filter(fn($r) => $r->parent && $r->parent->email)->count(),
+            ]);
         } catch (\Exception $e) {
             Log::error('Failed to send honor notifications by principal', [
                 'honor_id' => $honor->id,
                 'student_id' => $honor->student_id,
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
         }
     }
