@@ -38,8 +38,6 @@ class StudentHonorQualificationEmail extends Mailable
     {
         return new Envelope(
             subject: '🎉 Academic Honor Qualification - ' . $this->student->name,
-            to: [$this->parent->email],
-            from: config('mail.from.address'),
         );
     }
 
