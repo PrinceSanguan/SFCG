@@ -422,7 +422,7 @@ class CertificateController extends Controller
 
         $html = $this->renderCertificateHtml($certificate);
         $pdf = Pdf::loadView('certificates.base', ['html' => $html])
-            ->setPaper('a4', 'landscape');
+            ->setPaper('a4', 'portrait');
 
         $certificate->update([
             'status' => 'downloaded',
@@ -432,6 +432,7 @@ class CertificateController extends Controller
         Log::info('[CERTIFICATE_DOWNLOAD] Certificate downloaded successfully', [
             'certificate_id' => $certificate->id,
             'serial_number' => $certificate->serial_number,
+            'orientation' => 'portrait',
         ]);
 
         return $pdf->download($certificate->serial_number . '.pdf');
@@ -451,7 +452,7 @@ class CertificateController extends Controller
 
         $html = $this->renderCertificateHtml($certificate);
         $pdf = Pdf::loadView('certificates.base', ['html' => $html])
-            ->setPaper('a4', 'landscape');
+            ->setPaper('a4', 'portrait');
 
         $certificate->update([
             'status' => 'printed',
@@ -462,6 +463,7 @@ class CertificateController extends Controller
         Log::info('[CERTIFICATE_PRINT] Certificate printed successfully', [
             'certificate_id' => $certificate->id,
             'serial_number' => $certificate->serial_number,
+            'orientation' => 'portrait',
         ]);
 
         return $pdf->stream($certificate->serial_number . '.pdf');
@@ -856,9 +858,8 @@ class CertificateController extends Controller
                 'student_name' => $certificate->student->name,
             ]);
 
-            // Add logo for each certificate
+            // Add certificate content (logo is already in template)
             $htmlContent .= '<div class="certificate-container">';
-            $htmlContent .= \App\Helpers\CertificateLogoHelper::getCenteredLogoHtml(100, 100, 20);
             $htmlContent .= $this->renderCertificateHtml($certificate);
             $htmlContent .= '</div>';
 
@@ -869,7 +870,7 @@ class CertificateController extends Controller
         }
 
         $pdf = Pdf::loadView('certificates.bulk', ['html' => $htmlContent])
-            ->setPaper('a4', 'landscape');
+            ->setPaper('a4', 'portrait');
 
         // Update certificate status to printed
         Certificate::whereIn('id', $validated['certificate_ids'])->update([

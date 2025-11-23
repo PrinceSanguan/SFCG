@@ -88,7 +88,9 @@
             background: white;
             min-height: 400px;
             overflow-x: auto;
-            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         /* Logo styling for certificates */
@@ -175,9 +177,6 @@
             <h4 style="text-align: center; color: #495057; margin-bottom: 15px;">Certificate Preview</h4>
 
             <div class="certificate-display">
-                {{-- Add school logo at top of certificate to match admin/registrar view --}}
-                {!! \App\Helpers\CertificateLogoHelper::getCenteredLogoHtml(100, 100, 20) !!}
-
                 {!! $html !!}
             </div>
             

@@ -360,9 +360,63 @@ class GradeManagementController extends Controller
             }
         }
 
+        // Format grade data explicitly for proper serialization
+        $gradeData = [
+            'id' => $grade->id,
+            'grade' => $grade->grade,
+            'school_year' => $grade->school_year,
+            'year_of_study' => $grade->year_of_study,
+            'is_submitted_for_validation' => (bool) $grade->is_submitted_for_validation,
+            'submitted_at' => $grade->submitted_at?->toISOString(),
+            'is_approved' => (bool) $grade->is_approved,
+            'approved_at' => $grade->approved_at?->toISOString(),
+            'is_returned' => (bool) $grade->is_returned,
+            'returned_at' => $grade->returned_at?->toISOString(),
+            'return_reason' => $grade->return_reason,
+            'student' => [
+                'id' => $grade->student->id,
+                'name' => $grade->student->name,
+                'student_number' => $grade->student->student_number,
+                'email' => $grade->student->email,
+            ],
+            'subject' => [
+                'id' => $grade->subject->id,
+                'name' => $grade->subject->name,
+                'code' => $grade->subject->code,
+                'course' => [
+                    'name' => $grade->subject->course->name ?? 'N/A',
+                    'code' => $grade->subject->course->code ?? 'N/A',
+                ],
+                'academicLevel' => $grade->subject->academicLevel ? [
+                    'name' => $grade->subject->academicLevel->name,
+                ] : null,
+            ],
+            'academicLevel' => $grade->academicLevel ? [
+                'name' => $grade->academicLevel->name,
+            ] : null,
+            'gradingPeriod' => $grade->gradingPeriod ? [
+                'name' => $grade->gradingPeriod->name,
+            ] : null,
+            'approved_by' => $grade->approvedBy ? [
+                'name' => $grade->approvedBy->name,
+            ] : null,
+            'returned_by' => $grade->returnedBy ? [
+                'name' => $grade->returnedBy->name,
+            ] : null,
+        ];
+
+        // Log the grade data for debugging
+        Log::info('Chairperson Grade Review Data:', [
+            'grade_id' => $gradeId,
+            'grade' => $gradeData['grade'],
+            'academic_level' => $gradeData['academicLevel']['name'] ?? 'NULL',
+            'submitted_at' => $gradeData['submitted_at'] ?? 'NULL',
+            'student' => $gradeData['student']['name'],
+        ]);
+
         return Inertia::render('Chairperson/Grades/Review', [
             'user' => $user,
-            'grade' => $grade,
+            'grade' => $gradeData,
         ]);
     }
     

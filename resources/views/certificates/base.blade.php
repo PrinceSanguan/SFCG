@@ -6,7 +6,7 @@
     <style>
         @page {
             margin: 30px;
-            size: A4 landscape;
+            size: A4 portrait;
         }
         body {
             font-family: DejaVu Sans, sans-serif;
@@ -14,10 +14,10 @@
             color: #111;
         }
         .certificate-container {
-            padding: 12px;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
+            max-width: 100%;
+            margin: 0 auto;
+            text-align: center;
+            page-break-inside: avoid;
         }
         /* Logo styling for certificates */
         img[alt="School Logo"] {
@@ -31,7 +31,6 @@
 </head>
 <body>
     <div class="certificate-container">
-        {!! \App\Helpers\CertificateLogoHelper::getCenteredLogoHtml(100, 100, 20) !!}
         {!! $html !!}
     </div>
 </body>

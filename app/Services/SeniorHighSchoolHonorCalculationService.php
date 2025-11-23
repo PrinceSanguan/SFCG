@@ -343,36 +343,22 @@ class SeniorHighSchoolHonorCalculationService
             }
         }
 
-        // Build qualifications array from period results (get highest honor achieved)
+        // Build qualifications array based on OVERALL AVERAGE across all periods
+        // NOT the highest honor from individual periods
         $qualifications = [];
-        if ($overallQualified) {
-            // Find the highest honor type achieved across all periods
-            $highestHonor = null;
-            $highestHonorRank = 0; // 1=With Honors, 2=High Honors, 3=Highest Honors
+        if ($overallQualified && $average_grade > 0) {
+            // Determine honor level based on OVERALL average across all periods
+            $overallHonorLevel = $this->determineHonorLevel($average_grade);
 
-            foreach ($periodResults as $periodResult) {
-                if (isset($periodResult['qualified']) && $periodResult['qualified'] && isset($periodResult['honor_type_name'])) {
-                    $honorName = $periodResult['honor_type_name'];
-                    $rank = 0;
+            Log::info('[SHS HONOR] Determining overall honor based on average across all periods', [
+                'overall_average' => $average_grade,
+                'period_averages' => $quarter_averages,
+                'determined_honor' => $overallHonorLevel ? $overallHonorLevel['name'] : 'None',
+                'qualified_periods' => $qualifiedPeriods
+            ]);
 
-                    if ($honorName === 'With Highest Honors') {
-                        $rank = 3;
-                    } elseif ($honorName === 'With High Honors') {
-                        $rank = 2;
-                    } elseif ($honorName === 'With Honors') {
-                        $rank = 1;
-                    }
-
-                    if ($rank > $highestHonorRank) {
-                        $highestHonorRank = $rank;
-                        $highestHonor = $periodResult;
-                    }
-                }
-            }
-
-            // If we found a highest honor, get the full HonorType object and build qualification
-            if ($highestHonor && isset($highestHonor['honor_type_id'])) {
-                $honorType = HonorType::find($highestHonor['honor_type_id']);
+            if ($overallHonorLevel) {
+                $honorType = HonorType::find($overallHonorLevel['id']);
 
                 if ($honorType) {
                     $qualifications[] = [
@@ -384,7 +370,19 @@ class SeniorHighSchoolHonorCalculationService
                         'qualified_periods_count' => count($qualifiedPeriods),
                         'qualified_periods' => $qualifiedPeriods
                     ];
+
+                    Log::info('[SHS HONOR] ✅ Final honor qualification based on overall average', [
+                        'honor_type' => $honorType->name,
+                        'overall_average' => $average_grade,
+                        'range' => $overallHonorLevel['range']
+                    ]);
                 }
+            } else {
+                Log::warning('[SHS HONOR] ⚠️ Student qualified for periods but overall average does not meet honor criteria', [
+                    'overall_average' => $average_grade,
+                    'qualified_periods' => $qualifiedPeriods,
+                    'period_averages' => $quarter_averages
+                ]);
             }
         }
 

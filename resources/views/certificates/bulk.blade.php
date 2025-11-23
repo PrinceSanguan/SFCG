@@ -6,7 +6,7 @@
     <style>
         @page {
             margin: 30px;
-            size: A4 landscape;
+            size: A4 portrait;
         }
         body {
             font-family: DejaVu Sans, sans-serif;
@@ -16,9 +16,9 @@
             padding: 0;
         }
         .certificate-container {
-            padding: 12px;
-            width: 100%;
-            min-height: 100vh;
+            max-width: 100%;
+            margin: 0 auto;
+            text-align: center;
             page-break-inside: avoid;
         }
         .page-break {
