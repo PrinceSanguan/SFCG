@@ -35,6 +35,13 @@ class CertificateGenerationService
                 throw new \Exception($message);
             }
 
+            Log::info('[CERTIFICATE_GENERATION] Template retrieved', [
+                'template_key' => $template->key,
+                'template_id' => $template->id,
+                'template_content_length' => strlen($template->content_html),
+                'has_base64_logo' => str_contains($template->content_html, 'data:image'),
+            ]);
+
             // Check if certificate already exists for this student, honor type, and school year
             $existingCertificate = Certificate::where([
                 'student_id' => $student->id,
@@ -50,11 +57,13 @@ class CertificateGenerationService
             // Generate certificate payload based on academic level
             $payload = $this->generateCertificatePayload($student, $academicLevel, $honorResult);
 
-            Log::info('[CERTIFICATE] Generating certificate with payload', [
+            Log::info('[CERTIFICATE_GENERATION] Generating certificate with payload', [
                 'student_id' => $student->id,
                 'student_name' => $student->name,
                 'honor_type' => $honorResult->honorType->name,
                 'school_year' => $honorResult->school_year,
+                'academic_level' => $academicLevel->name,
+                'payload' => $payload,
                 'logo_embedded' => true,
                 'template_uses_logo_helper' => 'CertificateLogoHelper::getCenteredLogoHtml()'
             ]);

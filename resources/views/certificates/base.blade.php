@@ -8,6 +8,10 @@
             margin: 30px;
             size: A4 portrait;
         }
+        * {
+            -webkit-print-color-adjust: exact !important;
+            color-adjust: exact !important;
+        }
         body {
             font-family: DejaVu Sans, sans-serif;
             font-size: 12px;

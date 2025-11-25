@@ -420,7 +420,24 @@ class CertificateController extends Controller
             'user_id' => Auth::id(),
         ]);
 
+        $template = $certificate->template;
+        Log::info('[CERTIFICATE_RENDER] Preparing HTML for PDF', [
+            'certificate_id' => $certificate->id,
+            'template_key' => $template->key,
+            'template_content_length' => strlen($template->content_html),
+            'has_base64_logo' => str_contains($template->content_html, 'data:image'),
+            'payload' => $certificate->payload ?? [],
+        ]);
+
         $html = $this->renderCertificateHtml($certificate);
+
+        Log::info('[CERTIFICATE_RENDER] HTML rendered', [
+            'certificate_id' => $certificate->id,
+            'final_html_length' => strlen($html),
+            'has_student_name' => str_contains($html, $certificate->student->name),
+            'has_placeholder' => str_contains($html, '{{'),
+        ]);
+
         $pdf = Pdf::loadView('certificates.base', ['html' => $html])
             ->setPaper('a4', 'portrait');
 
@@ -450,7 +467,24 @@ class CertificateController extends Controller
             'user_id' => Auth::id(),
         ]);
 
+        $template = $certificate->template;
+        Log::info('[CERTIFICATE_RENDER] Preparing HTML for PDF', [
+            'certificate_id' => $certificate->id,
+            'template_key' => $template->key,
+            'template_content_length' => strlen($template->content_html),
+            'has_base64_logo' => str_contains($template->content_html, 'data:image'),
+            'payload' => $certificate->payload ?? [],
+        ]);
+
         $html = $this->renderCertificateHtml($certificate);
+
+        Log::info('[CERTIFICATE_RENDER] HTML rendered', [
+            'certificate_id' => $certificate->id,
+            'final_html_length' => strlen($html),
+            'has_student_name' => str_contains($html, $certificate->student->name),
+            'has_placeholder' => str_contains($html, '{{'),
+        ]);
+
         $pdf = Pdf::loadView('certificates.base', ['html' => $html])
             ->setPaper('a4', 'portrait');
 
