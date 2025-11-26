@@ -893,9 +893,7 @@ class CertificateController extends Controller
             ]);
 
             // Add certificate content (logo is already in template)
-            $htmlContent .= '<div class="certificate-container">';
             $htmlContent .= $this->renderCertificateHtml($certificate);
-            $htmlContent .= '</div>';
 
             // Add page break except for the last certificate
             if ($index < $certificates->count() - 1) {
