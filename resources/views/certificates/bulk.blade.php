@@ -30,7 +30,8 @@
             margin: 0 auto;
             max-width: 100px;
             max-height: 100px;
-            object-fit: contain;
+            object-fit: cover;
+            border-radius: 50%;
         }
     </style>
 </head>

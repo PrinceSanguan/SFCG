@@ -30,7 +30,7 @@ class CertificateLogoHelper
 
         // Return HTML img tag with inline base64 data
         return sprintf(
-            '<img src="data:%s;base64,%s" style="width: %dpx; height: %dpx; object-fit: contain;" alt="School Logo" />',
+            '<img src="data:%s;base64,%s" style="width: %dpx; height: %dpx; object-fit: cover; border-radius: 50%%;" alt="School Logo" />',
             $mimeType,
             $base64Logo,
             $width,

@@ -33,7 +33,8 @@
             margin: 0 auto;
             max-width: 120px;
             max-height: 120px;
-            object-fit: contain;
+            object-fit: cover;
+            border-radius: 50%;
         }
 
         @media print {
