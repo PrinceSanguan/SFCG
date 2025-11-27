@@ -58,20 +58,6 @@
             padding: 15mm;
             box-sizing: border-box;
         }
-        /* Push certificate to maximum safe height */
-        body > div[style*="margin"] {
-            margin: 0 auto !important;
-            width: 96% !important;
-            max-width: 96% !important;
-            min-height: 290mm !important;
-            max-height: 290mm !important;
-            padding: 3px !important;
-            box-sizing: border-box !important;
-        }
-        /* Maintain consistent inner border spacing */
-        body > div[style*="margin"] > table {
-            padding: 25px !important;
-        }
     </style>
 </head>
 <body>
