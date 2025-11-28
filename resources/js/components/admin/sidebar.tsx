@@ -33,10 +33,10 @@ export function Sidebar({ user }: SidebarProps) {
             {/* Header with logo */}
             <div className="flex h-16 items-center border-b px-4 dark:border-gray-700">
                 <div className="flex items-center gap-3">
-                    <img 
-                        src="/image/logo.jpg" 
-                        alt="School Logo" 
-                        className="h-8 w-8 object-contain rounded"
+                    <img
+                        src="/image/logo.jpg"
+                        alt="School Logo"
+                        className="h-8 w-8 object-contain rounded-full"
                     />
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Admin Portal</h2>
                 </div>

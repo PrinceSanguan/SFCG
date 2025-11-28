@@ -18,7 +18,7 @@ export function StudentAppSidebar({ user }: { user: UserProps }) {
           <img
             src="/image/logo.jpg"
             alt="School Logo"
-            className="h-8 w-8 object-contain rounded"
+            className="h-8 w-8 object-contain rounded-full"
           />
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Student Portal</h2>
         </div>

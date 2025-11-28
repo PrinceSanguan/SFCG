@@ -80,10 +80,10 @@ export default function Login({ flash, maintenanceMode }: LoginProps) {
                 <Card className="w-full max-w-sm rounded-2xl shadow-xl bg-white/90 backdrop-blur-sm">
                     <CardContent className="p-8">
                         <div className="mb-6 text-center">
-                            <img 
-                                src="/image/logo.jpg" 
-                                alt="Logo" 
-                                className="mx-auto mb-4 h-20 w-20 object-contain"
+                            <img
+                                src="/image/logo.jpg"
+                                alt="Logo"
+                                className="mx-auto mb-4 h-20 w-20 object-contain rounded-full"
                             />
                             <h1 className="text-3xl font-bold text-gray-800">Welcome Back!</h1>
                         </div>

@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { useForm } from '@inertiajs/react';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Download, GraduationCap, School, BookOpen, Users, FileText, Printer, Package, MoreVertical } from 'lucide-react';
+import { ArrowLeft, Download, GraduationCap, School, BookOpen, Users, FileText, Printer, MoreVertical } from 'lucide-react';
 import { router } from '@inertiajs/react';
 
 interface User {
@@ -132,9 +132,6 @@ export default function CertificatesIndex({
 
     const [selectedTemplate, setSelectedTemplate] = useState<string>('');
     const [selectedStudents, setSelectedStudents] = useState<number[]>([]);
-
-    // Multi-category selection state
-    const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
     // Forms for certificate generation
     const { setData: setGenerateData, post: postGenerate, processing: generating } = useForm({
@@ -283,49 +280,6 @@ export default function CertificatesIndex({
         });
     };
 
-    // Handle multi-category selection
-    const handleCategoryToggle = (categoryKey: string, event: React.ChangeEvent<HTMLInputElement>) => {
-        event.stopPropagation();
-        setSelectedCategories(prev =>
-            prev.includes(categoryKey)
-                ? prev.filter(key => key !== categoryKey)
-                : [...prev, categoryKey]
-        );
-    };
-
-    // Handle batch download for selected categories
-    const handleBatchDownloadCategories = () => {
-        if (selectedCategories.length === 0) return;
-
-        // Get all certificate IDs for selected categories
-        const certificateIds: number[] = [];
-
-        selectedCategories.forEach(categoryKey => {
-            const categoryHonors = allHonors.filter(honor =>
-                honor?.academic_level?.key === categoryKey &&
-                honor.school_year === schoolYear
-            );
-
-            categoryHonors.forEach(honor => {
-                const cert = generatedCertificates?.find(c =>
-                    c.student.id === honor.student.id &&
-                    c.academic_level.id === honor.academic_level.id &&
-                    c.school_year === honor.school_year
-                );
-                if (cert) {
-                    certificateIds.push(cert.id);
-                }
-            });
-        });
-
-        if (certificateIds.length > 0) {
-            setBulkPrintData({ certificate_ids: certificateIds });
-            postBulkPrint(route('admin.academic.certificates.bulk-print-pdf'));
-        } else {
-            alert('No generated certificates found for selected categories. Please generate certificates first.');
-        }
-    };
-
     const selectedCategoryData = selectedCategory ? getCategoryStudents(selectedCategory) : [];
     const categoryTemplates = selectedCategory ? getCategoryTemplates(selectedCategory) : [];
 
@@ -381,60 +335,6 @@ export default function CertificatesIndex({
                         {!selectedCategory ? (
                             /* Category Selection */
                             <>
-                                {/* Batch Actions Bar */}
-                                {selectedCategories.length > 0 && (
-                                    <Card className="bg-blue-50 border-blue-200">
-                                        <CardContent className="p-4">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-3">
-                                                    <Package className="h-5 w-5 text-blue-600" />
-                                                    <span className="font-medium text-blue-900">
-                                                        {selectedCategories.length} {selectedCategories.length === 1 ? 'category' : 'categories'} selected
-                                                    </span>
-                                                    <Badge variant="secondary">
-                                                        {(() => {
-                                                            let totalCerts = 0;
-                                                            selectedCategories.forEach(categoryKey => {
-                                                                const categoryHonors = allHonors.filter(honor =>
-                                                                    honor?.academic_level?.key === categoryKey &&
-                                                                    honor.school_year === schoolYear
-                                                                );
-                                                                categoryHonors.forEach(honor => {
-                                                                    const cert = generatedCertificates?.find(c =>
-                                                                        c.student.id === honor.student.id &&
-                                                                        c.academic_level.id === honor.academic_level.id &&
-                                                                        c.school_year === honor.school_year
-                                                                    );
-                                                                    if (cert) totalCerts++;
-                                                                });
-                                                            });
-                                                            return `${totalCerts} certificates`;
-                                                        })()}
-                                                    </Badge>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => setSelectedCategories([])}
-                                                    >
-                                                        Clear Selection
-                                                    </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        onClick={handleBatchDownloadCategories}
-                                                        disabled={bulkPrinting}
-                                                        className="bg-blue-600 hover:bg-blue-700 text-white"
-                                                    >
-                                                        <Download className="h-4 w-4 mr-2" />
-                                                        {bulkPrinting ? 'Preparing...' : 'Download Selected'}
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                )}
-
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                                     {CATEGORIES.map((category) => {
                                         const Icon = category.icon;
@@ -457,29 +357,14 @@ export default function CertificatesIndex({
                                             }).length;
                                         })();
 
-                                        const isSelected = selectedCategories.includes(category.key);
-
                                         return (
                                             <Card
                                                 key={category.key}
-                                                className={`cursor-pointer transition-all hover:shadow-lg ${
-                                                    isSelected ? 'ring-2 ring-blue-500 bg-blue-50' : ''
-                                                }`}
+                                                className="cursor-pointer transition-all hover:shadow-lg"
                                                 onClick={() => setSelectedCategory(category.key)}
                                             >
                                                 <CardContent className="p-6">
                                                     <div className="flex flex-col items-center text-center space-y-4">
-                                                        {/* Checkbox */}
-                                                        <div className="absolute top-3 right-3">
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={isSelected}
-                                                                onChange={(e) => handleCategoryToggle(category.key, e)}
-                                                                onClick={(e) => e.stopPropagation()}
-                                                                className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                                                            />
-                                                        </div>
-
                                                         <div className={`p-4 rounded-full bg-gray-100`}>
                                                             <Icon className={`h-8 w-8 ${category.iconColor}`} />
                                                         </div>
@@ -629,7 +514,7 @@ export default function CertificatesIndex({
                                                             }}
                                                             disabled={selectedStudents.length === 0 || bulkPrinting}
                                                         >
-                                                            <Package className="h-4 w-4 mr-2" />
+                                                            <Download className="h-4 w-4 mr-2" />
                                                             {bulkPrinting ? 'Preparing...' : `Download ${selectedStudents.length} Selected`}
                                                         </DropdownMenuItem>
                                                         <DropdownMenuSeparator />

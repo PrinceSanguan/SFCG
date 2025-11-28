@@ -37,7 +37,7 @@ export function Sidebar({ user }: SidebarProps) {
                     <img
                         src="/image/logo.jpg"
                         alt="School Logo"
-                        className="h-8 w-8 object-contain rounded"
+                        className="h-8 w-8 object-contain rounded-full"
                     />
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Registrar Portal</h2>
                 </div>

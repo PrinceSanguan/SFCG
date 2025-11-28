@@ -2,18 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class HomeController extends Controller
 {
     /**
-     * Display the homepage - redirect to login.
+     * Display the homepage - landing page.
      *
-     * @return \Illuminate\Http\RedirectResponse
+     * @return \Inertia\Response
      */
     public function index()
     {
-        return redirect()->route('auth.login');
+        return Inertia::render('Landing');
     }
 }
