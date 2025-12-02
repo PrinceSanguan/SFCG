@@ -819,6 +819,26 @@ class GradeManagementController extends Controller
             'grading_periods' => $gradingPeriods->map(fn($p) => ['id' => $p->id, 'name' => $p->name, 'code' => $p->code])->toArray()
         ]);
 
+        // Query ALL grading periods that have existing grades for this student-subject combination
+        $periodsWithGrades = StudentGrade::where('student_id', $grade->student_id)
+            ->where('subject_id', $grade->subject_id)
+            ->where('academic_level_id', $academicLevelId)
+            ->where('school_year', $grade->school_year)
+            ->whereNotNull('grading_period_id')
+            ->pluck('grading_period_id')
+            ->unique()
+            ->toArray();
+
+        // Log for debugging
+        Log::info('[INSTRUCTOR GRADES EDIT] Periods with existing grades', [
+            'student_id' => $grade->student_id,
+            'subject_id' => $grade->subject_id,
+            'academic_level_id' => $academicLevelId,
+            'school_year' => $grade->school_year,
+            'periods_with_grades' => $periodsWithGrades,
+            'count' => count($periodsWithGrades)
+        ]);
+
         // Get instructor's assigned subjects with enrolled students
         $assignedSubjects = InstructorSubjectAssignment::with(['subject.course', 'academicLevel', 'gradingPeriod.parent'])
             ->where('instructor_id', $user->id)
@@ -935,6 +955,7 @@ class GradeManagementController extends Controller
             'grade' => $gradeArray,
             'gradingPeriods' => $gradingPeriods,
             'assignedSubjects' => $assignedSubjectsData,
+            'periodsWithExistingGrades' => $periodsWithGrades,
         ]);
     }
     

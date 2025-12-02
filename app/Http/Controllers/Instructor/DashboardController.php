@@ -176,9 +176,22 @@ class DashboardController extends Controller
         $pendingValidations = StudentGrade::whereHas('subject', function ($query) use ($assignedSubjects) {
             $query->whereIn('id', $assignedSubjects->pluck('subject_id'));
         })->where('school_year', $schoolYear)->where('is_submitted_for_validation', true)->count();
-        
+
+        // Deduplicate by subject_id to get unique subjects
+        $uniqueSubjects = $assignedSubjects->unique('subject_id');
+        $uniqueCount = $uniqueSubjects->count();
+
+        // Add logging for debugging
+        Log::info('[INSTRUCTOR DASHBOARD STATS] Computing assigned courses', [
+            'instructor_id' => $user->id,
+            'school_year' => $schoolYear,
+            'total_raw_assignments' => $assignedSubjects->count(),
+            'unique_subjects' => $uniqueCount,
+            'subject_ids' => $uniqueSubjects->pluck('subject_id')->toArray()
+        ]);
+
         return [
-            'assigned_courses' => $assignedSubjects->count(),
+            'assigned_courses' => $uniqueCount,
             'student_count' => $studentCount,
             'grades_entered' => $gradesEntered,
             'pending_validations' => $pendingValidations,

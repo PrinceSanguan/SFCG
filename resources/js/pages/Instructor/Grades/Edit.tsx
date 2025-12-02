@@ -103,9 +103,10 @@ interface EditProps {
     grade: StudentGrade;
     gradingPeriods: GradingPeriod[];
     assignedSubjects: AssignedSubject[];
+    periodsWithExistingGrades?: number[];
 }
 
-export default function Edit({ user, grade, gradingPeriods, assignedSubjects }: EditProps) {
+export default function Edit({ user, grade, gradingPeriods, assignedSubjects, periodsWithExistingGrades }: EditProps) {
     // Helper functions for college grade conversion
     const gradeToPercentage = (grade: number): string => {
         const gradeMap: { [key: number]: string } = {
@@ -173,44 +174,46 @@ export default function Edit({ user, grade, gradingPeriods, assignedSubjects }: 
         console.log('Current grade grading_period_id:', currentGradingPeriodId);
         console.log('Current grade grading_period:', grade.gradingPeriod);
 
+        // Start with periods that have existing grades for this student-subject combination
+        const periodsSet = new Set<number>(periodsWithExistingGrades || []);
+
+        console.log('Periods with existing grades:', periodsWithExistingGrades);
+
         // Find the assignment for this subject
         const assignment = assignedSubjects.find(
             s => s.subject.id === currentSubjectId
         );
 
-        if (!assignment) {
-            console.log('Edit: No assignment found for current subject, showing all periods');
-            return gradingPeriods;
+        if (assignment) {
+            // Add periods from assignment configuration
+            const gradingPeriodIds = assignment.grading_period_ids ||
+                                    assignment.subject?.grading_period_ids || [];
+
+            console.log('Assignment grading_period_ids:', gradingPeriodIds);
+            gradingPeriodIds.forEach((id: number) => periodsSet.add(id));
         }
 
-        const gradingPeriodIds = assignment.grading_period_ids || assignment.subject?.grading_period_ids || [];
-
-        console.log('Assignment grading_period_ids:', gradingPeriodIds);
-        console.log('All grading periods:', gradingPeriods.length);
-
-        if (gradingPeriodIds.length === 0) {
-            console.log('Edit: No grading_period_ids assigned, showing all periods');
-            return gradingPeriods;
+        // Always include current period (backward compatibility)
+        if (currentGradingPeriodId) {
+            periodsSet.add(currentGradingPeriodId);
         }
 
-        const filtered = gradingPeriods.filter(period => gradingPeriodIds.includes(period.id));
-        console.log('Edit: Filtered grading periods:', filtered.length, filtered.map(p => ({ id: p.id, name: p.name })));
+        // Filter all periods to only those in the set
+        const filtered = gradingPeriods.filter(period => periodsSet.has(period.id));
 
-        // IMPORTANT: Always include the grade's current grading period if it exists
-        // This ensures that when editing, the user can see the existing grading period
-        // even if it's not in the subject's assigned grading_period_ids
-        if (currentGradingPeriodId && !filtered.find(p => p.id === currentGradingPeriodId)) {
-            const currentPeriod = gradingPeriods.find(p => p.id === currentGradingPeriodId);
-            if (currentPeriod) {
-                console.log('Edit: Adding current grading period to list:', { id: currentPeriod.id, name: currentPeriod.name });
-                filtered.push(currentPeriod);
-                // Sort by sort_order to maintain proper ordering
-                filtered.sort((a, b) => a.sort_order - b.sort_order);
-            }
-        }
+        // Log for debugging
+        console.log('[EDIT_GRADING_PERIODS] Filtered periods:', {
+            periodsWithGrades: periodsWithExistingGrades,
+            assignedPeriodIds: assignment?.grading_period_ids || [],
+            currentPeriodId: currentGradingPeriodId,
+            finalPeriods: filtered.map(p => ({ id: p.id, name: p.name }))
+        });
+
+        // Sort by sort_order
+        filtered.sort((a, b) => a.sort_order - b.sort_order);
 
         return filtered;
-    }, [grade.subject_id, grade.grading_period_id, grade.gradingPeriod, assignedSubjects, gradingPeriods]);
+    }, [grade.subject_id, grade.grading_period_id, periodsWithExistingGrades, assignedSubjects, gradingPeriods]);
 
     // Get current academic level key for grade validation
     const getCurrentAcademicLevelKey = () => {
