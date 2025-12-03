@@ -23,8 +23,9 @@ class HonorCertificateTemplatesSeeder extends Seeder
             return;
         }
 
-        // Base HTML template for honor certificates
-        $baseTemplate = $this->getBaseTemplate();
+        // Get templates for different academic levels
+        $collegeTemplate = $this->getCollegeTemplate();
+        $basicEducationTemplate = $this->getBasicEducationTemplate();
 
         // Template configurations
         $templates = [
@@ -55,12 +56,17 @@ class HonorCertificateTemplatesSeeder extends Seeder
         $updated = 0;
 
         foreach ($templates as $templateData) {
+            // Determine which template to use based on academic level
+            $contentHtml = ($templateData['level']->key === 'college')
+                ? $collegeTemplate
+                : $basicEducationTemplate;
+
             $template = CertificateTemplate::updateOrCreate(
                 ['key' => $templateData['key']],
                 [
                     'academic_level_id' => $templateData['level']->id,
                     'name' => $templateData['name'],
-                    'content_html' => $baseTemplate,
+                    'content_html' => $contentHtml,
                     'is_active' => true,
                     'created_by' => 1, // Admin user
                 ]
@@ -82,7 +88,10 @@ class HonorCertificateTemplatesSeeder extends Seeder
         $this->command->info("✅ Honor-specific certificate templates created successfully!");
     }
 
-    private function getBaseTemplate(): string
+    /**
+     * Get college certificate template with Program Chair, College Dean, and School Director signatures
+     */
+    private function getCollegeTemplate(): string
     {
         return <<<'HTML'
 <div style="text-align: center; padding: 40px; border: 8px double #2c5aa0; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); font-family: 'Times New Roman', serif; max-width: 800px; margin: 0 auto;">
@@ -100,11 +109,85 @@ class HonorCertificateTemplatesSeeder extends Seeder
             <p style="margin: 5px 0; font-size: 16px;"><strong>School Year:</strong> {{school_year}}</p>
             <p style="margin: 5px 0; font-size: 16px;"><strong>GPA:</strong> {{gpa}}</p>
         </div>
-        <p style="font-size: 16px; color: #2d3748; margin: 20px 0;">Given this {{date_generated}}</p>
-        <div style="margin-top: 40px; text-align: center;">
-            <div style="border-top: 1px solid #2c5aa0; width: 200px; margin: 0 auto 10px auto;"></div>
-            <p style="margin: 0; font-size: 14px; color: #4a5568;">Authorized Signature</p>
+        <p style="font-size: 16px; color: #2d3748; margin: 20px 0;">Given this {{date_issued}}</p>
+
+        <!-- Three-column signature block for College -->
+        <div style="margin-top: 60px; display: table; width: 100%; table-layout: fixed;">
+            <div style="display: table-row;">
+                <!-- Program Chair (Left) -->
+                <div style="display: table-cell; width: 33.33%; text-align: center; padding: 0 10px; vertical-align: top;">
+                    <div style="border-top: 2px solid #2c5aa0; margin: 0 auto 8px auto; max-width: 180px;"></div>
+                    <p style="margin: 0; font-size: 12px; font-weight: bold; color: #2d3748; line-height: 1.3;">{{program_chair_name}}</p>
+                    <p style="margin: 2px 0 0 0; font-size: 11px; color: #4a5568; font-style: italic;">{{program_chair_title}}</p>
+                </div>
+                <!-- College Dean (Center) -->
+                <div style="display: table-cell; width: 33.33%; text-align: center; padding: 0 10px; vertical-align: top;">
+                    <div style="border-top: 2px solid #2c5aa0; margin: 0 auto 8px auto; max-width: 180px;"></div>
+                    <p style="margin: 0; font-size: 12px; font-weight: bold; color: #2d3748; line-height: 1.3;">{{college_dean_name}}</p>
+                    <p style="margin: 2px 0 0 0; font-size: 11px; color: #4a5568; font-style: italic;">{{college_dean_title}}</p>
+                </div>
+                <!-- School Director (Right) -->
+                <div style="display: table-cell; width: 33.33%; text-align: center; padding: 0 10px; vertical-align: top;">
+                    <div style="border-top: 2px solid #2c5aa0; margin: 0 auto 8px auto; max-width: 180px;"></div>
+                    <p style="margin: 0; font-size: 12px; font-weight: bold; color: #2d3748; line-height: 1.3;">{{school_director_name}}</p>
+                    <p style="margin: 2px 0 0 0; font-size: 11px; color: #4a5568; font-style: italic;">{{school_director_title}}</p>
+                </div>
+            </div>
         </div>
+
+        <div style="margin-top: 20px; font-size: 10px; color: #718096;">Certificate Serial: {{serial_number}}</div>
+    </div>
+</div>
+HTML;
+    }
+
+    /**
+     * Get basic education certificate template with Adviser, Principal, and School Director signatures
+     */
+    private function getBasicEducationTemplate(): string
+    {
+        return <<<'HTML'
+<div style="text-align: center; padding: 40px; border: 8px double #2c5aa0; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); font-family: 'Times New Roman', serif; max-width: 800px; margin: 0 auto;">
+    <div style="border: 2px solid #2c5aa0; padding: 30px; background: white;">
+        <h1 style="color: #2c5aa0; font-size: 36px; margin: 0 0 20px 0; text-transform: uppercase; letter-spacing: 2px;">Certificate of Achievement</h1>
+        <div style="border-top: 2px solid #2c5aa0; border-bottom: 2px solid #2c5aa0; padding: 20px 0; margin: 20px 0;">
+            <h2 style="color: #1a365d; font-size: 28px; margin: 0; font-weight: bold;">{{student_name}}</h2>
+            <p style="color: #4a5568; font-size: 16px; margin: 10px 0;">Student ID: {{student_number}}</p>
+        </div>
+        <p style="font-size: 18px; color: #2d3748; margin: 20px 0;">is hereby recognized for achieving</p>
+        <h3 style="color: #2c5aa0; font-size: 24px; margin: 20px 0; text-transform: uppercase; font-weight: bold;">{{honor_type}}</h3>
+        <p style="font-size: 16px; color: #4a5568; margin: 15px 0;">{{honor_description}}</p>
+        <div style="margin: 30px 0; padding: 20px; background: #f7fafc; border-left: 4px solid #2c5aa0;">
+            <p style="margin: 5px 0; font-size: 16px;"><strong>Academic Level:</strong> {{academic_level}}</p>
+            <p style="margin: 5px 0; font-size: 16px;"><strong>School Year:</strong> {{school_year}}</p>
+            <p style="margin: 5px 0; font-size: 16px;"><strong>Average Grade:</strong> {{average_grade}}</p>
+        </div>
+        <p style="font-size: 16px; color: #2d3748; margin: 20px 0;">Given this {{date_issued}}</p>
+
+        <!-- Three-column signature block for Basic Education -->
+        <div style="margin-top: 60px; display: table; width: 100%; table-layout: fixed;">
+            <div style="display: table-row;">
+                <!-- Adviser (Left) -->
+                <div style="display: table-cell; width: 33.33%; text-align: center; padding: 0 10px; vertical-align: top;">
+                    <div style="border-top: 2px solid #2c5aa0; margin: 0 auto 8px auto; max-width: 180px;"></div>
+                    <p style="margin: 0; font-size: 12px; font-weight: bold; color: #2d3748; line-height: 1.3;">{{adviser_name}}</p>
+                    <p style="margin: 2px 0 0 0; font-size: 11px; color: #4a5568; font-style: italic;">{{adviser_title}}</p>
+                </div>
+                <!-- Principal (Center) -->
+                <div style="display: table-cell; width: 33.33%; text-align: center; padding: 0 10px; vertical-align: top;">
+                    <div style="border-top: 2px solid #2c5aa0; margin: 0 auto 8px auto; max-width: 180px;"></div>
+                    <p style="margin: 0; font-size: 12px; font-weight: bold; color: #2d3748; line-height: 1.3;">{{principal_name}}</p>
+                    <p style="margin: 2px 0 0 0; font-size: 11px; color: #4a5568; font-style: italic;">{{principal_title}}</p>
+                </div>
+                <!-- School Director (Right) -->
+                <div style="display: table-cell; width: 33.33%; text-align: center; padding: 0 10px; vertical-align: top;">
+                    <div style="border-top: 2px solid #2c5aa0; margin: 0 auto 8px auto; max-width: 180px;"></div>
+                    <p style="margin: 0; font-size: 12px; font-weight: bold; color: #2d3748; line-height: 1.3;">{{school_director_name}}</p>
+                    <p style="margin: 2px 0 0 0; font-size: 11px; color: #4a5568; font-style: italic;">{{school_director_title}}</p>
+                </div>
+            </div>
+        </div>
+
         <div style="margin-top: 20px; font-size: 10px; color: #718096;">Certificate Serial: {{serial_number}}</div>
     </div>
 </div>

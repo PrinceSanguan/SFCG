@@ -291,20 +291,13 @@ class CertificateTemplateSeeder extends Seeder
                 <!-- Signature table for DomPDF compatibility -->
                 <table style="width: 100%; margin-top: 30px; border-collapse: collapse;">
                     <tr>
-                        <td style="width: 33.33%; text-align: center; padding: 0 10px; vertical-align: top;">
+                        <td style="width: 50%; text-align: center; padding: 0 20px;">
                             <div style="border-bottom: 2px solid #8B4513; margin-bottom: 8px; height: 40px;"></div>
-                            <strong style="color: #8B4513; font-size: 12px; display: block; line-height: 1.3;">{{program_chair_name}}</strong>
-                            <em style="color: #8B4513; font-size: 11px;">{{program_chair_title}}</em>
+                            <strong style="color: #8B4513; font-size: 12px;">College Dean</strong>
                         </td>
-                        <td style="width: 33.33%; text-align: center; padding: 0 10px; vertical-align: top;">
+                        <td style="width: 50%; text-align: center; padding: 0 20px;">
                             <div style="border-bottom: 2px solid #8B4513; margin-bottom: 8px; height: 40px;"></div>
-                            <strong style="color: #8B4513; font-size: 12px; display: block; line-height: 1.3;">{{college_dean_name}}</strong>
-                            <em style="color: #8B4513; font-size: 11px;">{{college_dean_title}}</em>
-                        </td>
-                        <td style="width: 33.33%; text-align: center; padding: 0 10px; vertical-align: top;">
-                            <div style="border-bottom: 2px solid #8B4513; margin-bottom: 8px; height: 40px;"></div>
-                            <strong style="color: #8B4513; font-size: 12px; display: block; line-height: 1.3;">{{school_director_name}}</strong>
-                            <em style="color: #8B4513; font-size: 11px;">{{school_director_title}}</em>
+                            <strong style="color: #8B4513; font-size: 12px;">Registrar</strong>
                         </td>
                     </tr>
                 </table>
@@ -359,20 +352,13 @@ class CertificateTemplateSeeder extends Seeder
                 <!-- Signature table for DomPDF compatibility -->
                 <table style="width: 100%; margin-top: 30px; border-collapse: collapse;">
                     <tr>
-                        <td style="width: 33.33%; text-align: center; padding: 0 10px; vertical-align: top;">
+                        <td style="width: 50%; text-align: center; padding: 0 20px;">
                             <div style="border-bottom: 2px solid #8B4513; margin-bottom: 8px; height: 40px;"></div>
-                            <strong style="color: #8B4513; font-size: 12px; display: block; line-height: 1.3;">{{program_chair_name}}</strong>
-                            <em style="color: #8B4513; font-size: 11px;">{{program_chair_title}}</em>
+                            <strong style="color: #8B4513; font-size: 12px;">College Dean</strong>
                         </td>
-                        <td style="width: 33.33%; text-align: center; padding: 0 10px; vertical-align: top;">
+                        <td style="width: 50%; text-align: center; padding: 0 20px;">
                             <div style="border-bottom: 2px solid #8B4513; margin-bottom: 8px; height: 40px;"></div>
-                            <strong style="color: #8B4513; font-size: 12px; display: block; line-height: 1.3;">{{college_dean_name}}</strong>
-                            <em style="color: #8B4513; font-size: 11px;">{{college_dean_title}}</em>
-                        </td>
-                        <td style="width: 33.33%; text-align: center; padding: 0 10px; vertical-align: top;">
-                            <div style="border-bottom: 2px solid #8B4513; margin-bottom: 8px; height: 40px;"></div>
-                            <strong style="color: #8B4513; font-size: 12px; display: block; line-height: 1.3;">{{school_director_name}}</strong>
-                            <em style="color: #8B4513; font-size: 11px;">{{school_director_title}}</em>
+                            <strong style="color: #8B4513; font-size: 12px;">Registrar</strong>
                         </td>
                     </tr>
                 </table>

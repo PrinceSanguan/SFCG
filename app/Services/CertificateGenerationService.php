@@ -6,6 +6,7 @@ use App\Models\AcademicLevel;
 use App\Models\Certificate;
 use App\Models\CertificateTemplate;
 use App\Models\HonorResult;
+use App\Models\SystemSetting;
 use App\Models\User;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -134,12 +135,18 @@ class CertificateGenerationService
             case 'junior_highschool':
                 $payload['grade_level'] = $this->getGradeLevel($student);
                 $payload['average_grade'] = $this->formatGrade($honorResult->gpa);
+
+                // Add signatories for basic education
+                $payload = array_merge($payload, $this->getBasicEducationSignatories($student, $academicLevel));
                 break;
 
             case 'senior_highschool':
                 $payload['grade_level'] = $this->getGradeLevel($student);
                 $payload['strand_name'] = $student->strand?->name ?? 'General Academic Strand';
                 $payload['average_grade'] = $this->formatGrade($honorResult->gpa);
+
+                // Add signatories for basic education
+                $payload = array_merge($payload, $this->getBasicEducationSignatories($student, $academicLevel));
                 break;
 
             case 'college':
@@ -147,6 +154,9 @@ class CertificateGenerationService
                 $payload['department_name'] = $student->course?->department?->name ?? 'Undecided';
                 $payload['year_level'] = $this->getYearLevel($student);
                 $payload['gpa'] = $this->formatGPA($honorResult->gpa);
+
+                // Add signatories for college
+                $payload = array_merge($payload, $this->getCollegeSignatories($student));
                 break;
         }
 
@@ -303,6 +313,141 @@ class CertificateGenerationService
 
         Log::info("Certificate generation completed for level {$academicLevelKey} school year {$schoolYear}", $results);
         return $results;
+    }
+
+    /**
+     * Get college certificate signatories (Program Chair, College Dean, School Director)
+     */
+    private function getCollegeSignatories(User $student): array
+    {
+        // Validate and get Program Chair (chairperson)
+        $chairperson = $this->getChairpersonForStudent($student);
+
+        // Get fixed officials from system settings
+        $collegeDeanName = SystemSetting::get('college_dean_name', '[College Dean Name]');
+        $collegeDeanTitle = SystemSetting::get('college_dean_title', 'College Dean');
+        $schoolDirectorName = SystemSetting::get('school_director_name', '[School Director Name]');
+        $schoolDirectorTitle = SystemSetting::get('school_director_title', 'School Director');
+
+        return [
+            'program_chair_name' => $chairperson->name,
+            'program_chair_title' => 'Program Chair',
+            'college_dean_name' => $collegeDeanName,
+            'college_dean_title' => $collegeDeanTitle,
+            'school_director_name' => $schoolDirectorName,
+            'school_director_title' => $schoolDirectorTitle,
+        ];
+    }
+
+    /**
+     * Get basic education certificate signatories (Adviser, Principal, School Director)
+     */
+    private function getBasicEducationSignatories(User $student, AcademicLevel $academicLevel): array
+    {
+        // Get adviser for student's section
+        $adviser = $this->getAdviserForStudent($student);
+
+        // Get principal based on academic level
+        $principalKey = match ($academicLevel->key) {
+            'elementary' => 'elementary_principal',
+            'junior_highschool' => 'jhs_principal',
+            'senior_highschool' => 'shs_principal',
+            default => 'elementary_principal',
+        };
+
+        $principalName = SystemSetting::get("{$principalKey}_name", '[Principal Name]');
+        $principalTitle = SystemSetting::get("{$principalKey}_title", 'Principal');
+
+        // Get School Director
+        $schoolDirectorName = SystemSetting::get('school_director_name', '[School Director Name]');
+        $schoolDirectorTitle = SystemSetting::get('school_director_title', 'School Director');
+
+        return [
+            'adviser_name' => $adviser?->name ?? '[Adviser Name]',
+            'adviser_title' => 'Adviser',
+            'principal_name' => $principalName,
+            'principal_title' => $principalTitle,
+            'school_director_name' => $schoolDirectorName,
+            'school_director_title' => $schoolDirectorTitle,
+        ];
+    }
+
+    /**
+     * Get chairperson (Program Chair) for a college student
+     * Throws exception if chairperson is not assigned
+     */
+    private function getChairpersonForStudent(User $student): User
+    {
+        $department = $student->course?->department;
+
+        if (!$department) {
+            Log::error('[CERTIFICATE_GENERATION] Student has no department', [
+                'student_id' => $student->id,
+                'student_name' => $student->name,
+                'course_id' => $student->course_id,
+            ]);
+
+            throw new \Exception(
+                "Cannot generate certificate: Student {$student->name} has no department assigned. " .
+                "Please ensure the student is enrolled in a course with a valid department."
+            );
+        }
+
+        $chairperson = User::where('user_role', 'chairperson')
+            ->where('department_id', $department->id)
+            ->first();
+
+        if (!$chairperson) {
+            Log::error('[CERTIFICATE_GENERATION] Missing Program Chair', [
+                'student_id' => $student->id,
+                'student_name' => $student->name,
+                'department_id' => $department->id,
+                'department_name' => $department->name,
+            ]);
+
+            throw new \Exception(
+                "Cannot generate certificate: No Program Chair assigned to {$department->name} department. " .
+                "Please assign a chairperson to this department before generating certificates."
+            );
+        }
+
+        Log::info('[CERTIFICATE_GENERATION] Program Chair found', [
+            'student_id' => $student->id,
+            'department_id' => $department->id,
+            'department_name' => $department->name,
+            'chairperson_id' => $chairperson->id,
+            'chairperson_name' => $chairperson->name,
+        ]);
+
+        return $chairperson;
+    }
+
+    /**
+     * Get adviser for a student's section
+     * Returns null if not found (uses fallback in payload)
+     */
+    private function getAdviserForStudent(User $student): ?User
+    {
+        if (!$student->section_id) {
+            Log::warning('[CERTIFICATE_GENERATION] Student has no section assigned', [
+                'student_id' => $student->id,
+                'student_name' => $student->name,
+            ]);
+            return null;
+        }
+
+        $adviser = User::where('user_role', 'adviser')
+            ->where('section_id', $student->section_id)
+            ->first();
+
+        if (!$adviser) {
+            Log::warning('[CERTIFICATE_GENERATION] No adviser found for section', [
+                'student_id' => $student->id,
+                'section_id' => $student->section_id,
+            ]);
+        }
+
+        return $adviser;
     }
 }
 
