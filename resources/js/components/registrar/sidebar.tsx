@@ -22,9 +22,9 @@ export function Sidebar({ user }: SidebarProps) {
     const isActive = (path: string) => url.startsWith(path);
     
     // Check if any account management route is active
-    const isAccountManagementActive = isActive('/registrar/users') || isActive('/registrar/parents') || 
-                                    isActive('/registrar/students') || isActive('/registrar/faculty') || 
-                                    isActive('/registrar/administrators') || isActive('/registrar/registrars') ||
+    const isAccountManagementActive = isActive('/registrar/users') || isActive('/registrar/parents') ||
+                                    isActive('/registrar/students') || isActive('/registrar/faculty') ||
+                                    isActive('/registrar/registrars') ||
                                     isActive('/registrar/instructors') || isActive('/registrar/teachers') ||
                                     isActive('/registrar/advisers') || isActive('/registrar/chairpersons') ||
                                     isActive('/registrar/principals');
@@ -85,16 +85,6 @@ export function Sidebar({ user }: SidebarProps) {
                                     >
                                         <Users size={16} />
                                         All Users
-                                    </Button>
-                                </Link>
-                                
-                                <Link href={route('registrar.administrators.index')} className="w-full">
-                                    <Button
-                                        variant={isActive('/registrar/administrators') ? 'secondary' : 'ghost'}
-                                        className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-                                    >
-                                        <Crown size={16} />
-                                        Administrators
                                     </Button>
                                 </Link>
 
