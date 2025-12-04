@@ -353,12 +353,20 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
             academic_level_id: subject.academic_level_id,
             grade_levels: subject.grade_levels || [],
             grading_period_ids: subject.grading_period_ids || [],
+            semester_ids: subject.semester_ids || [],
+            shs_year_level: subject.shs_year_level || null,
+            jhs_year_level: subject.jhs_year_level || null,
+            college_year_level: subject.college_year_level || null,
+            strand_id: subject.strand_id || null,
             course_id: subject.course_id || '',
+            section_id: subject.section_id || null,
             units: subject.units,
             hours_per_week: subject.hours_per_week,
             is_core: subject.is_core,
             is_active: subject.is_active
         };
+        console.log('[REGISTRAR UPDATE] Updating subject with data:', data);
+        console.log('[REGISTRAR UPDATE] Section ID being sent:', subject.section_id);
         router.put(route('registrar.academic.subjects.update', subject.id), data, {
             preserveScroll: true,
             onSuccess: () => {

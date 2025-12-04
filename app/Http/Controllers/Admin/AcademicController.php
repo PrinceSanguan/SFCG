@@ -1951,6 +1951,12 @@ class AcademicController extends Controller
             'request_data' => $request->all()
         ]);
 
+        Log::info('[ADMIN UPDATE SUBJECT] Section ID tracking:', [
+            'subject_id' => $subject->id,
+            'current_section_id' => $subject->section_id,
+            'requested_section_id' => $request->section_id,
+        ]);
+
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:100',
             'code' => 'required|string|max:20|unique:subjects,code,' . $subject->id,
@@ -1967,6 +1973,7 @@ class AcademicController extends Controller
             'semester_ids' => 'nullable|array',
             'semester_ids.*' => 'exists:grading_periods,id',
             'course_id' => 'nullable|exists:courses,id',
+            'section_id' => 'nullable|exists:sections,id',
             'units' => 'nullable|numeric|min:0',
             'hours_per_week' => 'nullable|integer|min:0',
             'is_core' => 'nullable|boolean',
@@ -2009,6 +2016,12 @@ class AcademicController extends Controller
             'semester_ids' => $subject->semester_ids,
             'college_year_level' => $subject->college_year_level,
         ]));
+
+        Log::info('[ADMIN UPDATE SUBJECT] Section ID verification:', [
+            'subject_id' => $subject->id,
+            'section_id_saved' => $subject->section_id,
+            'match_status' => $subject->section_id == $request->section_id ? 'MATCH' : 'MISMATCH',
+        ]);
 
         // Log activity
         ActivityLog::create([

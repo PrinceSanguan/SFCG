@@ -380,6 +380,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
             college_year_level: subject.college_year_level || null,
             strand_id: subject.strand_id || null,
             course_id: subject.course_id || '',
+            section_id: subject.section_id || null,
             units: subject.units,
             hours_per_week: subject.hours_per_week,
             is_core: subject.is_core,
@@ -387,6 +388,7 @@ export default function Subjects({ user, subjects = [], academicLevels = [], gra
         };
 
         console.log('Updating subject with data:', data);
+        console.log('Section ID being sent:', subject.section_id);
 
         router.put(route('admin.academic.subjects.update', subject.id), data, {
             preserveScroll: true,

@@ -1415,20 +1415,40 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
             'code' => ['required', 'string', 'max:20', 'unique:subjects,code,' . $subject->id],
             'description' => ['nullable', 'string'],
             'academic_level_id' => ['required', 'exists:academic_levels,id'],
+            'strand_id' => ['nullable', 'exists:strands,id'],
+            'shs_year_level' => ['nullable', 'string', 'in:grade_11,grade_12'],
+            'jhs_year_level' => ['nullable', 'string', 'in:grade_7,grade_8,grade_9,grade_10'],
+            'college_year_level' => ['nullable', 'string', 'in:first_year,second_year,third_year,fourth_year,fifth_year'],
             'grade_levels' => ['nullable', 'array'],
             'grade_levels.*' => ['string', 'in:grade_1,grade_2,grade_3,grade_4,grade_5,grade_6'],
             'grading_period_id' => ['nullable', 'exists:grading_periods,id'],
+            'grading_period_ids' => ['nullable', 'array'],
+            'grading_period_ids.*' => ['exists:grading_periods,id'],
+            'semester_ids' => ['nullable', 'array'],
+            'semester_ids.*' => ['exists:grading_periods,id'],
             'course_id' => ['nullable', 'exists:courses,id'],
+            'section_id' => ['nullable', 'exists:sections,id'],
             'units' => ['required', 'numeric', 'min:0'],
             'hours_per_week' => ['required', 'numeric', 'min:0'],
             'is_core' => ['nullable', 'boolean'],
             'is_active' => ['nullable', 'boolean'],
         ]);
-        
+
         $validated['is_core'] = $validated['is_core'] ?? false;
         $validated['is_active'] = $validated['is_active'] ?? true;
-        
+
+        \Log::info('[REGISTRAR UPDATE SUBJECT] Update request:', [
+            'subject_id' => $subject->id,
+            'current_section_id' => $subject->section_id,
+            'new_section_id' => $request->section_id,
+        ]);
+
         $subject->update($validated);
+
+        \Log::info('[REGISTRAR UPDATE SUBJECT] Update completed:', [
+            'subject_id' => $subject->id,
+            'section_id_saved' => $subject->section_id,
+        ]);
         
         // Log activity
         \App\Models\ActivityLog::create([
@@ -1442,8 +1462,46 @@ Route::middleware(['auth', 'role:admin,registrar,principal'])->prefix('registrar
                 'academic_level' => $subject->academicLevel->name,
             ],
         ]);
-        
-        return back()->with('success', 'Subject updated successfully!');
+
+        // Re-evaluate student enrollments if section is specified
+        $enrolledCount = 0;
+        if ($subject->section_id) {
+            \Log::info('[REGISTRAR UPDATE SUBJECT] Re-evaluating student enrollments', [
+                'subject_id' => $subject->id,
+                'section_id' => $subject->section_id,
+            ]);
+
+            try {
+                $studentService = new \App\Services\StudentSubjectAssignmentService();
+                $students = \App\Models\User::where('user_role', 'student')
+                    ->where('section_id', $subject->section_id)
+                    ->where('is_active', true)
+                    ->get();
+
+                foreach ($students as $student) {
+                    $enrollments = $studentService->enrollStudentInSectionSubjects($student);
+                    if (count($enrollments) > 0) {
+                        $enrolledCount++;
+                    }
+                }
+
+                \Log::info('[REGISTRAR UPDATE SUBJECT] Re-enrollment completed', [
+                    'subject_id' => $subject->id,
+                    'newly_enrolled_count' => $enrolledCount,
+                ]);
+            } catch (\Exception $e) {
+                \Log::error('[REGISTRAR UPDATE SUBJECT] Enrollment failed', [
+                    'subject_id' => $subject->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        $successMessage = $enrolledCount > 0
+            ? "Subject updated successfully! Automatically enrolled {$enrolledCount} additional student(s)."
+            : 'Subject updated successfully!';
+
+        return back()->with('success', $successMessage);
     })->name('subjects.update');
     
     Route::delete('/subjects/{subject}', function(\Illuminate\Http\Request $request, \App\Models\Subject $subject) {
