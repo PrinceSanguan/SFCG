@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { useForm } from '@inertiajs/react';
+import { useForm, usePage } from '@inertiajs/react';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Download, GraduationCap, School, BookOpen, Users, FileText, Printer, Package, MoreVertical } from 'lucide-react';
 import { router } from '@inertiajs/react';
@@ -139,6 +139,11 @@ export default function CertificatesIndex({
     const [selectedCertificates, setSelectedCertificates] = useState<number[]>([]);
     const [showGeneratedCertificates, setShowGeneratedCertificates] = useState(false);
 
+    // Get CSRF token from Inertia page props
+    const { props } = usePage();
+    const csrfToken = (props as any).csrf_token ||
+                      document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '';
+
     // Forms for certificate generation
     const { data: generateData, setData: setGenerateData, post: postGenerate, processing: generating } = useForm({
         student_id: '',
@@ -163,6 +168,66 @@ export default function CertificatesIndex({
         school_year: schoolYear,
         honor_type_id: '',
     });
+
+    // Handle bulk certificate download using hidden iframe
+    const handleBulkDownload = () => {
+        const selectedCategoryData = getCategoryStudents(selectedCategory || '');
+
+        // Get certificate IDs for selected students
+        const certificateIds = selectedCategoryData
+            .filter(honor => selectedStudents.includes(honor.student.id))
+            .map(honor => {
+                const cert = generatedCertificates?.find(c =>
+                    c.student.id === honor.student.id &&
+                    c.academic_level.id === honor.academic_level.id &&
+                    c.school_year === honor.school_year
+                );
+                return cert?.id;
+            })
+            .filter((id): id is number => id !== undefined);
+
+        if (certificateIds.length === 0) {
+            alert('No certificates found for selected students. Please generate certificates first.');
+            return;
+        }
+
+        // Create or reuse hidden iframe for download
+        let iframe = document.getElementById('download-iframe') as HTMLIFrameElement;
+        if (!iframe) {
+            iframe = document.createElement('iframe');
+            iframe.id = 'download-iframe';
+            iframe.name = 'download-iframe';
+            iframe.style.display = 'none';
+            document.body.appendChild(iframe);
+        }
+
+        // Create temporary form for file download
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = route('registrar.academic.certificates.bulk-print-pdf');
+        form.target = 'download-iframe';
+
+        // Add CSRF token
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = '_token';
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+
+        // Add certificate IDs as array
+        certificateIds.forEach((id) => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'certificate_ids[]'; // Laravel array notation
+            input.value = id.toString();
+            form.appendChild(input);
+        });
+
+        // Submit form and cleanup
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
+    };
 
     // Get students for selected category
     const getCategoryStudents = (categoryKey: string) => {
@@ -440,26 +505,7 @@ export default function CertificatesIndex({
                                                             {bulkGenerating ? 'Generating...' : `Generate ${selectedStudents.length} Selected`}
                                                         </Button>
                                                         <Button
-                                                            onClick={() => {
-                                                                const certificateIds = selectedCategoryData
-                                                                    .filter(honor => selectedStudents.includes(honor.student.id))
-                                                                    .map(honor => {
-                                                                        const cert = generatedCertificates?.find(c =>
-                                                                            c.student.id === honor.student.id &&
-                                                                            c.academic_level.id === honor.academic_level.id &&
-                                                                            c.school_year === honor.school_year
-                                                                        );
-                                                                        return cert?.id;
-                                                                    })
-                                                                    .filter((id): id is number => id !== undefined);
-
-                                                                if (certificateIds.length > 0) {
-                                                                    setBulkPrintData({ certificate_ids: certificateIds });
-                                                                    postBulkPrint(route('registrar.academic.certificates.bulk-print-pdf'));
-                                                                } else {
-                                                                    alert('No generated certificates found for selected students. Please generate certificates first.');
-                                                                }
-                                                            }}
+                                                            onClick={handleBulkDownload}
                                                             disabled={bulkPrinting}
                                                             className="bg-blue-600 hover:bg-blue-700 text-white"
                                                         >

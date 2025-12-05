@@ -97,8 +97,32 @@ class ChairpersonController extends Controller
     
     private function getChairpersonStats($academicLevelId = null)
     {
-        // Get comprehensive statistics across all academic levels
+        $user = Auth::user();
+        $departmentId = $user->department_id;
+
+        // If chairperson has no department assigned, return zeros
+        if (!$departmentId) {
+            \Log::warning('Chairperson accessing stats without department assignment', [
+                'user_id' => $user->id,
+                'user_name' => $user->name,
+            ]);
+
+            return [
+                'total_students' => 0,
+                'total_teachers' => 0,
+                'total_subjects' => 0,
+                'pending_grades' => 0,
+                'pending_honors' => 0,
+                'approved_honors' => 0,
+                'average_gpa' => 0,
+            ];
+        }
+
+        // Get department-filtered statistics
         $totalStudents = User::where('user_role', 'student')
+            ->whereHas('course', function ($query) use ($departmentId) {
+                $query->where('department_id', $departmentId);
+            })
             ->when($academicLevelId, function($q) use ($academicLevelId) {
                 $academicLevel = AcademicLevel::find($academicLevelId);
                 if ($academicLevel) {
@@ -120,24 +144,35 @@ class ChairpersonController extends Controller
             ->count();
             
         $totalTeachers = User::whereIn('user_role', ['teacher', 'instructor'])
-            ->when($academicLevelId, function($q) use ($academicLevelId) {
-                return $q->whereHas('teacherSubjectAssignments.subject', function($query) use ($academicLevelId) {
-                    $query->where('academic_level_id', $academicLevelId);
-                })->orWhereHas('instructorSubjectAssignments.subject', function($query) use ($academicLevelId) {
-                    $query->where('academic_level_id', $academicLevelId);
+            ->where(function($q) use ($departmentId, $academicLevelId) {
+                $q->whereHas('teacherSubjectAssignments.subject.course', function($query) use ($departmentId, $academicLevelId) {
+                    $query->where('department_id', $departmentId);
+                    if ($academicLevelId) {
+                        $query->where('academic_level_id', $academicLevelId);
+                    }
+                })->orWhereHas('instructorSubjectAssignments.subject.course', function($query) use ($departmentId, $academicLevelId) {
+                    $query->where('department_id', $departmentId);
+                    if ($academicLevelId) {
+                        $query->where('academic_level_id', $academicLevelId);
+                    }
                 });
             })
             ->count();
             
         $totalSubjects = DB::table('subjects')
+            ->join('courses', 'subjects.course_id', '=', 'courses.id')
+            ->where('courses.department_id', $departmentId)
             ->when($academicLevelId, function($q) use ($academicLevelId) {
-                return $q->where('academic_level_id', $academicLevelId);
+                return $q->where('subjects.academic_level_id', $academicLevelId);
             })
             ->count();
             
         $pendingGrades = StudentGrade::where('is_submitted_for_validation', true)
             ->where('is_approved', false)
             ->where('is_returned', false)
+            ->whereHas('subject.course', function ($query) use ($departmentId) {
+                $query->where('department_id', $departmentId);
+            })
             ->when($academicLevelId, function($q) use ($academicLevelId) {
                 return $q->whereHas('subject', function($query) use ($academicLevelId) {
                     $query->where('academic_level_id', $academicLevelId);
@@ -148,12 +183,18 @@ class ChairpersonController extends Controller
         $pendingHonors = HonorResult::where('is_pending_approval', true)
             ->where('is_approved', false)
             ->where('is_rejected', false)
+            ->whereHas('student.course', function ($query) use ($departmentId) {
+                $query->where('department_id', $departmentId);
+            })
             ->when($academicLevelId, function($q) use ($academicLevelId) {
                 return $q->where('academic_level_id', $academicLevelId);
             })
             ->count();
             
-        $averageGpa = StudentGrade::when($academicLevelId, function($q) use ($academicLevelId) {
+        $averageGpa = StudentGrade::whereHas('subject.course', function ($query) use ($departmentId) {
+                $query->where('department_id', $departmentId);
+            })
+            ->when($academicLevelId, function($q) use ($academicLevelId) {
                 return $q->whereHas('subject', function($query) use ($academicLevelId) {
                     $query->where('academic_level_id', $academicLevelId);
                 });
@@ -161,11 +202,23 @@ class ChairpersonController extends Controller
             ->avg('grade') ?? 0;
             
         $approvedHonors = HonorResult::where('is_approved', true)
+            ->whereHas('student.course', function ($query) use ($departmentId) {
+                $query->where('department_id', $departmentId);
+            })
             ->when($academicLevelId, function($q) use ($academicLevelId) {
                 return $q->where('academic_level_id', $academicLevelId);
             })
             ->count();
-            
+
+        \Log::info('Chairperson stats calculated with department filter', [
+            'user_id' => $user->id,
+            'department_id' => $departmentId,
+            'academic_level_id' => $academicLevelId,
+            'total_students' => $totalStudents,
+            'total_teachers' => $totalTeachers,
+            'total_subjects' => $totalSubjects,
+        ]);
+
         return [
             'total_students' => $totalStudents,
             'total_teachers' => $totalTeachers,
@@ -179,8 +232,14 @@ class ChairpersonController extends Controller
     
     private function getRecentActivities($academicLevelId = null)
     {
-        // Get recent grade submissions across all academic levels
+        $user = Auth::user();
+        $departmentId = $user->department_id;
+
+        // Get recent grade submissions for the department
         $recentGrades = StudentGrade::where('is_submitted_for_validation', true)
+            ->whereHas('subject.course', function ($query) use ($departmentId) {
+                $query->where('department_id', $departmentId);
+            })
             ->when($academicLevelId, function($q) use ($academicLevelId) {
                 return $q->whereHas('subject', function ($query) use ($academicLevelId) {
                     $query->where('academic_level_id', $academicLevelId);
@@ -191,8 +250,11 @@ class ChairpersonController extends Controller
             ->limit(5)
             ->get();
         
-        // Get recent honor submissions
+        // Get recent honor submissions for the department
         $recentHonors = HonorResult::where('is_pending_approval', true)
+            ->whereHas('student.course', function ($query) use ($departmentId) {
+                $query->where('department_id', $departmentId);
+            })
             ->when($academicLevelId, function($q) use ($academicLevelId) {
                 return $q->where('academic_level_id', $academicLevelId);
             })
@@ -201,8 +263,11 @@ class ChairpersonController extends Controller
             ->limit(5)
             ->get();
         
-        // Get recent honor approvals
+        // Get recent honor approvals for the department
         $recentApprovals = HonorResult::where('is_approved', true)
+            ->whereHas('student.course', function ($query) use ($departmentId) {
+                $query->where('department_id', $departmentId);
+            })
             ->when($academicLevelId, function($q) use ($academicLevelId) {
                 return $q->where('academic_level_id', $academicLevelId);
             })
@@ -248,9 +313,15 @@ class ChairpersonController extends Controller
     
     private function getPendingGrades($academicLevelId = null)
     {
+        $user = Auth::user();
+        $departmentId = $user->department_id;
+
         return StudentGrade::where('is_submitted_for_validation', true)
             ->where('is_approved', false)
             ->where('is_returned', false)
+            ->whereHas('subject.course', function ($query) use ($departmentId) {
+                $query->where('department_id', $departmentId);
+            })
             ->when($academicLevelId, function($q) use ($academicLevelId) {
                 return $q->whereHas('subject', function ($query) use ($academicLevelId) {
                     $query->where('academic_level_id', $academicLevelId);
@@ -264,9 +335,15 @@ class ChairpersonController extends Controller
     
     private function getPendingHonors($academicLevelId = null)
     {
+        $user = Auth::user();
+        $departmentId = $user->department_id;
+
         return HonorResult::where('is_pending_approval', true)
             ->where('is_approved', false)
             ->where('is_rejected', false)
+            ->whereHas('student.course', function ($query) use ($departmentId) {
+                $query->where('department_id', $departmentId);
+            })
             ->when($academicLevelId, function($q) use ($academicLevelId) {
                 return $q->where('academic_level_id', $academicLevelId);
             })
@@ -278,7 +355,13 @@ class ChairpersonController extends Controller
     
     private function getApprovedHonors($academicLevelId = null)
     {
+        $user = Auth::user();
+        $departmentId = $user->department_id;
+
         return HonorResult::where('is_approved', true)
+            ->whereHas('student.course', function ($query) use ($departmentId) {
+                $query->where('department_id', $departmentId);
+            })
             ->when($academicLevelId, function($q) use ($academicLevelId) {
                 return $q->where('academic_level_id', $academicLevelId);
             })
@@ -290,22 +373,33 @@ class ChairpersonController extends Controller
     
     private function getAcademicLevelInsights($academicLevelId = null)
     {
+        $user = Auth::user();
+        $departmentId = $user->department_id;
+
         if ($academicLevelId) {
             $academicLevel = AcademicLevel::find($academicLevelId);
             $insights = [
                 'academic_level' => $academicLevel->name,
                 'total_sections' => DB::table('sections')
                     ->join('subjects', 'sections.id', '=', 'subjects.section_id')
+                    ->join('courses', 'subjects.course_id', '=', 'courses.id')
                     ->where('subjects.academic_level_id', $academicLevelId)
+                    ->where('courses.department_id', $departmentId)
                     ->distinct('sections.id')
                     ->count('sections.id'),
                 'honor_distribution' => HonorResult::where('academic_level_id', $academicLevelId)
                     ->where('is_approved', true)
+                    ->whereHas('student.course', function ($query) use ($departmentId) {
+                        $query->where('department_id', $departmentId);
+                    })
                     ->selectRaw('honor_type_id, COUNT(*) as count')
                     ->groupBy('honor_type_id')
                     ->with('honorType')
                     ->get(),
-                'grade_performance' => StudentGrade::whereHas('subject', function($q) use ($academicLevelId) {
+                'grade_performance' => StudentGrade::whereHas('subject.course', function($q) use ($departmentId) {
+                        $q->where('department_id', $departmentId);
+                    })
+                    ->whereHas('subject', function($q) use ($academicLevelId) {
                         $q->where('academic_level_id', $academicLevelId);
                     })
                     ->selectRaw('
@@ -320,9 +414,12 @@ class ChairpersonController extends Controller
         } else {
             $insights = AcademicLevel::where('is_active', true)
                 ->get()
-                ->map(function($level) {
-                    // Count students by year level mapping
+                ->map(function($level) use ($departmentId) {
+                    // Count students by year level mapping for the department
                     $studentCount = User::where('user_role', 'student')
+                        ->whereHas('course', function ($query) use ($departmentId) {
+                            $query->where('department_id', $departmentId);
+                        })
                         ->where(function($q) use ($level) {
                             switch($level->name) {
                                 case 'Elementary':
@@ -339,9 +436,12 @@ class ChairpersonController extends Controller
                         })
                         ->count();
                         
-                    // Count approved honors for this academic level
+                    // Count approved honors for this academic level in the department
                     $honorCount = HonorResult::where('academic_level_id', $level->id)
                         ->where('is_approved', true)
+                        ->whereHas('student.course', function ($query) use ($departmentId) {
+                            $query->where('department_id', $departmentId);
+                        })
                         ->count();
                         
                     return [
@@ -357,7 +457,13 @@ class ChairpersonController extends Controller
     
     private function getGradeDistribution($academicLevelId = null)
     {
-        return StudentGrade::when($academicLevelId, function($q) use ($academicLevelId) {
+        $user = Auth::user();
+        $departmentId = $user->department_id;
+
+        return StudentGrade::whereHas('subject.course', function ($query) use ($departmentId) {
+                $query->where('department_id', $departmentId);
+            })
+            ->when($academicLevelId, function($q) use ($academicLevelId) {
                 return $q->whereHas('subject', function($query) use ($academicLevelId) {
                     $query->where('academic_level_id', $academicLevelId);
                 });
@@ -376,14 +482,17 @@ class ChairpersonController extends Controller
     
     private function getSystemActivities($academicLevelId = null)
     {
+        $user = Auth::user();
+        $departmentId = $user->department_id;
+
         $activities = collect();
-        
-        // Recent user registrations
+
+        // Recent user registrations (system-wide, not department-filtered)
         $recentUsers = User::whereIn('user_role', ['student', 'teacher', 'instructor'])
             ->latest('created_at')
             ->limit(3)
             ->get();
-            
+
         foreach ($recentUsers as $user) {
             $activities->push([
                 'type' => 'user_registration',
@@ -393,9 +502,12 @@ class ChairpersonController extends Controller
                 'icon' => 'user-plus'
             ]);
         }
-        
-        // Recent grade approvals
+
+        // Recent grade approvals for the department
         $recentApprovals = StudentGrade::where('is_approved', true)
+            ->whereHas('subject.course', function ($query) use ($departmentId) {
+                $query->where('department_id', $departmentId);
+            })
             ->when($academicLevelId, function($q) use ($academicLevelId) {
                 return $q->whereHas('subject', function($query) use ($academicLevelId) {
                     $query->where('academic_level_id', $academicLevelId);

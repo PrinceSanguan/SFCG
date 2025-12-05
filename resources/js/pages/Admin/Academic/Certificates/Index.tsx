@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { useForm } from '@inertiajs/react';
+import { useForm, usePage } from '@inertiajs/react';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Download, GraduationCap, School, BookOpen, Users, FileText, Printer, MoreVertical } from 'lucide-react';
 import { router } from '@inertiajs/react';
@@ -133,6 +133,11 @@ export default function CertificatesIndex({
     const [selectedTemplate, setSelectedTemplate] = useState<string>('');
     const [selectedStudents, setSelectedStudents] = useState<number[]>([]);
 
+    // Get CSRF token from Inertia page props
+    const { props } = usePage();
+    const csrfToken = (props as any).csrf_token ||
+                      document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '';
+
     // Forms for certificate generation
     const { setData: setGenerateData, post: postGenerate, processing: generating } = useForm({
         student_id: '',
@@ -157,6 +162,66 @@ export default function CertificatesIndex({
         school_year: schoolYear,
         honor_type_id: '',
     });
+
+    // Handle bulk certificate download using hidden iframe
+    const handleBulkDownload = () => {
+        const selectedCategoryData = getCategoryStudents(selectedCategory || '');
+
+        // Get certificate IDs for selected students
+        const certificateIds = selectedCategoryData
+            .filter(honor => selectedStudents.includes(honor.student.id))
+            .map(honor => {
+                const cert = generatedCertificates?.find(c =>
+                    c.student.id === honor.student.id &&
+                    c.academic_level.id === honor.academic_level.id &&
+                    c.school_year === honor.school_year
+                );
+                return cert?.id;
+            })
+            .filter((id): id is number => id !== undefined);
+
+        if (certificateIds.length === 0) {
+            alert('No certificates found for selected students. Please generate certificates first.');
+            return;
+        }
+
+        // Create or reuse hidden iframe for download
+        let iframe = document.getElementById('download-iframe') as HTMLIFrameElement;
+        if (!iframe) {
+            iframe = document.createElement('iframe');
+            iframe.id = 'download-iframe';
+            iframe.name = 'download-iframe';
+            iframe.style.display = 'none';
+            document.body.appendChild(iframe);
+        }
+
+        // Create temporary form for file download
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = route('admin.academic.certificates.bulk-print-pdf');
+        form.target = 'download-iframe';
+
+        // Add CSRF token
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = '_token';
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+
+        // Add certificate IDs as array
+        certificateIds.forEach((id) => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'certificate_ids[]'; // Laravel array notation
+            input.value = id.toString();
+            form.appendChild(input);
+        });
+
+        // Submit form and cleanup
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
+    };
 
     // Get students for selected category
     const getCategoryStudents = (categoryKey: string) => {
@@ -475,43 +540,7 @@ export default function CertificatesIndex({
                                                             {bulkGenerating ? 'Generating...' : `Generate ${selectedStudents.length} Selected`}
                                                         </DropdownMenuItem>
                                                         <DropdownMenuItem
-                                                            onClick={() => {
-                                                                console.log('[BULK DOWNLOAD] Starting bulk certificate download');
-                                                                console.log('[BULK DOWNLOAD] Selected students:', selectedStudents);
-                                                                console.log('[BULK DOWNLOAD] Selected category data:', selectedCategoryData);
-                                                                console.log('[BULK DOWNLOAD] Generated certificates:', generatedCertificates);
-
-                                                                const certificateIds = selectedCategoryData
-                                                                    .filter(honor => selectedStudents.includes(honor.student.id))
-                                                                    .map(honor => {
-                                                                        const cert = generatedCertificates?.find(c =>
-                                                                            c.student.id === honor.student.id &&
-                                                                            c.academic_level.id === honor.academic_level.id
-                                                                        );
-                                                                        console.log(`[BULK DOWNLOAD] Student ${honor.student.name} - Certificate ID:`, cert?.id);
-                                                                        return cert?.id;
-                                                                    })
-                                                                    .filter((id): id is number => id !== undefined);
-
-                                                                console.log('[BULK DOWNLOAD] Final certificate IDs:', certificateIds);
-
-                                                                if (certificateIds.length > 0) {
-                                                                    console.log('[BULK DOWNLOAD] Submitting form with certificate IDs:', certificateIds);
-                                                                    setBulkPrintData({ certificate_ids: certificateIds });
-                                                                    postBulkPrint(route('admin.academic.certificates.bulk-print-pdf'), {
-                                                                        onSuccess: () => {
-                                                                            console.log('[BULK DOWNLOAD] Download successful');
-                                                                        },
-                                                                        onError: (errors) => {
-                                                                            console.error('[BULK DOWNLOAD] Download failed:', errors);
-                                                                            alert('Failed to download certificates. Please check console for errors.');
-                                                                        }
-                                                                    });
-                                                                } else {
-                                                                    console.warn('[BULK DOWNLOAD] No certificate IDs found - certificates may not be generated yet');
-                                                                    alert('No certificates found for selected students. Please generate certificates first.');
-                                                                }
-                                                            }}
+                                                            onClick={handleBulkDownload}
                                                             disabled={selectedStudents.length === 0 || bulkPrinting}
                                                         >
                                                             <Download className="h-4 w-4 mr-2" />
