@@ -14,6 +14,16 @@ use Illuminate\Support\Str;
 class CertificateGenerationService
 {
     /**
+     * Hardcoded official signatories for certificates.
+     * These positions are fixed and should not be changed without institutional approval.
+     */
+    private const COLLEGE_DEAN_NAME = 'BRO. JUANITO O. LEBOSADA, JR., OFM, EdD.';
+    private const COLLEGE_DEAN_TITLE = 'College Dean';
+
+    private const SCHOOL_DIRECTOR_NAME = 'FR. JUMIL J. ALICASODA, OFM';
+    private const SCHOOL_DIRECTOR_TITLE = 'School Director';
+
+    /**
      * Automatically generate a certificate for a student who qualifies for honors
      */
     public function generateHonorCertificate(HonorResult $honorResult): ?Certificate
@@ -323,19 +333,14 @@ class CertificateGenerationService
         // Validate and get Program Chair (chairperson)
         $chairperson = $this->getChairpersonForStudent($student);
 
-        // Get fixed officials from system settings
-        $collegeDeanName = SystemSetting::get('college_dean_name', '[College Dean Name]');
-        $collegeDeanTitle = SystemSetting::get('college_dean_title', 'College Dean');
-        $schoolDirectorName = SystemSetting::get('school_director_name', '[School Director Name]');
-        $schoolDirectorTitle = SystemSetting::get('school_director_title', 'School Director');
-
+        // Use hardcoded constants for College Dean and School Director
         return [
             'program_chair_name' => $chairperson->name,
             'program_chair_title' => 'Program Chair',
-            'college_dean_name' => $collegeDeanName,
-            'college_dean_title' => $collegeDeanTitle,
-            'school_director_name' => $schoolDirectorName,
-            'school_director_title' => $schoolDirectorTitle,
+            'college_dean_name' => self::COLLEGE_DEAN_NAME,
+            'college_dean_title' => self::COLLEGE_DEAN_TITLE,
+            'school_director_name' => self::SCHOOL_DIRECTOR_NAME,
+            'school_director_title' => self::SCHOOL_DIRECTOR_TITLE,
         ];
     }
 
@@ -358,17 +363,14 @@ class CertificateGenerationService
         $principalName = SystemSetting::get("{$principalKey}_name", '[Principal Name]');
         $principalTitle = SystemSetting::get("{$principalKey}_title", 'Principal');
 
-        // Get School Director
-        $schoolDirectorName = SystemSetting::get('school_director_name', '[School Director Name]');
-        $schoolDirectorTitle = SystemSetting::get('school_director_title', 'School Director');
-
+        // Use hardcoded constant for School Director (same for all levels)
         return [
             'adviser_name' => $adviser?->name ?? '[Adviser Name]',
             'adviser_title' => 'Adviser',
             'principal_name' => $principalName,
             'principal_title' => $principalTitle,
-            'school_director_name' => $schoolDirectorName,
-            'school_director_title' => $schoolDirectorTitle,
+            'school_director_name' => self::SCHOOL_DIRECTOR_NAME,
+            'school_director_title' => self::SCHOOL_DIRECTOR_TITLE,
         ];
     }
 

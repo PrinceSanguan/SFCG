@@ -19,7 +19,7 @@ class OfficialSignatoriesSeeder extends Seeder
         SystemSetting::set(
             'college_dean_name',
             'BRO. JUANITO O. LEBOSADA, JR., OFM, EdD.',
-            'College Dean full name for certificate signatures'
+            'College Dean full name for certificate signatures (DEPRECATED: Now hardcoded in CertificateGenerationService)'
         );
 
         SystemSetting::set(
@@ -31,8 +31,8 @@ class OfficialSignatoriesSeeder extends Seeder
         // School Director (applies to all levels)
         SystemSetting::set(
             'school_director_name',
-            'FR. JUNHI J. ALCASODA, OFM',
-            'School Director full name for certificate signatures'
+            'FR. JUMIL J. ALICASODA, OFM',
+            'School Director full name for certificate signatures (DEPRECATED: Now hardcoded in CertificateGenerationService)'
         );
 
         SystemSetting::set(
