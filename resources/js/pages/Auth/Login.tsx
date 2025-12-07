@@ -3,9 +3,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Head, useForm } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import { FormEvent, useEffect, useState } from 'react';
 import { route } from 'ziggy-js';
+import { ArrowLeft } from 'lucide-react';
 
 interface LoginProps {
     flash?: {
@@ -69,7 +70,7 @@ export default function Login({ flash, maintenanceMode }: LoginProps) {
         <>
             <Head title="Login" />
             <div 
-                className="flex min-h-screen items-center justify-center p-6"
+                className="relative flex min-h-screen items-center justify-center p-6"
                 style={{
                     backgroundImage: "url('/image/background.jpg')",
                     backgroundSize: 'cover',
@@ -77,6 +78,16 @@ export default function Login({ flash, maintenanceMode }: LoginProps) {
                     backgroundRepeat: 'no-repeat'
                 }}
             >
+                {/* Back to Landing Page Button */}
+                <Button
+                    asChild
+                    className="absolute top-6 left-6 bg-white hover:bg-gray-100 text-black rounded-full px-4 py-2 flex items-center gap-2 shadow-md"
+                >
+                    <Link href={route('home')}>
+                        <ArrowLeft className="h-4 w-4" />
+                        <span>Back to Landing Page</span>
+                    </Link>
+                </Button>
                 <Card className="w-full max-w-sm rounded-2xl shadow-xl bg-white/90 backdrop-blur-sm">
                     <CardContent className="p-8">
                         <div className="mb-6 text-center">

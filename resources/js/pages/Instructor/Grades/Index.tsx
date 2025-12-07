@@ -4,8 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, Upload, Edit } from 'lucide-react';
-import { Link, router } from '@inertiajs/react';
+import { Plus, Search, Upload, Edit, Save, X, Check } from 'lucide-react';
+import { Link, router, useForm } from '@inertiajs/react';
 import { useState, useMemo } from 'react';
 import {
     Dialog,
@@ -13,6 +13,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface User {
     id: number;
@@ -128,6 +129,13 @@ export default function GradesIndex({ user, grades, assignedSubjects }: IndexPro
     const [selectedSubject, setSelectedSubject] = useState<string>('');
     const [showPeriodSelector, setShowPeriodSelector] = useState(false);
     const [selectedSubjectForPeriodSelection, setSelectedSubjectForPeriodSelection] = useState<string | null>(null);
+    const [editingStudentId, setEditingStudentId] = useState<number | null>(null);
+    const [editingGrade, setEditingGrade] = useState<string>('');
+    const [editingRemarks, setEditingRemarks] = useState<string>('');
+    const [selectedGradingPeriodForEdit, setSelectedGradingPeriodForEdit] = useState<number | null>(null);
+    const [showPeriodSelectorForEdit, setShowPeriodSelectorForEdit] = useState(false);
+    const [savingGrade, setSavingGrade] = useState(false);
+    const [gradeError, setGradeError] = useState<string>('');
 
     // Debug logging
     console.log('GradesIndex props:', { user, grades, assignedSubjects });
@@ -349,40 +357,103 @@ export default function GradesIndex({ user, grades, assignedSubjects }: IndexPro
         }
 
         if (subjectAssignments.length === 1) {
-            // Single assignment - navigate directly to grade input
+            // Single assignment - show inline grade input
             const assignment = subjectAssignments[0];
-            console.log('=== SINGLE ASSIGNMENT NAVIGATION ===');
-            console.log('Creating grade for subject (single period):', {
-                subjectId: assignment.subject.id,
-                subjectName: assignment.subject.name,
-                studentId: student.id,
-                gradingPeriod: assignment.gradingPeriod?.full_name || assignment.gradingPeriod?.name,
-                academic_level_id: assignment.academicLevel.id
-            });
-
-            // Build the URL with query parameters explicitly
-            // Use academicLevel.id instead of academic_level_id
-            // Use gradingPeriod.id instead of grading_period_id
-            const params = new URLSearchParams({
-                student_id: student.id.toString(),
-                subject_id: assignment.subject.id.toString(),
-                assignment_id: assignment.id.toString(),
-                academic_level_id: assignment.academicLevel.id.toString(),
-                academic_level_key: assignment.academicLevel.key,
-                grading_period_id: (assignment.gradingPeriod?.id || '0').toString(),
-                school_year: assignment.school_year
-            });
-
-            console.log('Navigation URL:', route('instructor.grades.create') + '?' + params.toString());
-            router.visit(route('instructor.grades.create') + '?' + params.toString());
+            setEditingStudentId(student.id);
+            setEditingGrade(student.latestGrade > 0 ? student.latestGrade.toString() : '');
+            setEditingRemarks('');
+            setSelectedGradingPeriodForEdit(assignment.gradingPeriod?.id || null);
+            setGradeError('');
         } else {
             // Multiple assignments - need to select grading period first
-            console.log('Multiple assignments found, showing period selector');
-            // Store student info for after period selection
+            console.log('Multiple assignments found, showing period selector for edit');
             (window as any).__pendingGradeStudent = student;
-            setSelectedSubjectForPeriodSelection(selectedSubject);
-            setShowPeriodSelector(true);
+            setShowPeriodSelectorForEdit(true);
         }
+    };
+
+    const handleSaveGrade = async (student: {
+        id: number;
+        name: string;
+        academicLevel: { key: string; name: string };
+        schoolYear: string;
+    }) => {
+        if (!selectedSubject || !assignedSubjects || !editingGrade) {
+            setGradeError('Please enter a grade.');
+            return;
+        }
+
+        // Validate grade based on academic level
+        const gradeNum = parseFloat(editingGrade);
+        if (isNaN(gradeNum)) {
+            setGradeError('Please enter a valid number.');
+            return;
+        }
+
+        if (student.academicLevel.key === 'college') {
+            if (gradeNum < 1.0 || gradeNum > 5.0) {
+                setGradeError('College grades must be between 1.0 and 5.0');
+                return;
+            }
+        } else {
+            if (gradeNum < 0 || gradeNum > 100) {
+                setGradeError('Grades must be between 0 and 100');
+                return;
+            }
+        }
+
+        setSavingGrade(true);
+        setGradeError('');
+
+        // Get the assignment
+        const assignment = assignedSubjects.find(
+            a => a.subject.id.toString() === selectedSubject &&
+            a.gradingPeriod?.id === selectedGradingPeriodForEdit
+        );
+
+        if (!assignment) {
+            setGradeError('Assignment not found.');
+            setSavingGrade(false);
+            return;
+        }
+
+        try {
+            // Submit the grade
+            await router.post(route('instructor.grades.store'), {
+                student_id: student.id,
+                subject_id: assignment.subject.id,
+                assignment_id: assignment.id,
+                academic_level_id: assignment.academicLevel.id,
+                grading_period_id: assignment.gradingPeriod?.id || null,
+                school_year: assignment.school_year,
+                grade: gradeNum,
+                remarks: editingRemarks || null,
+            }, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setEditingStudentId(null);
+                    setEditingGrade('');
+                    setEditingRemarks('');
+                    setSelectedGradingPeriodForEdit(null);
+                    setSavingGrade(false);
+                },
+                onError: (errors) => {
+                    setGradeError(Object.values(errors).join(', '));
+                    setSavingGrade(false);
+                },
+            });
+        } catch (error) {
+            setGradeError('Failed to save grade. Please try again.');
+            setSavingGrade(false);
+        }
+    };
+
+    const handleCancelEdit = () => {
+        setEditingStudentId(null);
+        setEditingGrade('');
+        setEditingRemarks('');
+        setSelectedGradingPeriodForEdit(null);
+        setGradeError('');
     };
 
     // Filter students based on search term
@@ -521,67 +592,145 @@ export default function GradesIndex({ user, grades, assignedSubjects }: IndexPro
                                                 </thead>
                                                 <tbody>
                                                     {filteredStudents.map((student) => (
-                                                        <tr key={student.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                                                            <td className="p-3">
-                                                                <div>
-                                                                    <p className="font-medium text-gray-900 dark:text-gray-100">
-                                                                        {student.name}
-                                                                    </p>
-                                                                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                                                                        {student.email}
-                                                                    </p>
-                                                                </div>
-                                                            </td>
-                                                            <td className="p-3">
-                                                                {student.latestGrade === 0 ? (
-                                                                    <Badge variant="outline" className="text-gray-500">
-                                                                        No Grade
-                                                                    </Badge>
-                                                                ) : (
-                                                                    <Badge className={getGradeColor(student.latestGrade, student.academicLevel.key)}>
-                                                                        {student.latestGrade}
-                                                                    </Badge>
-                                                                )}
-                                                            </td>
-                                                            <td className="p-3">
-                                                                <span className={`text-sm ${
-                                                                    getGradeStatus(student.latestGrade, student.academicLevel.key) === 'No Grade'
-                                                                        ? 'text-gray-600 dark:text-gray-400'
-                                                                        : ['Superior', 'Very Good', 'Good', 'Satisfactory', 'Fair', 'Outstanding'].includes(getGradeStatus(student.latestGrade, student.academicLevel.key))
-                                                                        ? 'text-green-600 dark:text-green-400'
-                                                                        : 'text-red-600 dark:text-red-400'
-                                                                }`}>
-                                                                    {getGradeStatus(student.latestGrade, student.academicLevel.key)}
-                                                                </span>
-                                                            </td>
-                                                            <td className="p-3 text-sm text-gray-600 dark:text-gray-400">
-                                                                {student.latestGradeDate ? new Date(student.latestGradeDate).toLocaleDateString() : 'N/A'}
-                                                            </td>
-                                                            <td className="p-3">
-                                                                <div className="flex gap-2">
-                                                                    <Link href={route('instructor.grades.show-student', [student.id, selectedSubject])}>
-                                <Button
-                                    variant="outline"
+                                                        editingStudentId === student.id ? (
+                                                            // Editing row with inline input
+                                                            <tr key={student.id} className="border-b bg-blue-50 dark:bg-blue-900/20">
+                                                                <td className="p-3" colSpan={5}>
+                                                                    <div className="space-y-3">
+                                                                        <div className="flex items-center justify-between">
+                                                                            <div>
+                                                                                <p className="font-medium text-gray-900 dark:text-gray-100">
+                                                                                    {student.name}
+                                                                                </p>
+                                                                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                                                                    {student.email}
+                                                                                </p>
+                                                                            </div>
+                                                                            <Badge className="bg-blue-500 text-white">
+                                                                                <Edit className="h-3 w-3 mr-1" />
+                                                                                Editing
+                                                                            </Badge>
+                                                                        </div>
+                                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                                            <div>
+                                                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                                                                    Grade {student.academicLevel.key === 'college' ? '(1.0 - 5.0)' : '(0 - 100)'}
+                                                                                </label>
+                                                                                <Input
+                                                                                    type="number"
+                                                                                    step={student.academicLevel.key === 'college' ? '0.25' : '1'}
+                                                                                    min={student.academicLevel.key === 'college' ? '1.0' : '0'}
+                                                                                    max={student.academicLevel.key === 'college' ? '5.0' : '100'}
+                                                                                    value={editingGrade}
+                                                                                    onChange={(e) => setEditingGrade(e.target.value)}
+                                                                                    placeholder={student.academicLevel.key === 'college' ? 'e.g., 1.75' : 'e.g., 85'}
+                                                                                    className="w-full"
+                                                                                />
+                                                                            </div>
+                                                                            <div>
+                                                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                                                                    Remarks (Optional)
+                                                                                </label>
+                                                                                <Input
+                                                                                    type="text"
+                                                                                    value={editingRemarks}
+                                                                                    onChange={(e) => setEditingRemarks(e.target.value)}
+                                                                                    placeholder="e.g., Excellent work"
+                                                                                    className="w-full"
+                                                                                />
+                                                                            </div>
+                                                                        </div>
+                                                                        {gradeError && (
+                                                                            <Alert variant="destructive">
+                                                                                <AlertDescription>{gradeError}</AlertDescription>
+                                                                            </Alert>
+                                                                        )}
+                                                                        <div className="flex gap-2 justify-end">
+                                                                            <Button
+                                                                                variant="outline"
+                                                                                size="sm"
+                                                                                onClick={handleCancelEdit}
+                                                                                disabled={savingGrade}
+                                                                            >
+                                                                                <X className="h-4 w-4 mr-2" />
+                                                                                Cancel
+                                                                            </Button>
+                                                                            <Button
+                                                                                size="sm"
+                                                                                onClick={() => handleSaveGrade(student)}
+                                                                                disabled={savingGrade || !editingGrade}
+                                                                            >
+                                                                                <Save className="h-4 w-4 mr-2" />
+                                                                                {savingGrade ? 'Saving...' : 'Save Grade'}
+                                                                            </Button>
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        ) : (
+                                                            // Normal row
+                                                            <tr key={student.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                                                <td className="p-3">
+                                                                    <div>
+                                                                        <p className="font-medium text-gray-900 dark:text-gray-100">
+                                                                            {student.name}
+                                                                        </p>
+                                                                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                                                                            {student.email}
+                                                                        </p>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="p-3">
+                                                                    {student.latestGrade === 0 ? (
+                                                                        <Badge variant="outline" className="text-gray-500">
+                                                                            No Grade
+                                                                        </Badge>
+                                                                    ) : (
+                                                                        <Badge className={getGradeColor(student.latestGrade, student.academicLevel.key)}>
+                                                                            {student.latestGrade}
+                                                                        </Badge>
+                                                                    )}
+                                                                </td>
+                                                                <td className="p-3">
+                                                                    <span className={`text-sm ${
+                                                                        getGradeStatus(student.latestGrade, student.academicLevel.key) === 'No Grade'
+                                                                            ? 'text-gray-600 dark:text-gray-400'
+                                                                            : ['Superior', 'Very Good', 'Good', 'Satisfactory', 'Fair', 'Outstanding'].includes(getGradeStatus(student.latestGrade, student.academicLevel.key))
+                                                                            ? 'text-green-600 dark:text-green-400'
+                                                                            : 'text-red-600 dark:text-red-400'
+                                                                    }`}>
+                                                                        {getGradeStatus(student.latestGrade, student.academicLevel.key)}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="p-3 text-sm text-gray-600 dark:text-gray-400">
+                                                                    {student.latestGradeDate ? new Date(student.latestGradeDate).toLocaleDateString() : 'N/A'}
+                                                                </td>
+                                                                <td className="p-3">
+                                                                    <div className="flex gap-2">
+                                                                        <Link href={route('instructor.grades.show-student', [student.id, selectedSubject])}>
+                                    <Button
+                                        variant="outline"
+                                                                                size="sm"
+                                                                                onClick={(e) => e.stopPropagation()}
+                                    >
+                                                                                <Edit className="h-4 w-4 mr-2" />
+                                                                                View Details
+                                    </Button>
+                                                                        </Link>
+                                    <Button
                                                                             size="sm"
-                                                                            onClick={(e) => e.stopPropagation()}
-                                >
-                                                                            <Edit className="h-4 w-4 mr-2" />
-                                                                            View Details
-                                </Button>
-                                                                    </Link>
-                                <Button
-                                                                        size="sm"
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            handleInputGrade(student);
-                                                                        }}
-                                                                    >
-                                                                        <Plus className="h-4 w-4 mr-2" />
-                                                                        Input Grade
-                                </Button>
-                            </div>
-                                                            </td>
-                                                        </tr>
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleInputGrade(student);
+                                                                            }}
+                                                                        >
+                                                                            <Plus className="h-4 w-4 mr-2" />
+                                                                            Input Grade
+                                    </Button>
+                                </div>
+                                                                </td>
+                                                            </tr>
+                                                        )
                                                     ))}
                                                 </tbody>
                                             </table>
@@ -604,9 +753,9 @@ export default function GradesIndex({ user, grades, assignedSubjects }: IndexPro
                 </main>
             </div>
 
-            {/* Grading Period Selector Modal */}
-            {showPeriodSelector && selectedSubjectForPeriodSelection && assignedSubjects && (
-                <Dialog open={showPeriodSelector} onOpenChange={setShowPeriodSelector}>
+            {/* Grading Period Selector Modal for Inline Edit */}
+            {showPeriodSelectorForEdit && selectedSubject && assignedSubjects && (
+                <Dialog open={showPeriodSelectorForEdit} onOpenChange={setShowPeriodSelectorForEdit}>
                     <DialogContent className="sm:max-w-md">
                         <DialogHeader>
                             <DialogTitle>Select Grading Period</DialogTitle>
@@ -616,45 +765,20 @@ export default function GradesIndex({ user, grades, assignedSubjects }: IndexPro
                         </DialogHeader>
                         <div className="space-y-2 mt-4">
                             {assignedSubjects
-                                .filter(a => a.subject.id.toString() === selectedSubjectForPeriodSelection)
+                                .filter(a => a.subject.id.toString() === selectedSubject)
                                 .map(assignment => (
                                     <Button
                                         key={assignment.id}
                                         onClick={() => {
                                             const student = (window as any).__pendingGradeStudent;
-                                            console.log('=== GRADING PERIOD SELECTED ===');
-                                            console.log('Selected grading period:', assignment.gradingPeriod?.full_name || assignment.gradingPeriod?.name);
-                                            console.log('Full assignment object:', assignment);
-                                            console.log('Assignment details:', {
-                                                assignment_id: assignment.id,
-                                                academic_level_id: assignment.academic_level_id,
-                                                grading_period_id: assignment.grading_period_id,
-                                                subject_id: assignment.subject.id,
-                                                student_id: student?.id,
-                                                academicLevel: assignment.academicLevel,
-                                                gradingPeriod: assignment.gradingPeriod
-                                            });
-
                                             if (student) {
-                                                // Build the URL with query parameters explicitly
-                                                // Use academicLevel.id instead of academic_level_id
-                                                // Use gradingPeriod.id instead of grading_period_id
-                                                const params = new URLSearchParams({
-                                                    student_id: student.id.toString(),
-                                                    subject_id: assignment.subject.id.toString(),
-                                                    assignment_id: assignment.id.toString(),
-                                                    academic_level_id: assignment.academicLevel.id.toString(),
-                                                    academic_level_key: assignment.academicLevel.key,
-                                                    grading_period_id: (assignment.gradingPeriod?.id || '0').toString(),
-                                                    school_year: assignment.school_year
-                                                });
-
-                                                console.log('Navigation URL:', route('instructor.grades.create') + '?' + params.toString());
-                                                router.visit(route('instructor.grades.create') + '?' + params.toString());
+                                                setEditingStudentId(student.id);
+                                                setEditingGrade(student.latestGrade > 0 ? student.latestGrade.toString() : '');
+                                                setEditingRemarks('');
+                                                setSelectedGradingPeriodForEdit(assignment.gradingPeriod?.id || null);
+                                                setGradeError('');
                                             }
-
-                                            setShowPeriodSelector(false);
-                                            setSelectedSubjectForPeriodSelection(null);
+                                            setShowPeriodSelectorForEdit(false);
                                             delete (window as any).__pendingGradeStudent;
                                         }}
                                         variant="outline"

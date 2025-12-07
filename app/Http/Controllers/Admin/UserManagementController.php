@@ -604,9 +604,9 @@ class UserManagementController extends Controller
             'gender' => 'nullable|in:male,female,other',
             'phone_number' => 'nullable|string|max:20',
             'address' => 'nullable|string|max:500',
-            'emergency_contact_name' => 'nullable|string|max:255',
-            'emergency_contact_phone' => 'nullable|string|max:20',
-            'emergency_contact_relationship' => 'nullable|string|max:50',
+            'emergency_contact_name' => ($role === 'student' && in_array($request->academic_level, ['elementary', 'junior_highschool', 'senior_highschool'])) ? 'required|string|max:255' : 'nullable|string|max:255',
+            'emergency_contact_phone' => ($role === 'student' && in_array($request->academic_level, ['elementary', 'junior_highschool', 'senior_highschool'])) ? 'required|string|max:20' : 'nullable|string|max:20',
+            'emergency_contact_relationship' => ($role === 'student' && in_array($request->academic_level, ['elementary', 'junior_highschool', 'senior_highschool'])) ? 'required|string|max:50' : 'nullable|string|max:50',
         ]);
 
         // Additional validation for strands, courses, and departments
@@ -1608,9 +1608,9 @@ class UserManagementController extends Controller
                 'gender' => 'nullable|in:male,female,other',
                 'phone_number' => 'nullable|string|max:20',
                 'address' => 'nullable|string|max:500',
-                'emergency_contact_name' => 'nullable|string|max:255',
-                'emergency_contact_phone' => 'nullable|string|max:20',
-                'emergency_contact_relationship' => 'nullable|string|max:50',
+                'emergency_contact_name' => in_array($academicLevel, ['elementary', 'junior_highschool', 'senior_highschool']) ? 'required|string|max:255' : 'nullable|string|max:255',
+                'emergency_contact_phone' => in_array($academicLevel, ['elementary', 'junior_highschool', 'senior_highschool']) ? 'required|string|max:20' : 'nullable|string|max:20',
+                'emergency_contact_relationship' => in_array($academicLevel, ['elementary', 'junior_highschool', 'senior_highschool']) ? 'required|string|max:50' : 'nullable|string|max:50',
             ]);
 
             if ($validator->fails()) {
@@ -1828,9 +1828,9 @@ class UserManagementController extends Controller
             'gender' => 'nullable|in:male,female,other',
             'phone_number' => 'nullable|string|max:20',
             'address' => 'nullable|string|max:500',
-            'emergency_contact_name' => 'nullable|string|max:255',
-            'emergency_contact_phone' => 'nullable|string|max:20',
-            'emergency_contact_relationship' => 'nullable|string|max:50',
+            'emergency_contact_name' => ($role === 'student' && in_array($request->academic_level, ['elementary', 'junior_highschool', 'senior_highschool'])) ? 'required|string|max:255' : 'nullable|string|max:255',
+            'emergency_contact_phone' => ($role === 'student' && in_array($request->academic_level, ['elementary', 'junior_highschool', 'senior_highschool'])) ? 'required|string|max:20' : 'nullable|string|max:20',
+            'emergency_contact_relationship' => ($role === 'student' && in_array($request->academic_level, ['elementary', 'junior_highschool', 'senior_highschool'])) ? 'required|string|max:50' : 'nullable|string|max:50',
         ]);
 
         // Additional validation for strands, courses, and departments

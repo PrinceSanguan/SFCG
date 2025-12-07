@@ -483,17 +483,22 @@ export default function CreateStudent({ user, errors, academicLevel, specificYea
 
                                         {/* Emergency Contact Section */}
                                         <div className="border-t pt-6">
-                                            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Emergency Contact</h3>
+                                            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
+                                                Emergency Contact{data.academic_level && data.academic_level !== 'college' && <span className="text-red-500"> *</span>}
+                                            </h3>
                                             <div className="grid gap-6 md:grid-cols-2">
                                                 {/* Emergency Contact Name */}
                                                 <div className="space-y-2">
-                                                    <Label htmlFor="emergency_contact_name">Emergency Contact Name</Label>
+                                                    <Label htmlFor="emergency_contact_name">
+                                                        Emergency Contact Name{data.academic_level && data.academic_level !== 'college' && <span className="text-red-500"> *</span>}
+                                                    </Label>
                                                     <Input
                                                         id="emergency_contact_name"
                                                         type="text"
                                                         value={data.emergency_contact_name}
                                                         onChange={(e) => setData('emergency_contact_name', e.target.value)}
                                                         placeholder="Enter emergency contact name"
+                                                        required={data.academic_level !== 'college'}
                                                     />
                                                     {errors?.emergency_contact_name && (
                                                         <Alert variant="destructive">
@@ -504,13 +509,16 @@ export default function CreateStudent({ user, errors, academicLevel, specificYea
 
                                                 {/* Emergency Contact Phone */}
                                                 <div className="space-y-2">
-                                                    <Label htmlFor="emergency_contact_phone">Emergency Contact Phone</Label>
+                                                    <Label htmlFor="emergency_contact_phone">
+                                                        Emergency Contact Phone{data.academic_level && data.academic_level !== 'college' && <span className="text-red-500"> *</span>}
+                                                    </Label>
                                                     <Input
                                                         id="emergency_contact_phone"
                                                         type="tel"
                                                         value={data.emergency_contact_phone}
                                                         onChange={(e) => setData('emergency_contact_phone', e.target.value)}
                                                         placeholder="Enter emergency contact phone"
+                                                        required={data.academic_level !== 'college'}
                                                     />
                                                     {errors?.emergency_contact_phone && (
                                                         <Alert variant="destructive">
@@ -521,13 +529,16 @@ export default function CreateStudent({ user, errors, academicLevel, specificYea
 
                                                 {/* Emergency Contact Relationship */}
                                                 <div className="space-y-2 md:col-span-2">
-                                                    <Label htmlFor="emergency_contact_relationship">Relationship</Label>
+                                                    <Label htmlFor="emergency_contact_relationship">
+                                                        Relationship{data.academic_level && data.academic_level !== 'college' && <span className="text-red-500"> *</span>}
+                                                    </Label>
                                                     <Input
                                                         id="emergency_contact_relationship"
                                                         type="text"
                                                         value={data.emergency_contact_relationship}
                                                         onChange={(e) => setData('emergency_contact_relationship', e.target.value)}
                                                         placeholder="e.g., Father, Mother, Guardian, etc."
+                                                        required={data.academic_level !== 'college'}
                                                     />
                                                     {errors?.emergency_contact_relationship && (
                                                         <Alert variant="destructive">
