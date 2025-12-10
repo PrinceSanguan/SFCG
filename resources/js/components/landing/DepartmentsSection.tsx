@@ -84,7 +84,7 @@ export function DepartmentsSection() {
                         Here Are All Departments
                     </h2>
                     <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-                        test
+                        Explore our diverse range of academic departments, each committed to excellence in education and research.
                     </p>
                 </div>
 
