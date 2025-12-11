@@ -36,7 +36,7 @@ export function Navbar() {
                                 scrolled ? 'text-gray-900' : 'text-white'
                             )}
                         >
-                            Saint Francis College
+                            Saint Francis College Guihulngan Negros Oriental Incorporated
                         </span>
                     </Link>
 

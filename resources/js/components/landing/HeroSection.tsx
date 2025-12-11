@@ -19,8 +19,8 @@ export function HeroSection() {
 
             {/* Content */}
             <div className="relative z-10 text-center px-4 sm:px-6 lg:px-8">
-                <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-6">
-                    Saint Francis College
+                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-10">
+                    SFCGNOI Acads Performance Monitoring & Tracking Certificate Generator
                 </h1>
                 <p className="text-xl sm:text-2xl md:text-3xl text-white/90 mb-8 max-w-3xl mx-auto">
                     Empowering Minds, Shaping Futures

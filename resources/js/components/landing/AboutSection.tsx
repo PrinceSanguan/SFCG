@@ -27,7 +27,7 @@ export function AboutSection() {
                             <div className="mt-6 p-6 bg-gray-50 rounded-lg border-l-4 border-gray-900">
                                 <h3 className="font-semibold text-gray-900 mb-2">Our Mission</h3>
                                 <p className="text-gray-700 italic">
-                                    To provide transformative education that develops competent, compassionate, and committed individuals who will serve society with integrity and excellence.
+                                    Rooted in the Gospel values, it provides a supportive and dynamic learning enviroment to improve the quality of life through excellence instructions, relevant research and responsive social, cultural, and spiritual engagement for tranformative and sustainable community.
                                 </p>
                             </div>
                         </div>

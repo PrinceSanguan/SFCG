@@ -10,8 +10,8 @@ export function Footer() {
                     {/* School Info */}
                     <div>
                         <div className="flex items-center gap-2 mb-4">
-                            <img src="/image/logo.jpg" alt="Saint Francis College Logo" className="h-10 w-10 object-contain rounded-full" />
-                            <span className="text-xl font-bold">Saint Francis College</span>
+                            <img src="/image/logo.jpg" alt="Saint Francis College Logo" className="h-15 w-15 object-contain rounded-full" />
+                            <span className="text-xl font-bold">Saint Francis College Guihulngan Negros Oriental Incrporated</span>
                         </div>
                         <p className="text-gray-400 mb-4">
                             Empowering Minds, Shaping Futures
@@ -60,33 +60,27 @@ export function Footer() {
                             <li className="flex items-start gap-2">
                                 <MapPin className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
                                 <span className="text-gray-400">
-                                    Guiuan, Eastern Samar, Philippines
+                                    Bateria Guihulngan City Negros Oriental
                                 </span>
                             </li>
                             <li className="flex items-center gap-2">
                                 <Phone className="h-5 w-5 text-gray-400 flex-shrink-0" />
-                                <span className="text-gray-400">+63 123 456 7890</span>
+                                <span className="text-gray-400">+63 967 794 0784</span>
                             </li>
                             <li className="flex items-center gap-2">
                                 <Mail className="h-5 w-5 text-gray-400 flex-shrink-0" />
-                                <span className="text-gray-400">info@saintfranciscollege.edu.ph</span>
+                                <span className="text-gray-400">sfcguihulngan@gmail.com</span>
                             </li>
                         </ul>
 
                         <div>
                             <h4 className="text-sm font-semibold mb-3">Follow Us</h4>
                             <div className="flex gap-3">
-                                <a href="#" className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
+                                <a
+                                    href="https://www.facebook.com/SaintFrancisCollegeGuihulngan"
+                                    className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
+                                >
                                     <Facebook className="h-4 w-4" />
-                                </a>
-                                <a href="#" className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
-                                    <Twitter className="h-4 w-4" />
-                                </a>
-                                <a href="#" className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
-                                    <Instagram className="h-4 w-4" />
-                                </a>
-                                <a href="#" className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
-                                    <Linkedin className="h-4 w-4" />
                                 </a>
                             </div>
                         </div>
@@ -95,7 +89,7 @@ export function Footer() {
 
                 {/* Copyright Bar */}
                 <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400 text-sm">
-                    <p>&copy; 2025 Saint Francis College. All rights reserved.</p>
+                    <p>&copy; 2025 Saint Francis College Guihulngan Negros Oriental Incorporated. All rights reserved.</p>
                 </div>
             </div>
         </footer>
