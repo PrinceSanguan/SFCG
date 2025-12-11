@@ -1,6 +1,4 @@
 import { Button } from '@/components/ui/button';
-import { Link } from '@inertiajs/react';
-import { route } from 'ziggy-js';
 
 export function CTASection() {
     const scrollToAbout = () => {
@@ -30,10 +28,7 @@ export function CTASection() {
                     Start your journey to excellence today and become part of our thriving community of learners.
                 </p>
 
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                    <Button asChild size="lg" className="bg-white text-gray-900 hover:bg-white/90 text-lg px-8 py-6 h-auto">
-                        <Link href={route('auth.register')}>Apply Now</Link>
-                    </Button>
+                <div className="flex justify-center">
                     <Button
                         variant="outline"
                         size="lg"

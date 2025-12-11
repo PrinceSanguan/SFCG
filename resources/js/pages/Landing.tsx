@@ -10,7 +10,6 @@ import { StatsSection } from '@/components/landing/StatsSection';
 import { FacultySection } from '@/components/landing/FacultySection';
 import { StudentLifeSection } from '@/components/landing/StudentLifeSection';
 import { TestimonialsSection } from '@/components/landing/TestimonialsSection';
-import { NewsEventsSection } from '@/components/landing/NewsEventsSection';
 import { AdmissionsSection } from '@/components/landing/AdmissionsSection';
 import { CTASection } from '@/components/landing/CTASection';
 import { Footer } from '@/components/landing/Footer';
@@ -31,7 +30,6 @@ export default function Landing() {
                 <FacultySection />
                 <StudentLifeSection />
                 <TestimonialsSection />
-                <NewsEventsSection />
                 <AdmissionsSection />
                 <CTASection />
                 <Footer />

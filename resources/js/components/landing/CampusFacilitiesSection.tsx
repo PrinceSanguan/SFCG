@@ -1,31 +1,31 @@
 const facilities = [
     {
-        name: 'Library',
+        name: 'SFCGNOI RESEARCH CENTER',
         description: 'Extensive collection of books, digital resources, and quiet study spaces for research and learning.',
         image: 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=600&q=80',
     },
     {
-        name: 'Science Laboratories',
+        name: 'SHS LABORATORY',
         description: 'Fully-equipped labs for physics, chemistry, and biology with modern instruments and safety features.',
         image: 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=600&q=80',
     },
     {
-        name: 'Computer Labs',
+        name: 'SFCGNOI COMPUTER LABORATORY',
         description: 'High-performance computers with latest software for programming, design, and digital learning.',
         image: 'https://images.unsplash.com/photo-1487017159836-4e23ece2e4cf?w=600&q=80',
     },
     {
-        name: 'Sports Complex',
+        name: 'SFCGNOI BNBS',
         description: 'Multi-purpose courts, athletic fields, and fitness facilities promoting physical health and teamwork.',
         image: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=600&q=80',
     },
     {
-        name: 'Cafeteria',
+        name: 'SFCGNOI CANTEEN',
         description: 'Clean, spacious dining area serving nutritious meals and snacks in a comfortable environment.',
         image: 'https://images.unsplash.com/photo-1567521464027-f127ff144326?w=600&q=80',
     },
     {
-        name: 'Auditorium',
+        name: 'SFCGNOI AVR',
         description: 'Modern venue for assemblies, performances, and events with professional audio-visual equipment.',
         image: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600&q=80',
     },

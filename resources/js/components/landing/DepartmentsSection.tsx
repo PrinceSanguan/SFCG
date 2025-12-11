@@ -14,64 +14,34 @@ import {
 
 const departments = [
     {
-        name: 'College of Engineering',
-        icon: Building2,
-        color: 'text-blue-600',
-        bgColor: 'bg-blue-100',
-    },
-    {
-        name: 'College of Business Administration',
-        icon: Briefcase,
-        color: 'text-green-600',
-        bgColor: 'bg-green-100',
-    },
-    {
-        name: 'College of Education',
-        icon: GraduationCap,
+        name: 'Basic Education Department',
+        icon: Users,
         color: 'text-purple-600',
         bgColor: 'bg-purple-100',
     },
     {
-        name: 'College of Arts & Sciences',
-        icon: Palette,
-        color: 'text-pink-600',
-        bgColor: 'bg-pink-100',
+        name: 'Senior High School Department',
+        icon: GraduationCap,
+        color: 'text-teal-600',
+        bgColor: 'bg-teal-100',
     },
     {
-        name: 'College of Computer Science',
+        name: 'College of Computer Studies',
         icon: Cpu,
         color: 'text-indigo-600',
         bgColor: 'bg-indigo-100',
     },
     {
-        name: 'College of Nursing',
-        icon: Heart,
-        color: 'text-red-600',
-        bgColor: 'bg-red-100',
-    },
-    {
-        name: 'College of Science',
-        icon: FlaskConical,
-        color: 'text-teal-600',
-        bgColor: 'bg-teal-100',
-    },
-    {
-        name: 'College of Mathematics',
+        name: 'College of Business Education',
         icon: Calculator,
+        color: 'text-green-600',
+        bgColor: 'bg-green-100',
+    },
+    {
+        name: 'College of Education',
+        icon: BookOpen,
         color: 'text-orange-600',
         bgColor: 'bg-orange-100',
-    },
-    {
-        name: 'College of Social Sciences',
-        icon: Users,
-        color: 'text-cyan-600',
-        bgColor: 'bg-cyan-100',
-    },
-    {
-        name: 'College of Liberal Arts',
-        icon: BookOpen,
-        color: 'text-amber-600',
-        bgColor: 'bg-amber-100',
     },
 ];
 
